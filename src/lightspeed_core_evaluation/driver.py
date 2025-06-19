@@ -87,7 +87,7 @@ def _args_parser(args) -> argparse.ArgumentParser:
     return parser.parse_args(args)
 
 
-def main():
+def main() -> None:
     """Evaluate response."""
     args = _args_parser(sys.argv[1:])
 

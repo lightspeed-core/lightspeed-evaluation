@@ -69,7 +69,7 @@ class TaxonomyEval:  # pylint: disable=R0903
         self._set_output_dir()
         self._load_taxonomy_yaml()
 
-    def _load_judge(self):
+    def _load_judge(self) -> None:
         """Load Judge."""
         print("Loading judge model...")
         # Load config separately
@@ -85,7 +85,7 @@ class TaxonomyEval:  # pylint: disable=R0903
             self._args.judge_model, provider_config
         ).load()
 
-    def _set_output_dir(self):
+    def _set_output_dir(self) -> None:
         """Set output directory."""
         eval_dir = os.path.dirname(__file__)
 
@@ -95,7 +95,7 @@ class TaxonomyEval:  # pylint: disable=R0903
         os.makedirs(result_dir, exist_ok=True)
         self._result_dir = result_dir
 
-    def _load_taxonomy_yaml(self):
+    def _load_taxonomy_yaml(self) -> None:
         """Load taxonomy YAML file."""
         print("Loading taxonomy file...")
         with open(self._args.taxonomy_file_path, "r", encoding="utf-8") as file:
@@ -193,7 +193,7 @@ class TaxonomyEval:  # pylint: disable=R0903
             )
         return df
 
-    def get_eval_result(self):
+    def get_eval_result(self) -> None:
         """Get evaluation result."""
         if self._args.eval_method == "ragas":
             result_df = self._get_ragas_score()
@@ -205,7 +205,7 @@ class TaxonomyEval:  # pylint: disable=R0903
         )
 
 
-def main():
+def main() -> None:
     """Evaluate taxonomy context/answer."""
     args = _args_parser(sys.argv[1:])
     TaxonomyEval(args).get_eval_result()
