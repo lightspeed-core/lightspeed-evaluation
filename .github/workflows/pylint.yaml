@@ -1,0 +1,28 @@
+name: Python linter
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  pylint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    name: "Pylinter"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python version
+        run: python --version
+      - name: PDM installation
+        run: pip install --user pdm
+      - name: Install dependencies
+        run: pdm install
+      - name: Install devel dependencies
+        run: pdm install --group default,dev
+      - name: Python linter
+        run: make pylint

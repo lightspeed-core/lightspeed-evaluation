@@ -40,7 +40,7 @@ update-deps: ## Check pyproject.toml for changes, update the lock file if needed
 	pdm install --dev
 
 check-types: ## Checks type hints in sources
-	pdm run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs ols/
+	pdm run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/
 
 format: install-deps-test ## Format the code into unified format
 	pdm run black .
@@ -71,3 +71,15 @@ help: ## Show this help screen
 	@grep -E '^[ a-zA-Z0-9_.-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-33s\033[0m %s\n", $$1, $$2}'
 	@echo ''
+
+pylint:
+	pdm run pylint src
+
+pyright:
+	pdm run pyright src
+
+docstyle:
+	pdm run pydocstyle -v .
+
+ruff:
+	pdm run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101

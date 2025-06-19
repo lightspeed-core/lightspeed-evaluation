@@ -1,0 +1,17 @@
+name: Bandit security scanner
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  bandit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: mdegis/bandit-action@v1.0
+        with:
+          path: "src"
+          exit_zero: true
