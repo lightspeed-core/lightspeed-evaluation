@@ -58,7 +58,7 @@ def _args_parser(args):
 class RetrievalEvaluation:  # pylint: disable=R0903
     """Evaluate Retrieval."""
 
-    def __init__(self, eval_args):
+    def __init__(self, eval_args) -> None:
         """Initialize."""
         print(f"Arguments: {eval_args}")
         self._args = eval_args
@@ -67,7 +67,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         self._input_dir, self._result_dir = self._set_directories()
         self._qa_pool_df = self._load_qna_pool_parquet()
 
-    def _load_judge_and_rag(self):
+    def _load_judge_and_rag(self) -> None:
         """Load Judge model and RAG."""
         # Load config separately
         # Use OLS config file to set Judge provider/model & vector db
@@ -93,7 +93,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         prompt = PromptTemplate.from_template(RAG_RELEVANCY_PROMPT1)
         self._judge_llm = prompt | judge_llm | JsonOutputParser()
 
-    def _set_directories(self):
+    def _set_directories(self) -> tuple[str, str]:
         """Set input/output directories."""
         eval_dir = os.path.dirname(__file__)
         input_dir = os.path.join(eval_dir, DEFAULT_INPUT_DIR)
@@ -123,7 +123,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
             ].reset_index(drop=True)
         return qna_pool_df
 
-    def _load_and_process_chunks(self, query):
+    def _load_and_process_chunks(self, query) -> str:
         """Load and process chunks."""
         nodes = self._retriever.retrieve(query)
         chunks = [
@@ -156,7 +156,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
 
         return result
 
-    def _process_score(self, score_data):
+    def _process_score(self, score_data) -> float:
         """Process score."""
         relevance_score = array(score_data["relevance_score"])
         completeness_score = array(score_data["completeness_score"])
@@ -170,7 +170,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         # Currently using only 1st chunk score.
         return score[0]
 
-    def get_final_score(self):
+    def get_final_score(self) -> None:
         """Get final score."""
         self._qa_pool_df["raw_judge_response"] = (
             self._qa_pool_df.question.progress_apply(self._get_judge_response)
@@ -197,7 +197,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
             json.dump(summary_result, f)
 
 
-def main():
+def main() -> None:
     """Evaluate RAG."""
     args = _args_parser(sys.argv[1:])
 
