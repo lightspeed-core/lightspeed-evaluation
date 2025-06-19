@@ -1,10 +1,10 @@
-"""Common code for evaluation runner scripts"""
+"""Common code for evaluation runner scripts."""
 
 import argparse
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
-    """add common arguments to the parser"""
+    """Add common arguments to the parser."""
     parser.add_argument(
         "--judge_provider",
         default="watsonx",
