@@ -52,7 +52,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
 
         self._qa_pool_df = self._load_qna_pool_parquet()
 
-    def _validate_args(self):
+    def _validate_args(self) -> None:
         """Validate key arguments."""
         invalid_provider_model = set(self._args.eval_provider_model_id) - set(
             INSCOPE_MODELS.keys()
@@ -66,7 +66,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
         if len(invalid_modes) > 0:
             raise ValueError(f"Invalid eval modes: {invalid_modes}")
 
-    def _load_config_and_rag(self):
+    def _load_config_and_rag(self) -> None:
         """Load config and RAG."""
         if (len(set(self._args.eval_modes) - {"ols"}) > 0) or (
             len(set(self._args.eval_metrics).intersection(set(LLM_BASED_EVALS.keys())))
@@ -353,7 +353,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
 
         return consistency_success_flag
 
-    def evaluate_models(self):
+    def evaluate_models(self) -> None:
         """Evaluate models against groundtruth answer."""
         print("Running model evaluation using groundtruth...")
         result_df = self._get_response_with_score()
