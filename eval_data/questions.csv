@@ -1,0 +1,63 @@
+id,question
+1,How do I enable VM high availability in my cluster?
+2,How do I migrate a VM to a different project?
+3,How do I manage RBAC in OpenShift Virtualization?
+4,How do I manage RBAC in OpenShift?
+5,How do I enable DRS in Openshift?
+6,How do I migrate a virtual Machine between two Openshift Clusters?
+7,How do I configure low latency profiles for VMs?
+8,How do I enable Site Recovery Manager (SRM) in OpenShift Virtualization?
+9,How do I connect Virtual Machines across multiple clusters?
+10,What is the equivalent of vRO (vRealize Orchestrator) in OpenShift Virtualization?
+11,"How do I hot plug resources such as CPU, memory, disks or network interfaces to VMs?"
+12,Can I run databases in OpenShift Virtualization?
+13,Can I run Oracle DB in OpenShift Virtualization?
+14,How do I create resource pools?
+15,How do I configure resource reservations?
+16,How do I attach GPUs to VMs?
+17,How do I migrate templates from VMware to OpenShift Virtualization?
+18,How do I import an OVA?
+19,How do I enable self service?
+20,What type of workloads are a good fit for OpenShift Virtualization?
+21,How do I migrate a VM to a different node?
+22,Which workloads can be easily migrated?
+23,How can I vmotion my VM to another host?
+24,How do I migrate VMs between different CPU generations?
+25,What networking options do I have with OpenShift Virtualization?
+26,How do I create a distributed vswitch?
+27,How do I attach my VM to a VLAN?
+28,How do I create a network?
+29,How to attach another network to my VM?
+30,How do I provide an IP address to my Virtual Machine?
+31,How do I load balance an application running in a VM?
+32,Is there an equivalent of VMware NSX in Openshift Virtualization?
+33,Can I connect virtualized and containarized workload together in OpenShift
+34,What types of networks are available in Openshift Virtualization?
+35,Can I run overlay networks with my Virtual Machines?
+36,Does Openshift Virtualization networking support BGP?
+37,How do I manage host failure?
+38,How do I scale out my VM environment?
+39,How do I add another hypervisor to my cluster?
+40,What do I need to install to run VMs in OpenShift?
+41,What limitations does OpenShift Virtualization have?
+42,How to improve High Availability of my cluster?
+43,What storage options are supported for virtual machines in OpenShift Virtualization?
+44,How do I migrate a VM to a different storage class?
+45,How do I storage vMotion/ migrate vms storage?
+46,How do I attach an additional disk to my Virtual Machine?
+47,How do I create a new datastore?
+48,How do I backup my VM?
+49,How to I configure storage policies?
+50,How do I create templates and instance types?
+51,How do I create a VM?
+52,How do I snapshot a VM?
+53,How do I clone a VM?
+54,Does Openshift Virtualization support Windows?
+55,How do I rename a VM?
+56,How do I force stop a VM?
+57,Is there an equivalent of the VMware Tools in OpenShift Virtualization?
+58,What are the options to automate the lifecycle of VMs?
+59,How do I update golden images?
+60,How do I import VMs?
+61,How do I export VMs?
+62,How do I attach a virtual machine to the same network the nodes are connected to?

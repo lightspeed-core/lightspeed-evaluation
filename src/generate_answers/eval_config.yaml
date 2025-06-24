@@ -1,0 +1,18 @@
+lightspeed_url: "http://localhost:8080"
+models:
+  - display_name: "granite-3-3-8b-instruct"
+    provider: "watsonx"
+    model: "ibm/granite-3-3-8b-instruct"
+
+  - display_name: "openai-o4-mini"
+    provider: "openai"
+    model: "o4-mini"
+
+  - display_name: "llama3-8b"
+    provider: "ollama"
+    model: "llama3:8b"
+
+models_to_evaluate:
+  #- "granite-3-3-8b-instruct"
+  - "openai-o4-mini"
+  - "llama3-8b"
