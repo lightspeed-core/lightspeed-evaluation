@@ -47,6 +47,7 @@ dev = [
 evaluate = "lightspeed_core_evaluation.driver:main"
 eval = "lightspeed_core_evaluation.driver:main"
 query_rag = "lightspeed_core_evaluation.query_rag:main"
+generate_answers = "generate_answers.generate_answers:main"
 
 # The following section is needed only for torch[cpu] variant on Linux,
 # because this variant need to be downloaded from external link, not from
