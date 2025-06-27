@@ -34,10 +34,13 @@ def get_model_response(query, provider, model, mode, api_client=None):
     prompt = PromptTemplate.from_template("{query}")
     prompt_input = {"query": query}
     provider_config = config.config.llm_providers.providers[provider]
-    model_config = provider_config.models[model]
     assert (
         provider_config.type is not None
     ), "Provider type needs to be specified in configuration"
+    assert (
+        provider_config.models is not None
+    ), "Models for provider are not specified in configuration"
+    model_config = provider_config.models[model]
     llm = VANILLA_MODEL[provider_config.type](model, provider_config).load()
 
     if mode == "ols_param":
