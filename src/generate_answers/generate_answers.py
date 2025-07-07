@@ -165,6 +165,9 @@ def main(  # pylint: disable=R0913,R0917,R0914
 
     qna_df = read_func(input_filename)
 
+    # Remove empty questions
+    qna_df = qna_df[qna_df[_QUESTION_COL].notna() & (qna_df[_QUESTION_COL] != "")]
+
     # Generate the answers
     # Parallelize this? pytorch Dataset?
     for model, ls_client in evaluators:
@@ -177,7 +180,7 @@ def main(  # pylint: disable=R0913,R0917,R0914
 
         generate_answer_func = partial(ls_client.get_answer, skip_cache=False)
 
-        qna_df[output_column] = qna_df[_QUESTION_COL].progress_apply(
+        qna_df[output_column] = qna_df[_QUESTION_COL].progress_apply(  # type:  ignore
             generate_answer_func
         )
 

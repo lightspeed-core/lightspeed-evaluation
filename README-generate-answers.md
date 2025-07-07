@@ -11,6 +11,7 @@ The default configuration file is [./src/generate_answers/eval_config.yaml](/src
 lightspeed-core service configuration. `display_name` is a nice short model name.
 - `models_to_evaluate` -- list of model names (`display_name`) for answers generation.
 
+Example:
 ```yaml
 lightspeed_url: "http://localhost:8080"
 models:
@@ -35,7 +36,7 @@ models_to_evaluate:
 ## Running
 `pdm run generate_answers -h`
 
-```shell
+```
 Usage: generate_answers [OPTIONS]
 
   Generate answers from LLMs by connection to LightSpeed core service.
@@ -55,3 +56,9 @@ Options:
   -v, --verbose               Increase the logging level to DEBUG
   -h, --help                  Show this message and exit.
 ```
+
+## Results
+The results are stored in dataframe in JSON format. The file can be read by `pandas.read_json`.
+The columns are:
+- `id`, `question` -- from the input file
+- `<model_name>_answers` -- for each configured model
