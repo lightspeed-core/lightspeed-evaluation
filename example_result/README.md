@@ -3,7 +3,7 @@
 **Notes**
 - QnAs should `not` be used for model training or tuning. This is created only for evaluation purpose.
 - QnAs were generated from OCP docs by LLMs. It is possible that some of the questions/answers are not entirely correct. We are constantly trying to verify both Questions & Answers manually. If you find any QnA pair to be modified or removed, please create a PR.
-- [Instruction to run eval script](../../README.md)
+- [Instruction to run eval script](../README.md)
 
 ## Result
 - Last Execution date: `2025-05-07`
