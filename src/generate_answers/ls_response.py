@@ -7,6 +7,7 @@ from typing import cast
 
 from diskcache import Cache
 from httpx import Client
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,8 @@ class LSClient:  # pylint: disable=too-few-public-methods
         key = self._get_cache_key(query)
         return cast(str | None, self.cache.get(key))
 
+    # 5 attempts, wait 2 seconds between attempts
+    @retry(stop=stop_after_attempt(5), wait=wait_fixed(2))
     def get_answer(self, query: str, skip_cache: bool = False) -> str:
         """Get LLM answer for query."""
         if not skip_cache:

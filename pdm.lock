@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:44692762cdbc9d1546182d34c7b312e626059709cb8a6d075dc268ae0125408c"
+content_hash = "sha256:ba9eff2f8e19ec5f276aa2adc5b886b4ee24a3b0f07e28d91c094960d5bba4f6"
 
 [[metadata.targets]]
 requires_python = ">=3.11.1,<=3.12.8"
@@ -1613,14 +1613,14 @@ files = [
 
 [[package]]
 name = "llama-index"
-version = "0.12.43"
+version = "0.12.45"
 requires_python = "<4.0,>=3.9"
 summary = "Interface between LLMs and your data"
 groups = ["default"]
 dependencies = [
     "llama-index-agent-openai<0.5,>=0.4.0",
     "llama-index-cli<0.5,>=0.4.2",
-    "llama-index-core<0.13,>=0.12.43",
+    "llama-index-core<0.13,>=0.12.45",
     "llama-index-embeddings-openai<0.4,>=0.3.0",
     "llama-index-indices-managed-llama-cloud>=0.4.0",
     "llama-index-llms-openai<0.5,>=0.4.0",
@@ -1632,8 +1632,8 @@ dependencies = [
     "nltk>3.8.1",
 ]
 files = [
-    {file = "llama_index-0.12.43-py3-none-any.whl", hash = "sha256:4cdfd0e77ce3ace48fae99780a426e0ddc8c14878caa709b887eda3aae6d7a4f"},
-    {file = "llama_index-0.12.43.tar.gz", hash = "sha256:ace6d3030bedd5b4b53b82f1388ca6870b2cb4d9e7e6553c48a0da285b9ad5d2"},
+    {file = "llama_index-0.12.45-py3-none-any.whl", hash = "sha256:2bbad370c18be396d3d21cc8ca7ab99e0ca6d5a86b8d3a2dd3645a762dba398b"},
+    {file = "llama_index-0.12.45.tar.gz", hash = "sha256:5473e104b26a6356513ac13555a2ae70f1820d04580c24627c16ac05f952fd74"},
 ]
 
 [[package]]
@@ -1670,7 +1670,7 @@ files = [
 
 [[package]]
 name = "llama-index-core"
-version = "0.12.43"
+version = "0.12.45"
 requires_python = "<4.0,>=3.9"
 summary = "Interface between LLMs and your data"
 groups = ["default"]
@@ -1685,7 +1685,7 @@ dependencies = [
     "filetype<2,>=1.2.0",
     "fsspec>=2023.5.0",
     "httpx",
-    "llama-index-workflows>=0.2.1",
+    "llama-index-workflows<2,>=1.0.1",
     "nest-asyncio<2,>=1.5.8",
     "networkx>=3.0",
     "nltk>3.8.1",
@@ -1704,13 +1704,13 @@ dependencies = [
     "wrapt",
 ]
 files = [
-    {file = "llama_index_core-0.12.43-py3-none-any.whl", hash = "sha256:964e24969296abe9bdc662b5b185c630cc61e627f90d4194b885a707577b5b48"},
-    {file = "llama_index_core-0.12.43.tar.gz", hash = "sha256:155a8602010fb7d8538e6b52b6a3e1fdc029ee02e71a70d2b0a2278de22c8fa9"},
+    {file = "llama_index_core-0.12.45-py3-none-any.whl", hash = "sha256:bb79eb538510b6ce6bbb6acccfa09ae4f958400c0104bfab7d278b4bb286fef3"},
+    {file = "llama_index_core-0.12.45.tar.gz", hash = "sha256:6ba3dcdd013a9ee24c4915007c407a6a0429d81d5904d44413d43561570ecde6"},
 ]
 
 [[package]]
 name = "llama-index-embeddings-huggingface"
-version = "0.5.4"
+version = "0.5.5"
 requires_python = "<4.0,>=3.9"
 summary = "llama-index embeddings huggingface integration"
 groups = ["default"]
@@ -1720,8 +1720,8 @@ dependencies = [
     "sentence-transformers>=2.6.1",
 ]
 files = [
-    {file = "llama_index_embeddings_huggingface-0.5.4-py3-none-any.whl", hash = "sha256:fc8dfb3d5f161c9d1647875f0d872209b02b8a85bd46747278c989359ece62b3"},
-    {file = "llama_index_embeddings_huggingface-0.5.4.tar.gz", hash = "sha256:9c58c5acfb77f077a8e43660b1b037460126a8d180c175703ff31e89dab19d3e"},
+    {file = "llama_index_embeddings_huggingface-0.5.5-py3-none-any.whl", hash = "sha256:8260e1561df17ca510e241a90504b37cc7d8ac6f2d6aaad9732d04ca3ad988d1"},
+    {file = "llama_index_embeddings_huggingface-0.5.5.tar.gz", hash = "sha256:7f6e9a031d9146f235df597c0ccd6280cde96b9b437f99052ce79bb72e5fac5e"},
 ]
 
 [[package]]
@@ -1880,7 +1880,7 @@ files = [
 
 [[package]]
 name = "llama-index-vector-stores-postgres"
-version = "0.5.3"
+version = "0.5.4"
 requires_python = "<4.0,>=3.9"
 summary = "llama-index vector_stores postgres integration"
 groups = ["default"]
@@ -1892,13 +1892,13 @@ dependencies = [
     "sqlalchemy[asyncio]<2.1,>=1.4.49",
 ]
 files = [
-    {file = "llama_index_vector_stores_postgres-0.5.3-py3-none-any.whl", hash = "sha256:bd002d8c0fd4c33c35d96370efed5c8596bfb732fd4ec4778f360b58f8f1d32a"},
-    {file = "llama_index_vector_stores_postgres-0.5.3.tar.gz", hash = "sha256:3f8827fb59a6e26f226a1ec5d7201b326f7e7007f2b7e58ac47e0972afbd3b69"},
+    {file = "llama_index_vector_stores_postgres-0.5.4-py3-none-any.whl", hash = "sha256:40fa6757c7ddccc1a23f5413f6676e339583c5bfb3364dbf7e371aab5d94ed07"},
+    {file = "llama_index_vector_stores_postgres-0.5.4.tar.gz", hash = "sha256:df6f05ffd7c148e4d3663ab386cf059a76fb59b3c9b34110add97fc154a16e2a"},
 ]
 
 [[package]]
 name = "llama-index-workflows"
-version = "0.2.2"
+version = "1.0.1"
 requires_python = ">=3.9"
 summary = "An event-driven, async-first, step-based way to control the execution flow of AI applications like Agents."
 groups = ["default"]
@@ -1908,8 +1908,8 @@ dependencies = [
     "pydantic>=2.11.5",
 ]
 files = [
-    {file = "llama_index_workflows-0.2.2-py3-none-any.whl", hash = "sha256:2b7a47c631f02d3b25f03006d40ebaed67a959da1c6fc35d0a6057b2d944bfcd"},
-    {file = "llama_index_workflows-0.2.2.tar.gz", hash = "sha256:916ae77b22f2589b515a10b49f2fa519dd41c224d85710f99c54797d71b3c494"},
+    {file = "llama_index_workflows-1.0.1-py3-none-any.whl", hash = "sha256:765844e143fac7fa1f25749be2479a9f75bf553d779a2fbec4f2caeeaa4ff1dd"},
+    {file = "llama_index_workflows-1.0.1.tar.gz", hash = "sha256:07a68cf58040d469af8d05f56217418ae6404557f0254bff22a7481987818e3f"},
 ]
 
 [[package]]
@@ -2447,7 +2447,7 @@ files = [
 
 [[package]]
 name = "pdm"
-version = "2.25.3"
+version = "2.25.4"
 requires_python = ">=3.9"
 summary = "A modern Python package and dependency manager supporting the latest PEP standards"
 groups = ["default"]
@@ -2478,8 +2478,8 @@ dependencies = [
     "virtualenv>=20",
 ]
 files = [
-    {file = "pdm-2.25.3-py3-none-any.whl", hash = "sha256:2c4c64ad0bf5a49b9f7159e1185a256d795579c330d27c8676dbe5a3fd53eb56"},
-    {file = "pdm-2.25.3.tar.gz", hash = "sha256:6d0820f805dacf64d55a7fe56777e7d8349a2ee35efc3006f29b4573d1311c84"},
+    {file = "pdm-2.25.4-py3-none-any.whl", hash = "sha256:3efab7367cb5d9d6e4ef9db6130e4f5620c247343c8e95e18bd0d76b201ff7da"},
+    {file = "pdm-2.25.4.tar.gz", hash = "sha256:bd655d789429928d6e27ff6693c19c82bc81aa75ba51d7b1c6102d039c8f211c"},
 ]
 
 [[package]]
@@ -3187,7 +3187,7 @@ name = "road-core"
 version = "0.3.4"
 requires_python = "<=3.12.10,>=3.11.1"
 git = "https://github.com/road-core/service.git"
-revision = "c31e230e376bcf0156b2450321f9d645a40c6271"
+revision = "9d65d15a4d1dec47e5aac15ee86fef39db975006"
 summary = "Road-core service is an AI powered assistant that runs on OpenShift and provides answers to product questions using backend LLM services."
 groups = ["default"]
 dependencies = [
@@ -3210,7 +3210,7 @@ dependencies = [
     "llama-index-embeddings-huggingface>=0.4.0",
     "llama-index-vector-stores-faiss>=0.3.0",
     "llama-index-vector-stores-postgres>=0.4.0",
-    "llama-index>=0.12.25",
+    "llama-index>=0.12.28",
     "openai>=1.54.3",
     "pdm>=2.21.0",
     "prometheus-client>=0.20.0",
@@ -3261,29 +3261,29 @@ files = [
 
 [[package]]
 name = "ruff"
-version = "0.12.0"
+version = "0.12.1"
 requires_python = ">=3.7"
 summary = "An extremely fast Python linter and code formatter, written in Rust."
 groups = ["dev"]
 files = [
-    {file = "ruff-0.12.0-py3-none-linux_armv6l.whl", hash = "sha256:5652a9ecdb308a1754d96a68827755f28d5dfb416b06f60fd9e13f26191a8848"},
-    {file = "ruff-0.12.0-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:05ed0c914fabc602fc1f3b42c53aa219e5736cb030cdd85640c32dbc73da74a6"},
-    {file = "ruff-0.12.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:07a7aa9b69ac3fcfda3c507916d5d1bca10821fe3797d46bad10f2c6de1edda0"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e7731c3eec50af71597243bace7ec6104616ca56dda2b99c89935fe926bdcd48"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:952d0630eae628250ab1c70a7fffb641b03e6b4a2d3f3ec6c1d19b4ab6c6c807"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:c021f04ea06966b02614d442e94071781c424ab8e02ec7af2f037b4c1e01cc82"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:7d235618283718ee2fe14db07f954f9b2423700919dc688eacf3f8797a11315c"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:0c0758038f81beec8cc52ca22de9685b8ae7f7cc18c013ec2050012862cc9165"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:139b3d28027987b78fc8d6cfb61165447bdf3740e650b7c480744873688808c2"},
-    {file = "ruff-0.12.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:68853e8517b17bba004152aebd9dd77d5213e503a5f2789395b25f26acac0da4"},
-    {file = "ruff-0.12.0-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:3a9512af224b9ac4757f7010843771da6b2b0935a9e5e76bb407caa901a1a514"},
-    {file = "ruff-0.12.0-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:b08df3d96db798e5beb488d4df03011874aff919a97dcc2dd8539bb2be5d6a88"},
-    {file = "ruff-0.12.0-py3-none-musllinux_1_2_i686.whl", hash = "sha256:6a315992297a7435a66259073681bb0d8647a826b7a6de45c6934b2ca3a9ed51"},
-    {file = "ruff-0.12.0-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:1e55e44e770e061f55a7dbc6e9aed47feea07731d809a3710feda2262d2d4d8a"},
-    {file = "ruff-0.12.0-py3-none-win32.whl", hash = "sha256:7162a4c816f8d1555eb195c46ae0bd819834d2a3f18f98cc63819a7b46f474fb"},
-    {file = "ruff-0.12.0-py3-none-win_amd64.whl", hash = "sha256:d00b7a157b8fb6d3827b49d3324da34a1e3f93492c1f97b08e222ad7e9b291e0"},
-    {file = "ruff-0.12.0-py3-none-win_arm64.whl", hash = "sha256:8cd24580405ad8c1cc64d61725bca091d6b6da7eb3d36f72cc605467069d7e8b"},
-    {file = "ruff-0.12.0.tar.gz", hash = "sha256:4d047db3662418d4a848a3fdbfaf17488b34b62f527ed6f10cb8afd78135bc5c"},
+    {file = "ruff-0.12.1-py3-none-linux_armv6l.whl", hash = "sha256:6013a46d865111e2edb71ad692fbb8262e6c172587a57c0669332a449384a36b"},
+    {file = "ruff-0.12.1-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:b3f75a19e03a4b0757d1412edb7f27cffb0c700365e9d6b60bc1b68d35bc89e0"},
+    {file = "ruff-0.12.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:9a256522893cb7e92bb1e1153283927f842dea2e48619c803243dccc8437b8be"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:069052605fe74c765a5b4272eb89880e0ff7a31e6c0dbf8767203c1fbd31c7ff"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:a684f125a4fec2d5a6501a466be3841113ba6847827be4573fddf8308b83477d"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:bdecdef753bf1e95797593007569d8e1697a54fca843d78f6862f7dc279e23bd"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:70d52a058c0e7b88b602f575d23596e89bd7d8196437a4148381a3f73fcd5010"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:84d0a69d1e8d716dfeab22d8d5e7c786b73f2106429a933cee51d7b09f861d4e"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:6cc32e863adcf9e71690248607ccdf25252eeeab5193768e6873b901fd441fed"},
+    {file = "ruff-0.12.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7fd49a4619f90d5afc65cf42e07b6ae98bb454fd5029d03b306bd9e2273d44cc"},
+    {file = "ruff-0.12.1-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:ed5af6aaaea20710e77698e2055b9ff9b3494891e1b24d26c07055459bb717e9"},
+    {file = "ruff-0.12.1-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:801d626de15e6bf988fbe7ce59b303a914ff9c616d5866f8c79eb5012720ae13"},
+    {file = "ruff-0.12.1-py3-none-musllinux_1_2_i686.whl", hash = "sha256:2be9d32a147f98a1972c1e4df9a6956d612ca5f5578536814372113d09a27a6c"},
+    {file = "ruff-0.12.1-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:49b7ce354eed2a322fbaea80168c902de9504e6e174fd501e9447cad0232f9e6"},
+    {file = "ruff-0.12.1-py3-none-win32.whl", hash = "sha256:d973fa626d4c8267848755bd0414211a456e99e125dcab147f24daa9e991a245"},
+    {file = "ruff-0.12.1-py3-none-win_amd64.whl", hash = "sha256:9e1123b1c033f77bd2590e4c1fe7e8ea72ef990a85d2484351d408224d603013"},
+    {file = "ruff-0.12.1-py3-none-win_arm64.whl", hash = "sha256:78ad09a022c64c13cc6077707f036bab0fac8cd7088772dcd1e5be21c5002efc"},
+    {file = "ruff-0.12.1.tar.gz", hash = "sha256:806bbc17f1104fd57451a98a58df35388ee3ab422e029e8f5cf30aa4af2c138c"},
 ]
 
 [[package]]
