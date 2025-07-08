@@ -1,0 +1,26 @@
+- eval_id: eval1
+  eval_query: is there a openshift-monitoring namespace ?
+  eval_type: sub-string
+  expected_key_words:
+  - 'yes'
+  - openshift-monitoring
+
+- eval_id: eval2
+  eval_query: is there a openshift-monitoring namespace ?
+  eval_type: judge-llm
+  expected_response: there is a openshift-monitoring namespace.
+
+- eval_id: eval3
+  eval_query: is there a openshift-lightspeed namespace ?
+  eval_setup_script: sample_data/script/eval3/setup.sh
+  eval_type: sub-string
+  expected_key_words:
+  - 'yes'
+  eval_cleanup_script: sample_data/script/eval3/cleanup.sh
+
+- eval_id: eval4
+  eval_query: create a namespace called openshift-lightspeed
+  eval_setup_script: sample_data/script/eval4/setup.sh
+  eval_type: script
+  eval_verify_script: sample_data/script/eval4/verify.sh
+  eval_cleanup_script: sample_data/script/eval4/cleanup.sh

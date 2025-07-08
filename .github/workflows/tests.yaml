@@ -28,4 +28,6 @@ jobs:
       - name: Install devel dependencies
         run: pdm install --dev
       - name: Run tests
-        run: pdm run python -m pytest tests --cov=src --cov=runner --cov-report term-missing
+        run: pdm run python -m pytest tests --cov=src --cov-report term-missing
+      - name: Run agent tests
+        run: cd lsc_agent_eval && pdm install --dev && pdm run python -m pytest tests --cov=src --cov-report term-missing
