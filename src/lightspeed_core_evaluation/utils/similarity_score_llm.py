@@ -19,14 +19,14 @@ class AnswerSimilarityScore:  # pylint: disable=R0903
         prompt = PromptTemplate.from_template(ANSWER_SIMILARITY_PROMPT)
         self._judge_llm: Runnable = prompt | judge_llm
 
-    def get_score(
+    def get_score(  # pylint: disable=R0913,R0917
         self,
         question: str,
         answer: str,
         response: str,
         retry_attempts: int = MAX_RETRY_ATTEMPTS,
         time_to_breath: int = TIME_TO_BREATH,
-    ) -> Optional[float]:  # pylint: disable=R0913,R0917
+    ) -> Optional[float]:
         """Generate similarity score."""
         score = None
         for retry_counter in range(retry_attempts):

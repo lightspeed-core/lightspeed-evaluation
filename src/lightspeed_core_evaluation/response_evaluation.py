@@ -159,7 +159,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
         qna_pool_df = qna_pool_df[qna_pool_df.in_use]
         return qna_pool_df.reset_index(drop=True).drop(columns="in_use")
 
-    def _get_api_response(
+    def _get_api_response(  # pylint: disable=R0913,R0917
         self,
         question: str,
         provider: str,
@@ -167,7 +167,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
         eval_mode: str,
         retry_attempts: int = MAX_RETRY_ATTEMPTS,
         time_to_breath: int = TIME_TO_BREATH,
-    ) -> str:  # pylint: disable=R0913,R0917
+    ) -> str:
         """Get api response for a question/query."""
         response = None
         # try to retrieve response even when model is not responding reliably
@@ -196,14 +196,14 @@ class ResponseEvaluation:  # pylint: disable=R0902
         )
         return response
 
-    def _get_recent_response(
+    def _get_recent_response(  # pylint: disable=R0913,R0917
         self,
         question: str,
         recent_resp_df: DataFrame,
         provider: str,
         model: str,
         eval_mode: str,
-    ) -> str:  # pylint: disable=R0913,R0917
+    ) -> str:
         """Get llm response from the stored data, if available."""
         if recent_resp_df is not None:
             try:
