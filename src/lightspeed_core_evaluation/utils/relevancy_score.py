@@ -2,9 +2,12 @@
 
 from statistics import mean
 from time import sleep
+from typing import Optional
 
+from langchain.llms.base import LLM
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts.prompt import PromptTemplate
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from scipy.spatial.distance import cosine
 
 from .constants import MAX_RETRY_ATTEMPTS, N_QUESTIONS, TIME_TO_BREATH
@@ -14,7 +17,7 @@ from .prompts import ANSWER_RELEVANCY_PROMPT
 class AnswerRelevancyScore:  # pylint: disable=R0903
     """Calculate response/answer relevancy score."""
 
-    def __init__(self, judge_llm, embedding_model):
+    def __init__(self, judge_llm: LLM, embedding_model: HuggingFaceEmbedding) -> None:
         """Initialize."""
         self._embedding_model = embedding_model
 
@@ -23,11 +26,11 @@ class AnswerRelevancyScore:  # pylint: disable=R0903
 
     def get_score(
         self,
-        question,
-        response,
-        retry_attempts=MAX_RETRY_ATTEMPTS,
-        time_to_breath=TIME_TO_BREATH,
-    ):
+        question: str,
+        response: str,
+        retry_attempts: int = MAX_RETRY_ATTEMPTS,
+        time_to_breath: int = TIME_TO_BREATH,
+    ) -> tuple[Optional[float], Optional[int], Optional[str]]:
         """Calculate relevancy score."""
         score, valid_flag, gen_questions = None, None, None
         # Generate relevant questions.

@@ -1,5 +1,7 @@
 """Score calculation for evaluation."""
 
+from argparse import Namespace
+
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from ols import config
 from rouge_score.rouge_scorer import RougeScorer
@@ -14,7 +16,7 @@ from .similarity_score_llm import AnswerSimilarityScore
 class ResponseScore:  # pylint: disable=R0903
     """Calculate response score."""
 
-    def __init__(self, args):
+    def __init__(self, args: Namespace) -> None:
         """Initialize."""
         self._embedding_model = HuggingFaceEmbedding(
             "sentence-transformers/all-mpnet-base-v2"
@@ -41,7 +43,9 @@ class ResponseScore:  # pylint: disable=R0903
             if "answer_similarity_llm" in judge_llm_required:
                 self._llm_similarity_scorer = AnswerSimilarityScore(judge_llm)
 
-    def calculate_scores(self, query, answer, response):  # pylint: disable=R0914
+    def calculate_scores(  # type: ignore[no-untyped-def]
+        self, query: str, answer: str, response: str
+    ):  # pylint: disable=R0914
         """Calculate different similarity scores for two strings."""
         res_vec = self._embedding_model.get_text_embedding(response)
         ans_vec = self._embedding_model.get_text_embedding(answer)

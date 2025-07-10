@@ -1,7 +1,7 @@
 """Driver for evaluation."""
 
-import argparse
 import sys
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 from httpx import Client
@@ -15,9 +15,9 @@ from lightspeed_core_evaluation.utils.constants import (
 from .eval_run_common import add_common_arguments
 
 
-def _args_parser(args) -> argparse.ArgumentParser:
+def _args_parser(args: list[str]) -> Namespace:
     """Arguments parser."""
-    parser = argparse.ArgumentParser(description="Response validation module.")
+    parser = ArgumentParser(description="Response validation module.")
     # Add arguments common to all eval scripts
     add_common_arguments(parser)
 

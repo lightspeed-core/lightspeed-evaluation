@@ -1,15 +1,16 @@
 """Taxonomy Answer/Context Evaluation."""
 
-import argparse
 import os
 import sys
+from argparse import ArgumentParser, Namespace
 from time import sleep
+from typing import Any
 
 import yaml
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts.prompt import PromptTemplate
 from ols import config
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from tqdm import tqdm
 
 from .eval_run_common import add_common_arguments
@@ -29,9 +30,9 @@ tqdm.pandas()
 # https://github.com/instructlab/taxonomy/blob/main/knowledge/arts/music/fandom/swifties/qna.yaml
 
 
-def _args_parser(args):
+def _args_parser(args: list[str]) -> Namespace:
     """Arguments parser."""
-    parser = argparse.ArgumentParser(description="Taxonomy evaluation module.")
+    parser = ArgumentParser(description="Taxonomy evaluation module.")
     # Add arguments common to all eval scripts
     add_common_arguments(parser)
 
@@ -60,7 +61,7 @@ def _args_parser(args):
 class TaxonomyEval:  # pylint: disable=R0903
     """Evaluate taxonomy answer/context."""
 
-    def __init__(self, eval_args):
+    def __init__(self, eval_args: Namespace) -> None:
         """Initialize."""
         print(f"Arguments: {eval_args}")
         self._args = eval_args
@@ -108,12 +109,14 @@ class TaxonomyEval:  # pylint: disable=R0903
         ]
         self._taxonomy_df = DataFrame(data_f)
 
-    def _get_judge_response(self, question, answer, context, prompt):
+    def _get_judge_response(
+        self, question: str, answer: str, context: str, prompt: str
+    ) -> dict[str, Any]:
         """Get Judge response."""
         print("Getting Judge response...")
         result = None
-        prompt = PromptTemplate.from_template(prompt)
-        judge_llm = prompt | self._judge_llm | JsonOutputParser()
+        llm_prompt = PromptTemplate.from_template(prompt)
+        judge_llm = llm_prompt | self._judge_llm | JsonOutputParser()
 
         for retry_counter in range(MAX_RETRY_ATTEMPTS):
             try:
@@ -134,7 +137,7 @@ class TaxonomyEval:  # pylint: disable=R0903
 
         return result
 
-    def _get_score(self, df, scores, prompt):
+    def _get_score(self, df: DataFrame, scores: list[str], prompt: str) -> DataFrame:
         """Get score."""
         df["score"] = df.progress_apply(
             lambda row: self._get_judge_response(
@@ -147,7 +150,7 @@ class TaxonomyEval:  # pylint: disable=R0903
             df[s] = df["score"].apply(lambda x: x.get(s, None))  # pylint: disable=W0640
         return df
 
-    def _get_custom_score(self):
+    def _get_custom_score(self) -> DataFrame:
         """Get custom score."""
         df = self._taxonomy_df.copy()
         if self._args.eval_type in ("all", "context"):
@@ -163,7 +166,7 @@ class TaxonomyEval:  # pylint: disable=R0903
         df.drop(columns=["score"], inplace=True)
         return df
 
-    def _get_ragas_score(self):
+    def _get_ragas_score(self) -> DataFrame:
         """Get ragas score."""
         # pylint: disable=C0415
         from ragas import SingleTurnSample
@@ -172,7 +175,9 @@ class TaxonomyEval:  # pylint: disable=R0903
 
         judge_llm = LangchainLLMWrapper(self._judge_llm)
 
-        def _get_score(data, scorer):
+        def _get_score(
+            data: Series, scorer: LLMContextPrecisionWithoutReference | Faithfulness
+        ) -> float:
             data = SingleTurnSample(
                 user_input=data.question,
                 response=data.answer,

@@ -1,9 +1,11 @@
 """Models for evaluation."""
 
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+from typing import Any
 
+from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ols.src.llms.providers.azure_openai import AzureOpenAI
 from ols.src.llms.providers.openai import OpenAI
+from ols.src.llms.providers.provider import LLMProvider
 from ols.src.llms.providers.watsonx import Watsonx
 
 
@@ -12,7 +14,7 @@ class OpenAIVanilla(OpenAI):
 
     # pylint: disable=W0201
     @property
-    def default_params(self):
+    def default_params(self) -> dict[str, Any]:
         """Construct and return structure with default LLM params."""
         self.url = str(self.provider_config.url)
         self.credentials = self.provider_config.credentials
@@ -35,9 +37,9 @@ class AzureOpenAIVanilla(AzureOpenAI):
 
     # pylint: disable=W0201
     @property
-    def default_params(self):
+    def default_params(self) -> dict[str, Any]:
         """Construct and return structure with default LLM params."""
-        self.url = str(self.provider_config.url or self.url)
+        self.url: str = str(self.provider_config.url or self.url)
         self.credentials = self.provider_config.credentials
         deployment_name = self.provider_config.deployment_name
         azure_config = self.provider_config.azure_config
@@ -73,17 +75,21 @@ class WatsonxVanilla(Watsonx):
     """Watsonx provider."""
 
     @property
-    def default_params(self):
+    def default_params(self) -> dict[str, Any]:
         """Construct and return structure with default LLM params."""
         return {
             GenTextParamsMetaNames.MAX_NEW_TOKENS: 4096,
         }
 
 
-VANILLA_MODEL = {
+VANILLA_MODEL: dict[str, LLMProvider] = {
     "watsonx": WatsonxVanilla,
     "openai": OpenAIVanilla,
     "azure_openai": AzureOpenAIVanilla,
 }
 
-MODEL_OLS_PARAM = {"watsonx": Watsonx, "openai": OpenAI, "azure_openai": AzureOpenAI}
+MODEL_OLS_PARAM: dict[str, LLMProvider] = {
+    "watsonx": Watsonx,
+    "openai": OpenAI,
+    "azure_openai": AzureOpenAI,
+}
