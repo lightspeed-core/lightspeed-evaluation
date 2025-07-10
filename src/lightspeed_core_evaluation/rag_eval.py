@@ -1,17 +1,18 @@
 """RAG Evaluation."""
 
-import argparse
 import json
 import os
 import sys
+from argparse import ArgumentParser, Namespace
 from datetime import UTC, datetime
 from time import sleep
+from typing import Any
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts.prompt import PromptTemplate
 from numpy import argsort, array
 from ols import config
-from pandas import read_parquet
+from pandas import DataFrame, read_parquet
 from tqdm import tqdm
 
 from .eval_run_common import add_common_arguments
@@ -30,9 +31,9 @@ from .utils.prompts import RAG_RELEVANCY_PROMPT1
 tqdm.pandas()
 
 
-def _args_parser(args):
+def _args_parser(args: list[str]) -> Namespace:
     """Arguments parser."""
-    parser = argparse.ArgumentParser(description="RAG evaluation module.")
+    parser = ArgumentParser(description="RAG evaluation module.")
     # Add arguments common to all eval scripts
     add_common_arguments(parser)
 
@@ -58,7 +59,7 @@ def _args_parser(args):
 class RetrievalEvaluation:  # pylint: disable=R0903
     """Evaluate Retrieval."""
 
-    def __init__(self, eval_args) -> None:
+    def __init__(self, eval_args: Namespace) -> None:
         """Initialize."""
         print(f"Arguments: {eval_args}")
         self._args = eval_args
@@ -104,7 +105,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         os.makedirs(result_dir, exist_ok=True)
         return input_dir, result_dir
 
-    def _load_qna_pool_parquet(self):
+    def _load_qna_pool_parquet(self) -> DataFrame:
         """Load QnA pool from parquet file."""
         input_file = self._args.qna_pool_file
         if not input_file:
@@ -123,7 +124,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
             ].reset_index(drop=True)
         return qna_pool_df
 
-    def _load_and_process_chunks(self, query) -> str:
+    def _load_and_process_chunks(self, query: str) -> str:
         """Load and process chunks."""
         nodes = self._retriever.retrieve(query)
         chunks = [
@@ -133,7 +134,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         ]
         return "\n\n".join(chunks)
 
-    def _get_judge_response(self, query):
+    def _get_judge_response(self, query: str) -> dict[str, Any]:
         """Get Judge response."""
         print("Getting Judge response...")
         result = {}
@@ -156,7 +157,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
 
         return result
 
-    def _process_score(self, score_data) -> float:
+    def _process_score(self, score_data: dict[str, Any]) -> float:
         """Process score."""
         relevance_score = array(score_data["relevance_score"])
         completeness_score = array(score_data["completeness_score"])

@@ -1,10 +1,15 @@
 """Plot score for evaluation."""
 
+from typing import Optional
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import BASE_COLORS
+from pandas import DataFrame
 
 
-def plot_score(results_df, score_name, out_file_path=None):
+def plot_score(
+    results_df: DataFrame, score_name: str, out_file_path: Optional[str] = None
+) -> None:
     """Plot score."""
     _, ax = plt.subplots(figsize=(14, 8))
     ax.set_xlabel(score_name)
@@ -27,8 +32,8 @@ def plot_score(results_df, score_name, out_file_path=None):
         patch_artist=True,
         sym=".",
         widths=0.5,
-        # tick_labels=labels,
-        labels=labels,
+        tick_labels=labels,
+        # labels=labels,
         vert=False,
     )
     colors = list(BASE_COLORS.keys())[: len(labels)]

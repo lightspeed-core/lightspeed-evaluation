@@ -1,5 +1,8 @@
 """Response for evaluation."""
 
+from typing import Optional
+
+from httpx import Client
 from langchain.globals import set_debug
 from langchain.prompts import PromptTemplate
 from ols import config
@@ -14,7 +17,13 @@ from .rag import retrieve_rag_chunks
 set_debug(True)
 
 
-def get_model_response(query, provider, model, mode, api_client=None):
+def get_model_response(
+    query: str,
+    provider: str,
+    model: str,
+    mode: str,
+    api_client: Optional[Client] = None,
+) -> str:
     """Get response depending upon the mode."""
     if mode == "ols":
         assert api_client is not None, "API client needs to be configured"
