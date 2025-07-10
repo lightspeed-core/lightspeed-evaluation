@@ -32,8 +32,8 @@ def plot_score(
         patch_artist=True,
         sym=".",
         widths=0.5,
-        tick_labels=labels,
-        # labels=labels,
+        # tick_labels=labels,
+        labels=labels,  # type: ignore[call-arg]
         vert=False,
     )
     colors = list(BASE_COLORS.keys())[: len(labels)]

@@ -148,7 +148,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
 
     def _get_inscope_qna(self, provider_model_id: str) -> DataFrame:
         """Get QnAs which are inscope for evaluation."""
-        qna_pool_df = self._restructure_qna_pool_json(provider_model_id)
+        qna_pool_df: DataFrame = self._restructure_qna_pool_json(provider_model_id)
 
         qna_pool_df = concat([qna_pool_df, self._qa_pool_df])
 
