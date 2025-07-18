@@ -76,8 +76,11 @@ Evaluation scripts creates below files.
 
 [Evaluation Result](eval_data/result/README.md)
 
+## Agent Evaluation
+For a detailed walkthrough of the new agent-evaluation framework, refer
+[lsc_agent_eval/README.md](lsc_agent_eval/README.md)
 
-# RAG retrieval script
+## RAG retrieval script
 ```
 python -m scripts.evaluation.query_rag
 ```

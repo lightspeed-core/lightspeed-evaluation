@@ -177,4 +177,7 @@ cython_debug/
 llm_cache/
 
 # Evaluation output folder
-eval_output/
+eval_output*/
+
+# Keeping experimental changes here
+wip*/

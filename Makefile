@@ -40,16 +40,16 @@ update-deps: ## Check pyproject.toml for changes, update the lock file if needed
 	pdm install --dev
 
 check-types: ## Checks type hints in sources
-	pdm run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/
+	pdm run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/ lsc_agent_eval/src/
 
 format: install-deps-test ## Format the code into unified format
 	pdm run black .
-	pdm run ruff check . --fix --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101
+	pdm run ruff check . --fix --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
 
 verify:	install-deps-test ## Verify the code using various linters
 	pdm run black . --check
-	pdm run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101
-	pdm run pylint src tests
+	pdm run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
+	pdm run pylint src tests lsc_agent_eval/src lsc_agent_eval/tests
 
 requirements.txt:	pyproject.toml pdm.lock ## Generate requirements.txt file containing hashes for all non-devel packages
 	pdm export --prod --format requirements --output requirements.txt
@@ -61,7 +61,7 @@ distribution-archives: ## Generate distribution archives to be uploaded into Pyt
 	pdm run python -m build
 
 test: install-deps-test ## Execute tests with Pytest
-	pdm run pytest tests
+	pdm run pytest tests lsc_agent_eval/tests
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
@@ -73,13 +73,13 @@ help: ## Show this help screen
 	@echo ''
 
 pylint:
-	pdm run pylint src
+	pdm run pylint src lsc_agent_eval/src
 
 pyright:
-	pdm run pyright src
+	pdm run pyright src lsc_agent_eval/src
 
 docstyle:
 	pdm run pydocstyle -v .
 
 ruff:
-	pdm run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101
+	pdm run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
