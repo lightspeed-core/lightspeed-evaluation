@@ -28,7 +28,7 @@ class TestArgsParser:
         assert parsed.agent_provider == "openai"
         assert parsed.agent_model == "gpt-4"
         assert parsed.agent_endpoint == "http://localhost:8080"  # default
-        assert parsed.result_dir == "results/"  # default
+        assert parsed.result_dir == "eval_output/"  # default
 
     def test_args_parser_all_arguments(self):
         """Test argument parser with all arguments."""
