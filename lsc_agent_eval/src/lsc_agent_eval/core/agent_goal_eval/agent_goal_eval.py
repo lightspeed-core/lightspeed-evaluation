@@ -21,6 +21,7 @@ class AgentGoalEval:
     def __init__(self, eval_args: argparse.Namespace) -> None:
         """Initialize agent goal evaluation."""
         self.eval_args = eval_args
+        self.result_summary: dict[str, int] = {}
         self._setup_components()
 
     def _setup_components(self) -> None:
@@ -128,6 +129,8 @@ class AgentGoalEval:
         print(f"Success Rate: {success_rate:.1f}%")
         print(f"{'='*25}\n")
 
+        self.result_summary = {"PASS": passed, "FAIL": failed, "ERROR": errored}
+
     def _cleanup(self) -> None:
         """Clean up resources."""
         try:
@@ -136,6 +139,6 @@ class AgentGoalEval:
         except (AttributeError, OSError) as e:
             logger.warning("Error during cleanup: %s", e)
 
-    def get_data_manager(self) -> AgentGoalEvalDataManager:
-        """Get the evaluation data manager."""
-        return self.data_manager
+    def get_result_summary(self) -> dict[str, int]:
+        """Get result summary."""
+        return self.result_summary
