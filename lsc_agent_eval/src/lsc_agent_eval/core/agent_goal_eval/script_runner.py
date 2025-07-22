@@ -50,7 +50,7 @@ class ScriptRunner:
             cmd = ["bash", str(script_file)]
 
             # Run script
-            logger.info("Running script: %s", script_path)
+            logger.debug("Running script: %s", script_file)
 
             result = subprocess.run(
                 cmd,
@@ -66,7 +66,7 @@ class ScriptRunner:
             if result.stdout:
                 logger.debug("Script stdout: %s", result.stdout)
             if result.stderr:
-                logger.debug("Script stderr: %s", result.stderr)
+                logger.warning("Script stderr: %s", result.stderr)
 
             return result.returncode == 0
 

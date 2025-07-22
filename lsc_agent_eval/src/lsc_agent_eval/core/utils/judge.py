@@ -28,7 +28,7 @@ class JudgeModelManager:
 
     def _setup_litellm(self) -> None:
         """Initialize LiteLLM with provider-specific configuration."""
-        logger.info(
+        logger.debug(
             "Setting up LiteLLM for %s/%s", self.judge_provider, self.judge_model
         )
 

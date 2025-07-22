@@ -41,7 +41,7 @@ class EvaluationRunner:
                         raise ScriptExecutionError(
                             "Setup script returned non-zero exit code"
                         )
-                    logger.info(
+                    logger.debug(
                         "Setup script executed successfully for %s", data_config.eval_id
                     )
                 except ScriptExecutionError as e:
@@ -72,7 +72,7 @@ class EvaluationRunner:
                         data_config.eval_cleanup_script
                     )
                     if cleanup_success:
-                        logger.info(
+                        logger.debug(
                             "Cleanup script executed successfully for %s",
                             data_config.eval_id,
                         )

@@ -159,10 +159,8 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.tqdm")
     def test_get_eval_result_success(
         self,
-        mock_tqdm,
         mock_results_manager,
         mock_evaluation_runner,
         mock_judge_manager,
@@ -176,7 +174,6 @@ class TestAgentGoalEval:
         # Setup mocks
         mock_config_manager.return_value.get_eval_data.return_value = sample_configs
         mock_evaluation_runner.return_value.run_evaluation.side_effect = sample_results
-        mock_tqdm.return_value = sample_configs
 
         evaluator = AgentGoalEval(mock_args)
 
@@ -202,10 +199,8 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.tqdm")
     def test_get_eval_result_with_errors(
         self,
-        mock_tqdm,
         mock_results_manager,
         mock_evaluation_runner,
         mock_judge_manager,
@@ -213,6 +208,7 @@ class TestAgentGoalEval:
         mock_config_manager,
         mock_args,
         sample_configs,
+        capsys,
     ):
         """Test evaluation execution with errors."""
         # Setup results with errors
@@ -238,18 +234,28 @@ class TestAgentGoalEval:
         mock_evaluation_runner.return_value.run_evaluation.side_effect = (
             results_with_errors
         )
-        mock_tqdm.return_value = sample_configs
 
         evaluator = AgentGoalEval(mock_args)
 
-        with patch(
-            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger"
-        ) as mock_logger:
-            evaluator.get_eval_result()
+        evaluator.get_eval_result()
 
-        # Verify error was logged
-        mock_logger.error.assert_called_with(
-            "Error in %s: %s", "test_002", "Script execution failed"
+        # Capture stdout/stderr output
+        captured = capsys.readouterr()
+
+        # Verify error messages are printed to stdout
+        assert "✅ test_001: PASS" in captured.out
+        assert "⚠️  test_002: ERROR" in captured.out
+        assert "   Query: Deploy nginx" in captured.out
+        assert "   Evaluation type: script" in captured.out
+        assert "   Response: " in captured.out
+        assert "   Error message: Script execution failed" in captured.out
+
+        # Verify evaluations were run
+        assert mock_evaluation_runner.return_value.run_evaluation.call_count == 2
+
+        # Verify results were saved
+        mock_results_manager.return_value.save_results.assert_called_once_with(
+            results_with_errors
         )
 
     @patch(
@@ -433,10 +439,8 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.tqdm")
     def test_get_eval_result_cleanup_called(
         self,
-        mock_tqdm,
         mock_results_manager,
         mock_evaluation_runner,
         mock_judge_manager,
@@ -449,7 +453,6 @@ class TestAgentGoalEval:
         """Test that cleanup is called even on success."""
         mock_config_manager.return_value.get_eval_data.return_value = sample_configs
         mock_evaluation_runner.return_value.run_evaluation.side_effect = sample_results
-        mock_tqdm.return_value = sample_configs
 
         evaluator = AgentGoalEval(mock_args)
 

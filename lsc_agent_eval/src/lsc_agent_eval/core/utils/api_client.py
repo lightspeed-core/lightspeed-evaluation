@@ -70,7 +70,6 @@ class AgentHttpClient:
             if "response" not in response_data:
                 raise AgentAPIError("Agent response missing 'response' field")
 
-            logger.info("Agent response >\n%s", response_data["response"].strip())
             return response_data["response"].strip()
 
         except httpx.TimeoutException as e:
