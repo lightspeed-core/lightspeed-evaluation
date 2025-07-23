@@ -13,6 +13,7 @@ from .relevancy_score import AnswerRelevancyScore
 from .similarity_score_llm import AnswerSimilarityScore
 
 
+# TODO: LCORE-271 pylint: disable=W0511
 class ResponseScore:  # pylint: disable=R0903
     """Calculate response score."""
 
@@ -33,7 +34,9 @@ class ResponseScore:  # pylint: disable=R0903
             # Judge provider & model need to be configured correctly in config yaml file.
             provider_config = config.config.llm_providers.providers[args.judge_provider]
             assert provider_config.type is not None, "Provider type must be configured"
-            judge_llm = VANILLA_MODEL[provider_config.type](
+            judge_llm = VANILLA_MODEL[
+                provider_config.type
+            ](  # pyright: ignore [reportCallIssue]
                 args.judge_model, provider_config
             ).load()
             if "answer_relevancy" in judge_llm_required:

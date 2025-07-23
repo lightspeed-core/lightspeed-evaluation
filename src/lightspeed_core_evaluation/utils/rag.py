@@ -20,6 +20,7 @@ def retrieve_rag_chunks(query: str, model: str, model_config: ModelConfig) -> li
         model_config.parameters.max_tokens_for_response,
     )
 
+    assert config.rag_index is not None, "RAG index is not initialised."
     retriever = config.rag_index.as_retriever(similarity_top_k=RAG_CONTENT_LIMIT)
     rag_chunks, _ = token_handler.truncate_rag_context(
         retriever.retrieve(query), model, available_tokens

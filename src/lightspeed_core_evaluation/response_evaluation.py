@@ -31,6 +31,7 @@ from .utils.score import ResponseScore
 tqdm.pandas()
 
 
+# TODO: LCORE-271 pylint: disable=W0511
 # TODO: OLS-712 Enrichment of Q+A pairs to contain questions with attachments pylint: disable=W0511
 class ResponseEvaluation:  # pylint: disable=R0902
     """Evaluate LLM response."""
@@ -153,10 +154,12 @@ class ResponseEvaluation:  # pylint: disable=R0902
         qna_pool_df = concat([qna_pool_df, self._qa_pool_df])
 
         if self._args.eval_query_ids is not None:
-            qna_pool_df = qna_pool_df[
+            qna_pool_df = qna_pool_df[  # pyright: ignore [reportAssignmentType]
                 qna_pool_df.query_id.isin(self._args.eval_query_ids)
             ]
-        qna_pool_df = qna_pool_df[qna_pool_df.in_use]
+        qna_pool_df = qna_pool_df[
+            qna_pool_df.in_use
+        ]  # pyright: ignore [reportAssignmentType]
         return qna_pool_df.reset_index(drop=True).drop(columns="in_use")
 
     def _get_api_response(  # pylint: disable=R0913,R0917
@@ -194,7 +197,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
             f"API request is successful for {provider}+{model}; "
             f"mode: {eval_mode};\nQuery: {question}"
         )
-        return response
+        return response  # pyright: ignore [reportReturnType]
 
     def _get_recent_response(  # pylint: disable=R0913,R0917
         self,
@@ -209,7 +212,9 @@ class ResponseEvaluation:  # pylint: disable=R0902
             try:
                 return recent_resp_df[recent_resp_df.question == question][
                     "response"
-                ].iloc[0]
+                ].iloc[  # pyright: ignore [reportAttributeAccessIssue]
+                    0
+                ]
             except IndexError:
                 print(
                     "Recent response for query is not found in the file. "
@@ -239,7 +244,11 @@ class ResponseEvaluation:  # pylint: disable=R0902
         qna_pool_unique = qna_pool_df[["question"]].drop_duplicates()
         qna_pool_unique["response"] = qna_pool_unique.progress_apply(
             lambda row: self._get_recent_response(
-                row.question, recent_resp_df, provider, model, eval_mode
+                row.question,
+                recent_resp_df,  # pyright: ignore [reportArgumentType]
+                provider,
+                model,
+                eval_mode,
             ),
             axis=1,
         )
@@ -383,7 +392,11 @@ class ResponseEvaluation:  # pylint: disable=R0902
                 col.removesuffix(f"_{score_type}") for col in temp_result_df.columns
             ]
             plot_file = f"{self._result_dir}/model_evaluation_result-{score_type}.png"
-            plot_score(temp_result_df, SCORE_DESCRIPTION[score_type], plot_file)
+            plot_score(
+                temp_result_df,  # pyright: ignore [reportArgumentType]
+                SCORE_DESCRIPTION[score_type],
+                plot_file,
+            )
             summary_score[score_type] = temp_result_df.describe().T.to_dict()
 
         summary_result = {

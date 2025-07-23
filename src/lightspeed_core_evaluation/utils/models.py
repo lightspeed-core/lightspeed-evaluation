@@ -9,6 +9,7 @@ from ols.src.llms.providers.provider import LLMProvider
 from ols.src.llms.providers.watsonx import Watsonx
 
 
+# TODO: LCORE-271 pylint: disable=W0511
 class OpenAIVanilla(OpenAI):
     """OpenAI provider."""
 
@@ -82,13 +83,13 @@ class WatsonxVanilla(Watsonx):
         }
 
 
-VANILLA_MODEL: dict[str, LLMProvider] = {
+VANILLA_MODEL: dict[str, LLMProvider] = {  # pyright: ignore [reportAssignmentType]
     "watsonx": WatsonxVanilla,
     "openai": OpenAIVanilla,
     "azure_openai": AzureOpenAIVanilla,
 }
 
-MODEL_OLS_PARAM: dict[str, LLMProvider] = {
+MODEL_OLS_PARAM: dict[str, LLMProvider] = {  # pyright: ignore [reportAssignmentType]
     "watsonx": Watsonx,
     "openai": OpenAI,
     "azure_openai": AzureOpenAI,
