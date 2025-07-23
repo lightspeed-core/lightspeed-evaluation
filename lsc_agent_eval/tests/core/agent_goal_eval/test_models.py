@@ -72,7 +72,7 @@ class TestEvaluationDataConfig:
         assert config.eval_query == "What is Kubernetes?"
         assert config.eval_type == "judge-llm"  # default
         assert config.expected_response is None
-        assert config.expected_key_words is None
+        assert config.expected_keywords is None
         assert config.eval_setup_script is None
         assert config.eval_verify_script is None
         assert config.eval_cleanup_script is None
@@ -90,7 +90,7 @@ class TestEvaluationDataConfig:
         assert config.eval_query == "Explain containers"
         assert config.eval_type == "judge-llm"
         assert config.expected_response == "Containers are lightweight virtualization"
-        assert config.expected_key_words is None
+        assert config.expected_keywords is None
         assert config.eval_setup_script is None
         assert config.eval_verify_script is None
         assert config.eval_cleanup_script is None
@@ -110,7 +110,7 @@ class TestEvaluationDataConfig:
         assert config.eval_query == "Deploy nginx pod"
         assert config.eval_type == "script"
         assert config.expected_response is None
-        assert config.expected_key_words is None
+        assert config.expected_keywords is None
         assert config.eval_setup_script == "./setup.sh"
         assert config.eval_verify_script == "./verify.sh"
         assert config.eval_cleanup_script == "./cleanup.sh"
@@ -121,14 +121,14 @@ class TestEvaluationDataConfig:
             eval_id="substring_test",
             eval_query="List container benefits",
             eval_type="sub-string",
-            expected_key_words=["isolation", "portability", "efficiency"],
+            expected_keywords=["isolation", "portability", "efficiency"],
         )
 
         assert config.eval_id == "substring_test"
         assert config.eval_query == "List container benefits"
         assert config.eval_type == "sub-string"
         assert config.expected_response is None
-        assert config.expected_key_words == ["isolation", "portability", "efficiency"]
+        assert config.expected_keywords == ["isolation", "portability", "efficiency"]
         assert config.eval_setup_script is None
         assert config.eval_verify_script is None
         assert config.eval_cleanup_script is None
@@ -140,7 +140,7 @@ class TestEvaluationDataConfig:
             eval_query="What is OpenShift?",
             eval_type="judge-llm",
             expected_response="OpenShift is a Kubernetes platform",
-            expected_key_words=["kubernetes", "platform", "container"],
+            expected_keywords=["kubernetes", "platform", "container"],
             eval_setup_script="./setup.sh",
             eval_verify_script="./verify.sh",
             eval_cleanup_script="./cleanup.sh",
@@ -150,7 +150,7 @@ class TestEvaluationDataConfig:
         assert config.eval_query == "What is OpenShift?"
         assert config.eval_type == "judge-llm"
         assert config.expected_response == "OpenShift is a Kubernetes platform"
-        assert config.expected_key_words == ["kubernetes", "platform", "container"]
+        assert config.expected_keywords == ["kubernetes", "platform", "container"]
         assert config.eval_setup_script == "./setup.sh"
         assert config.eval_verify_script == "./verify.sh"
         assert config.eval_cleanup_script == "./cleanup.sh"

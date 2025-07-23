@@ -69,9 +69,9 @@ class AgentGoalEvalDataManager:
                 "eval_type 'judge-llm' requires 'expected_response' field"
             )
 
-        if eval_type == "sub-string" and "expected_key_words" not in eval_data:
+        if eval_type == "sub-string" and "expected_keywords" not in eval_data:
             raise ConfigurationError(
-                "eval_type 'sub-string' requires 'expected_key_words' field"
+                "eval_type 'sub-string' requires 'expected_keywords' field"
             )
 
         if eval_type == "script" and "eval_verify_script" not in eval_data:

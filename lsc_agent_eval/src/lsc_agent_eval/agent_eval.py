@@ -84,7 +84,7 @@ def main() -> None:
 
     # Create and run evaluation
     evaluator = AgentGoalEval(args)
-    evaluator.get_eval_result()
+    evaluator.run_evaluation()
 
 
 if __name__ == "__main__":

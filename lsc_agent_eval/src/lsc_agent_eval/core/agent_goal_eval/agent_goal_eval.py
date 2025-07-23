@@ -51,7 +51,7 @@ class AgentGoalEval:
         # Results manager
         self.results_manager = ResultsManager(self.eval_args.result_dir)
 
-    def get_eval_result(self) -> None:
+    def run_evaluation(self) -> None:
         """Run all evaluations and save results."""
         try:
             eval_data = self.data_manager.get_eval_data()
@@ -100,9 +100,9 @@ class AgentGoalEval:
             pbar.write(f"   Query: {result.query}")
             pbar.write(f"   Response: {result.response}")
             pbar.write(f"   Evaluation type: {result.eval_type}")
-            if data_config.expected_key_words:
+            if data_config.expected_keywords:
                 pbar.write(
-                    f"   Expected keywords: {','.join(data_config.expected_key_words)}"
+                    f"   Expected keywords: {','.join(data_config.expected_keywords)}"
                 )
             if data_config.expected_response:
                 pbar.write(f"   Expected response: {data_config.expected_response}")

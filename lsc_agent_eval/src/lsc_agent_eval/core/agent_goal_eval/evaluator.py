@@ -136,13 +136,13 @@ class EvaluationRunner:
         self, data_config: EvaluationDataConfig, response: str
     ) -> bool:
         """Evaluate using substring matching."""
-        if not data_config.expected_key_words:
+        if not data_config.expected_keywords:
             return False
 
         response_lower = response.lower()
         return any(
             keyword.lower() in response_lower
-            for keyword in data_config.expected_key_words
+            for keyword in data_config.expected_keywords
         )
 
     def _extract_numeric_result(self, response: Optional[str]) -> int:

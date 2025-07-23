@@ -159,7 +159,7 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_get_eval_result_success(
+    def test_run_evaluation_success(
         self,
         mock_results_manager,
         mock_evaluation_runner,
@@ -179,7 +179,7 @@ class TestAgentGoalEval:
 
         # Capture print output
         with patch("builtins.print") as mock_print:
-            evaluator.get_eval_result()
+            evaluator.run_evaluation()
 
         # Verify evaluations were run
         assert mock_evaluation_runner.return_value.run_evaluation.call_count == 2
@@ -199,7 +199,7 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_get_eval_result_with_errors(
+    def test_run_evaluation_with_errors(
         self,
         mock_results_manager,
         mock_evaluation_runner,
@@ -237,7 +237,7 @@ class TestAgentGoalEval:
 
         evaluator = AgentGoalEval(mock_args)
 
-        evaluator.get_eval_result()
+        evaluator.run_evaluation()
 
         # Capture stdout/stderr output
         captured = capsys.readouterr()
@@ -265,7 +265,7 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_get_eval_result_exception(
+    def test_run_evaluation_exception(
         self,
         mock_results_manager,
         mock_evaluation_runner,
@@ -285,7 +285,7 @@ class TestAgentGoalEval:
             "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger"
         ) as mock_logger:
             with pytest.raises(Exception, match="Config error"):
-                evaluator.get_eval_result()
+                evaluator.run_evaluation()
 
         # Verify error was logged
         mock_logger.error.assert_called()
@@ -439,7 +439,7 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_get_eval_result_cleanup_called(
+    def test_run_evaluation_cleanup_called(
         self,
         mock_results_manager,
         mock_evaluation_runner,
@@ -457,7 +457,7 @@ class TestAgentGoalEval:
         evaluator = AgentGoalEval(mock_args)
 
         with patch.object(evaluator, "_cleanup") as mock_cleanup:
-            evaluator.get_eval_result()
+            evaluator.run_evaluation()
 
         # Verify cleanup was called
         mock_cleanup.assert_called_once()
@@ -469,7 +469,7 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_get_eval_result_cleanup_called_on_exception(
+    def test_run_evaluation_cleanup_called_on_exception(
         self,
         mock_results_manager,
         mock_evaluation_runner,
@@ -487,7 +487,7 @@ class TestAgentGoalEval:
 
         with patch.object(evaluator, "_cleanup") as mock_cleanup:
             with pytest.raises(Exception):
-                evaluator.get_eval_result()
+                evaluator.run_evaluation()
 
         # Verify cleanup was called
         mock_cleanup.assert_called_once()

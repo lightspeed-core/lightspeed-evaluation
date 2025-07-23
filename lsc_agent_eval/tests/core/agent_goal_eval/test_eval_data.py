@@ -35,7 +35,7 @@ class TestAgentGoalEvalDataManager:
                 "eval_id": "test_003",
                 "eval_query": "Show pods",
                 "eval_type": "sub-string",
-                "expected_key_words": ["pod", "running"],
+                "expected_keywords": ["pod", "running"],
             },
         ]
 
@@ -215,7 +215,7 @@ class TestAgentGoalEvalDataManager:
                 AgentGoalEvalDataManager("test.yaml")
 
     def test_validate_eval_data_sub_string_missing_keywords(self):
-        """Test validation for sub-string type missing expected_key_words."""
+        """Test validation for sub-string type missing expected_keywords."""
         invalid_data = [
             {
                 "eval_id": "test_001",
@@ -232,7 +232,7 @@ class TestAgentGoalEvalDataManager:
         ):
 
             with pytest.raises(
-                ConfigurationError, match="requires 'expected_key_words' field"
+                ConfigurationError, match="requires 'expected_keywords' field"
             ):
                 AgentGoalEvalDataManager("test.yaml")
 
@@ -379,7 +379,7 @@ class TestAgentGoalEvalDataManager:
                 "eval_id": "test_substring",
                 "eval_query": "List services",
                 "eval_type": "sub-string",
-                "expected_key_words": ["service", "active", "running"],
+                "expected_keywords": ["service", "active", "running"],
             }
         ]
         yaml_content = yaml.dump(sub_string_data)
@@ -393,7 +393,7 @@ class TestAgentGoalEvalDataManager:
             manager = AgentGoalEvalDataManager("test.yaml")
             assert len(manager.eval_data) == 1
             assert manager.eval_data[0].eval_type == "sub-string"
-            assert manager.eval_data[0].expected_key_words == [
+            assert manager.eval_data[0].expected_keywords == [
                 "service",
                 "active",
                 "running",
@@ -418,7 +418,7 @@ class TestAgentGoalEvalDataManager:
                 "eval_id": "substring_test",
                 "eval_query": "List pods",
                 "eval_type": "sub-string",
-                "expected_key_words": ["pod", "running"],
+                "expected_keywords": ["pod", "running"],
             },
         ]
         yaml_content = yaml.dump(mixed_data)

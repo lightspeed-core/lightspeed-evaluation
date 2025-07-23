@@ -127,7 +127,7 @@ class TestMain:
         # Verify components were called
         mock_args_parser.assert_called_once_with(sys.argv[1:])
         mock_agent_goal_eval.assert_called_once_with(mock_args)
-        mock_evaluator.get_eval_result.assert_called_once()
+        mock_evaluator.run_evaluation.assert_called_once()
         mock_logging_config.assert_called_once()
 
     @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
@@ -190,7 +190,7 @@ class TestMain:
         main()
 
         # Verify evaluator execution was called
-        mock_evaluator.get_eval_result.assert_called_once()
+        mock_evaluator.run_evaluation.assert_called_once()
 
     @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
     @patch("lsc_agent_eval.agent_eval._args_parser")

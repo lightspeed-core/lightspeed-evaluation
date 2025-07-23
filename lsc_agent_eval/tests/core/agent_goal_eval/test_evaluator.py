@@ -58,7 +58,7 @@ class TestEvaluationRunner:
             eval_id="test_003",
             eval_query="What is Docker?",
             eval_type="sub-string",
-            expected_key_words=["container", "docker"],
+            expected_keywords=["container", "docker"],
         )
 
     def test_init(self, mock_agent_client, mock_judge_manager):

@@ -24,7 +24,7 @@ class EvaluationDataConfig:  # pylint: disable=too-many-instance-attributes
     eval_query: str
     eval_type: str = "judge-llm"
     expected_response: Optional[str] = None
-    expected_key_words: Optional[list[str]] = None
+    expected_keywords: Optional[list[str]] = None
     eval_setup_script: Optional[str] = None
     eval_verify_script: Optional[str] = None
     eval_cleanup_script: Optional[str] = None

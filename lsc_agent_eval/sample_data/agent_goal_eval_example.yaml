@@ -1,7 +1,7 @@
 - eval_id: eval1
   eval_query: is there a openshift-monitoring namespace ?
   eval_type: sub-string
-  expected_key_words:
+  expected_keywords:
   - 'yes'
   - openshift-monitoring
 
@@ -14,7 +14,7 @@
   eval_query: is there a openshift-lightspeed namespace ?
   eval_setup_script: sample_data/script/eval3/setup.sh
   eval_type: sub-string
-  expected_key_words:
+  expected_keywords:
   - 'yes'
   eval_cleanup_script: sample_data/script/eval3/cleanup.sh
 
