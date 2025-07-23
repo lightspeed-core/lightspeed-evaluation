@@ -56,6 +56,7 @@ def _args_parser(args: list[str]) -> Namespace:
     return parser.parse_args(args)
 
 
+# TODO: LCORE-271 pylint: disable=W0511
 class RetrievalEvaluation:  # pylint: disable=R0903
     """Evaluate Retrieval."""
 
@@ -87,7 +88,9 @@ class RetrievalEvaluation:  # pylint: disable=R0903
             self._args.judge_provider
         ]
         assert provider_config.type is not None, "Provider type must be configured"
-        judge_llm = VANILLA_MODEL[provider_config.type](
+        judge_llm = VANILLA_MODEL[
+            provider_config.type
+        ](  # pyright: ignore [reportCallIssue]
             self._args.judge_model, provider_config
         ).load()
 
@@ -122,7 +125,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
             qna_pool_df = qna_pool_df[
                 qna_pool_df.query_id.isin(self._args.eval_query_ids)
             ].reset_index(drop=True)
-        return qna_pool_df
+        return qna_pool_df  # pyright: ignore [reportReturnType]
 
     def _load_and_process_chunks(self, query: str) -> str:
         """Load and process chunks."""
@@ -184,7 +187,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         self._qa_pool_df.to_csv(f"{self._result_dir}/chunk_eval_score.csv", index=False)
 
         plot_score(
-            self._qa_pool_df[["score"]],
+            self._qa_pool_df[["score"]],  # pyright: ignore [reportArgumentType]
             "1st Chunk Score",
             f"{self._result_dir}/chunk_eval.png",
         )

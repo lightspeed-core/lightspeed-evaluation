@@ -30,6 +30,7 @@ tqdm.pandas()
 # https://github.com/instructlab/taxonomy/blob/main/knowledge/arts/music/fandom/swifties/qna.yaml
 
 
+# TODO: LCORE-271 pylint: disable=W0511
 def _args_parser(args: list[str]) -> Namespace:
     """Arguments parser."""
     parser = ArgumentParser(description="Taxonomy evaluation module.")
@@ -82,7 +83,9 @@ class TaxonomyEval:  # pylint: disable=R0903
             self._args.judge_provider
         ]
         assert provider_config.type is not None, "Provider type must be configured"
-        self._judge_llm = VANILLA_MODEL[provider_config.type](
+        self._judge_llm = VANILLA_MODEL[
+            provider_config.type
+        ](  # pyright: ignore [reportCallIssue]
             self._args.judge_model, provider_config
         ).load()
 
@@ -135,7 +138,7 @@ class TaxonomyEval:  # pylint: disable=R0903
                     result = {}
             sleep(TIME_TO_BREATH)
 
-        return result
+        return result  # pyright: ignore [reportReturnType]
 
     def _get_score(self, df: DataFrame, scores: list[str], prompt: str) -> DataFrame:
         """Get score."""
@@ -178,12 +181,14 @@ class TaxonomyEval:  # pylint: disable=R0903
         def _get_score(
             data: Series, scorer: LLMContextPrecisionWithoutReference | Faithfulness
         ) -> float:
-            data = SingleTurnSample(
+            data = SingleTurnSample(  # pyright: ignore [reportAssignmentType]
                 user_input=data.question,
                 response=data.answer,
                 retrieved_contexts=[data.context],
             )
-            return scorer.single_turn_score(data)
+            return scorer.single_turn_score(
+                data  # pyright: ignore [reportArgumentType]
+            )
 
         df = self._taxonomy_df.copy()
         if self._args.eval_type in ("all", "context"):
