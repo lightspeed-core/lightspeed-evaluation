@@ -125,12 +125,8 @@ class EvaluationRunner:
             logger.error("No verify script provided for script evaluation")
             return False
 
-        try:
-            script_runner = ScriptRunner(kubeconfig=self.kubeconfig)
-            return script_runner.run_script(data_config.eval_verify_script)
-        except ScriptExecutionError as e:
-            logger.error("Script evaluation failed: %s", e)
-            return False
+        script_runner = ScriptRunner(kubeconfig=self.kubeconfig)
+        return script_runner.run_script(data_config.eval_verify_script)
 
     def _evaluate_substring(
         self, data_config: EvaluationDataConfig, response: str

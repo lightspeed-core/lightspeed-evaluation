@@ -212,8 +212,8 @@ class TestEvaluationRunner:
 
         assert isinstance(result, EvaluationResult)
         assert result.eval_id == "test_002"
-        assert result.result == "FAIL"
-        assert result.error is None
+        assert result.result == "ERROR"
+        assert result.error == "Script failed"
 
     def test_run_evaluation_substring_success(
         self, mock_agent_client, sample_config_substring
