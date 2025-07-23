@@ -9,7 +9,7 @@ from ..utils.api_client import AgentHttpClient
 from ..utils.judge import JudgeModelManager
 from .eval_data import AgentGoalEvalDataManager
 from .evaluator import EvaluationRunner
-from .models import EvaluationResult
+from .models import EvaluationDataConfig, EvaluationResult
 from .results import ResultsManager
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class AgentGoalEval:
     def __init__(self, eval_args: argparse.Namespace) -> None:
         """Initialize agent goal evaluation."""
         self.eval_args = eval_args
+        self.result_summary: dict[str, int] = {}
         self._setup_components()
 
     def _setup_components(self) -> None:
@@ -50,23 +51,23 @@ class AgentGoalEval:
         # Results manager
         self.results_manager = ResultsManager(self.eval_args.result_dir)
 
-    def get_eval_result(self) -> None:
+    def run_evaluation(self) -> None:
         """Run all evaluations and save results."""
         try:
             eval_data = self.data_manager.get_eval_data()
             logger.info("Running %d evaluations", len(eval_data))
 
             results = []
-            for config in tqdm(eval_data, desc="Running evaluations"):
+            pbar = tqdm(eval_data)
+            for data_config in pbar:
+                pbar.set_description(f"Running evaluation for {data_config.eval_id}")
                 result = self.evaluation_runner.run_evaluation(
-                    config, self.eval_args.agent_provider, self.eval_args.agent_model
+                    data_config,
+                    self.eval_args.agent_provider,
+                    self.eval_args.agent_model,
                 )
+                self._print_individual_result(data_config, result, pbar)
                 results.append(result)
-
-                # Log individual result
-                logger.info("Evaluation %s: %s", config.eval_id, result.result)
-                if result.error:
-                    logger.error("Error in %s: %s", config.eval_id, result.error)
 
             # Save results
             self.results_manager.save_results(results)
@@ -81,6 +82,35 @@ class AgentGoalEval:
             # Clean up resources
             self._cleanup()
 
+    @staticmethod
+    def _print_individual_result(
+        data_config: EvaluationDataConfig, result: EvaluationResult, pbar: tqdm
+    ) -> None:
+        """Print individual result."""
+        match result.result:
+            case "PASS":
+                marker = "✅"
+            case "FAIL":
+                marker = "❌"
+            case _:
+                marker = "⚠️ "
+        pbar.write(f"{marker} {result.eval_id}: {result.result}")
+
+        if result.result != "PASS":
+            pbar.write(f"   Query: {result.query}")
+            pbar.write(f"   Response: {result.response}")
+            pbar.write(f"   Evaluation type: {result.eval_type}")
+            if data_config.expected_keywords:
+                pbar.write(
+                    f"   Expected keywords: {','.join(data_config.expected_keywords)}"
+                )
+            if data_config.expected_response:
+                pbar.write(f"   Expected response: {data_config.expected_response}")
+            if data_config.eval_verify_script:
+                pbar.write(f"   Verify script: {data_config.eval_verify_script}")
+        if result.result == "ERROR":
+            pbar.write(f"   Error message: {result.error}")
+
     def _print_summary(self, results: list[EvaluationResult]) -> None:
         """Print evaluation summary."""
         total = len(results)
@@ -93,11 +123,13 @@ class AgentGoalEval:
         print("EVALUATION SUMMARY")
         print(f"{'='*25}")
         print(f"Total Evaluations: {total}")
-        print(f"Passed: {passed}")
-        print(f"Failed: {failed}")
-        print(f"Errored: {errored}")
+        print(f"✅ Passed: {passed}")
+        print(f"❌ Failed: {failed}")
+        print(f"⚠️  Errored: {errored}")
         print(f"Success Rate: {success_rate:.1f}%")
         print(f"{'='*25}\n")
+
+        self.result_summary = {"PASS": passed, "FAIL": failed, "ERROR": errored}
 
     def _cleanup(self) -> None:
         """Clean up resources."""
@@ -107,6 +139,6 @@ class AgentGoalEval:
         except (AttributeError, OSError) as e:
             logger.warning("Error during cleanup: %s", e)
 
-    def get_data_manager(self) -> AgentGoalEvalDataManager:
-        """Get the evaluation data manager."""
-        return self.data_manager
+    def get_result_summary(self) -> dict[str, int]:
+        """Get result summary."""
+        return self.result_summary

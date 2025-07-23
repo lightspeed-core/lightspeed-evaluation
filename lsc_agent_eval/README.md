@@ -66,7 +66,7 @@ lsc-agent-eval \
 ```python
 from lsc_agent_eval import AgentGoalEval
 
-# Create evaluation configuration
+# Create evaluation configuration, Alternatively use namespace
 class EvalArgs:
     def __init__(self):
         self.eval_data_yaml = 'data/example_eval.yaml'
@@ -81,7 +81,7 @@ class EvalArgs:
 # Run evaluation
 args = EvalArgs()
 evaluator = AgentGoalEval(args)
-evaluator.get_eval_result()
+evaluator.run_evaluation()
 ```
 
 ## Configuration
@@ -92,7 +92,7 @@ The evaluation is configured using a YAML file that defines test cases. Each tes
 - `eval_query`: The query/task to send to the agent
 - `eval_type`: Type of evaluation (judge-llm, script, sub-string)
 - `expected_response`: Expected response (for judge-llm evaluation)
-- `expected_key_words`: Keywords to look for (for sub-string evaluation)
+- `expected_keywords`: Keywords to look for (for sub-string evaluation)
 - `eval_verify_script`: Verification script (for script evaluation)
 - `eval_setup_script`: Optional setup script to run before evaluation
 - `eval_cleanup_script`: Optional cleanup script to run after evaluation
@@ -104,7 +104,7 @@ The evaluation is configured using a YAML file that defines test cases. Each tes
 - eval_id: eval1
   eval_query: "is there a openshift-monitoring namespace?"
   eval_type: sub-string
-  expected_key_words:
+  expected_keywords:
     - 'yes'
     - openshift-monitoring
 

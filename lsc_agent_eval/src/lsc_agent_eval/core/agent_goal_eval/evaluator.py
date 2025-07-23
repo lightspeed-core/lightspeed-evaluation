@@ -41,7 +41,7 @@ class EvaluationRunner:
                         raise ScriptExecutionError(
                             "Setup script returned non-zero exit code"
                         )
-                    logger.info(
+                    logger.debug(
                         "Setup script executed successfully for %s", data_config.eval_id
                     )
                 except ScriptExecutionError as e:
@@ -72,7 +72,7 @@ class EvaluationRunner:
                         data_config.eval_cleanup_script
                     )
                     if cleanup_success:
-                        logger.info(
+                        logger.debug(
                             "Cleanup script executed successfully for %s",
                             data_config.eval_id,
                         )
@@ -125,24 +125,20 @@ class EvaluationRunner:
             logger.error("No verify script provided for script evaluation")
             return False
 
-        try:
-            script_runner = ScriptRunner(kubeconfig=self.kubeconfig)
-            return script_runner.run_script(data_config.eval_verify_script)
-        except ScriptExecutionError as e:
-            logger.error("Script evaluation failed: %s", e)
-            return False
+        script_runner = ScriptRunner(kubeconfig=self.kubeconfig)
+        return script_runner.run_script(data_config.eval_verify_script)
 
     def _evaluate_substring(
         self, data_config: EvaluationDataConfig, response: str
     ) -> bool:
         """Evaluate using substring matching."""
-        if not data_config.expected_key_words:
+        if not data_config.expected_keywords:
             return False
 
         response_lower = response.lower()
         return any(
             keyword.lower() in response_lower
-            for keyword in data_config.expected_key_words
+            for keyword in data_config.expected_keywords
         )
 
     def _extract_numeric_result(self, response: Optional[str]) -> int:

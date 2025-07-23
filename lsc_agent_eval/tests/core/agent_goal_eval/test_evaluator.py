@@ -58,7 +58,7 @@ class TestEvaluationRunner:
             eval_id="test_003",
             eval_query="What is Docker?",
             eval_type="sub-string",
-            expected_key_words=["container", "docker"],
+            expected_keywords=["container", "docker"],
         )
 
     def test_init(self, mock_agent_client, mock_judge_manager):
@@ -212,8 +212,8 @@ class TestEvaluationRunner:
 
         assert isinstance(result, EvaluationResult)
         assert result.eval_id == "test_002"
-        assert result.result == "FAIL"
-        assert result.error is None
+        assert result.result == "ERROR"
+        assert result.error == "Script failed"
 
     def test_run_evaluation_substring_success(
         self, mock_agent_client, sample_config_substring
