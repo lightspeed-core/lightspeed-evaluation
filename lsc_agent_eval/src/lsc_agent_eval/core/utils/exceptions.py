@@ -5,8 +5,8 @@ class AgentEvaluationError(Exception):
     """Base exception for agent evaluation errors."""
 
 
-class ConfigurationError(AgentEvaluationError):
-    """Configuration-related errors."""
+class EvaluationDataError(AgentEvaluationError):
+    """Evaluation data loading, parsing, and validation errors."""
 
 
 class AgentAPIError(AgentEvaluationError):

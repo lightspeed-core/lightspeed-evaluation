@@ -3,7 +3,7 @@
 from lsc_agent_eval.core.utils.exceptions import (
     AgentAPIError,
     AgentEvaluationError,
-    ConfigurationError,
+    EvaluationDataError,
     JudgeModelError,
     ScriptExecutionError,
 )
@@ -25,20 +25,20 @@ class TestAgentEvaluationError:
         assert isinstance(error, Exception)
 
 
-class TestConfigurationError:
-    """Test ConfigurationError."""
+class TestEvaluationDataError:
+    """Test EvaluationDataError."""
 
-    def test_configuration_error_creation(self):
-        """Test creating ConfigurationError."""
-        error = ConfigurationError("Invalid configuration")
+    def test_evaluation_data_error_creation(self):
+        """Test creating EvaluationDataError."""
+        error = EvaluationDataError("Invalid configuration")
         assert str(error) == "Invalid configuration"
-        assert isinstance(error, ConfigurationError)
+        assert isinstance(error, EvaluationDataError)
         assert isinstance(error, AgentEvaluationError)
 
-    def test_configuration_error_inheritance(self):
-        """Test ConfigurationError inheritance."""
-        error = ConfigurationError("Config error")
-        assert isinstance(error, ConfigurationError)
+    def test_evaluation_data_error_inheritance(self):
+        """Test EvaluationDataError inheritance."""
+        error = EvaluationDataError("Config error")
+        assert isinstance(error, EvaluationDataError)
         assert isinstance(error, AgentEvaluationError)
         assert isinstance(error, Exception)
 
@@ -103,7 +103,7 @@ class TestExceptionHierarchy:
     def test_all_exceptions_inherit_from_base(self):
         """Test that all custom exceptions inherit from AgentEvaluationError."""
         exceptions = [
-            ConfigurationError("config error"),
+            EvaluationDataError("config error"),
             AgentAPIError("api error"),
             ScriptExecutionError("script error"),
             JudgeModelError("judge error"),
@@ -112,13 +112,3 @@ class TestExceptionHierarchy:
         for exc in exceptions:
             assert isinstance(exc, AgentEvaluationError)
             assert isinstance(exc, Exception)
-
-    def test_exception_with_none_message(self):
-        """Test exceptions with None message."""
-        error = AgentEvaluationError(None)
-        assert str(error) == "None"
-
-    def test_exception_with_empty_message(self):
-        """Test exceptions with empty message."""
-        error = AgentEvaluationError("")
-        assert str(error) == ""

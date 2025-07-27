@@ -40,8 +40,7 @@ class TestScriptRunner:
         mock_exists.assert_called_once()
         mock_chmod.assert_called_once_with(0o755)
         mock_subprocess_run.assert_called_once_with(
-            ["bash", str(Path("test_script.sh").resolve())],
-            input=None,
+            [str(Path("test_script.sh").resolve())],
             text=True,
             capture_output=True,
             env=os.environ.copy(),
@@ -82,8 +81,7 @@ class TestScriptRunner:
         expected_env = os.environ.copy()
         expected_env["KUBECONFIG"] = "./kubeconfig"
         mock_subprocess_run.assert_called_once_with(
-            ["bash", str(Path("test_script.sh").resolve())],
-            input=None,
+            [str(Path("test_script.sh").resolve())],
             text=True,
             capture_output=True,
             env=expected_env,
@@ -186,8 +184,7 @@ class TestScriptRunner:
 
         assert result
         mock_subprocess_run.assert_called_once_with(
-            ["bash", absolute_path],
-            input=None,
+            [absolute_path],
             text=True,
             capture_output=True,
             env=os.environ.copy(),
@@ -217,8 +214,7 @@ class TestScriptRunner:
 
         expected_path = str(Path("scripts/test.sh").resolve())
         mock_subprocess_run.assert_called_once_with(
-            ["bash", expected_path],
-            input=None,
+            [expected_path],
             text=True,
             capture_output=True,
             env=os.environ.copy(),
@@ -248,8 +244,7 @@ class TestScriptRunner:
             # Verify environment includes test variable
             expected_env = os.environ.copy()
             mock_subprocess_run.assert_called_once_with(
-                ["bash", str(Path("test_script.sh").resolve())],
-                input=None,
+                [str(Path("test_script.sh").resolve())],
                 text=True,
                 capture_output=True,
                 env=expected_env,
@@ -278,8 +273,7 @@ class TestScriptRunner:
         expected_env = os.environ.copy()
         expected_env["KUBECONFIG"] = kubeconfig_path
         mock_subprocess_run.assert_called_once_with(
-            ["bash", str(Path("test_script.sh").resolve())],
-            input=None,
+            [str(Path("test_script.sh").resolve())],
             text=True,
             capture_output=True,
             env=expected_env,
@@ -306,8 +300,7 @@ class TestScriptRunner:
 
         assert result
         mock_subprocess_run.assert_called_once_with(
-            ["bash", str(Path("test_script.sh").resolve())],
-            input=None,
+            [str(Path("test_script.sh").resolve())],
             text=True,
             capture_output=True,
             env=os.environ.copy(),
@@ -336,35 +329,6 @@ class TestScriptRunner:
 
         assert result
         # Note: Instance method returns boolean, not the result object
-
-    @patch("subprocess.run")
-    @patch("pathlib.Path.is_file")
-    @patch("pathlib.Path.exists")
-    @patch("pathlib.Path.chmod")
-    def test_run_script_with_input_text(
-        self, mock_chmod, mock_exists, mock_is_file, mock_subprocess_run
-    ):
-        """Test script execution with input text."""
-        mock_exists.return_value = True
-        mock_is_file.return_value = True
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_subprocess_run.return_value = mock_result
-
-        input_text = "test input"
-        runner = ScriptRunner()
-        result = runner.run_script("test_script.sh", input_text=input_text)
-
-        assert result
-        mock_subprocess_run.assert_called_once_with(
-            ["bash", str(Path("test_script.sh").resolve())],
-            input=input_text,
-            text=True,
-            capture_output=True,
-            env=os.environ.copy(),
-            timeout=300,
-            check=False,
-        )
 
     def test_script_runner_init(self):
         """Test ScriptRunner initialization."""

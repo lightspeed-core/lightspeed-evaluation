@@ -67,7 +67,11 @@ class TestAgentHttpClient:
         """Test successful agent query."""
         # Mock HTTP response
         mock_response = Mock()
-        mock_response.json.return_value = {"response": "Test agent response"}
+        response_text = "OpenShift Virtualization is an extension of the OpenShift Container Platform"
+        mock_response.json.return_value = {
+            "response": response_text,
+            "conversation_id": "conv-id-123",
+        }
         mock_response.raise_for_status.return_value = None
 
         # Mock HTTP client
@@ -77,16 +81,18 @@ class TestAgentHttpClient:
         with patch("httpx.Client", return_value=mock_client):
             client = AgentHttpClient("http://localhost:8080")
 
-            result = client.query_agent("What is Kubernetes?", "openai", "gpt-4")
+            api_input = {
+                "query": "What is Openshift Virtualization?",
+                "provider": "watsonx",
+                "model": "ibm/granite-3-3-8b-instruct",
+            }
+            result_response, result_conversation_id = client.query_agent(api_input)
 
-            assert result == "Test agent response"
+            assert result_response == response_text
+            assert result_conversation_id == "conv-id-123"
             mock_client.post.assert_called_once_with(
                 "/v1/query",
-                json={
-                    "query": "What is Kubernetes?",
-                    "provider": "openai",
-                    "model": "gpt-4",
-                },
+                json=api_input,
                 timeout=300,
             )
 
@@ -106,8 +112,9 @@ class TestAgentHttpClient:
         with patch("httpx.Client", return_value=mock_client):
             client = AgentHttpClient("http://localhost:8080")
 
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
             with pytest.raises(AgentAPIError, match="Agent API error: 500"):
-                client.query_agent("Test query", "openai", "gpt-4")
+                client.query_agent(api_input)
 
     def test_query_agent_timeout(self):
         """Test agent query with timeout."""
@@ -118,8 +125,13 @@ class TestAgentHttpClient:
         with patch("httpx.Client", return_value=mock_client):
             client = AgentHttpClient("http://localhost:8080")
 
+            api_input = {
+                "query": "Test query",
+                "provider": "agent_provider",
+                "model": "agent_model",
+            }
             with pytest.raises(AgentAPIError, match="Agent query timeout"):
-                client.query_agent("Test query", "openai", "gpt-4")
+                client.query_agent(api_input)
 
     def test_query_agent_missing_response_field(self):
         """Test agent query with missing response field."""
@@ -135,10 +147,11 @@ class TestAgentHttpClient:
         with patch("httpx.Client", return_value=mock_client):
             client = AgentHttpClient("http://localhost:8080")
 
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
             with pytest.raises(
                 AgentAPIError, match="Agent response missing 'response' field"
             ):
-                client.query_agent("Test query", "openai", "gpt-4")
+                client.query_agent(api_input)
 
     def test_query_agent_client_not_initialized(self):
         """Test agent query when client is not initialized."""
