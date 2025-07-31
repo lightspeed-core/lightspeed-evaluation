@@ -8,86 +8,89 @@ import pytest
 import yaml
 
 from lsc_agent_eval.core.agent_goal_eval.eval_data import AgentGoalEvalDataManager
-from lsc_agent_eval.core.agent_goal_eval.models import EvaluationDataConfig
-from lsc_agent_eval.core.utils.exceptions import ConfigurationError
+from lsc_agent_eval.core.agent_goal_eval.models import (
+    ConversationDataConfig,
+    EvaluationDataConfig,
+)
+from lsc_agent_eval.core.utils.exceptions import EvaluationDataError
 
 
 class TestAgentGoalEvalDataManager:
     """Test AgentGoalEvalDataManager."""
 
     @pytest.fixture
-    def valid_eval_data(self):
-        """Valid evaluation data for testing."""
-        return [
-            {
-                "eval_id": "test_001",
-                "eval_query": "What is Kubernetes?",
-                "eval_type": "judge-llm",
-                "expected_response": "Kubernetes is a container orchestration platform",
-            },
-            {
-                "eval_id": "test_002",
-                "eval_query": "Deploy nginx",
-                "eval_type": "script",
-                "eval_verify_script": "./scripts/verify_nginx.sh",
-            },
-            {
-                "eval_id": "test_003",
-                "eval_query": "Show pods",
-                "eval_type": "sub-string",
-                "expected_keywords": ["pod", "running"],
-            },
-        ]
+    def valid_conversation_yaml_content(self):
+        """Valid YAML content with conversation-based structure."""
+        return """
+- conversation_group: conv1
+  description: Test namespace detection using substring matching
+  conversation:
+    - eval_id: eval1
+      eval_query: is there a openshift-monitoring namespace ?
+      eval_type: sub-string
+      expected_keywords:
+        - 'yes'
+        - openshift-monitoring
+      description: Check for openshift-monitoring namespace existence
+
+- conversation_group: conv2
+  description: Test namespace detection using LLM judge
+  conversation:
+    - eval_id: eval1
+      eval_query: is there a openshift-lightspeed namespace ?
+      eval_type: judge-llm
+      expected_response: there is a openshift-lightspeed namespace.
+      description: Verify openshift-lightspeed namespace with LLM evaluation
+"""
 
     @pytest.fixture
-    def valid_yaml_content(self, valid_eval_data):
-        """Valid YAML content as string."""
-        return yaml.dump(valid_eval_data)
+    def multiturn_conversation_yaml_content(self):
+        """Valid YAML content with multi-turn conversation."""
+        return """
+- conversation_group: conv1
+  description: Basic conversation flow testing cluster operations
+  conversation:
+    - eval_id: eval1
+      eval_query: Hi!
+      eval_type: judge-llm
+      expected_response: Hello! I'm an AI assistant for the Assisted Installer.
+      description: Initial greeting to start conversation
+    - eval_id: eval2
+      eval_query: Get me active clusters
+      eval_type: judge-llm
+      expected_response: Active clusters are x1, x2.
+      description: Request for cluster information
+    - eval_id: eval3
+      eval_query: Thank you
+      eval_type: judge-llm
+      expected_response: You're welcome!
+      description: Closing statement
+"""
 
-    def test_init_success(self, valid_yaml_content):
+    def test_init_success(self, valid_conversation_yaml_content):
         """Test successful initialization."""
         with (
-            patch("builtins.open", mock_open(read_data=valid_yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
             manager = AgentGoalEvalDataManager("test.yaml")
 
-            assert len(manager.eval_data) == 3
-            assert manager.eval_data_file == Path("test.yaml")
-            assert isinstance(manager.eval_data[0], EvaluationDataConfig)
+            assert manager.eval_data_file == "test.yaml"
+            assert len(manager.conversations) == 2
+            assert len(manager.get_conversations()) == 2
+            assert manager.get_eval_count() == 2
 
     def test_init_file_not_found(self):
         """Test initialization with non-existent file."""
-        with patch("pathlib.Path.exists", return_value=False):
-            with pytest.raises(ConfigurationError, match="Eval data file not found"):
-                AgentGoalEvalDataManager("nonexistent.yaml")
+        with pytest.raises(EvaluationDataError, match="Eval data file not found"):
+            AgentGoalEvalDataManager("nonexistent.yaml")
 
-    def test_init_path_not_file(self):
-        """Test initialization when path is not a file."""
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=False),
-        ):
-
-            with pytest.raises(ConfigurationError, match="path is not a file"):
-                AgentGoalEvalDataManager("directory/")
-
-    def test_validate_eval_data_file_exists(self):
-        """Test file validation when file exists."""
-        with (
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-            patch("builtins.open", mock_open(read_data="[]")),
-        ):
-
-            # Should not raise exception
-            manager = AgentGoalEvalDataManager("test.yaml")
-            assert manager.eval_data_file == Path("test.yaml")
-
-    def test_load_eval_data_invalid_yaml(self):
-        """Test loading invalid YAML content."""
+    def test_validate_eval_data_file_not_yaml(self):
+        """Test loading invalid YAML file."""
         invalid_yaml = "invalid: yaml: content: ["
 
         with (
@@ -96,34 +99,8 @@ class TestAgentGoalEvalDataManager:
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
-            with pytest.raises(ConfigurationError, match="Invalid YAML"):
+            with pytest.raises(EvaluationDataError, match="Invalid YAML"):
                 AgentGoalEvalDataManager("test.yaml")
-
-    def test_load_eval_data_not_list(self):
-        """Test loading YAML that is not a list."""
-        yaml_dict = yaml.dump({"key": "value"})
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_dict)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            with pytest.raises(ConfigurationError, match="must contain a list"):
-                AgentGoalEvalDataManager("test.yaml")
-
-    def test_load_eval_data_empty_list(self):
-        """Test loading empty evaluation list."""
-        empty_yaml = yaml.dump([])
-
-        with (
-            patch("builtins.open", mock_open(read_data=empty_yaml)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 0
 
     def test_load_eval_data_file_read_error(self):
         """Test loading when file read fails."""
@@ -134,182 +111,25 @@ class TestAgentGoalEvalDataManager:
         ):
 
             with pytest.raises(
-                ConfigurationError, match="Error loading eval data file"
+                EvaluationDataError, match="Error loading eval data file"
             ):
                 AgentGoalEvalDataManager("test.yaml")
 
-    def test_validate_eval_data_missing_eval_id(self):
-        """Test validation with missing eval_id."""
-        invalid_data = [{"eval_query": "test query"}]
-        yaml_content = yaml.dump(invalid_data)
+    def test_load_eval_data_not_list(self):
+        """Test loading YAML that is not a list."""
+        non_list_yaml = yaml.dump({"not": "a list"})
 
         with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("builtins.open", mock_open(read_data=non_list_yaml)),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
-            with pytest.raises(
-                ConfigurationError, match="Missing required field 'eval_id'"
-            ):
+            with pytest.raises(EvaluationDataError, match="must contain a list"):
                 AgentGoalEvalDataManager("test.yaml")
 
-    def test_validate_eval_data_missing_eval_query(self):
-        """Test validation with missing eval_query."""
-        invalid_data = [{"eval_id": "test_001"}]
-        yaml_content = yaml.dump(invalid_data)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            with pytest.raises(
-                ConfigurationError, match="Missing required field 'eval_query'"
-            ):
-                AgentGoalEvalDataManager("test.yaml")
-
-    def test_validate_eval_data_invalid_eval_type(self):
-        """Test validation with invalid eval_type."""
-        invalid_data = [
-            {
-                "eval_id": "test_001",
-                "eval_query": "test query",
-                "eval_type": "invalid_type",
-            }
-        ]
-        yaml_content = yaml.dump(invalid_data)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            with pytest.raises(
-                ConfigurationError, match="Invalid eval_type: invalid_type"
-            ):
-                AgentGoalEvalDataManager("test.yaml")
-
-    def test_validate_eval_data_judge_llm_missing_expected_response(self):
-        """Test validation for judge-llm type missing expected_response."""
-        invalid_data = [
-            {
-                "eval_id": "test_001",
-                "eval_query": "test query",
-                "eval_type": "judge-llm",
-            }
-        ]
-        yaml_content = yaml.dump(invalid_data)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            with pytest.raises(
-                ConfigurationError, match="requires 'expected_response' field"
-            ):
-                AgentGoalEvalDataManager("test.yaml")
-
-    def test_validate_eval_data_sub_string_missing_keywords(self):
-        """Test validation for sub-string type missing expected_keywords."""
-        invalid_data = [
-            {
-                "eval_id": "test_001",
-                "eval_query": "test query",
-                "eval_type": "sub-string",
-            }
-        ]
-        yaml_content = yaml.dump(invalid_data)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            with pytest.raises(
-                ConfigurationError, match="requires 'expected_keywords' field"
-            ):
-                AgentGoalEvalDataManager("test.yaml")
-
-    def test_validate_eval_data_script_missing_verify_script(self):
-        """Test validation for script type missing eval_verify_script."""
-        invalid_data = [
-            {"eval_id": "test_001", "eval_query": "test query", "eval_type": "script"}
-        ]
-        yaml_content = yaml.dump(invalid_data)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            with pytest.raises(
-                ConfigurationError, match="requires 'eval_verify_script' field"
-            ):
-                AgentGoalEvalDataManager("test.yaml")
-
-    def test_validate_eval_data_default_eval_type(self):
-        """Test validation with default eval_type (judge-llm)."""
-        data_with_default_type = [
-            {
-                "eval_id": "test_001",
-                "eval_query": "test query",
-                "expected_response": "test response",
-                # eval_type not specified, should default to judge-llm
-            }
-        ]
-        yaml_content = yaml.dump(data_with_default_type)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 1
-            assert manager.eval_data[0].eval_type == "judge-llm"
-
-    def test_get_eval_data(self, valid_yaml_content):
-        """Test get_eval_data method."""
-        with (
-            patch("builtins.open", mock_open(read_data=valid_yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            eval_data = manager.get_eval_data()
-
-            assert isinstance(eval_data, list)
-            assert len(eval_data) == 3
-            assert all(isinstance(item, EvaluationDataConfig) for item in eval_data)
-            assert eval_data[0].eval_id == "test_001"
-            assert eval_data[1].eval_id == "test_002"
-            assert eval_data[2].eval_id == "test_003"
-
-    def test_get_eval_count(self, valid_yaml_content):
-        """Test get_eval_count method."""
-        with (
-            patch("builtins.open", mock_open(read_data=valid_yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            count = manager.get_eval_count()
-
-            assert count == 3
-            assert count == len(manager.eval_data)
-
-    def test_get_eval_count_empty(self):
-        """Test get_eval_count with empty data."""
+    def test_load_eval_data_empty_list(self):
+        """Test loading YAML file with empty list."""
         empty_yaml = yaml.dump([])
 
         with (
@@ -318,159 +138,382 @@ class TestAgentGoalEvalDataManager:
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
+            with pytest.raises(
+                EvaluationDataError, match="must contain at least one conversation"
+            ):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_conversation_missing_group(self):
+        """Test validation with missing conversation_group."""
+        invalid_data = [
+            {
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query",
+                        "eval_type": "judge-llm",
+                        "expected_response": "test response",
+                    }
+                ]
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*Field required.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_conversation_missing_conversation_list(self):
+        """Test validation with missing conversation list."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*Field required.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_eval_missing_eval_id(self):
+        """Test validation with missing eval_id."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_query": "test query",
+                        "eval_type": "judge-llm",
+                        "expected_response": "test response",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*Field required.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_eval_missing_eval_query(self):
+        """Test validation with missing eval_query."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_type": "judge-llm",
+                        "expected_response": "test response",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*Field required.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_eval_missing_eval_type(self):
+        """Test validation with missing eval_type."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query",
+                        "expected_response": "test response",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*Field required.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_eval_invalid_eval_type(self):
+        """Test validation with invalid eval_type."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query",
+                        "eval_type": "invalid_type",
+                        "expected_response": "test response",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(
+                EvaluationDataError, match=".*eval_type must be one of.*"
+            ):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_judge_llm_missing_expected_response(self):
+        """Test validation for judge-llm missing expected_response."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query",
+                        "eval_type": "judge-llm",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*expected_response.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_sub_string_missing_keywords(self):
+        """Test validation for sub-string missing expected_keywords."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query",
+                        "eval_type": "sub-string",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*expected_keywords.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_validate_script_missing_verify_script(self):
+        """Test validation for script missing eval_verify_script."""
+        invalid_data = [
+            {
+                "conversation_group": "test_conv",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query",
+                        "eval_type": "script",
+                    }
+                ],
+            }
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(EvaluationDataError, match=".*eval_verify_script.*"):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_duplicate_conversation_groups(self):
+        """Test validation with duplicate conversation_group names."""
+        invalid_data = [
+            {
+                "conversation_group": "duplicate_group",
+                "conversation": [
+                    {
+                        "eval_id": "test1",
+                        "eval_query": "test query 1",
+                        "eval_type": "judge-llm",
+                        "expected_response": "test response 1",
+                    }
+                ],
+            },
+            {
+                "conversation_group": "duplicate_group",
+                "conversation": [
+                    {
+                        "eval_id": "test2",
+                        "eval_query": "test query 2",
+                        "eval_type": "judge-llm",
+                        "expected_response": "test response 2",
+                    }
+                ],
+            },
+        ]
+        yaml_content = yaml.dump(invalid_data)
+
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            with pytest.raises(
+                EvaluationDataError, match="Duplicate conversation_group"
+            ):
+                AgentGoalEvalDataManager("test.yaml")
+
+    def test_get_conversations(self, valid_conversation_yaml_content):
+        """Test get conversations method."""
+        with (
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            manager = AgentGoalEvalDataManager("test.yaml")
+            conversations = manager.get_conversations()
+
+            assert len(conversations) == 2
+            assert isinstance(conversations[0], ConversationDataConfig)
+            assert conversations[0].conversation_group == "conv1"
+            assert conversations[1].conversation_group == "conv2"
+
+    def test_get_eval_data_via_conversations(self, valid_conversation_yaml_content):
+        """Test getting evaluation data via conversations."""
+        with (
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
+            manager = AgentGoalEvalDataManager("test.yaml")
+            conversations = manager.get_conversations()
+
+            eval_data = []
+            for conversation in conversations:
+                eval_data.extend(conversation.conversation)
+
+            assert len(eval_data) == 2
+            assert isinstance(eval_data[0], EvaluationDataConfig)
+            assert eval_data[0].eval_id == "eval1"
+            assert eval_data[1].eval_id == "eval1"
+
+    def test_get_eval_count(self, valid_conversation_yaml_content):
+        """Test get_eval_count method."""
+        with (
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_file", return_value=True),
+        ):
+
             manager = AgentGoalEvalDataManager("test.yaml")
             count = manager.get_eval_count()
 
-            assert count == 0
+            assert count == 2
 
-    def test_judge_llm_validation_success(self):
-        """Test successful validation for judge-llm type."""
-        judge_llm_data = [
-            {
-                "eval_id": "test_judge",
-                "eval_query": "What is Docker?",
-                "eval_type": "judge-llm",
-                "expected_response": "Docker is a containerization platform",
-            }
-        ]
-        yaml_content = yaml.dump(judge_llm_data)
-
+    def test_conversation_count_via_conversations(
+        self, valid_conversation_yaml_content
+    ):
+        """Test getting conversation count via conversations list."""
         with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
             manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 1
-            assert manager.eval_data[0].eval_type == "judge-llm"
-            assert (
-                manager.eval_data[0].expected_response
-                == "Docker is a containerization platform"
-            )
+            count = len(manager.conversations)
 
-    def test_script_validation_success(self):
-        """Test successful validation for script type."""
-        script_data = [
-            {
-                "eval_id": "test_script",
-                "eval_query": "Deploy application",
-                "eval_type": "script",
-                "eval_verify_script": "./verify_deployment.sh",
-            }
-        ]
-        yaml_content = yaml.dump(script_data)
+            assert count == 2
 
+    def test_multiturn_conversation_loading(self, multiturn_conversation_yaml_content):
+        """Test loading multi-turn conversation."""
         with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch(
+                "builtins.open",
+                mock_open(read_data=multiturn_conversation_yaml_content),
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
             manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 1
-            assert manager.eval_data[0].eval_type == "script"
-            assert manager.eval_data[0].eval_verify_script == "./verify_deployment.sh"
 
-    def test_sub_string_validation_success(self):
-        """Test successful validation for sub-string type."""
-        sub_string_data = [
-            {
-                "eval_id": "test_substring",
-                "eval_query": "List services",
-                "eval_type": "sub-string",
-                "expected_keywords": ["service", "active", "running"],
-            }
-        ]
-        yaml_content = yaml.dump(sub_string_data)
+            assert len(manager.conversations) == 1
+            assert manager.get_eval_count() == 3
 
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 1
-            assert manager.eval_data[0].eval_type == "sub-string"
-            assert manager.eval_data[0].expected_keywords == [
-                "service",
-                "active",
-                "running",
-            ]
-
-    def test_mixed_eval_types(self):
-        """Test loading data with mixed evaluation types."""
-        mixed_data = [
-            {
-                "eval_id": "judge_test",
-                "eval_query": "What is Kubernetes?",
-                "eval_type": "judge-llm",
-                "expected_response": "Container orchestration",
-            },
-            {
-                "eval_id": "script_test",
-                "eval_query": "Deploy nginx",
-                "eval_type": "script",
-                "eval_verify_script": "./verify.sh",
-            },
-            {
-                "eval_id": "substring_test",
-                "eval_query": "List pods",
-                "eval_type": "sub-string",
-                "expected_keywords": ["pod", "running"],
-            },
-        ]
-        yaml_content = yaml.dump(mixed_data)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 3
-
-            types = [item.eval_type for item in manager.eval_data]
-            assert "judge-llm" in types
-            assert "script" in types
-            assert "sub-string" in types
-
-    def test_eval_data_with_optional_fields(self):
-        """Test evaluation data with optional fields."""
-        data_with_optional = [
-            {
-                "eval_id": "test_with_optional",
-                "eval_query": "Deploy app",
-                "eval_type": "script",
-                "eval_verify_script": "./verify.sh",
-                "eval_setup_script": "./setup.sh",
-                "eval_cleanup_script": "./cleanup.sh",
-            }
-        ]
-        yaml_content = yaml.dump(data_with_optional)
-
-        with (
-            patch("builtins.open", mock_open(read_data=yaml_content)),
-            patch("pathlib.Path.exists", return_value=True),
-            patch("pathlib.Path.is_file", return_value=True),
-        ):
-
-            manager = AgentGoalEvalDataManager("test.yaml")
-            assert len(manager.eval_data) == 1
-            eval_item = manager.eval_data[0]
-            assert eval_item.eval_setup_script == "./setup.sh"
-            assert eval_item.eval_cleanup_script == "./cleanup.sh"
+            conversations = manager.get_conversations()
+            conv = conversations[0]
+            assert conv.conversation_group == "conv1"
+            assert len(conv.conversation) == 3
+            assert conv.conversation[0].eval_id == "eval1"
+            assert conv.conversation[1].eval_id == "eval2"
+            assert conv.conversation[2].eval_id == "eval3"
 
     def test_load_real_yaml_file_integration(self):
         """Integration test with a real temporary YAML file."""
         eval_data = [
             {
-                "eval_id": "integration_test",
-                "eval_query": "Test query",
-                "eval_type": "judge-llm",
-                "expected_response": "Test response",
+                "conversation_group": "integration_test",
+                "description": "Integration test conversation",
+                "conversation": [
+                    {
+                        "eval_id": "integration_test_eval",
+                        "eval_query": "Test query",
+                        "eval_type": "judge-llm",
+                        "expected_response": "Test response",
+                        "description": "Integration test evaluation",
+                    }
+                ],
             }
         ]
 
@@ -480,7 +523,13 @@ class TestAgentGoalEvalDataManager:
 
         try:
             manager = AgentGoalEvalDataManager(temp_file_path)
-            assert len(manager.eval_data) == 1
-            assert manager.eval_data[0].eval_id == "integration_test"
+
+            assert len(manager.conversations) == 1
+            assert manager.get_eval_count() == 1
+
+            conversations = manager.get_conversations()
+            assert conversations[0].conversation_group == "integration_test"
+            assert conversations[0].description == "Integration test conversation"
+
         finally:
             Path(temp_file_path).unlink()  # Clean up temporary file

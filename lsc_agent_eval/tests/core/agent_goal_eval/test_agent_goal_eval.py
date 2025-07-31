@@ -1,14 +1,17 @@
 """Tests for agent goal evaluation orchestrator."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from lsc_agent_eval.core.agent_goal_eval.agent_goal_eval import AgentGoalEval
 from lsc_agent_eval.core.agent_goal_eval.models import (
+    ConversationDataConfig,
     EvaluationDataConfig,
     EvaluationResult,
+    EvaluationStats,
 )
+from lsc_agent_eval.core.utils.exceptions import AgentEvaluationError
 
 
 class TestAgentGoalEval:
@@ -30,22 +33,25 @@ class TestAgentGoalEval:
         return args
 
     @pytest.fixture
-    def sample_configs(self):
-        """Sample evaluation configurations."""
-        return [
-            EvaluationDataConfig(
-                eval_id="test_001",
-                eval_query="What is Kubernetes?",
-                eval_type="judge-llm",
-                expected_response="Kubernetes is a container orchestration platform",
-            ),
-            EvaluationDataConfig(
-                eval_id="test_002",
-                eval_query="Deploy nginx",
-                eval_type="script",
-                eval_verify_script="./verify.sh",
-            ),
-        ]
+    def sample_conversation(self):
+        """Sample conversation data configuration."""
+        return ConversationDataConfig(
+            conversation_group="test_conv",
+            conversation=[
+                EvaluationDataConfig(
+                    eval_id="test_001",
+                    eval_query="What is Openshift?",
+                    eval_type="judge-llm",
+                    expected_response="OpenShift is Red Hat's enterprise Kubernetes platform.",
+                ),
+                EvaluationDataConfig(
+                    eval_id="test_002",
+                    eval_query="Deploy nginx",
+                    eval_type="sub-string",
+                    expected_keywords=["nginx", "deployment"],
+                ),
+            ],
+        )
 
     @pytest.fixture
     def sample_results(self):
@@ -57,13 +63,17 @@ class TestAgentGoalEval:
                 response="Kubernetes is a container orchestration platform",
                 eval_type="judge-llm",
                 result="PASS",
+                conversation_group="test_conv",
+                conversation_id="conv-id-123",
             ),
             EvaluationResult(
                 eval_id="test_002",
                 query="Deploy nginx",
-                response="kubectl create deployment nginx --image=nginx",
-                eval_type="script",
+                response="oc create deployment nginx --image=nginx",
+                eval_type="sub-string",
                 result="PASS",
+                conversation_group="test_conv",
+                conversation_id="conv-id-123",
             ),
         ]
 
@@ -73,10 +83,10 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     def test_init_with_judge_manager(
         self,
-        mock_results_manager,
+        mock_script_runner,
         mock_evaluation_runner,
         mock_judge_manager,
         mock_agent_client,
@@ -90,22 +100,22 @@ class TestAgentGoalEval:
         mock_config_manager.assert_called_once_with("test_data.yaml")
         mock_agent_client.assert_called_once_with("http://localhost:8080", None)
         mock_judge_manager.assert_called_once_with("openai", "gpt-4")
+        mock_script_runner.assert_called_once_with(None)
         mock_evaluation_runner.assert_called_once_with(
             mock_agent_client.return_value,
+            mock_script_runner.return_value,
             mock_judge_manager.return_value,
-            kubeconfig=None,
         )
-        mock_results_manager.assert_called_once_with("results/")
 
     @patch(
         "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
     )
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     def test_init_without_judge_manager(
         self,
-        mock_results_manager,
+        mock_script_runner,
         mock_evaluation_runner,
         mock_agent_client,
         mock_config_manager,
@@ -121,8 +131,8 @@ class TestAgentGoalEval:
         assert evaluator.judge_manager is None
         mock_evaluation_runner.assert_called_once_with(
             mock_agent_client.return_value,
+            mock_script_runner.return_value,
             None,
-            kubeconfig=None,
         )
 
     @patch(
@@ -131,10 +141,10 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     def test_init_with_kubeconfig(
         self,
-        mock_results_manager,
+        mock_script_runner,
         mock_evaluation_runner,
         mock_judge_manager,
         mock_agent_client,
@@ -146,10 +156,11 @@ class TestAgentGoalEval:
 
         AgentGoalEval(mock_args)
 
+        mock_script_runner.assert_called_once_with("~/kubeconfig")
         mock_evaluation_runner.assert_called_once_with(
             mock_agent_client.return_value,
+            mock_script_runner.return_value,
             mock_judge_manager.return_value,
-            kubeconfig="~/kubeconfig",
         )
 
     @patch(
@@ -158,22 +169,33 @@ class TestAgentGoalEval:
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
     def test_run_evaluation_success(
         self,
         mock_results_manager,
+        mock_script_runner,
         mock_evaluation_runner,
         mock_judge_manager,
         mock_agent_client,
         mock_config_manager,
         mock_args,
-        sample_configs,
+        sample_conversation,
         sample_results,
     ):
         """Test successful evaluation execution."""
         # Setup mocks
-        mock_config_manager.return_value.get_eval_data.return_value = sample_configs
+        mock_config_manager.return_value.get_conversations.return_value = [
+            sample_conversation
+        ]
+        mock_config_manager.return_value.get_eval_count.return_value = 2
         mock_evaluation_runner.return_value.run_evaluation.side_effect = sample_results
+
+        # Mock results manager
+        mock_results_mgr_instance = MagicMock()
+        mock_results_manager.return_value = mock_results_mgr_instance
+        mock_stats = EvaluationStats.from_results(sample_results)
+        mock_results_mgr_instance.get_results_stats.return_value = mock_stats
 
         evaluator = AgentGoalEval(mock_args)
 
@@ -185,121 +207,15 @@ class TestAgentGoalEval:
         assert mock_evaluation_runner.return_value.run_evaluation.call_count == 2
 
         # Verify results were saved
-        mock_results_manager.return_value.save_results.assert_called_once_with(
-            sample_results
+        mock_results_mgr_instance.save_results.assert_called_once_with(
+            mock_args.result_dir
         )
 
         # Verify summary was printed
         mock_print.assert_called()
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_run_evaluation_with_errors(
-        self,
-        mock_results_manager,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
-        mock_args,
-        sample_configs,
-        capsys,
-    ):
-        """Test evaluation execution with errors."""
-        # Setup results with errors
-        results_with_errors = [
-            EvaluationResult(
-                eval_id="test_001",
-                query="What is Kubernetes?",
-                response="Kubernetes is a container orchestration platform",
-                eval_type="judge-llm",
-                result="PASS",
-            ),
-            EvaluationResult(
-                eval_id="test_002",
-                query="Deploy nginx",
-                response="",
-                eval_type="script",
-                result="ERROR",
-                error="Script execution failed",
-            ),
-        ]
-
-        mock_config_manager.return_value.get_eval_data.return_value = sample_configs
-        mock_evaluation_runner.return_value.run_evaluation.side_effect = (
-            results_with_errors
-        )
-
-        evaluator = AgentGoalEval(mock_args)
-
-        evaluator.run_evaluation()
-
-        # Capture stdout/stderr output
-        captured = capsys.readouterr()
-
-        # Verify error messages are printed to stdout
-        assert "✅ test_001: PASS" in captured.out
-        assert "⚠️  test_002: ERROR" in captured.out
-        assert "   Query: Deploy nginx" in captured.out
-        assert "   Evaluation type: script" in captured.out
-        assert "   Response: " in captured.out
-        assert "   Error message: Script execution failed" in captured.out
-
-        # Verify evaluations were run
-        assert mock_evaluation_runner.return_value.run_evaluation.call_count == 2
-
-        # Verify results were saved
-        mock_results_manager.return_value.save_results.assert_called_once_with(
-            results_with_errors
-        )
-
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_run_evaluation_exception(
-        self,
-        mock_results_manager,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
-        mock_args,
-    ):
-        """Test evaluation execution with exception."""
-        mock_config_manager.return_value.get_eval_data.side_effect = Exception(
-            "Config error"
-        )
-
-        evaluator = AgentGoalEval(mock_args)
-
-        with patch(
-            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger"
-        ) as mock_logger:
-            with pytest.raises(Exception, match="Config error"):
-                evaluator.run_evaluation()
-
-        # Verify error was logged
-        mock_logger.error.assert_called()
-        args, kwargs = mock_logger.error.call_args
-        assert args[0] == "Evaluation failed: %s"
-        assert str(args[1]) == "Config error"
-
-    def test_print_summary_all_pass(self, mock_args):
-        """Test print summary with all passing results."""
-        results = [
-            EvaluationResult("test_001", "query1", "response1", "judge-llm", "PASS"),
-            EvaluationResult("test_002", "query2", "response2", "script", "PASS"),
-        ]
-
+    def test_get_result_summary_success(self, mock_args):
+        """Test result summary with available results."""
         with (
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
@@ -313,32 +229,17 @@ class TestAgentGoalEval:
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
             ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
-
             evaluator = AgentGoalEval(mock_args)
+            evaluator.result_summary = {"TOTAL": 5, "PASS": 3, "FAIL": 1, "ERROR": 1}
 
-            with patch("builtins.print") as mock_print:
-                evaluator._print_summary(results)
+            result = evaluator.get_result_summary()
 
-            # Check that summary was printed
-            print_calls = [call[0][0] for call in mock_print.call_args_list]
-            summary_text = "\n".join(print_calls)
+            assert result == {"TOTAL": 5, "PASS": 3, "FAIL": 1, "ERROR": 1}
 
-            assert "Total Evaluations: 2" in summary_text
-            assert "Passed: 2" in summary_text
-            assert "Failed: 0" in summary_text
-            assert "Errored: 0" in summary_text
-            assert "Success Rate: 100.0%" in summary_text
-
-    def test_print_summary_mixed_results(self, mock_args):
-        """Test print summary with mixed results."""
-        results = [
-            EvaluationResult("test_001", "query1", "response1", "judge-llm", "PASS"),
-            EvaluationResult("test_002", "query2", "response2", "script", "FAIL"),
-            EvaluationResult("test_003", "query3", "response3", "script", "ERROR"),
-        ]
-
+    def test_get_result_summary_no_results(self, mock_args):
+        """Test result summary with no available results."""
         with (
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
@@ -352,23 +253,12 @@ class TestAgentGoalEval:
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
             ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
-
             evaluator = AgentGoalEval(mock_args)
 
-            with patch("builtins.print") as mock_print:
-                evaluator._print_summary(results)
-
-            # Check that summary was printed
-            print_calls = [call[0][0] for call in mock_print.call_args_list]
-            summary_text = "\n".join(print_calls)
-
-            assert "Total Evaluations: 3" in summary_text
-            assert "Passed: 1" in summary_text
-            assert "Failed: 1" in summary_text
-            assert "Errored: 1" in summary_text
-            assert "Success Rate: 33.3%" in summary_text
+            with pytest.raises(AgentEvaluationError, match="No results available"):
+                evaluator.get_result_summary()
 
     def test_cleanup_with_client(self, mock_args):
         """Test cleanup method with client."""
@@ -385,7 +275,7 @@ class TestAgentGoalEval:
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
             ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
 
             mock_client = Mock()
@@ -412,7 +302,7 @@ class TestAgentGoalEval:
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
             ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
 
             mock_client = Mock()
@@ -431,63 +321,3 @@ class TestAgentGoalEval:
             args, kwargs = mock_logger.warning.call_args
             assert args[0] == "Error during cleanup: %s"
             assert str(args[1]) == "Cleanup error"
-
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_run_evaluation_cleanup_called(
-        self,
-        mock_results_manager,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
-        mock_args,
-        sample_configs,
-        sample_results,
-    ):
-        """Test that cleanup is called even on success."""
-        mock_config_manager.return_value.get_eval_data.return_value = sample_configs
-        mock_evaluation_runner.return_value.run_evaluation.side_effect = sample_results
-
-        evaluator = AgentGoalEval(mock_args)
-
-        with patch.object(evaluator, "_cleanup") as mock_cleanup:
-            evaluator.run_evaluation()
-
-        # Verify cleanup was called
-        mock_cleanup.assert_called_once()
-
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
-    def test_run_evaluation_cleanup_called_on_exception(
-        self,
-        mock_results_manager,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
-        mock_args,
-    ):
-        """Test that cleanup is called even on exception."""
-        mock_config_manager.return_value.get_eval_data.side_effect = Exception(
-            "Config error"
-        )
-
-        evaluator = AgentGoalEval(mock_args)
-
-        with patch.object(evaluator, "_cleanup") as mock_cleanup:
-            with pytest.raises(Exception):
-                evaluator.run_evaluation()
-
-        # Verify cleanup was called
-        mock_cleanup.assert_called_once()

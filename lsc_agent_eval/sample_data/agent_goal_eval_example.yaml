@@ -1,26 +1,68 @@
-- eval_id: eval1
-  eval_query: is there a openshift-monitoring namespace ?
-  eval_type: sub-string
-  expected_keywords:
-  - 'yes'
-  - openshift-monitoring
+- conversation_group: conv1
+  description: Test namespace detection using substring matching
+  conversation:
+    - eval_id: eval1
+      eval_query: is there a openshift-monitoring namespace ?
+      eval_type: sub-string
+      expected_keywords:
+        - 'yes'
+        - openshift-monitoring
+      description: Check for openshift-monitoring namespace existence
 
-- eval_id: eval2
-  eval_query: is there a openshift-monitoring namespace ?
-  eval_type: judge-llm
-  expected_response: there is a openshift-monitoring namespace.
+- conversation_group: conv2
+  description: Test namespace detection using LLM judge
+  conversation:
+    - eval_id: eval1
+      eval_query: is there a openshift-monitoring namespace ?
+      eval_type: judge-llm
+      expected_response: there is a openshift-monitoring namespace.
+      description: Verify openshift-monitoring namespace with LLM evaluation
 
-- eval_id: eval3
-  eval_query: is there a openshift-lightspeed namespace ?
-  eval_setup_script: sample_data/script/eval3/setup.sh
-  eval_type: sub-string
-  expected_keywords:
-  - 'yes'
-  eval_cleanup_script: sample_data/script/eval3/cleanup.sh
+- conversation_group: conv3
+  description: Test namespace creation and detection with scripts
+  setup_script: sample_data/script/conv3/setup.sh
+  cleanup_script: sample_data/script/conv3/cleanup.sh
+  conversation:
+    - eval_id: eval1
+      eval_query: is there a openshift-lightspeed namespace ?
+      eval_type: sub-string
+      expected_keywords:
+        - 'yes'
+      description: Check for openshift-lightspeed namespace after setup
 
-- eval_id: eval4
-  eval_query: create a namespace called openshift-lightspeed
-  eval_setup_script: sample_data/script/eval4/setup.sh
-  eval_type: script
-  eval_verify_script: sample_data/script/eval4/verify.sh
-  eval_cleanup_script: sample_data/script/eval4/cleanup.sh
+- conversation_group: conv4
+  description: Test namespace creation with full script validation
+  setup_script: sample_data/script/conv4/setup.sh
+  cleanup_script: sample_data/script/conv4/cleanup.sh
+  conversation:
+    - eval_id: eval1
+      eval_query: create a namespace called openshift-lightspeed
+      eval_type: script
+      eval_verify_script: sample_data/script/conv4/eval1/verify.sh
+      description: Create namespace and verify with script
+
+- conversation_group: conv5
+  description: Test conversation retention - multi turn success
+  conversation:
+    - eval_id: eval1
+      eval_query: what is openshift virtualization ?
+      eval_type: sub-string
+      expected_keywords:
+        - virtualization
+      description: Test first conversation
+    - eval_id: eval2
+      eval_query: what was my previous query ?
+      eval_type: sub-string
+      expected_keywords:
+        - virtualization
+      description: Test second conversation
+
+- conversation_group: conv6
+  description: Test conversation retention - new conversation
+  conversation:
+    - eval_id: eval1
+      eval_query: what was my previous query ?
+      eval_type: sub-string
+      expected_keywords:
+        - virtualization
+      description: new conversation (failure)

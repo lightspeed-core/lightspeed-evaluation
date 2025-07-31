@@ -47,18 +47,13 @@ class AgentHttpClient:
             raise AgentAPIError(f"Error reading token file: {e}") from e
 
     def query_agent(
-        self, query: str, provider: str, model: str, timeout: int = 300
-    ) -> str:
+        self, api_input: dict[str, str], timeout: int = 300
+    ) -> tuple[str, str]:
         """Query the agent and return response."""
         if not self.client:
             raise AgentAPIError("HTTP client not initialized")
 
         try:
-            api_input = {
-                "query": query,
-                "provider": provider,
-                "model": model,
-            }
             response = self.client.post(
                 "/v1/query",
                 json=api_input,
@@ -69,8 +64,11 @@ class AgentHttpClient:
             response_data = response.json()
             if "response" not in response_data:
                 raise AgentAPIError("Agent response missing 'response' field")
+            agent_response = response_data["response"].strip()
 
-            return response_data["response"].strip()
+            conversation_id = response_data.get("conversation_id", "").strip()
+
+            return agent_response, conversation_id
 
         except httpx.TimeoutException as e:
             raise AgentAPIError(f"Agent query timeout after {timeout} seconds") from e

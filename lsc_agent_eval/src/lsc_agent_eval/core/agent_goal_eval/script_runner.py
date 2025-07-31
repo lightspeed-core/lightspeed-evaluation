@@ -1,10 +1,10 @@
-"""Script execution for evaluation."""
+"""Script execution module for evaluation."""
 
 import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from ..utils.exceptions import ScriptExecutionError
 
@@ -25,18 +25,16 @@ class ScriptRunner:
             env["KUBECONFIG"] = self.kubeconfig
         return env
 
-    def run_script(self, script_path: str, input_text: Optional[str] = None) -> bool:
-        """
-        Execute a script and return success status.
+    def run_script(self, script_path: Union[str, Path]) -> bool:
+        """Execute a script and return success status."""
+        if isinstance(script_path, str):
+            script_path = Path(script_path)
+        script_path = script_path.resolve()
 
-        Path normalization: Relative paths are converted to absolute path.
-        """
-        script_file = Path(script_path).resolve()
-
-        if not script_file.exists():
+        if not script_path.exists():
             raise ScriptExecutionError(f"Script not found: {script_path}")
 
-        if not script_file.is_file():
+        if not script_path.is_file():
             raise ScriptExecutionError(f"Script path is not a file: {script_path}")
 
         try:
@@ -44,17 +42,13 @@ class ScriptRunner:
             env = self.get_environment()
 
             # Make script executable
-            script_file.chmod(0o755)
-
-            # Prepare command
-            cmd = ["bash", str(script_file)]
+            script_path.chmod(0o755)
 
             # Run script
-            logger.debug("Running script: %s", script_file)
+            logger.debug("Running script: %s", script_path)
 
             result = subprocess.run(
-                cmd,
-                input=input_text,
+                [str(script_path)],
                 text=True,
                 capture_output=True,
                 env=env,
