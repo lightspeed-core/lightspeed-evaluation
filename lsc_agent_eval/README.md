@@ -19,7 +19,7 @@ A framework for evaluating AI agent performance.
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.11 or 3.12
 - Package manager: `pdm` or `pip`
 
 ### Install from Git
