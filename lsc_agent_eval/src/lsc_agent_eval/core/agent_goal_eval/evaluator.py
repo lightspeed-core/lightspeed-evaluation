@@ -47,7 +47,9 @@ class EvaluationRunner:
                 "conversation_id": conversation_id,
             }
 
-            response, conversation_id = self.agent_client.query_agent(api_input)
+            response, conversation_id = self.agent_client.streaming_query_agent(
+                api_input
+            )
 
             # Evaluate agent action based on eval type
             success = self._evaluate_agent_action(data_config, response)

@@ -22,6 +22,9 @@ A framework for evaluating AI agent performance.
 - Python 3.11 or 3.12
 - Package manager: `pdm` or `pip`
 
+- Agent API (streaming endpoint) is running. Any change to the API response may have impact.
+- For Judge model, model inference server is up
+
 ### Install from Git
 
 ```bash

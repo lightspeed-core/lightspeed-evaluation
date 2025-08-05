@@ -1,6 +1,6 @@
 """Tests for agent API client."""
 
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import httpx
 import pytest
@@ -176,3 +176,165 @@ class TestAgentHttpClient:
                 AgentAPIError, match="Failed to setup HTTP client: Setup failed"
             ):
                 AgentHttpClient("http://localhost:8080")
+
+    # Streaming Query Tests
+    def test_streaming_query_agent_success(self):
+        """Test successful streaming agent query."""
+        # Sample streaming response data
+        streaming_data = [
+            'data: {"event": "start", "data": {"conversation_id": "stream-conv-123"}}',
+            'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Hello"}}',
+            'data: {"event": "token", "data": {"id": 2, "role": "inference", "token": " World"}}',
+            'data: {"event": "turn_complete", "data": {"id": 3, "token": "Hello World! This is the complete response."}}',
+            'data: {"event": "end", "data": {"input_tokens": 0, "output_tokens": 0}}',
+        ]
+
+        # Mock streaming response
+        mock_response = Mock()
+        mock_response.iter_lines.return_value = iter(streaming_data)
+        mock_response.raise_for_status.return_value = None
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
+
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_client.stream.return_value = mock_stream_response
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {
+                "query": "What is OpenShift?",
+                "provider": "watsonx",
+                "model": "ibm/granite-3-3-8b-instruct",
+            }
+            result_response, result_conversation_id = client.streaming_query_agent(
+                api_input
+            )
+
+            assert result_response == "Hello World! This is the complete response."
+            assert result_conversation_id == "stream-conv-123"
+            mock_client.stream.assert_called_once_with(
+                "POST",
+                "/v1/streaming_query",
+                json=api_input,
+                timeout=300,
+            )
+
+    def test_streaming_query_agent_no_final_response(self):
+        """Test streaming agent query with missing final response."""
+        streaming_data = [
+            'data: {"event": "start", "data": {"conversation_id": "stream-conv-456"}}',
+            'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Hello"}}',
+            # Missing turn_complete event
+            'data: {"event": "end", "data": {"input_tokens": 10, "output_tokens": 20}}',
+        ]
+
+        mock_response = Mock()
+        mock_response.iter_lines.return_value = iter(streaming_data)
+        mock_response.raise_for_status.return_value = None
+
+        from unittest.mock import MagicMock
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
+
+        mock_client = Mock()
+        mock_client.stream.return_value = mock_stream_response
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
+
+            with pytest.raises(
+                AgentAPIError, match="No final response found in streaming output"
+            ):
+                client.streaming_query_agent(api_input)
+
+    def test_streaming_query_agent_no_conversation_id(self):
+        """Test streaming agent query with missing conversation ID."""
+        streaming_data = [
+            # Missing start event with conversation_id
+            'data: {"event": "token", "data": {"id": 1, "role": "inference", "token": "Hello"}}',
+            'data: {"event": "turn_complete", "data": {"id": 2, "token": "Hello World! Response without conversation ID."}}',
+            'data: {"event": "end", "data": {"input_tokens": 10, "output_tokens": 20}}',
+        ]
+
+        mock_response = Mock()
+        mock_response.iter_lines.return_value = iter(streaming_data)
+        mock_response.raise_for_status.return_value = None
+
+        from unittest.mock import MagicMock
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
+
+        mock_client = Mock()
+        mock_client.stream.return_value = mock_stream_response
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
+
+            with pytest.raises(AgentAPIError, match="No Conversation ID found"):
+                client.streaming_query_agent(api_input)
+
+    def test_streaming_query_agent_http_error(self):
+        """Test streaming agent query with HTTP error."""
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+
+        mock_client = Mock()
+        mock_client.stream.side_effect = httpx.HTTPStatusError(
+            "Server error", request=Mock(), response=mock_response
+        )
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
+
+            with pytest.raises(AgentAPIError, match="Agent API error: 500"):
+                client.streaming_query_agent(api_input)
+
+    def test_streaming_query_agent_malformed_json(self):
+        """Test streaming agent query with malformed JSON in stream."""
+        streaming_data = [
+            'data: {"event": "start", "data": {"conversation_id": "stream-conv-789"}}',
+            "data: {invalid json}",  # Malformed JSON
+            'data: {"event": "turn_complete", "data": {"id": 2, "token": "Response despite malformed JSON."}}',
+            'data: {"event": "end", "data": {"input_tokens": 10, "output_tokens": 20}}',
+        ]
+
+        mock_response = Mock()
+        mock_response.iter_lines.return_value = iter(streaming_data)
+        mock_response.raise_for_status.return_value = None
+
+        from unittest.mock import MagicMock
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
+
+        mock_client = Mock()
+        mock_client.stream.return_value = mock_stream_response
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
+
+            # Should succeed despite malformed JSON in middle
+            result_response, result_conversation_id = client.streaming_query_agent(
+                api_input
+            )
+
+            assert result_response == "Response despite malformed JSON."
+            assert result_conversation_id == "stream-conv-789"

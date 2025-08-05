@@ -26,13 +26,13 @@ class TestEvaluationRunner:
         mock_client = Mock(spec=AgentHttpClient)
 
         # Mock agent API: return conversation_id from input or generate one
-        def mock_query_agent(api_input, timeout=300):
+        def mock_streaming_query_agent(api_input, timeout=300):
             return (
                 "Test agent response",
                 api_input.get("conversation_id", "generated-conversation-id"),
             )
 
-        mock_client.query_agent.side_effect = mock_query_agent
+        mock_client.streaming_query_agent.side_effect = mock_streaming_query_agent
         return mock_client
 
     @pytest.fixture
@@ -141,7 +141,7 @@ class TestEvaluationRunner:
         assert result.error is None
 
         # Verify agent was called
-        mock_agent_client.query_agent.assert_called_once_with(
+        mock_agent_client.streaming_query_agent.assert_called_once_with(
             {
                 "query": "What is Openshift Virtualization?",
                 "provider": "watsonx",
@@ -198,7 +198,7 @@ class TestEvaluationRunner:
         assert result.error is None
 
         # Verify agent was called
-        mock_agent_client.query_agent.assert_called_once()
+        mock_agent_client.streaming_query_agent.assert_called_once()
 
         # Verify script was run
         mock_script_runner.run_script.assert_called_once_with(
@@ -251,13 +251,13 @@ class TestEvaluationRunner:
         """Test successful sub-string evaluation."""
 
         # Mock agent response containing expected keywords
-        def mock_query_agent(api_input, timeout=300):
+        def mock_streaming_query_agent(api_input, timeout=300):
             return (
                 "Podman is an open-source container engine developed by Red Hat",
                 api_input.get("conversation_id", "test-conversation-id"),
             )
 
-        mock_agent_client.query_agent.side_effect = mock_query_agent
+        mock_agent_client.streaming_query_agent.side_effect = mock_streaming_query_agent
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
@@ -279,13 +279,13 @@ class TestEvaluationRunner:
         """Test sub-string evaluation failure."""
 
         # Mock agent response not containing expected keywords
-        def mock_query_agent(api_input, timeout=300):
+        def mock_streaming_query_agent(api_input, timeout=300):
             return (
                 "No information available",
                 api_input.get("conversation_id", "test-conversation-id"),
             )
 
-        mock_agent_client.query_agent.side_effect = mock_query_agent
+        mock_agent_client.streaming_query_agent.side_effect = mock_streaming_query_agent
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
@@ -306,7 +306,7 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with agent API error."""
         # Mock agent client to raise API error
-        mock_agent_client.query_agent.side_effect = AgentAPIError(
+        mock_agent_client.streaming_query_agent.side_effect = AgentAPIError(
             "API connection failed"
         )
 
@@ -340,46 +340,54 @@ class TestEvaluationRunner:
         )
 
         # Test all keywords present - should PASS
-        def mock_query_agent_all_keywords(api_input, timeout=300):
+        def mock_streaming_query_agent_all_keywords(api_input, timeout=300):
             return (
                 "Response with keyword1 and keyword2",
                 api_input.get("conversation_id", "test-conversation-id"),
             )
 
-        mock_agent_client.query_agent.side_effect = mock_query_agent_all_keywords
+        mock_agent_client.streaming_query_agent.side_effect = (
+            mock_streaming_query_agent_all_keywords
+        )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result.result == "PASS"
 
         # Test some keywords missing (only one present) - should FAIL
-        def mock_query_agent_one_keyword(api_input, timeout=300):
+        def mock_streaming_query_agent_one_keyword(api_input, timeout=300):
             return (
                 "Response with only keyword1",
                 api_input.get("conversation_id", "test-conversation-id"),
             )
 
-        mock_agent_client.query_agent.side_effect = mock_query_agent_one_keyword
+        mock_agent_client.streaming_query_agent.side_effect = (
+            mock_streaming_query_agent_one_keyword
+        )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result.result == "FAIL"
 
         # Test no keywords present - should FAIL
-        def mock_query_agent_no_keywords(api_input, timeout=300):
+        def mock_streaming_query_agent_no_keywords(api_input, timeout=300):
             return (
                 "Response with no matching terms",
                 api_input.get("conversation_id", "test-conversation-id"),
             )
 
-        mock_agent_client.query_agent.side_effect = mock_query_agent_no_keywords
+        mock_agent_client.streaming_query_agent.side_effect = (
+            mock_streaming_query_agent_no_keywords
+        )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result.result == "FAIL"
 
         # Test case insensitive matching
-        def mock_query_agent_case_insensitive(api_input, timeout=300):
+        def mock_streaming_query_agent_case_insensitive(api_input, timeout=300):
             return (
                 "Response with KEYWORD1 and Keyword2",
                 api_input.get("conversation_id", "test-conversation-id"),
             )
 
-        mock_agent_client.query_agent.side_effect = mock_query_agent_case_insensitive
+        mock_agent_client.streaming_query_agent.side_effect = (
+            mock_streaming_query_agent_case_insensitive
+        )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result.result == "PASS"
 
@@ -404,7 +412,7 @@ class TestEvaluationRunner:
         assert result.conversation_id == test_conv_id
 
         # Verify ID was passed to agent client
-        mock_agent_client.query_agent.assert_called_once_with(
+        mock_agent_client.streaming_query_agent.assert_called_once_with(
             {
                 "query": "Test query",
                 "provider": "openai",
