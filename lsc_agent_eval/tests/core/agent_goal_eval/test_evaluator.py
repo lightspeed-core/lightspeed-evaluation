@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -55,7 +55,7 @@ class TestEvaluationRunner:
         return EvaluationDataConfig(
             eval_id="test_001",
             eval_query="What is Openshift Virtualization?",
-            eval_type="judge-llm",
+            eval_types=["response_eval:accuracy"],
             expected_response="OpenShift Virtualization is an extension of the OpenShift Container Platform",
         )
 
@@ -79,7 +79,7 @@ class TestEvaluationRunner:
         return EvaluationDataConfig(
             eval_id="test_002",
             eval_query="Deploy nginx",
-            eval_type="script",
+            eval_types=["action_eval"],
             eval_verify_script=get_test_script_path,
         )
 
@@ -89,7 +89,7 @@ class TestEvaluationRunner:
         return EvaluationDataConfig(
             eval_id="test_003",
             eval_query="What is Podman?",
-            eval_type="sub-string",
+            eval_types=["response_eval:sub-string"],
             expected_keywords=["container", "podman"],
         )
 
@@ -125,17 +125,20 @@ class TestEvaluationRunner:
             mock_agent_client, mock_script_runner, mock_judge_manager
         )
 
-        result = runner.run_evaluation(
+        results = runner.run_evaluation(
             sample_config_judge_llm,
             "watsonx",
             "ibm/granite-3-3-8b-instruct",
             "conv-id-123",
         )
 
+        assert len(results) == 1
+
+        result = results[0]
         assert isinstance(result, EvaluationResult)
         assert result.eval_id == "test_001"
         assert result.query == "What is Openshift Virtualization?"
-        assert result.eval_type == "judge-llm"
+        assert result.eval_type == "response_eval:accuracy"
         assert result.result == "PASS"
         assert result.conversation_id == "conv-id-123"
         assert result.error is None
@@ -168,13 +171,14 @@ class TestEvaluationRunner:
             mock_agent_client, mock_script_runner, mock_judge_manager
         )
 
-        result = runner.run_evaluation(
+        results = runner.run_evaluation(
             sample_config_judge_llm,
             "openai",
             "gpt-4",
             "conv-id-123",
         )
 
+        result = results[0]
         assert result.result == "FAIL"
         assert result.error is None
 
@@ -189,11 +193,11 @@ class TestEvaluationRunner:
             "openai",
             "gpt-4",
             "conv-id-123",
-        )
+        )[0]
 
         assert isinstance(result, EvaluationResult)
         assert result.eval_id == "test_002"
-        assert result.eval_type == "script"
+        assert result.eval_type == "action_eval"
         assert result.result == "PASS"
         assert result.error is None
 
@@ -219,7 +223,7 @@ class TestEvaluationRunner:
             "openai",
             "gpt-4",
             "conv-id-123",
-        )
+        )[0]
 
         assert result.result == "FAIL"
         assert result.error is None
@@ -240,7 +244,7 @@ class TestEvaluationRunner:
             "openai",
             "gpt-4",
             "conv-id-123",
-        )
+        )[0]
 
         assert result.result == "ERROR"
         assert "Script failed" in result.error
@@ -261,16 +265,17 @@ class TestEvaluationRunner:
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
-        result = runner.run_evaluation(
+        results = runner.run_evaluation(
             sample_config_substring,
             "openai",
             "gpt-4",
             "conv-id-123",
         )
 
+        result = results[0]
         assert result.eval_id == "test_003"
         assert result.result == "PASS"
-        assert result.eval_type == "sub-string"
+        assert result.eval_type == "response_eval:sub-string"
         assert result.error is None
 
     def test_run_evaluation_substring_failure(
@@ -289,16 +294,17 @@ class TestEvaluationRunner:
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
-        result = runner.run_evaluation(
+        results = runner.run_evaluation(
             sample_config_substring,
             "openai",
             "gpt-4",
             None,
         )
 
+        result = results[0]
         assert result.eval_id == "test_003"
         assert result.result == "FAIL"
-        assert result.eval_type == "sub-string"
+        assert result.eval_type == "response_eval:sub-string"
         assert result.error is None
 
     def test_run_evaluation_agent_api_error(
@@ -312,16 +318,17 @@ class TestEvaluationRunner:
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
-        result = runner.run_evaluation(
+        results = runner.run_evaluation(
             sample_config_judge_llm,
             "openai",
             "gpt-4",
             "conv-id-123",
         )
 
+        result = results[0]
         assert result.eval_id == "test_001"
         assert result.result == "ERROR"
-        assert result.eval_type == "judge-llm"
+        assert result.eval_type == "response_eval:accuracy"
         assert "API connection failed" in result.error
 
     def test_substring_evaluation_logic(
@@ -335,7 +342,7 @@ class TestEvaluationRunner:
         config = EvaluationDataConfig(
             eval_id="substring_test",
             eval_query="Test query",
-            eval_type="sub-string",
+            eval_types=["response_eval:sub-string"],
             expected_keywords=["keyword1", "keyword2"],
         )
 
@@ -350,7 +357,7 @@ class TestEvaluationRunner:
             mock_streaming_query_agent_all_keywords
         )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
-        assert result.result == "PASS"
+        assert result[0].result == "PASS"
 
         # Test some keywords missing (only one present) - should FAIL
         def mock_streaming_query_agent_one_keyword(api_input, timeout=300):
@@ -363,7 +370,7 @@ class TestEvaluationRunner:
             mock_streaming_query_agent_one_keyword
         )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
-        assert result.result == "FAIL"
+        assert result[0].result == "FAIL"
 
         # Test no keywords present - should FAIL
         def mock_streaming_query_agent_no_keywords(api_input, timeout=300):
@@ -376,7 +383,7 @@ class TestEvaluationRunner:
             mock_streaming_query_agent_no_keywords
         )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
-        assert result.result == "FAIL"
+        assert result[0].result == "FAIL"
 
         # Test case insensitive matching
         def mock_streaming_query_agent_case_insensitive(api_input, timeout=300):
@@ -389,7 +396,7 @@ class TestEvaluationRunner:
             mock_streaming_query_agent_case_insensitive
         )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
-        assert result.result == "PASS"
+        assert result[0].result == "PASS"
 
     def test_conversation_id_propagation(
         self, mock_agent_client, mock_script_runner, mock_judge_manager
@@ -402,14 +409,14 @@ class TestEvaluationRunner:
         config = EvaluationDataConfig(
             eval_id="conv_id_test",
             eval_query="Test query",
-            eval_type="judge-llm",
+            eval_types=["response_eval:accuracy"],
             expected_response="Test response",
         )
 
         test_conv_id = "conv-id-456"
         result = runner.run_evaluation(config, "openai", "gpt-4", test_conv_id)
 
-        assert result.conversation_id == test_conv_id
+        assert result[0].conversation_id == test_conv_id
 
         # Verify ID was passed to agent client
         mock_agent_client.streaming_query_agent.assert_called_once_with(
@@ -420,3 +427,163 @@ class TestEvaluationRunner:
                 "conversation_id": test_conv_id,
             }
         )
+
+    @patch("pathlib.Path.exists", return_value=True)
+    @patch("pathlib.Path.is_file", return_value=True)
+    def test_multiple_eval_types_all_pass(
+        self,
+        mock_is_file,
+        mock_exists,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+    ):
+        """Test evaluation with multiple eval types where all pass."""
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, timeout=300: (
+                "Successfully created openshift-lightspeed namespace",
+                "conv-123",
+            )
+        )
+        mock_script_runner.run_script.return_value = True
+        mock_judge_manager.evaluate_response.return_value = "1"
+
+        config = EvaluationDataConfig(
+            eval_id="multi_pass_test",
+            eval_query="create openshift-lightspeed namespace",
+            eval_types=[
+                "action_eval",
+                "response_eval:sub-string",
+                "response_eval:accuracy",
+            ],
+            eval_verify_script="sample_data/script/conv4/eval1/verify.sh",
+            expected_keywords=[
+                "successfully",
+                "created",
+                "lightspeed",
+            ],  # All present in response
+            expected_response="openshift-lightspeed namespace is created successfully",
+        )
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+        results = runner.run_evaluation(config, "ollama", "gpt-oss:20b")
+
+        # Should get 3 results, one for each eval_type
+        assert len(results) == 3
+
+        assert all(
+            r.result == "PASS" for r in results
+        ), f"Expected all PASS, got: {[(r.eval_type, r.result) for r in results]}"
+
+        eval_types = [r.eval_type for r in results]
+        assert "action_eval" in eval_types
+        assert "response_eval:sub-string" in eval_types
+        assert "response_eval:accuracy" in eval_types
+
+        assert all(r.eval_id == "multi_pass_test" for r in results)
+        assert all(r.query == "create openshift-lightspeed namespace" for r in results)
+        assert all(r.conversation_id == "conv-123" for r in results)
+
+    @patch("pathlib.Path.exists", return_value=True)
+    @patch("pathlib.Path.is_file", return_value=True)
+    def test_multiple_eval_types_mixed_results(
+        self,
+        mock_is_file,
+        mock_exists,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+    ):
+        """Test evaluation with multiple eval types having mixed results."""
+        # Mock mixed results
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, timeout=300: (
+                "Sorry, I can't create a openshift-lightspeed namespace",
+                "conv-456",
+            )
+        )
+        mock_script_runner.run_script.return_value = False  # Script fails
+        mock_judge_manager.evaluate_response.return_value = "0"  # Accuracy fails
+
+        config = EvaluationDataConfig(
+            eval_id="multi_mixed_test",
+            eval_query="create openshift-lightspeed namespace",
+            eval_types=[
+                "action_eval",
+                "response_eval:sub-string",
+                "response_eval:accuracy",
+            ],
+            eval_verify_script="sample_data/script/conv4/eval1/verify.sh",
+            expected_keywords=["lightspeed"],  # Only this should pass
+            expected_response="openshift-lightspeed namespace is created successfully",
+        )
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+        results = runner.run_evaluation(config, "some-provider", "some-model")
+
+        assert len(results) == 3
+
+        result_by_type = {r.eval_type: r for r in results}
+        assert result_by_type["action_eval"].result == "FAIL"
+        assert result_by_type["response_eval:sub-string"].result == "PASS"
+        assert result_by_type["response_eval:accuracy"].result == "FAIL"
+
+        assert all(r.eval_id == "multi_mixed_test" for r in results)
+        assert all(r.query == "create openshift-lightspeed namespace" for r in results)
+        assert all(r.conversation_id == "conv-456" for r in results)
+
+    @patch("pathlib.Path.exists", return_value=True)
+    @patch("pathlib.Path.is_file", return_value=True)
+    def test_multiple_eval_types_with_error(
+        self,
+        mock_is_file,
+        mock_exists,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+    ):
+        """Test evaluation with multiple eval types where some have errors."""
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, timeout=300: (
+                "Sorry, I can't create a openshift-lightspeed namespace",
+                "conv-789",
+            )
+        )
+        # Script execution error
+        mock_script_runner.run_script.side_effect = ScriptExecutionError(
+            "Script file not found"
+        )
+        mock_judge_manager.evaluate_response.return_value = "0"
+
+        config = EvaluationDataConfig(
+            eval_id="multi_error_test",
+            eval_query="create openshift-lightspeed namespace",
+            eval_types=[
+                "action_eval",
+                "response_eval:sub-string",
+                "response_eval:accuracy",
+            ],
+            eval_verify_script="sample_data/script/conv4/eval1/verify.sh",
+            expected_keywords=["openshift"],
+            expected_response="openshift-lightspeed namespace is created successfully",
+        )
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+        results = runner.run_evaluation(config, "some-provider", "some-model")
+
+        assert len(results) == 3
+
+        result_by_type = {r.eval_type: r for r in results}
+
+        assert result_by_type["action_eval"].result == "ERROR"
+        assert "Script file not found" in result_by_type["action_eval"].error
+
+        assert result_by_type["response_eval:sub-string"].result == "PASS"
+
+        assert result_by_type["response_eval:accuracy"].result == "FAIL"

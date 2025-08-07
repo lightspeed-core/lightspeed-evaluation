@@ -1,4 +1,4 @@
-"""Tests for agent evaluation models."""
+"""Tests for agent evaluation data models."""
 
 from pathlib import Path
 from unittest.mock import mock_open, patch
@@ -23,7 +23,7 @@ class TestEvaluationResult:
             eval_id="test_001",
             query="What is Kubernetes?",
             response="Kubernetes is a container orchestration platform",
-            eval_type="judge-llm",
+            eval_type="response_eval:accuracy",
             result="PASS",
             error=None,
         )
@@ -31,7 +31,7 @@ class TestEvaluationResult:
         assert result.eval_id == "test_001"
         assert result.query == "What is Kubernetes?"
         assert result.response == "Kubernetes is a container orchestration platform"
-        assert result.eval_type == "judge-llm"
+        assert result.eval_type == "response_eval:accuracy"
         assert result.result == "PASS"
         assert result.error is None
 
@@ -41,7 +41,7 @@ class TestEvaluationResult:
             eval_id="test_002",
             query="Deploy nginx",
             response="",
-            eval_type="script",
+            eval_type="action_eval",
             result="ERROR",
             error="Script execution failed",
         )
@@ -49,7 +49,7 @@ class TestEvaluationResult:
         assert result.eval_id == "test_002"
         assert result.query == "Deploy nginx"
         assert result.response == ""
-        assert result.eval_type == "script"
+        assert result.eval_type == "action_eval"
         assert result.result == "ERROR"
         assert result.error == "Script execution failed"
 
@@ -59,7 +59,7 @@ class TestEvaluationResult:
             eval_id="test_003",
             query="Test query",
             response="Test response",
-            eval_type="sub-string",
+            eval_type="response_eval:sub-string",
             result="PASS",
         )
 
@@ -72,7 +72,7 @@ class TestEvaluationResult:
                 eval_id="test_004",
                 query="Test query",
                 response="Test response",
-                eval_type="judge-llm",
+                eval_type="response_eval:accuracy",
                 result="INVALID",
             )
 
@@ -91,6 +91,55 @@ class TestEvaluationResult:
 
         assert "eval_type must be one of" in str(exc_info.value)
 
+    def test_evaluation_results_multiple_eval_types(self):
+        """Test multiple EvaluationResult instances with different eval types for same query."""
+        # Mock results
+        results = [
+            EvaluationResult(
+                eval_id="multi_001",
+                query="create openshift-lightspeed namespace",
+                response="Sorry, I can't create a openshift-lightspeed namespace",
+                eval_type="action_eval",
+                result="ERROR",
+                conversation_group="test_conv",
+                conversation_id="conv-123",
+            ),
+            EvaluationResult(
+                eval_id="multi_001",
+                query="create openshift-lightspeed namespace",
+                response="Sorry, I can't create a openshift-lightspeed namespace",
+                eval_type="response_eval:sub-string",
+                result="PASS",
+                conversation_group="test_conv",
+                conversation_id="conv-123",
+            ),
+            EvaluationResult(
+                eval_id="multi_001",
+                query="create openshift-lightspeed namespace",
+                response="Sorry, I can't create a openshift-lightspeed namespace",
+                eval_type="response_eval:accuracy",
+                result="FAIL",
+                conversation_group="test_conv",
+                conversation_id="conv-123",
+            ),
+        ]
+
+        # Verify all results have same core info but different eval_types
+        assert all(r.eval_id == "multi_001" for r in results)
+        assert all(r.query == "create openshift-lightspeed namespace" for r in results)
+        assert all(r.conversation_id == "conv-123" for r in results)
+
+        # Verify different eval_types and results
+        eval_types = [r.eval_type for r in results]
+        assert "action_eval" in eval_types
+        assert "response_eval:sub-string" in eval_types
+        assert "response_eval:accuracy" in eval_types
+
+        # Verify individual results
+        assert results[0].result == "ERROR"  # action_eval
+        assert results[1].result == "PASS"  # response_eval:sub-string
+        assert results[2].result == "FAIL"  # response_eval:accuracy
+
 
 class TestEvaluationDataConfig:
     """Test EvaluationDataConfig data class."""
@@ -100,13 +149,13 @@ class TestEvaluationDataConfig:
         config = EvaluationDataConfig(
             eval_id="judge_test",
             eval_query="Explain containers",
-            eval_type="judge-llm",
+            eval_types=["response_eval:accuracy"],
             expected_response="Containers are lightweight virtualization",
         )
 
         assert config.eval_id == "judge_test"
         assert config.eval_query == "Explain containers"
-        assert config.eval_type == "judge-llm"
+        assert config.eval_types == ["response_eval:accuracy"]
         assert config.expected_response == "Containers are lightweight virtualization"
         assert config.expected_keywords is None
         assert config.eval_verify_script is None
@@ -120,13 +169,13 @@ class TestEvaluationDataConfig:
         config = EvaluationDataConfig(
             eval_id="script_test",
             eval_query="Deploy nginx pod",
-            eval_type="script",
+            eval_types=["action_eval"],
             eval_verify_script="/mock/script/path.sh",
         )
 
         assert config.eval_id == "script_test"
         assert config.eval_query == "Deploy nginx pod"
-        assert config.eval_type == "script"
+        assert config.eval_types == ["action_eval"]
         assert config.expected_response is None
         assert config.expected_keywords is None
         assert isinstance(config.eval_verify_script, Path)
@@ -140,13 +189,13 @@ class TestEvaluationDataConfig:
         config = EvaluationDataConfig(
             eval_id="substring_test",
             eval_query="List container benefits",
-            eval_type="sub-string",
+            eval_types=["response_eval:sub-string"],
             expected_keywords=["isolation", "portability", "efficiency"],
         )
 
         assert config.eval_id == "substring_test"
         assert config.eval_query == "List container benefits"
-        assert config.eval_type == "sub-string"
+        assert config.eval_types == ["response_eval:sub-string"]
         assert config.expected_response is None
         assert config.expected_keywords == ["isolation", "portability", "efficiency"]
         assert config.eval_verify_script is None
@@ -156,18 +205,53 @@ class TestEvaluationDataConfig:
         config = EvaluationDataConfig(
             eval_id="full_test",
             eval_query="What is OpenShift?",
-            eval_type="judge-llm",
+            eval_types=["response_eval:accuracy"],
             expected_response="OpenShift is a Kubernetes platform",
             description="Test evaluation for OpenShift knowledge",
         )
 
         assert config.eval_id == "full_test"
         assert config.eval_query == "What is OpenShift?"
-        assert config.eval_type == "judge-llm"
+        assert config.eval_types == ["response_eval:accuracy"]
         assert config.expected_response == "OpenShift is a Kubernetes platform"
         assert config.description == "Test evaluation for OpenShift knowledge"
         assert config.expected_keywords is None
         assert config.eval_verify_script is None
+
+    @patch("builtins.open", mock_open())
+    @patch("pathlib.Path.is_file", return_value=True)
+    @patch("pathlib.Path.exists", return_value=True)
+    def test_evaluation_data_config_multiple_eval_types(
+        self, mock_exists, mock_is_file
+    ):
+        """Test EvaluationDataConfig with multiple eval types."""
+        config = EvaluationDataConfig(
+            eval_id="multi_001",
+            eval_query="create openshift-lightspeed namespace",
+            eval_types=[
+                "action_eval",
+                "response_eval:sub-string",
+                "response_eval:accuracy",
+            ],
+            eval_verify_script="/mock/script/path.sh",
+            expected_keywords=["openshift-lightspeed", "created"],
+            expected_response="openshift-lightspeed namespace is successfully created",
+            description="Multi-evaluation test",
+        )
+
+        assert config.eval_id == "multi_001"
+        assert config.eval_query == "create openshift-lightspeed namespace"
+        assert len(config.eval_types) == 3
+        assert "action_eval" in config.eval_types
+        assert "response_eval:sub-string" in config.eval_types
+        assert "response_eval:accuracy" in config.eval_types
+        assert config.expected_keywords == ["openshift-lightspeed", "created"]
+        assert (
+            config.expected_response
+            == "openshift-lightspeed namespace is successfully created"
+        )
+        assert config.description == "Multi-evaluation test"
+        assert isinstance(config.eval_verify_script, Path)
 
     def test_evaluation_data_config_missing_eval_type(self):
         """Test EvaluationDataConfig with missing eval_type (should fail)."""
@@ -185,7 +269,7 @@ class TestEvaluationDataConfig:
             EvaluationDataConfig(
                 eval_id="test_judge",
                 eval_query="Test query",
-                eval_type="judge-llm",
+                eval_types=["response_eval:accuracy"],
             )
 
         assert "requires non-empty 'expected_response'" in str(exc_info.value)
@@ -196,7 +280,7 @@ class TestEvaluationDataConfig:
             EvaluationDataConfig(
                 eval_id="test_substring",
                 eval_query="Test query",
-                eval_type="sub-string",
+                eval_types=["response_eval:sub-string"],
             )
 
         assert "requires non-empty 'expected_keywords'" in str(exc_info.value)
@@ -207,7 +291,7 @@ class TestEvaluationDataConfig:
             EvaluationDataConfig(
                 eval_id="test_script",
                 eval_query="Test query",
-                eval_type="script",
+                eval_types=["action_eval"],
             )
 
         assert "requires non-empty 'eval_verify_script'" in str(exc_info.value)
@@ -218,7 +302,7 @@ class TestEvaluationDataConfig:
             EvaluationDataConfig(
                 eval_id="test_script",
                 eval_query="Test query",
-                eval_type="script",
+                eval_types=["action_eval"],
                 eval_verify_script="/non/existent/script.sh",
             )
 
@@ -236,7 +320,7 @@ class TestConversationDataConfig:
                 EvaluationDataConfig(
                     eval_id="test_001",
                     eval_query="What is Kubernetes?",
-                    eval_type="judge-llm",
+                    eval_types=["response_eval:accuracy"],
                     expected_response="Kubernetes is a platform",
                 )
             ],
@@ -263,7 +347,7 @@ class TestConversationDataConfig:
                 EvaluationDataConfig(
                     eval_id="test_001",
                     eval_query="Test query",
-                    eval_type="judge-llm",
+                    eval_types=["response_eval:accuracy"],
                     expected_response="Test response",
                 )
             ],
@@ -283,7 +367,7 @@ class TestConversationDataConfig:
                     EvaluationDataConfig(
                         eval_id="test_001",
                         eval_query="Test query",
-                        eval_type="judge-llm",
+                        eval_types=["response_eval:accuracy"],
                         expected_response="Test response",
                     )
                 ],
@@ -301,7 +385,7 @@ class TestConversationDataConfig:
                     EvaluationDataConfig(
                         eval_id="test_001",
                         eval_query="Test query",
-                        eval_type="judge-llm",
+                        eval_types=["response_eval:accuracy"],
                         expected_response="Test response",
                     )
                 ],
@@ -318,13 +402,13 @@ class TestConversationDataConfig:
                     EvaluationDataConfig(
                         eval_id="duplicate_id",
                         eval_query="First query",
-                        eval_type="judge-llm",
+                        eval_types=["response_eval:accuracy"],
                         expected_response="First response",
                     ),
                     EvaluationDataConfig(
                         eval_id="duplicate_id",
                         eval_query="Second query",
-                        eval_type="judge-llm",
+                        eval_types=["response_eval:accuracy"],
                         expected_response="Second response",
                     ),
                 ],
@@ -343,7 +427,7 @@ class TestEvaluationStats:
                 eval_id="test_001",
                 query="Query 1",
                 response="Response 1",
-                eval_type="judge-llm",
+                eval_type="response_eval:accuracy",
                 result="PASS",
                 conversation_group="conv1",
             ),
@@ -351,7 +435,7 @@ class TestEvaluationStats:
                 eval_id="test_002",
                 query="Query 2",
                 response="Response 2",
-                eval_type="script",
+                eval_type="action_eval",
                 result="FAIL",
                 conversation_group="conv1",
             ),
@@ -359,7 +443,7 @@ class TestEvaluationStats:
                 eval_id="test_003",
                 query="Query 3",
                 response="Response 3",
-                eval_type="sub-string",
+                eval_type="response_eval:sub-string",
                 result="PASS",
                 conversation_group="conv2",
             ),
@@ -383,6 +467,6 @@ class TestEvaluationStats:
         assert stats.by_conversation["conv2"]["passed"] == 1
 
         # Check stats by eval_type
-        assert "judge-llm" in stats.by_eval_type
-        assert "script" in stats.by_eval_type
-        assert "sub-string" in stats.by_eval_type
+        assert "response_eval:accuracy" in stats.by_eval_type
+        assert "action_eval" in stats.by_eval_type
+        assert "response_eval:sub-string" in stats.by_eval_type

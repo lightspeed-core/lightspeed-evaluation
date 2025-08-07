@@ -1,11 +1,13 @@
+# Agent evaluation sample data (Only for reference)
+
 - conversation_group: conv1
   description: Test namespace detection using substring matching
   conversation:
     - eval_id: eval1
       eval_query: is there a openshift-monitoring namespace ?
-      eval_type: sub-string
+      eval_types: [response_eval:sub-string]
       expected_keywords:
-        - 'yes'
+        - "yes"
         - openshift-monitoring
       description: Check for openshift-monitoring namespace existence
 
@@ -14,7 +16,7 @@
   conversation:
     - eval_id: eval1
       eval_query: is there a openshift-monitoring namespace ?
-      eval_type: judge-llm
+      eval_types: [response_eval:accuracy]
       expected_response: there is a openshift-monitoring namespace.
       description: Verify openshift-monitoring namespace with LLM evaluation
 
@@ -25,9 +27,8 @@
   conversation:
     - eval_id: eval1
       eval_query: is there a openshift-lightspeed namespace ?
-      eval_type: sub-string
-      expected_keywords:
-        - 'yes'
+      eval_types: [response_eval:sub-string]
+      expected_keywords: ["yes"]
       description: Check for openshift-lightspeed namespace after setup
 
 - conversation_group: conv4
@@ -37,32 +38,65 @@
   conversation:
     - eval_id: eval1
       eval_query: create a namespace called openshift-lightspeed
-      eval_type: script
+      eval_types: [action_eval]
       eval_verify_script: sample_data/script/conv4/eval1/verify.sh
       description: Create namespace and verify with script
 
 - conversation_group: conv5
+  description: Multiple evaluations per query - response_eval only
+  conversation:
+    - eval_id: multi_response_eval
+      eval_query: What is Openshift Virtualization?
+      eval_types:
+        - response_eval:sub-string
+        - response_eval:accuracy
+      expected_keywords:
+        - deploy
+        - application
+        - OpenShift
+      expected_response: OpenShift Virtualization is an extension of the OpenShift Container Platform
+      description: Test multiple response evaluations
+
+- conversation_group: conv6
+  description: Comprehensive evaluation with all types
+  setup_script: sample_data/script/conv4/setup.sh
+  cleanup_script: sample_data/script/conv4/cleanup.sh
+  conversation:
+    - eval_id: comprehensive_eval
+      eval_query: create openshift-lightspeed namespace ?
+      eval_types:
+        - action_eval
+        - response_eval:sub-string
+        - response_eval:accuracy
+      eval_verify_script: sample_data/script/conv4/eval1/verify.sh
+      expected_keywords:
+        - created
+        - openshift-lightspeed
+      expected_response: openshift-lightspeed namespace is created successfully
+      description: Comprehensive evaluation using all evaluation types
+
+- conversation_group: conv7
   description: Test conversation retention - multi turn success
   conversation:
     - eval_id: eval1
       eval_query: what is openshift virtualization ?
-      eval_type: sub-string
+      eval_types: [response_eval:sub-string]
       expected_keywords:
         - virtualization
       description: Test first conversation
     - eval_id: eval2
       eval_query: what was my previous query ?
-      eval_type: sub-string
+      eval_types: [response_eval:sub-string]
       expected_keywords:
         - virtualization
       description: Test second conversation
 
-- conversation_group: conv6
+- conversation_group: conv8
   description: Test conversation retention - new conversation
   conversation:
     - eval_id: eval1
       eval_query: what was my previous query ?
-      eval_type: sub-string
+      eval_types: [response_eval:sub-string]
       expected_keywords:
         - virtualization
       description: new conversation (failure)

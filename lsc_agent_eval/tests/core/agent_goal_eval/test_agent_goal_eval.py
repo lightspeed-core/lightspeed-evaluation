@@ -41,13 +41,13 @@ class TestAgentGoalEval:
                 EvaluationDataConfig(
                     eval_id="test_001",
                     eval_query="What is Openshift?",
-                    eval_type="judge-llm",
+                    eval_types=["response_eval:accuracy"],
                     expected_response="OpenShift is Red Hat's enterprise Kubernetes platform.",
                 ),
                 EvaluationDataConfig(
                     eval_id="test_002",
                     eval_query="Deploy nginx",
-                    eval_type="sub-string",
+                    eval_types=["response_eval:sub-string"],
                     expected_keywords=["nginx", "deployment"],
                 ),
             ],
@@ -61,7 +61,7 @@ class TestAgentGoalEval:
                 eval_id="test_001",
                 query="What is Kubernetes?",
                 response="Kubernetes is a container orchestration platform",
-                eval_type="judge-llm",
+                eval_type="response_eval:accuracy",
                 result="PASS",
                 conversation_group="test_conv",
                 conversation_id="conv-id-123",
@@ -70,7 +70,7 @@ class TestAgentGoalEval:
                 eval_id="test_002",
                 query="Deploy nginx",
                 response="oc create deployment nginx --image=nginx",
-                eval_type="sub-string",
+                eval_type="response_eval:sub-string",
                 result="PASS",
                 conversation_group="test_conv",
                 conversation_id="conv-id-123",
@@ -189,7 +189,10 @@ class TestAgentGoalEval:
             sample_conversation
         ]
         mock_config_manager.return_value.get_eval_count.return_value = 2
-        mock_evaluation_runner.return_value.run_evaluation.side_effect = sample_results
+        mock_evaluation_runner.return_value.run_evaluation.side_effect = [
+            [sample_results[0]],
+            [sample_results[1]],
+        ]
 
         # Mock results manager
         mock_results_mgr_instance = MagicMock()

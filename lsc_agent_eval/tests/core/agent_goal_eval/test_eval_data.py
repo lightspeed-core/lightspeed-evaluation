@@ -27,9 +27,10 @@ class TestAgentGoalEvalDataManager:
   conversation:
     - eval_id: eval1
       eval_query: is there a openshift-monitoring namespace ?
-      eval_type: sub-string
+      eval_types:
+        - response_eval:sub-string
       expected_keywords:
-        - 'yes'
+        - "yes"
         - openshift-monitoring
       description: Check for openshift-monitoring namespace existence
 
@@ -38,7 +39,7 @@ class TestAgentGoalEvalDataManager:
   conversation:
     - eval_id: eval1
       eval_query: is there a openshift-lightspeed namespace ?
-      eval_type: judge-llm
+      eval_types: [response_eval:accuracy]
       expected_response: there is a openshift-lightspeed namespace.
       description: Verify openshift-lightspeed namespace with LLM evaluation
 """
@@ -52,17 +53,20 @@ class TestAgentGoalEvalDataManager:
   conversation:
     - eval_id: eval1
       eval_query: Hi!
-      eval_type: judge-llm
+      eval_types:
+        - response_eval:accuracy
       expected_response: Hello! I'm an AI assistant for the Assisted Installer.
       description: Initial greeting to start conversation
     - eval_id: eval2
       eval_query: Get me active clusters
-      eval_type: judge-llm
+      eval_types:
+        - response_eval:accuracy
       expected_response: Active clusters are x1, x2.
       description: Request for cluster information
     - eval_id: eval3
       eval_query: Thank you
-      eval_type: judge-llm
+      eval_types:
+        - response_eval:accuracy
       expected_response: You're welcome!
       description: Closing statement
 """
@@ -151,7 +155,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test1",
                         "eval_query": "test query",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                         "expected_response": "test response",
                     }
                 ]
@@ -194,7 +198,7 @@ class TestAgentGoalEvalDataManager:
                 "conversation": [
                     {
                         "eval_query": "test query",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                         "expected_response": "test response",
                     }
                 ],
@@ -219,7 +223,7 @@ class TestAgentGoalEvalDataManager:
                 "conversation": [
                     {
                         "eval_id": "test1",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                         "expected_response": "test response",
                     }
                 ],
@@ -270,7 +274,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test1",
                         "eval_query": "test query",
-                        "eval_type": "invalid_type",
+                        "eval_types": ["invalid_type"],
                         "expected_response": "test response",
                     }
                 ],
@@ -298,7 +302,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test1",
                         "eval_query": "test query",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                     }
                 ],
             }
@@ -323,7 +327,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test1",
                         "eval_query": "test query",
-                        "eval_type": "sub-string",
+                        "eval_types": ["response_eval:sub-string"],
                     }
                 ],
             }
@@ -348,7 +352,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test1",
                         "eval_query": "test query",
-                        "eval_type": "script",
+                        "eval_types": ["action_eval"],
                     }
                 ],
             }
@@ -373,7 +377,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test1",
                         "eval_query": "test query 1",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                         "expected_response": "test response 1",
                     }
                 ],
@@ -384,7 +388,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "test2",
                         "eval_query": "test query 2",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                         "expected_response": "test response 2",
                     }
                 ],
@@ -509,7 +513,7 @@ class TestAgentGoalEvalDataManager:
                     {
                         "eval_id": "integration_test_eval",
                         "eval_query": "Test query",
-                        "eval_type": "judge-llm",
+                        "eval_types": ["response_eval:accuracy"],
                         "expected_response": "Test response",
                         "description": "Integration test evaluation",
                     }

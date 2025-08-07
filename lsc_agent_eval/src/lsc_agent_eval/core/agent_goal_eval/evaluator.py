@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from ..utils.exceptions import AgentAPIError, JudgeModelError, ScriptExecutionError
 from ..utils.prompt import ANSWER_CORRECTNESS_PROMPT
-from .utils import create_error_result, create_success_result
+from .utils import create_evaluation_results
 
 if TYPE_CHECKING:
     from ..utils.api_client import AgentHttpClient
@@ -36,10 +36,10 @@ class EvaluationRunner:
         agent_provider: str,
         agent_model: str,
         conversation_id: Optional[str] = None,
-    ) -> "EvaluationResult":
-        """Run a single evaluation based on configuration."""
+    ) -> list["EvaluationResult"]:
+        """Run multiple evaluations based on configuration."""
         try:
-            # Query the agent
+            # Query the agent once
             api_input = {
                 "query": data_config.eval_query,
                 "provider": agent_provider,
@@ -51,30 +51,57 @@ class EvaluationRunner:
                 api_input
             )
 
-            # Evaluate agent action based on eval type
-            success = self._evaluate_agent_action(data_config, response)
+            # Run all evaluations on the same response
+            evaluation_results = []
+            for eval_type in data_config.eval_types:
+                try:
+                    success = self._evaluate_single_type(
+                        eval_type, data_config, response
+                    )
+                    evaluation_results.append(
+                        {
+                            "eval_type": eval_type,
+                            "result": "PASS" if success else "FAIL",
+                            "error": None,
+                        }
+                    )
+                except Exception as e:  # pylint: disable=W0718
+                    logger.error(
+                        "Single evaluation failed for %s (%s): %s",
+                        data_config.eval_id,
+                        eval_type,
+                        e,
+                    )
+                    evaluation_results.append(
+                        {"eval_type": eval_type, "result": "ERROR", "error": str(e)}
+                    )
 
-            return create_success_result(
-                data_config, response, success, conversation_id
+            return create_evaluation_results(
+                data_config,
+                response,
+                evaluation_results,
+                conversation_id=conversation_id,
             )
 
         except (AgentAPIError, ScriptExecutionError, JudgeModelError) as e:
             logger.error("Evaluation failed for %s: %s", data_config.eval_id, e)
-            return create_error_result(data_config, str(e), conversation_id)
+            return create_evaluation_results(
+                data_config, error_message=str(e), conversation_id=conversation_id
+            )
 
-    def _evaluate_agent_action(
-        self, data_config: "EvaluationDataConfig", response: str
+    def _evaluate_single_type(
+        self, eval_type: str, data_config: "EvaluationDataConfig", response: str
     ) -> bool:
-        """Evaluate agent action based on configuration type."""
-        match data_config.eval_type:
-            case "script":
+        """Evaluate single evaluation type."""
+        match eval_type:
+            case "action_eval":
                 return self._evaluate_script(data_config)
-            case "sub-string":
+            case "response_eval:sub-string":
                 return self._evaluate_substring(data_config, response)
-            case "judge-llm":
+            case "response_eval:accuracy":
                 return self._evaluate_judge_llm(data_config, response)
             case _:
-                logger.error("Unknown evaluation type: %s", data_config.eval_type)
+                logger.error("Unknown evaluation type: %s", eval_type)
                 return False
 
     def _evaluate_script(self, data_config: "EvaluationDataConfig") -> bool:

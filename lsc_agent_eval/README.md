@@ -6,10 +6,10 @@ A framework for evaluating AI agent performance.
 
 - **Agent Goal Evaluation**: Evaluate whether an agent successfully achieves specified goals
 - **Multi-turn Evaluation**: Organize evaluations into conversation groups for multi-turn testing
-- **Multi-type Evaluation**: Support for different evaluation types:
-  - `judge-llm`: LLM-based evaluation using a judge model
-  - `script`: Script-based evaluation using verification scripts (similar to [k8s-bench](https://github.com/GoogleCloudPlatform/kubectl-ai/tree/main/k8s-bench))
-  - `sub-string`: Simple substring matching evaluation (ALL keywords must be present in response)
+- **Multi-type Evaluation**: Support for multiple evaluation types per query:
+  - `action_eval`: Script-based evaluation using verification script (similar to [k8s-bench](https://github.com/GoogleCloudPlatform/kubectl-ai/tree/main/k8s-bench))
+  - `response_eval:sub-string`: Simple substring matching evaluation (ALL keywords must be present in response)
+  - `response_eval:accuracy`: LLM-based evaluation using a judge model. Result is either accurate or not in comparison to expected response
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after evaluation
 - **Result Tracking**: Result tracking with CSV output and JSON statistics
 - **Standalone Package**: Can be installed and used independently of the main lightspeed-core-evaluation package
@@ -22,7 +22,7 @@ A framework for evaluating AI agent performance.
 - Python 3.11 or 3.12
 - Package manager: `pdm` or `pip`
 
-- Agent API (streaming endpoint) is running. Any change to the API response may have impact.
+- Agent API (streaming endpoint) is running. Any change to the API response format may impact evaluation processing logic.
 - For Judge model, model inference server is up
 
 ### Install from Git
@@ -62,10 +62,10 @@ The evaluation is configured using a YAML file that defines conversations. Each 
 Each evaluation within a conversation can include:
 - `eval_id`: Unique identifier for the evaluation
 - `eval_query`: The query/task to send to the agent
-- `eval_type`: Type of evaluation (judge-llm, script, sub-string)
-- `expected_response`: Expected response (for judge-llm evaluation)
-- `expected_keywords`: Keywords to look for (for sub-string evaluation)
-- `eval_verify_script`: Verification script (for script evaluation)
+- `eval_types`: List of evaluation types to run (action_eval, response_eval:sub-string, response_eval:accuracy)
+- `expected_response`: Expected response (for response_eval:accuracy evaluation)
+- `expected_keywords`: Keywords to look for (for response_eval:sub-string evaluation)
+- `eval_verify_script`: Verification script (for action_eval evaluation)
 - `description`: Description of the evaluation (Optional)
 
 Note: `eval_id` can't contain duplicate values within a conversation group. But it is okay for cross conversation group (A warning is logged anyway for awareness)
@@ -73,41 +73,43 @@ Note: `eval_id` can't contain duplicate values within a conversation group. But 
 ### Example Data Configuration
 
 ```yaml
-# Multi-turn Conversations
+# Multi-turn Conversations with Multiple Evaluation Types
 - conversation_group: conv1
   description: Basic conversation flow testing cluster operations
   conversation:
     - eval_id: eval1
       eval_query: Hi!
-      eval_type: judge-llm
+      eval_types: [response_eval:accuracy]
       expected_response: Hello! I'm an AI assistant for the Installer.
       description: Initial greeting to start conversation
     - eval_id: eval2
       eval_query: Get me active clusters
-      eval_type: judge-llm
+      eval_types: [response_eval:accuracy, response_eval:sub-string]
       expected_response: Active clusters are x1, x2.
-      description: Request for cluster information
+      expected_keywords: [clusters, active]
+      description: Request for cluster information with multiple validations
 
 - conversation_group: conv2
-  description: Multi-turn conversation with setup/cleanup
+  description: Multi-turn conversation with setup/cleanup and action evaluation
   setup_script: sample_data/script/setup_environment.sh
   cleanup_script: sample_data/script/cleanup_environment.sh
   conversation:
     - eval_id: eval1
       eval_query: Hi! Can you help me manage pods?
-      eval_type: judge-llm
+      eval_types: [response_eval:accuracy]
       expected_response: Hello! I can help you manage pods.
       description: Initial greeting
     - eval_id: eval2
       eval_query: Create a pod named test-pod
-      eval_type: script
-      eval_verify_script: sample_data/script/verify_pod.sh
-      description: Create pod and verify
-    - eval_id: eval3
-      eval_query: List all pods
-      eval_type: sub-string
-      expected_keywords: ['test-pod']
-      description: Verify pod is listed
+      eval_types: 
+        - action_eval
+        - response_eval:sub-string
+      eval_verify_script: sample_data/script/verify_pod_creation.sh
+      expected_keywords: 
+        - pod
+        - created
+        - test-pod
+      description: Pod creation with script verification and keyword matching
 
 # Single-turn Conversations
 - conversation_group: conv3
@@ -117,10 +119,8 @@ Note: `eval_id` can't contain duplicate values within a conversation group. But 
   conversation:
     - eval_id: eval1
       eval_query: is there a openshift-lightspeed namespace ?
-      eval_type: sub-string
-      expected_keywords:
-        - 'yes'
-        - 'lightspeed'
+      eval_types: [response_eval:sub-string]
+      expected_keywords: ["yes", lightspeed]
       description: Check for openshift-lightspeed namespace after setup
 ```
 
@@ -240,7 +240,7 @@ Contains detailed results with columns:
 Result statistics:
 - **Overall Summary**: Total evaluations, pass/fail/error counts, success rate
 - **By Conversation**: Breakdown of results for each conversation group
-- **By Evaluation Type**: Performance metrics for each evaluation type (judge-llm, script, sub-string)
+- **By Evaluation Type**: Performance metrics for each evaluation type (action_eval, response_eval:sub-string, response_eval:accuracy)
 
 ## Development
 

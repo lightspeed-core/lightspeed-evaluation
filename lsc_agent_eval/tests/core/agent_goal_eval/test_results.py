@@ -24,7 +24,7 @@ class TestResultsManager:
                 eval_id="test_001",
                 query="What is Kubernetes?",
                 response="Kubernetes is a container orchestration platform",
-                eval_type="judge-llm",
+                eval_type="response_eval:accuracy",
                 result="PASS",
                 conversation_group="conv1",
                 conversation_id="conv-id-123",
@@ -33,7 +33,7 @@ class TestResultsManager:
                 eval_id="test_002",
                 query="Deploy nginx",
                 response="oc create deployment nginx --image=nginx",
-                eval_type="script",
+                eval_type="action_eval",
                 result="FAIL",
                 conversation_group="conv1",
                 conversation_id="conv-id-123",
@@ -42,7 +42,7 @@ class TestResultsManager:
                 eval_id="test_003",
                 query="List pods",
                 response="pod1, pod2",
-                eval_type="sub-string",
+                eval_type="response_eval:sub-string",
                 result="PASS",
                 conversation_group="conv2",
                 conversation_id="conv-id-456",
@@ -131,7 +131,7 @@ class TestResultsManager:
         assert data[0]["eval_id"] == "test_001"
         assert data[0]["result"] == "PASS"
         assert data[1]["result"] == "FAIL"
-        assert data[2]["eval_type"] == "sub-string"
+        assert data[2]["eval_type"] == "response_eval:sub-string"
 
     def test_get_results_stats(self, sample_results):
         """Test get results stats method."""
@@ -153,9 +153,9 @@ class TestResultsManager:
         assert stats.by_conversation["conv2"]["total"] == 1
 
         # Check eval type breakdown
-        assert "judge-llm" in stats.by_eval_type
-        assert "script" in stats.by_eval_type
-        assert "sub-string" in stats.by_eval_type
+        assert "response_eval:accuracy" in stats.by_eval_type
+        assert "action_eval" in stats.by_eval_type
+        assert "response_eval:sub-string" in stats.by_eval_type
 
     def test_results_with_errors(self):
         """Test results with error conditions."""
@@ -164,7 +164,7 @@ class TestResultsManager:
                 eval_id="test_error",
                 query="Failing query",
                 response="",
-                eval_type="judge-llm",
+                eval_type="response_eval:accuracy",
                 result="ERROR",
                 error="API connection failed",
                 conversation_group="test_conv",
@@ -188,7 +188,7 @@ class TestResultsManager:
                 eval_id="judge_test",
                 query="Judge query",
                 response="Judge response",
-                eval_type="judge-llm",
+                eval_type="response_eval:accuracy",
                 result="PASS",
                 conversation_group="mixed_conv",
                 conversation_id="conv-id-mixed",
@@ -197,7 +197,7 @@ class TestResultsManager:
                 eval_id="script_test",
                 query="Script query",
                 response="Script response",
-                eval_type="script",
+                eval_type="action_eval",
                 result="FAIL",
                 conversation_group="mixed_conv",
                 conversation_id="conv-id-mixed",
@@ -206,7 +206,7 @@ class TestResultsManager:
                 eval_id="substring_test",
                 query="Substring query",
                 response="Substring response",
-                eval_type="sub-string",
+                eval_type="response_eval:sub-string",
                 result="PASS",
                 conversation_group="mixed_conv",
                 conversation_id="conv-id-mixed",
@@ -219,9 +219,9 @@ class TestResultsManager:
         assert stats.total_evaluations == 3
         assert stats.total_conversations == 1
         assert len(stats.by_eval_type) == 3
-        assert stats.by_eval_type["judge-llm"]["passed"] == 1
-        assert stats.by_eval_type["script"]["failed"] == 1
-        assert stats.by_eval_type["sub-string"]["passed"] == 1
+        assert stats.by_eval_type["response_eval:accuracy"]["passed"] == 1
+        assert stats.by_eval_type["action_eval"]["failed"] == 1
+        assert stats.by_eval_type["response_eval:sub-string"]["passed"] == 1
 
     def test_json_statistics_structure(self, sample_results):
         """Test JSON statistics structure."""
