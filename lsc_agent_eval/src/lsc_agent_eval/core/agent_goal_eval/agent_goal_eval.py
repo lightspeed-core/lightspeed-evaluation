@@ -226,6 +226,7 @@ class AgentGoalEval:
         if overall_result != "PASS":
             pbar.write(f"   Query: {results[0].query}")
             pbar.write(f"   Response: {results[0].response}")
+            pbar.write(f"   Tool Calls: {results[0].tool_calls}")
 
             # Print expected values for debugging
             if data_config.expected_keywords:
@@ -234,6 +235,8 @@ class AgentGoalEval:
                 )
             if data_config.expected_response:
                 pbar.write(f"   Expected response: {data_config.expected_response}")
+            if data_config.expected_tool_calls:
+                pbar.write(f"   Expected tool calls: {data_config.expected_tool_calls}")
             if data_config.eval_verify_script:
                 pbar.write(f"   Verify script: {data_config.eval_verify_script}")
 

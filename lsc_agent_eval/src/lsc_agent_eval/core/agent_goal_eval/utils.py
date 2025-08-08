@@ -5,12 +5,13 @@ from typing import Optional
 from .models import EvaluationDataConfig, EvaluationResult
 
 
-def create_evaluation_results(
+def create_evaluation_results(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     eval_config: EvaluationDataConfig,
     response: str = "",
     evaluation_results: Optional[list[dict]] = None,
     error_message: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    tool_calls: Optional[list[list[dict]]] = None,
 ) -> list[EvaluationResult]:
     """Create standardized evaluation results."""
     results = []
@@ -28,6 +29,7 @@ def create_evaluation_results(
                     conversation_group=eval_config.conversation_group,
                     conversation_id=conversation_id,
                     error=error_message,
+                    tool_calls=tool_calls,
                 )
             )
     elif evaluation_results:
@@ -43,6 +45,9 @@ def create_evaluation_results(
                     conversation_group=eval_config.conversation_group,
                     conversation_id=conversation_id,
                     error=eval_result["error"],
+                    tool_calls=(
+                        tool_calls if eval_result["eval_type"] == "tool_eval" else None
+                    ),
                 )
             )
     else:

@@ -43,6 +43,45 @@
       description: Create namespace and verify with script
 
 - conversation_group: conv5
+  description: Test tool calls with simple structure
+  conversation:
+    - eval_id: eval1
+      eval_query: List available openshift versions
+      eval_types: [tool_eval]
+      expected_tool_calls:
+        - - name: list_versions
+            arguments: {}
+      description: Verify correct tool call for listing versions
+
+- conversation_group: conv6
+  description: Test tool calls with argument
+  conversation:
+    - eval_id: eval1
+      eval_query: does openshift-lightspeed name exist ?
+      eval_types: [tool_eval, response_eval:sub-string]
+      expected_tool_calls:
+        - - name: oc_get
+            arguments:
+              oc_get_args: [namespaces, openshift-lightspeed]
+      expected_keywords: [openshift-lightspeed]
+      description: Tool call with argument
+
+- conversation_group: conv7
+  description: Test multiple tool call sequences
+  conversation:
+    - eval_id: eval1
+      eval_query: List versions and then create a pod
+      eval_types: [tool_eval]
+      expected_tool_calls:
+        - - name: list_versions
+            arguments: {}
+        - - name: create_pod
+            arguments:
+              name: my-pod
+              image: httpd
+      description: Multiple sequential tool calls
+
+- conversation_group: conv8
   description: Multiple evaluations per query - response_eval only
   conversation:
     - eval_id: multi_response_eval
@@ -57,7 +96,7 @@
       expected_response: OpenShift Virtualization is an extension of the OpenShift Container Platform
       description: Test multiple response evaluations
 
-- conversation_group: conv6
+- conversation_group: conv9
   description: Comprehensive evaluation with all types
   setup_script: sample_data/script/conv4/setup.sh
   cleanup_script: sample_data/script/conv4/cleanup.sh
@@ -65,9 +104,14 @@
     - eval_id: comprehensive_eval
       eval_query: create openshift-lightspeed namespace ?
       eval_types:
+        - tool_call
         - action_eval
         - response_eval:sub-string
         - response_eval:accuracy
+        - - name: oc_create
+            arguments:
+              kind: namespace
+              name: openshift-lightspeed
       eval_verify_script: sample_data/script/conv4/eval1/verify.sh
       expected_keywords:
         - created
@@ -75,7 +119,7 @@
       expected_response: openshift-lightspeed namespace is created successfully
       description: Comprehensive evaluation using all evaluation types
 
-- conversation_group: conv7
+- conversation_group: conv10
   description: Test conversation retention - multi turn success
   conversation:
     - eval_id: eval1
@@ -91,7 +135,7 @@
         - virtualization
       description: Test second conversation
 
-- conversation_group: conv8
+- conversation_group: conv11
   description: Test conversation retention - new conversation
   conversation:
     - eval_id: eval1

@@ -5,7 +5,12 @@ from typing import Any, Callable, Optional, Union
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
-VALID_EVAL_TYPES = ["action_eval", "response_eval:sub-string", "response_eval:accuracy"]
+VALID_EVAL_TYPES = [
+    "action_eval",
+    "response_eval:sub-string",
+    "response_eval:accuracy",
+    "tool_eval",
+]
 VALID_EVAL_RESULTS = ["PASS", "FAIL", "ERROR"]
 
 
@@ -100,6 +105,9 @@ class EvaluationDataConfig(BaseModel):
     expected_keywords: Optional[list[str]] = Field(
         None, min_length=1, description="List of expected keywords for sub-string"
     )
+    expected_tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
+        None, min_length=1, description="Expected tool calls for tools evaluation"
+    )
     eval_verify_script: Optional[Path] = Field(
         None, description="Script path for script evaluation"
     )
@@ -172,6 +180,13 @@ class EvaluationDataConfig(BaseModel):
                     raise ValueError(
                         "eval_types containing 'action_eval' "
                         "requires non-empty 'eval_verify_script'"
+                    )
+
+            elif eval_type == "tool_eval":
+                if not self.expected_tool_calls or len(self.expected_tool_calls) == 0:
+                    raise ValueError(
+                        "eval_types containing 'tool_eval' "
+                        "requires non-empty 'expected_tool_calls'"
                     )
 
         return self
@@ -249,6 +264,9 @@ class EvaluationResult(BaseModel):
     eval_id: str = Field(..., min_length=1, description="Evaluation identifier")
     query: str = Field(..., min_length=1, description="Query sent to agent")
     response: str = Field(..., description="Agent response")
+    tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
+        None, description="Tool calls made by agent (for tool_eval type)"
+    )
     eval_type: str = Field(..., description="Type of evaluation performed")
     result: str = Field(..., description="Evaluation result")
     conversation_group: Optional[str] = Field(None, description="Conversation group")

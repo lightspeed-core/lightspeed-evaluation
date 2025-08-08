@@ -1,13 +1,13 @@
 """HTTP client for agent API communication."""
 
-import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
 from .exceptions import AgentAPIError
+from .streaming_parser import parse_streaming_response
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +81,13 @@ class AgentHttpClient:
             raise AgentAPIError(f"Unexpected error querying agent: {e}") from e
 
     def streaming_query_agent(
-        self, api_input: dict[str, str], timeout: int = 300
-    ) -> tuple[str, str]:
-        """Query the agent using streaming endpoint and return response."""
+        self, api_input: dict[str, str], extract_tools: bool = False, timeout: int = 300
+    ) -> dict[str, Any]:
+        """Query the agent using streaming endpoint."""
         if not self.client:
             raise AgentAPIError("HTTP client not initialized")
 
         try:
-            # Response format is as per the lightspeed-stack
             with self.client.stream(
                 "POST",
                 "/v1/streaming_query",
@@ -96,51 +95,7 @@ class AgentHttpClient:
                 timeout=timeout,
             ) as response:
                 response.raise_for_status()
-
-                conversation_id = ""
-                final_response = ""
-
-                for line in response.iter_lines():
-                    line = line.strip()
-
-                    # Skip empty lines or non-data lines
-                    if not line or not line.startswith("data: "):
-                        continue
-
-                    # Remove "data: " prefix to get JSON content
-                    json_data = line[6:]
-
-                    try:
-                        data = json.loads(json_data)
-                        event = data.get("event", "")
-                        event_data = data.get("data", {})
-
-                        # Extract conversation_id from start event
-                        if event == "start" and "conversation_id" in event_data:
-                            conversation_id = event_data["conversation_id"].strip()
-                            logger.debug("Found conversation_id: %s", conversation_id)
-
-                        # Extract final response from turn_complete event
-                        elif event == "turn_complete" and "token" in event_data:
-                            final_response = event_data["token"].strip()
-                            logger.debug(
-                                "Found final response (%d characters)",
-                                len(final_response),
-                            )
-
-                    except json.JSONDecodeError:
-                        logger.debug(
-                            "Failed to parse JSON from streaming response: %s",
-                            json_data,
-                        )
-                        continue
-
-                if not final_response:
-                    raise AgentAPIError("No final response found in streaming output")
-                if not conversation_id:
-                    raise AgentAPIError("No Conversation ID found")
-
-                return final_response, conversation_id
+                return parse_streaming_response(response, extract_tools)
 
         except httpx.TimeoutException as e:
             raise AgentAPIError(
@@ -150,6 +105,8 @@ class AgentHttpClient:
             raise AgentAPIError(
                 f"Agent API error: {e.response.status_code} - {e.response.text}"
             ) from e
+        except ValueError as e:
+            raise AgentAPIError(f"Streaming response validation error: {e}") from e
         except Exception as e:
             raise AgentAPIError(f"Unexpected error in streaming query: {e}") from e
 

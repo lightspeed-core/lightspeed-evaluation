@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 from ..utils.exceptions import AgentAPIError, JudgeModelError, ScriptExecutionError
 from ..utils.prompt import ANSWER_CORRECTNESS_PROMPT
+from .tool_call_eval import compare_tool_calls
 from .utils import create_evaluation_results
 
 if TYPE_CHECKING:
@@ -47,16 +48,19 @@ class EvaluationRunner:
                 "conversation_id": conversation_id,
             }
 
-            response, conversation_id = self.agent_client.streaming_query_agent(
-                api_input
+            agent_response = self.agent_client.streaming_query_agent(
+                api_input, extract_tools="tool_eval" in data_config.eval_types
             )
+            response = agent_response["response"]
+            conversation_id = agent_response["conversation_id"]
+            tool_calls = agent_response["tool_calls"]
 
-            # Run all evaluations on the same response
+            # Run all evaluations
             evaluation_results = []
             for eval_type in data_config.eval_types:
                 try:
                     success = self._evaluate_single_type(
-                        eval_type, data_config, response
+                        eval_type, data_config, response, tool_calls
                     )
                     evaluation_results.append(
                         {
@@ -65,7 +69,13 @@ class EvaluationRunner:
                             "error": None,
                         }
                     )
-                except Exception as e:  # pylint: disable=W0718
+                except (
+                    ScriptExecutionError,
+                    JudgeModelError,
+                    ValueError,
+                    AttributeError,
+                    TypeError,
+                ) as e:
                     logger.error(
                         "Single evaluation failed for %s (%s): %s",
                         data_config.eval_id,
@@ -81,6 +91,9 @@ class EvaluationRunner:
                 response,
                 evaluation_results,
                 conversation_id=conversation_id,
+                tool_calls=(
+                    tool_calls if "tool_eval" in data_config.eval_types else None
+                ),
             )
 
         except (AgentAPIError, ScriptExecutionError, JudgeModelError) as e:
@@ -90,7 +103,11 @@ class EvaluationRunner:
             )
 
     def _evaluate_single_type(
-        self, eval_type: str, data_config: "EvaluationDataConfig", response: str
+        self,
+        eval_type: str,
+        data_config: "EvaluationDataConfig",
+        response: str,
+        tool_calls: Optional[list[list[dict]]] = None,
     ) -> bool:
         """Evaluate single evaluation type."""
         match eval_type:
@@ -100,6 +117,9 @@ class EvaluationRunner:
                 return self._evaluate_substring(data_config, response)
             case "response_eval:accuracy":
                 return self._evaluate_judge_llm(data_config, response)
+            # TODO(future): We should do tool_eval always ??
+            case "tool_eval":
+                return self._evaluate_tools(data_config, tool_calls or [])
             case _:
                 logger.error("Unknown evaluation type: %s", eval_type)
                 return False
@@ -163,6 +183,22 @@ class EvaluationRunner:
         # Extract numeric result (looking for 1 or 0)
         result = self._extract_numeric_result(judge_resp)
         return result == 1
+
+    def _evaluate_tools(
+        self,
+        data_config: "EvaluationDataConfig",
+        actual_tool_calls: Optional[list[list[dict]]],
+    ) -> bool:
+        """Evaluate using tool calls comparison."""
+        if not data_config.expected_tool_calls:
+            logger.error("Expected tool calls not provided for tool evaluation")
+            return False
+
+        if actual_tool_calls is None:
+            logger.error("No tool calls provided for evaluation")
+            return False
+
+        return compare_tool_calls(data_config.expected_tool_calls, actual_tool_calls)
 
     def get_judge_manager(self) -> Optional["JudgeModelManager"]:
         """Get the judge model manager."""

@@ -26,11 +26,14 @@ class TestEvaluationRunner:
         mock_client = Mock(spec=AgentHttpClient)
 
         # Mock agent API: return conversation_id from input or generate one
-        def mock_streaming_query_agent(api_input, timeout=300):
-            return (
-                "Test agent response",
-                api_input.get("conversation_id", "generated-conversation-id"),
-            )
+        def mock_streaming_query_agent(api_input, extract_tools=False, timeout=300):
+            return {
+                "response": "Test agent response",
+                "conversation_id": api_input.get(
+                    "conversation_id", "generated-conversation-id"
+                ),
+                "tool_calls": [],  # Always return empty tool sequences by default
+            }
 
         mock_client.streaming_query_agent.side_effect = mock_streaming_query_agent
         return mock_client
@@ -150,7 +153,8 @@ class TestEvaluationRunner:
                 "provider": "watsonx",
                 "model": "ibm/granite-3-3-8b-instruct",
                 "conversation_id": "conv-id-123",
-            }
+            },
+            extract_tools=False,
         )
 
         # Verify judge was called
@@ -255,11 +259,14 @@ class TestEvaluationRunner:
         """Test successful sub-string evaluation."""
 
         # Mock agent response containing expected keywords
-        def mock_streaming_query_agent(api_input, timeout=300):
-            return (
-                "Podman is an open-source container engine developed by Red Hat",
-                api_input.get("conversation_id", "test-conversation-id"),
-            )
+        def mock_streaming_query_agent(api_input, extract_tools=False, timeout=300):
+            return {
+                "response": "Podman is an open-source container engine developed by Red Hat",
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
 
         mock_agent_client.streaming_query_agent.side_effect = mock_streaming_query_agent
 
@@ -284,11 +291,14 @@ class TestEvaluationRunner:
         """Test sub-string evaluation failure."""
 
         # Mock agent response not containing expected keywords
-        def mock_streaming_query_agent(api_input, timeout=300):
-            return (
-                "No information available",
-                api_input.get("conversation_id", "test-conversation-id"),
-            )
+        def mock_streaming_query_agent(api_input, extract_tools=False, timeout=300):
+            return {
+                "response": "No information available",
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
 
         mock_agent_client.streaming_query_agent.side_effect = mock_streaming_query_agent
 
@@ -347,11 +357,16 @@ class TestEvaluationRunner:
         )
 
         # Test all keywords present - should PASS
-        def mock_streaming_query_agent_all_keywords(api_input, timeout=300):
-            return (
-                "Response with keyword1 and keyword2",
-                api_input.get("conversation_id", "test-conversation-id"),
-            )
+        def mock_streaming_query_agent_all_keywords(
+            api_input, extract_tools=False, timeout=300
+        ):
+            return {
+                "response": "Response with keyword1 and keyword2",
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
 
         mock_agent_client.streaming_query_agent.side_effect = (
             mock_streaming_query_agent_all_keywords
@@ -360,11 +375,16 @@ class TestEvaluationRunner:
         assert result[0].result == "PASS"
 
         # Test some keywords missing (only one present) - should FAIL
-        def mock_streaming_query_agent_one_keyword(api_input, timeout=300):
-            return (
-                "Response with only keyword1",
-                api_input.get("conversation_id", "test-conversation-id"),
-            )
+        def mock_streaming_query_agent_one_keyword(
+            api_input, extract_tools=False, timeout=300
+        ):
+            return {
+                "response": "Response with only keyword1",
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
 
         mock_agent_client.streaming_query_agent.side_effect = (
             mock_streaming_query_agent_one_keyword
@@ -373,11 +393,16 @@ class TestEvaluationRunner:
         assert result[0].result == "FAIL"
 
         # Test no keywords present - should FAIL
-        def mock_streaming_query_agent_no_keywords(api_input, timeout=300):
-            return (
-                "Response with no matching terms",
-                api_input.get("conversation_id", "test-conversation-id"),
-            )
+        def mock_streaming_query_agent_no_keywords(
+            api_input, extract_tools=False, timeout=300
+        ):
+            return {
+                "response": "Response with no matching terms",
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
 
         mock_agent_client.streaming_query_agent.side_effect = (
             mock_streaming_query_agent_no_keywords
@@ -386,17 +411,86 @@ class TestEvaluationRunner:
         assert result[0].result == "FAIL"
 
         # Test case insensitive matching
-        def mock_streaming_query_agent_case_insensitive(api_input, timeout=300):
-            return (
-                "Response with KEYWORD1 and Keyword2",
-                api_input.get("conversation_id", "test-conversation-id"),
-            )
+        def mock_streaming_query_agent_case_insensitive(
+            api_input, extract_tools=False, timeout=300
+        ):
+            return {
+                "response": "Response with KEYWORD1 and Keyword2",
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
 
         mock_agent_client.streaming_query_agent.side_effect = (
             mock_streaming_query_agent_case_insensitive
         )
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result[0].result == "PASS"
+
+    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
+    def test_tool_eval_success(
+        self,
+        mock_compare_tool_calls,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+    ):
+        """Test tool evaluation with success."""
+        mock_compare_tool_calls.return_value = True
+        mock_agent_client.streaming_query_agent.return_value = {
+            "response": "Available versions listed",
+            "conversation_id": "conv-tools-1",
+            "tool_calls": [[{"name": "list_versions", "arguments": {}}]],
+        }
+
+        config = EvaluationDataConfig(
+            eval_id="tools_test",
+            eval_query="List available versions",
+            eval_types=["tool_eval"],
+            expected_tool_calls=[[{"name": "list_versions", "arguments": {}}]],
+        )
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+        results = runner.run_evaluation(config, "openai", "gpt-4")
+
+        assert len(results) == 1
+        assert results[0].result == "PASS"
+        assert results[0].eval_type == "tool_eval"
+
+    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
+    def test_tool_eval_failure(
+        self,
+        mock_compare_tool_calls,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+    ):
+        """Test tool evaluation with failure."""
+        mock_compare_tool_calls.return_value = False
+        mock_agent_client.streaming_query_agent.return_value = {
+            "response": "Tool call failed",
+            "conversation_id": "conv-tools-2",
+            "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
+        }
+
+        config = EvaluationDataConfig(
+            eval_id="tools_fail_test",
+            eval_query="Use correct tool",
+            eval_types=["tool_eval"],
+            expected_tool_calls=[[{"name": "correct_tool", "arguments": {}}]],
+        )
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+        results = runner.run_evaluation(config, "openai", "gpt-4")
+
+        assert len(results) == 1
+        assert results[0].result == "FAIL"
+        assert results[0].eval_type == "tool_eval"
 
     def test_conversation_id_propagation(
         self, mock_agent_client, mock_script_runner, mock_judge_manager
@@ -425,13 +519,16 @@ class TestEvaluationRunner:
                 "provider": "openai",
                 "model": "gpt-4",
                 "conversation_id": test_conv_id,
-            }
+            },
+            extract_tools=False,
         )
 
     @patch("pathlib.Path.exists", return_value=True)
     @patch("pathlib.Path.is_file", return_value=True)
+    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_multiple_eval_types_all_pass(
         self,
+        mock_compare_tool_calls,
         mock_is_file,
         mock_exists,
         mock_agent_client,
@@ -440,13 +537,26 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with multiple eval types where all pass."""
         mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, timeout=300: (
-                "Successfully created openshift-lightspeed namespace",
-                "conv-123",
-            )
+            lambda api_input, extract_tools=False, timeout=300: {
+                "response": "Successfully created openshift-lightspeed namespace",
+                "conversation_id": "conv-123",
+                "tool_calls": (
+                    [
+                        [
+                            {
+                                "name": "create_namespace",
+                                "arguments": {"name": "lightspeed"},
+                            }
+                        ]
+                    ]
+                    if extract_tools
+                    else []
+                ),
+            }
         )
         mock_script_runner.run_script.return_value = True
         mock_judge_manager.evaluate_response.return_value = "1"
+        mock_compare_tool_calls.return_value = True
 
         config = EvaluationDataConfig(
             eval_id="multi_pass_test",
@@ -455,6 +565,7 @@ class TestEvaluationRunner:
                 "action_eval",
                 "response_eval:sub-string",
                 "response_eval:accuracy",
+                "tool_eval",
             ],
             eval_verify_script="sample_data/script/conv4/eval1/verify.sh",
             expected_keywords=[
@@ -463,6 +574,9 @@ class TestEvaluationRunner:
                 "lightspeed",
             ],  # All present in response
             expected_response="openshift-lightspeed namespace is created successfully",
+            expected_tool_calls=[
+                [{"name": "create_namespace", "arguments": {"name": "lightspeed"}}]
+            ],
         )
 
         runner = EvaluationRunner(
@@ -470,8 +584,8 @@ class TestEvaluationRunner:
         )
         results = runner.run_evaluation(config, "ollama", "gpt-oss:20b")
 
-        # Should get 3 results, one for each eval_type
-        assert len(results) == 3
+        # Should get 4 results, one for each eval_type
+        assert len(results) == 4
 
         assert all(
             r.result == "PASS" for r in results
@@ -481,6 +595,7 @@ class TestEvaluationRunner:
         assert "action_eval" in eval_types
         assert "response_eval:sub-string" in eval_types
         assert "response_eval:accuracy" in eval_types
+        assert "tool_eval" in eval_types
 
         assert all(r.eval_id == "multi_pass_test" for r in results)
         assert all(r.query == "create openshift-lightspeed namespace" for r in results)
@@ -488,8 +603,10 @@ class TestEvaluationRunner:
 
     @patch("pathlib.Path.exists", return_value=True)
     @patch("pathlib.Path.is_file", return_value=True)
+    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_multiple_eval_types_mixed_results(
         self,
+        mock_compare_tool_calls,
         mock_is_file,
         mock_exists,
         mock_agent_client,
@@ -499,13 +616,17 @@ class TestEvaluationRunner:
         """Test evaluation with multiple eval types having mixed results."""
         # Mock mixed results
         mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, timeout=300: (
-                "Sorry, I can't create a openshift-lightspeed namespace",
-                "conv-456",
-            )
+            lambda api_input, extract_tools=False, timeout=300: {
+                "response": "Sorry, I can't create a openshift-lightspeed namespace",
+                "conversation_id": "conv-456",
+                "tool_calls": (
+                    [[{"name": "wrong_tool", "arguments": {}}]] if extract_tools else []
+                ),
+            }
         )
         mock_script_runner.run_script.return_value = False  # Script fails
         mock_judge_manager.evaluate_response.return_value = "0"  # Accuracy fails
+        mock_compare_tool_calls.return_value = False  # Tool eval fails
 
         config = EvaluationDataConfig(
             eval_id="multi_mixed_test",
@@ -514,10 +635,14 @@ class TestEvaluationRunner:
                 "action_eval",
                 "response_eval:sub-string",
                 "response_eval:accuracy",
+                "tool_eval",
             ],
             eval_verify_script="sample_data/script/conv4/eval1/verify.sh",
             expected_keywords=["lightspeed"],  # Only this should pass
             expected_response="openshift-lightspeed namespace is created successfully",
+            expected_tool_calls=[
+                [{"name": "create_namespace", "arguments": {"name": "lightspeed"}}]
+            ],
         )
 
         runner = EvaluationRunner(
@@ -525,12 +650,13 @@ class TestEvaluationRunner:
         )
         results = runner.run_evaluation(config, "some-provider", "some-model")
 
-        assert len(results) == 3
+        assert len(results) == 4
 
         result_by_type = {r.eval_type: r for r in results}
         assert result_by_type["action_eval"].result == "FAIL"
         assert result_by_type["response_eval:sub-string"].result == "PASS"
         assert result_by_type["response_eval:accuracy"].result == "FAIL"
+        assert result_by_type["tool_eval"].result == "FAIL"
 
         assert all(r.eval_id == "multi_mixed_test" for r in results)
         assert all(r.query == "create openshift-lightspeed namespace" for r in results)
@@ -548,10 +674,11 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with multiple eval types where some have errors."""
         mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, timeout=300: (
-                "Sorry, I can't create a openshift-lightspeed namespace",
-                "conv-789",
-            )
+            lambda api_input, extract_tools=False, timeout=300: {
+                "response": "Sorry, I can't create a openshift-lightspeed namespace",
+                "conversation_id": "conv-789",
+                "tool_calls": [],
+            }
         )
         # Script execution error
         mock_script_runner.run_script.side_effect = ScriptExecutionError(

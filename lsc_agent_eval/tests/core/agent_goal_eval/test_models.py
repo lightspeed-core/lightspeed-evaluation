@@ -253,6 +253,81 @@ class TestEvaluationDataConfig:
         assert config.description == "Multi-evaluation test"
         assert isinstance(config.eval_verify_script, Path)
 
+    def test_evaluation_data_config_tool_eval(self):
+        """Test EvaluationDataConfig for tools evaluation."""
+        expected_tool_calls = [[{"name": "list_versions", "arguments": {}}]]
+
+        config = EvaluationDataConfig(
+            eval_id="test_tools",
+            eval_query="List available versions",
+            eval_types=["tool_eval"],
+            expected_tool_calls=expected_tool_calls,
+        )
+
+        assert config.eval_id == "test_tools"
+        assert config.eval_query == "List available versions"
+        assert config.eval_types == ["tool_eval"]
+        assert config.expected_tool_calls == expected_tool_calls
+        assert config.expected_response is None
+        assert config.expected_keywords is None
+        assert config.eval_verify_script is None
+
+    def test_evaluation_data_config_tool_missing_expected_tool_calls(self):
+        """Test EvaluationDataConfig for tools evaluation without expected_tool_calls."""
+        with pytest.raises(ValidationError) as exc_info:
+            EvaluationDataConfig(
+                eval_id="test_tools_missing",
+                eval_query="List versions",
+                eval_types=["tool_eval"],
+            )
+
+        assert "requires non-empty 'expected_tool_calls'" in str(exc_info.value)
+
+    def test_evaluation_data_config_tools_empty_expected_tool_calls(self):
+        """Test EvaluationDataConfig for tools evaluation with empty expected_tool_calls."""
+        with pytest.raises(ValidationError) as exc_info:
+            EvaluationDataConfig(
+                eval_id="test_tools_empty",
+                eval_query="List versions",
+                eval_types=["tool_eval"],
+                expected_tool_calls=[],
+            )
+
+        assert "at least 1 item" in str(exc_info.value)
+
+    def test_evaluation_data_config_complex_tools(self):
+        """Test EvaluationDataConfig with complex tool calls."""
+        expected_tool_calls = [
+            [
+                {
+                    "name": "create_pod",
+                    "arguments": {"name": "test-pod", "image": "nginx"},
+                },
+                {
+                    "name": "apply_service",
+                    "arguments": {"pod_name": "test-pod", "port": 80},
+                },
+            ],
+            [
+                {
+                    "name": "oc_get",
+                    "arguments": {"oc_get_args": ["pods"]},
+                }
+            ],
+        ]
+
+        config = EvaluationDataConfig(
+            eval_id="complex_tools_test",
+            eval_query="Create pod with service and check status",
+            eval_types=["tool_eval"],
+            expected_tool_calls=expected_tool_calls,
+        )
+
+        assert config.expected_tool_calls == expected_tool_calls
+        assert len(config.expected_tool_calls) == 2
+        assert len(config.expected_tool_calls[0]) == 2  # Two tools in first sequence
+        assert len(config.expected_tool_calls[1]) == 1  # One tool in second sequence
+
     def test_evaluation_data_config_missing_eval_type(self):
         """Test EvaluationDataConfig with missing eval_type (should fail)."""
         with pytest.raises(ValidationError) as exc_info:
