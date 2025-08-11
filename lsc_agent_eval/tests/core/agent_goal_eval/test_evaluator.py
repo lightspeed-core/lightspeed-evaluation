@@ -26,7 +26,7 @@ class TestEvaluationRunner:
         mock_client = Mock(spec=AgentHttpClient)
 
         # Mock agent API: return conversation_id from input or generate one
-        def mock_streaming_query_agent(api_input, extract_tools=False, timeout=300):
+        def mock_agent_response(api_input, **kwargs):
             return {
                 "response": "Test agent response",
                 "conversation_id": api_input.get(
@@ -35,7 +35,8 @@ class TestEvaluationRunner:
                 "tool_calls": [],  # Always return empty tool sequences by default
             }
 
-        mock_client.streaming_query_agent.side_effect = mock_streaming_query_agent
+        mock_client.streaming_query_agent.side_effect = mock_agent_response
+        mock_client.query_agent.side_effect = mock_agent_response
         return mock_client
 
     @pytest.fixture
@@ -153,8 +154,7 @@ class TestEvaluationRunner:
                 "provider": "watsonx",
                 "model": "ibm/granite-3-3-8b-instruct",
                 "conversation_id": "conv-id-123",
-            },
-            extract_tools=False,
+            }
         )
 
         # Verify judge was called
@@ -259,7 +259,7 @@ class TestEvaluationRunner:
         """Test successful sub-string evaluation."""
 
         # Mock agent response containing expected keywords
-        def mock_streaming_query_agent(api_input, extract_tools=False, timeout=300):
+        def mock_streaming_query_agent(api_input, timeout=300):
             return {
                 "response": "Podman is an open-source container engine developed by Red Hat",
                 "conversation_id": api_input.get(
@@ -291,7 +291,7 @@ class TestEvaluationRunner:
         """Test sub-string evaluation failure."""
 
         # Mock agent response not containing expected keywords
-        def mock_streaming_query_agent(api_input, extract_tools=False, timeout=300):
+        def mock_streaming_query_agent(api_input, timeout=300):
             return {
                 "response": "No information available",
                 "conversation_id": api_input.get(
@@ -357,9 +357,7 @@ class TestEvaluationRunner:
         )
 
         # Test all keywords present - should PASS
-        def mock_streaming_query_agent_all_keywords(
-            api_input, extract_tools=False, timeout=300
-        ):
+        def mock_streaming_query_agent_all_keywords(api_input, timeout=300):
             return {
                 "response": "Response with keyword1 and keyword2",
                 "conversation_id": api_input.get(
@@ -375,9 +373,7 @@ class TestEvaluationRunner:
         assert result[0].result == "PASS"
 
         # Test some keywords missing (only one present) - should FAIL
-        def mock_streaming_query_agent_one_keyword(
-            api_input, extract_tools=False, timeout=300
-        ):
+        def mock_streaming_query_agent_one_keyword(api_input, timeout=300):
             return {
                 "response": "Response with only keyword1",
                 "conversation_id": api_input.get(
@@ -393,9 +389,7 @@ class TestEvaluationRunner:
         assert result[0].result == "FAIL"
 
         # Test no keywords present - should FAIL
-        def mock_streaming_query_agent_no_keywords(
-            api_input, extract_tools=False, timeout=300
-        ):
+        def mock_streaming_query_agent_no_keywords(api_input, timeout=300):
             return {
                 "response": "Response with no matching terms",
                 "conversation_id": api_input.get(
@@ -411,9 +405,7 @@ class TestEvaluationRunner:
         assert result[0].result == "FAIL"
 
         # Test case insensitive matching
-        def mock_streaming_query_agent_case_insensitive(
-            api_input, extract_tools=False, timeout=300
-        ):
+        def mock_streaming_query_agent_case_insensitive(api_input, timeout=300):
             return {
                 "response": "Response with KEYWORD1 and Keyword2",
                 "conversation_id": api_input.get(
@@ -519,8 +511,7 @@ class TestEvaluationRunner:
                 "provider": "openai",
                 "model": "gpt-4",
                 "conversation_id": test_conv_id,
-            },
-            extract_tools=False,
+            }
         )
 
     @patch("pathlib.Path.exists", return_value=True)
@@ -537,21 +528,17 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with multiple eval types where all pass."""
         mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, extract_tools=False, timeout=300: {
+            lambda api_input, timeout=300: {
                 "response": "Successfully created openshift-lightspeed namespace",
                 "conversation_id": "conv-123",
-                "tool_calls": (
+                "tool_calls": [
                     [
-                        [
-                            {
-                                "name": "create_namespace",
-                                "arguments": {"name": "lightspeed"},
-                            }
-                        ]
+                        {
+                            "name": "create_namespace",
+                            "arguments": {"name": "lightspeed"},
+                        }
                     ]
-                    if extract_tools
-                    else []
-                ),
+                ],
             }
         )
         mock_script_runner.run_script.return_value = True
@@ -616,12 +603,10 @@ class TestEvaluationRunner:
         """Test evaluation with multiple eval types having mixed results."""
         # Mock mixed results
         mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, extract_tools=False, timeout=300: {
+            lambda api_input, timeout=300: {
                 "response": "Sorry, I can't create a openshift-lightspeed namespace",
                 "conversation_id": "conv-456",
-                "tool_calls": (
-                    [[{"name": "wrong_tool", "arguments": {}}]] if extract_tools else []
-                ),
+                "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
             }
         )
         mock_script_runner.run_script.return_value = False  # Script fails
@@ -674,7 +659,7 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with multiple eval types where some have errors."""
         mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, extract_tools=False, timeout=300: {
+            lambda api_input, timeout=300: {
                 "response": "Sorry, I can't create a openshift-lightspeed namespace",
                 "conversation_id": "conv-789",
                 "tool_calls": [],
@@ -714,3 +699,40 @@ class TestEvaluationRunner:
         assert result_by_type["response_eval:sub-string"].result == "PASS"
 
         assert result_by_type["response_eval:accuracy"].result == "FAIL"
+
+    def test_run_evaluation_streaming_vs_query_endpoints(
+        self,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+        sample_config_judge_llm,
+    ):
+        """Test that both streaming and query endpoint modes work correctly."""
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+
+        # Test streaming mode (default)
+        results_streaming = runner.run_evaluation(
+            sample_config_judge_llm,
+            "watsonx",
+            "ibm/granite-3-3-8b-instruct",
+            "conv-id-123",
+            endpoint_type="streaming",
+        )
+
+        # Test query mode
+        results_query = runner.run_evaluation(
+            sample_config_judge_llm,
+            "watsonx",
+            "ibm/granite-3-3-8b-instruct",
+            "conv-id-123",
+            endpoint_type="query",
+        )
+
+        # Both should return the same results
+        assert len(results_streaming) == len(results_query) == 1
+        assert results_streaming[0].result == results_query[0].result == "PASS"
+
+        mock_agent_client.streaming_query_agent.assert_called_once()
+        mock_agent_client.query_agent.assert_called_once()

@@ -31,12 +31,13 @@ class EvaluationRunner:
         self.judge_manager = judge_manager
         self.script_runner = script_runner
 
-    def run_evaluation(
+    def run_evaluation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         data_config: "EvaluationDataConfig",
         agent_provider: str,
         agent_model: str,
         conversation_id: Optional[str] = None,
+        endpoint_type: str = "streaming",
     ) -> list["EvaluationResult"]:
         """Run multiple evaluations based on configuration."""
         try:
@@ -48,9 +49,11 @@ class EvaluationRunner:
                 "conversation_id": conversation_id,
             }
 
-            agent_response = self.agent_client.streaming_query_agent(
-                api_input, extract_tools="tool_eval" in data_config.eval_types
-            )
+            if endpoint_type == "streaming":
+                agent_response = self.agent_client.streaming_query_agent(api_input)
+            else:
+                agent_response = self.agent_client.query_agent(api_input)
+
             response = agent_response["response"]
             conversation_id = agent_response["conversation_id"]
             tool_calls = agent_response["tool_calls"]

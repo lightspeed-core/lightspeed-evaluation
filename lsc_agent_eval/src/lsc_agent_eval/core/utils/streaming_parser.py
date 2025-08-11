@@ -9,9 +9,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-def parse_streaming_response(
-        response: httpx.Response, extract_tools: bool = False
-    ) -> dict[str, Any]:
+def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
     """Parse streaming response and extract data."""
     conversation_id = ""
     final_response = ""
@@ -36,7 +34,7 @@ def parse_streaming_response(
         elif event == "turn_complete" and "token" in event_data:
             final_response = event_data["token"].strip()
             logger.debug("Found final response (%d characters)", len(final_response))
-        elif _should_extract_tool_call(extract_tools, event, event_data):
+        elif event == "tool_call" and "token" in event_data:
             tool_call = _parse_tool_call(event_data["token"])
             if tool_call:
                 tool_calls.append(tool_call)
@@ -47,7 +45,7 @@ def parse_streaming_response(
     if not conversation_id:
         raise ValueError("No Conversation ID found")
 
-    tool_sequences = _format_tool_sequences(tool_calls) if extract_tools else []
+    tool_sequences = _format_tool_sequences(tool_calls)
 
     return {
         "response": final_response,
@@ -66,13 +64,6 @@ def _parse_streaming_line(json_data: str) -> Optional[Tuple[str, dict]]:
     except json.JSONDecodeError:
         logger.debug("Failed to parse JSON from streaming response: %s", json_data)
         return None
-
-
-def _should_extract_tool_call(
-    extract_tools: bool, event: str, event_data: dict
-) -> bool:
-    """Check if we should extract a tool call from this event."""
-    return extract_tools and event == "tool_call" and "token" in event_data
 
 
 def _parse_tool_call(token: str) -> Optional[dict[str, Any]]:

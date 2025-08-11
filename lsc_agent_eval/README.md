@@ -23,7 +23,7 @@ A framework for evaluating AI agent performance.
 - Python 3.11 or 3.12
 - Package manager: `pdm` or `pip`
 
-- Agent API (streaming endpoint) is running. Any change to the API response may impact evaluation processing logic.
+- Agent API is running. Any change to the API response may impact evaluation processing logic.
 - For Judge model, model inference server is up
 
 ### Install from Git
@@ -169,12 +169,15 @@ Expectation is that, either a third-party inference provider access is there or 
 lsc_agent_eval \
     --eval_data_yaml agent_goal_eval.yaml \
     --agent_endpoint http://localhost:8080 \
+    --endpoint_type streaming \
     --agent_provider watsonx \
     --agent_model ibm/granite-3-2-8b-instruct \
+    --agent_auth_token_file agent_api_token.txt \
     --judge_provider openai \
     --judge_model gpt-4o-mini \
     --result_dir ./eval_output
 ```
+Pass token text file or set `AGENT_API_TOKEN` env var
 
 ```python
 from lsc_agent_eval import AgentGoalEval
@@ -184,11 +187,12 @@ class EvalArgs:
     def __init__(self):
         self.eval_data_yaml = 'data/example_eval.yaml'
         self.agent_endpoint = 'http://localhost:8080'
+        self.endpoint_type = 'query'  # Non-streaming
         self.agent_provider = 'watsonx'
         self.agent_model = 'ibm/granite-3-2-8b-instruct'
         self.judge_provider = 'openai'
         self.judge_model = 'gpt-4o-mini'
-        self.agent_auth_token_file = None  # Or set `AGENT_API_TOKEN` env var
+        self.agent_auth_token_file = None  # set `AGENT_API_TOKEN` env var
         self.result_dir = None
 
 # Run evaluation
@@ -201,6 +205,7 @@ evaluator.run_evaluation()
 
 - `--eval_data_yaml`: Path to the YAML file containing evaluation data
 - `--agent_endpoint`: Endpoint URL for the agent API (default: <http://localhost:8080>)
+- `--endpoint_type`: Endpoint type to use for agent queries (default: streaming). Options: 'streaming' or 'query'
 - `--agent_auth_token_file`: Path to .txt file containing API token (if required). Or set `AGENT_API_TOKEN` env var without using a .txt file
 - `--agent_provider`: Provider for the agent API
 - `--agent_model`: Model for the agent API

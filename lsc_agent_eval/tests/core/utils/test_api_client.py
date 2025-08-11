@@ -67,10 +67,51 @@ class TestAgentHttpClient:
         """Test successful agent query."""
         # Mock HTTP response
         mock_response = Mock()
+        response_text = "There are 80 namespaces."
+        tool_calls_data = [{"name": "oc_get", "args": {"oc_get_args": ["namespaces"]}}]
+        mock_response.json.return_value = {
+            "response": response_text,
+            "conversation_id": "conv-id-123",
+            "tool_calls": tool_calls_data,
+        }
+        mock_response.raise_for_status.return_value = None
+
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {
+                "query": "How many namespaces are there?",
+                "provider": "watsonx",
+                "model": "ibm/granite-3-3-8b-instruct",
+            }
+            result = client.query_agent(api_input)
+
+            assert result["response"] == response_text
+            assert result["conversation_id"] == "conv-id-123"
+            # Tool calls should be formatted into sequences
+            expected_formatted = [
+                [{"name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]
+            ]
+            assert result["tool_calls"] == expected_formatted
+            mock_client.post.assert_called_once_with(
+                "/v1/query",
+                json=api_input,
+                timeout=300,
+            )
+
+    def test_query_agent_success_empty_tool_calls(self):
+        """Test successful agent query with empty tool_calls."""
+        # Mock HTTP response with empty tool_calls
+        mock_response = Mock()
         response_text = "OpenShift Virtualization is an extension of the OpenShift Container Platform"
         mock_response.json.return_value = {
             "response": response_text,
             "conversation_id": "conv-id-123",
+            "tool_calls": [],
         }
         mock_response.raise_for_status.return_value = None
 
@@ -86,15 +127,11 @@ class TestAgentHttpClient:
                 "provider": "watsonx",
                 "model": "ibm/granite-3-3-8b-instruct",
             }
-            result_response, result_conversation_id = client.query_agent(api_input)
+            result = client.query_agent(api_input)
 
-            assert result_response == response_text
-            assert result_conversation_id == "conv-id-123"
-            mock_client.post.assert_called_once_with(
-                "/v1/query",
-                json=api_input,
-                timeout=300,
-            )
+            assert result["response"] == response_text
+            assert result["conversation_id"] == "conv-id-123"
+            assert result["tool_calls"] == []
 
     def test_query_agent_http_error(self):
         """Test agent query with HTTP error."""
@@ -223,7 +260,7 @@ class TestAgentHttpClient:
                 timeout=300,
             )
 
-            mock_parser.assert_called_once_with(mock_response, False)
+            mock_parser.assert_called_once_with(mock_response)
 
     def test_streaming_query_agent_parser_error(self):
         """Test streaming agent query when parser raises ValueError."""

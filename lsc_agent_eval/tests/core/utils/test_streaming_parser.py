@@ -36,7 +36,7 @@ class TestStreamingResponseParser:
             'data: {"event": "turn_complete", "data": {"token": "Task completed"}}',
         ]
 
-        result = parse_streaming_response(mock_response, extract_tools=True)
+        result = parse_streaming_response(mock_response)
 
         assert result["response"] == "Task completed"
         assert result["conversation_id"] == "conv-tools"

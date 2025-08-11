@@ -49,8 +49,8 @@ class AgentHttpClient:
 
     def query_agent(
         self, api_input: dict[str, str], timeout: int = 300
-    ) -> tuple[str, str]:
-        """Query the agent and return response."""
+    ) -> dict[str, Any]:
+        """Query the agent using non-streaming endpoint."""
         if not self.client:
             raise AgentAPIError("HTTP client not initialized")
 
@@ -65,11 +65,19 @@ class AgentHttpClient:
             response_data = response.json()
             if "response" not in response_data:
                 raise AgentAPIError("Agent response missing 'response' field")
+
             agent_response = response_data["response"].strip()
-
             conversation_id = response_data.get("conversation_id", "").strip()
+            tool_calls = response_data.get("tool_calls", [])
 
-            return agent_response, conversation_id
+            # Format tool calls to match expected structure (list of sequences)
+            formatted_tool_calls = self._format_query_endpoint_tool_calls(tool_calls)
+
+            return {
+                "response": agent_response,
+                "conversation_id": conversation_id,
+                "tool_calls": formatted_tool_calls,
+            }
 
         except httpx.TimeoutException as e:
             raise AgentAPIError(f"Agent query timeout after {timeout} seconds") from e
@@ -80,8 +88,26 @@ class AgentHttpClient:
         except Exception as e:
             raise AgentAPIError(f"Unexpected error querying agent: {e}") from e
 
+    def _format_query_endpoint_tool_calls(
+        self, tool_calls: list
+    ) -> list[list[dict[str, Any]]]:
+        """Format tool calls from query endpoint to match expected structure."""
+        if not tool_calls:
+            return []
+
+        formatted_sequences = []
+        for tool_call in tool_calls:
+            # OLS dependency
+            formatted_tool = {
+                "name": tool_call.get("name", ""),
+                "arguments": tool_call.get("args", {}),
+            }
+            formatted_sequences.append([formatted_tool])
+
+        return formatted_sequences
+
     def streaming_query_agent(
-        self, api_input: dict[str, str], extract_tools: bool = False, timeout: int = 300
+        self, api_input: dict[str, str], timeout: int = 300
     ) -> dict[str, Any]:
         """Query the agent using streaming endpoint."""
         if not self.client:
@@ -95,7 +121,7 @@ class AgentHttpClient:
                 timeout=timeout,
             ) as response:
                 response.raise_for_status()
-                return parse_streaming_response(response, extract_tools)
+                return parse_streaming_response(response)
 
         except httpx.TimeoutException as e:
             raise AgentAPIError(

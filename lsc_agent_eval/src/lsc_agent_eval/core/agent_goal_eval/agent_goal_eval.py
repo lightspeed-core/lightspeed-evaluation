@@ -174,6 +174,7 @@ class AgentGoalEval:
                     self.eval_args.agent_provider,
                     self.eval_args.agent_model,
                     conversation_id,
+                    self.eval_args.endpoint_type,
                 )
 
                 # Update conversation_id from API response for subsequent evaluations
