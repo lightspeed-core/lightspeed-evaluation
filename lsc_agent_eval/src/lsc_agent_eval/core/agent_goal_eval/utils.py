@@ -1,14 +1,22 @@
 """Utility functions for evaluation processing."""
 
-from typing import Optional
+from typing import Optional, TypedDict
 
 from .models import EvaluationDataConfig, EvaluationResult
+
+
+class EvalResultItem(TypedDict):
+    """Data model for result."""
+
+    eval_type: str
+    result: str
+    error: Optional[str]
 
 
 def create_evaluation_results(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     eval_config: EvaluationDataConfig,
     response: str = "",
-    evaluation_results: Optional[list[dict]] = None,
+    evaluation_results: Optional[list[EvalResultItem]] = None,
     error_message: Optional[str] = None,
     conversation_id: Optional[str] = None,
     tool_calls: Optional[list[list[dict]]] = None,
@@ -29,7 +37,7 @@ def create_evaluation_results(  # pylint: disable=too-many-arguments,too-many-po
                     conversation_group=eval_config.conversation_group,
                     conversation_id=conversation_id,
                     error=error_message,
-                    tool_calls=tool_calls,
+                    tool_calls=(tool_calls if eval_type == "tool_eval" else None),
                 )
             )
     elif evaluation_results:

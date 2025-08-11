@@ -18,7 +18,9 @@ def compare_tool_calls(
     )
 
 
-def _compare_tool_call_sequence(expected: list[dict], actual: list[dict]) -> bool:
+def _compare_tool_call_sequence(
+    expected: list[dict[str, Any]], actual: list[dict[str, Any]]
+) -> bool:
     """Compare a single sequence of tool calls."""
     return _compare_lists(
         expected,
@@ -40,12 +42,12 @@ def _compare_lists(
         return False
     for i, (expected_item, actual_item) in enumerate(zip(expected, actual)):
         if not compare_func(expected_item, actual_item):
-            logger.debug("Item %d does not match", i)
+            logger.debug("Item %d does not match in %s", i, compare_func.__name__)
             return False
     return True
 
 
-def _compare_single_tool_call(expected: dict, actual: dict) -> bool:
+def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     """Compare a single tool call."""
     expected_name = expected.get("name")
     actual_name = actual.get("name")
@@ -64,20 +66,13 @@ def _compare_single_tool_call(expected: dict, actual: dict) -> bool:
     return _compare_tool_arguments(expected_args, actual_args)
 
 
-def _compare_tool_arguments(expected: dict, actual: dict) -> bool:
+def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     """Compare tool arguments."""
     if not isinstance(expected, dict) or not isinstance(actual, dict):
         logger.debug(
             "Argument type mismatch: expected dict, got %s and %s",
             type(expected),
             type(actual),
-        )
-        return False
-    if len(expected) != len(actual):
-        logger.debug(
-            "Argument count mismatch: expected %d args, got %d args",
-            len(expected),
-            len(actual),
         )
         return False
 
@@ -95,5 +90,11 @@ def _compare_tool_arguments(expected: dict, actual: dict) -> bool:
                 actual_value,
             )
             return False
+
+    # Check for extra keys in actual
+    extra_keys = set(actual.keys()) - set(expected.keys())
+    if extra_keys:
+        logger.debug("Additional argument keys: %s", extra_keys)
+        return False
 
     return True

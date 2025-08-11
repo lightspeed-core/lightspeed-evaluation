@@ -22,6 +22,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _get_result_marker(status: str) -> str:
+    """Get result marker/emoji for printing."""
+    match status:
+        case "PASS":
+            marker = "✅"
+        case "FAIL":
+            marker = "❌"
+        case _:
+            marker = "⚠️ "
+
+    return marker
+
+
 class AgentGoalEval:
     """Orchestrator for agent goal evaluation."""
 
@@ -174,7 +187,7 @@ class AgentGoalEval:
                     self.eval_args.agent_provider,
                     self.eval_args.agent_model,
                     conversation_id,
-                    self.eval_args.endpoint_type,
+                    getattr(self.eval_args, "endpoint_type", "streaming"),
                 )
 
                 # Update conversation_id from API response for subsequent evaluations
@@ -208,15 +221,8 @@ class AgentGoalEval:
             if result.result == "FAIL":
                 overall_result = "FAIL"
 
-        match overall_result:
-            case "PASS":
-                marker = "✅"
-            case "FAIL":
-                marker = "❌"
-            case _:
-                marker = "⚠️ "
-
         # Print summary line
+        marker = _get_result_marker(overall_result)
         eval_types_str = ", ".join(r.eval_type for r in results)
         pbar.write(
             f"{marker} {results[0].conversation_group}/{results[0].eval_id} "
@@ -227,7 +233,9 @@ class AgentGoalEval:
         if overall_result != "PASS":
             pbar.write(f"   Query: {results[0].query}")
             pbar.write(f"   Response: {results[0].response}")
-            pbar.write(f"   Tool Calls: {results[0].tool_calls}")
+            if any(r.tool_calls for r in results):
+                tc = next((r.tool_calls for r in results if r.tool_calls), None)
+                pbar.write(f"   Tool Calls: {tc}")
 
             # Print expected values for debugging
             if data_config.expected_keywords:
@@ -243,11 +251,7 @@ class AgentGoalEval:
 
             pbar.write("   Individual results:")
             for result in results:
-                result_marker = (
-                    "✅"
-                    if result.result == "PASS"
-                    else "❌" if result.result == "FAIL" else "⚠️ "
-                )
+                result_marker = _get_result_marker(result.result)
                 pbar.write(f"     {result_marker} {result.eval_type}: {result.result}")
                 if result.error:
                     pbar.write(f"     Error message: {result.error}")

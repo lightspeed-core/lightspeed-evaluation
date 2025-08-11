@@ -5,13 +5,19 @@ from typing import Any, Callable, Optional, Union
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
-VALID_EVAL_TYPES = [
-    "action_eval",
-    "response_eval:sub-string",
-    "response_eval:accuracy",
-    "tool_eval",
-]
 VALID_EVAL_RESULTS = ["PASS", "FAIL", "ERROR"]
+EVAL_TYPE_REQUIREMENTS = {
+    "response_eval:accuracy": (
+        "expected_response",
+        "requires non-empty 'expected_response'",
+    ),
+    "response_eval:sub-string": (
+        "expected_keywords",
+        "requires non-empty 'expected_keywords'",
+    ),
+    "action_eval": ("eval_verify_script", "requires non-empty 'eval_verify_script'"),
+    "tool_eval": ("expected_tool_calls", "requires non-empty 'expected_tool_calls'"),
+}
 
 
 def _validate_eval_type(eval_type: str) -> str:
@@ -23,10 +29,10 @@ def _validate_eval_type(eval_type: str) -> str:
     if not eval_type:
         raise ValueError("eval_type cannot be empty")
 
-    if eval_type not in VALID_EVAL_TYPES:
-        raise ValueError(
-            f"eval_type must be one of {VALID_EVAL_TYPES}, got '{eval_type}'"
-        )
+    if eval_type not in EVAL_TYPE_REQUIREMENTS:
+        allowed = ", ".join(sorted(EVAL_TYPE_REQUIREMENTS.keys()))
+        raise ValueError(f"eval_type must be one of [{allowed}], got '{eval_type}'")
+
     return eval_type
 
 
@@ -96,7 +102,7 @@ class EvaluationDataConfig(BaseModel):
         min_length=1,
         description=(
             "List of evaluation types."
-            " -> action_eval, response_eval:sub-string, response_eval:accuracy"
+            " -> action_eval, tool_eval, response_eval:sub-string, response_eval:accuracy"
         ),
     )
     expected_response: Optional[str] = Field(
@@ -161,33 +167,11 @@ class EvaluationDataConfig(BaseModel):
         """Validate eval type specific requirements."""
         # Check requirements for each eval type in the list
         for eval_type in self.eval_types:
-            if eval_type == "response_eval:accuracy":
-                if not self.expected_response:
-                    raise ValueError(
-                        "eval_types containing 'response_eval:accuracy' "
-                        "requires non-empty 'expected_response'"
-                    )
-
-            elif eval_type == "response_eval:sub-string":
-                if not self.expected_keywords or len(self.expected_keywords) == 0:
-                    raise ValueError(
-                        "eval_types containing 'response_eval:sub-string' "
-                        "requires non-empty 'expected_keywords'"
-                    )
-
-            elif eval_type == "action_eval":
-                if not self.eval_verify_script:
-                    raise ValueError(
-                        "eval_types containing 'action_eval' "
-                        "requires non-empty 'eval_verify_script'"
-                    )
-
-            elif eval_type == "tool_eval":
-                if not self.expected_tool_calls or len(self.expected_tool_calls) == 0:
-                    raise ValueError(
-                        "eval_types containing 'tool_eval' "
-                        "requires non-empty 'expected_tool_calls'"
-                    )
+            if eval_type in EVAL_TYPE_REQUIREMENTS:
+                field_name, error_msg = EVAL_TYPE_REQUIREMENTS[eval_type]
+                field_value = getattr(self, field_name)
+                if not field_value:
+                    raise ValueError(f"eval_types containing '{eval_type}' {error_msg}")
 
         return self
 

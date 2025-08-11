@@ -38,9 +38,9 @@ class TestAgentGoalEvalDataManager:
   description: Test namespace detection using LLM judge
   conversation:
     - eval_id: eval1
-      eval_query: is there a openshift-lightspeed namespace ?
+      eval_query: is there an openshift-lightspeed namespace?
       eval_types: [response_eval:accuracy]
-      expected_response: there is a openshift-lightspeed namespace.
+      expected_response: there is an openshift-lightspeed namespace.
       description: Verify openshift-lightspeed namespace with LLM evaluation
 """
 

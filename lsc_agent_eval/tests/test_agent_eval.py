@@ -108,6 +108,22 @@ class TestArgsParser:
         assert parsed.judge_provider == "watsonx"
         assert parsed.judge_model is None
 
+    def test_args_parser_invalid_endpoint_type(self):
+        """Test argument parser with invalid endpoint type."""
+        args = [
+            "--eval_data_yaml",
+            "test_data.yaml",
+            "--agent_provider",
+            "test_provider",
+            "--agent_model",
+            "test_model",
+            "--endpoint_type",
+            "invalid",
+        ]
+
+        with pytest.raises(SystemExit):
+            _args_parser(args)
+
 
 class TestMain:
     """Test main function."""

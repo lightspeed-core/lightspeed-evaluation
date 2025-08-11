@@ -293,6 +293,23 @@ class TestAgentHttpClient:
             ):
                 client.streaming_query_agent(api_input)
 
+    def test_streaming_query_agent_timeout(self):
+        """Test streaming agent query with timeout."""
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_client.stream.side_effect = httpx.TimeoutException("Request timeout")
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {
+                "query": "Test query",
+                "provider": "agent_provider",
+                "model": "agent_model",
+            }
+            with pytest.raises(AgentAPIError, match="Agent streaming query timeout"):
+                client.streaming_query_agent(api_input)
+
     def test_streaming_query_agent_http_error(self):
         """Test streaming agent query with HTTP error."""
         mock_response = Mock()

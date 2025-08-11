@@ -51,12 +51,14 @@ class EvaluationRunner:
 
             if endpoint_type == "streaming":
                 agent_response = self.agent_client.streaming_query_agent(api_input)
-            else:
+            elif endpoint_type == "query":
                 agent_response = self.agent_client.query_agent(api_input)
+            else:
+                raise ValueError(f"Unsupported endpoint_type: {endpoint_type}")
 
             response = agent_response["response"]
             conversation_id = agent_response["conversation_id"]
-            tool_calls = agent_response["tool_calls"]
+            tool_calls = agent_response.get("tool_calls", [])
 
             # Run all evaluations
             evaluation_results = []
@@ -99,7 +101,7 @@ class EvaluationRunner:
                 ),
             )
 
-        except (AgentAPIError, ScriptExecutionError, JudgeModelError) as e:
+        except (AgentAPIError, ScriptExecutionError, JudgeModelError, ValueError) as e:
             logger.error("Evaluation failed for %s: %s", data_config.eval_id, e)
             return create_evaluation_results(
                 data_config, error_message=str(e), conversation_id=conversation_id
@@ -120,12 +122,11 @@ class EvaluationRunner:
                 return self._evaluate_substring(data_config, response)
             case "response_eval:accuracy":
                 return self._evaluate_judge_llm(data_config, response)
-            # TODO(future): We should do tool_eval always ??
+            # TODO(future): Consider always running tool_eval if tool_calls are present
             case "tool_eval":
                 return self._evaluate_tools(data_config, tool_calls or [])
             case _:
-                logger.error("Unknown evaluation type: %s", eval_type)
-                return False
+                raise ValueError(f"Unknown evaluation type: {eval_type}")
 
     def _evaluate_script(self, data_config: "EvaluationDataConfig") -> bool:
         """Evaluate using script execution."""
@@ -194,12 +195,10 @@ class EvaluationRunner:
     ) -> bool:
         """Evaluate using tool calls comparison."""
         if not data_config.expected_tool_calls:
-            logger.error("Expected tool calls not provided for tool evaluation")
-            return False
+            raise ValueError("Expected tool calls not provided for tool evaluation")
 
         if actual_tool_calls is None:
-            logger.error("No tool calls provided for evaluation")
-            return False
+            raise ValueError("No tool calls provided for evaluation")
 
         return compare_tool_calls(data_config.expected_tool_calls, actual_tool_calls)
 

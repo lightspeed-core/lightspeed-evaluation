@@ -98,7 +98,7 @@ class TestEvaluationResult:
             EvaluationResult(
                 eval_id="multi_001",
                 query="create openshift-lightspeed namespace",
-                response="Sorry, I can't create a openshift-lightspeed namespace",
+                response="Sorry, I can't create openshift-lightspeed namespace",
                 eval_type="action_eval",
                 result="ERROR",
                 conversation_group="test_conv",
@@ -107,7 +107,7 @@ class TestEvaluationResult:
             EvaluationResult(
                 eval_id="multi_001",
                 query="create openshift-lightspeed namespace",
-                response="Sorry, I can't create a openshift-lightspeed namespace",
+                response="Sorry, I can't create openshift-lightspeed namespace",
                 eval_type="response_eval:sub-string",
                 result="PASS",
                 conversation_group="test_conv",
@@ -116,7 +116,7 @@ class TestEvaluationResult:
             EvaluationResult(
                 eval_id="multi_001",
                 query="create openshift-lightspeed namespace",
-                response="Sorry, I can't create a openshift-lightspeed namespace",
+                response="Sorry, I can't create openshift-lightspeed namespace",
                 eval_type="response_eval:accuracy",
                 result="FAIL",
                 conversation_group="test_conv",

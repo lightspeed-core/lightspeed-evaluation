@@ -26,7 +26,7 @@
   cleanup_script: sample_data/script/conv3/cleanup.sh
   conversation:
     - eval_id: eval1
-      eval_query: is there a openshift-lightspeed namespace ?
+      eval_query: is there an openshift-lightspeed namespace?
       eval_types: [response_eval:sub-string]
       expected_keywords: ["yes"]
       description: Check for openshift-lightspeed namespace after setup
@@ -102,12 +102,13 @@
   cleanup_script: sample_data/script/conv4/cleanup.sh
   conversation:
     - eval_id: comprehensive_eval
-      eval_query: create openshift-lightspeed namespace ?
+      eval_query: create openshift-lightspeed namespace
       eval_types:
-        - tool_call
+        - tool_eval
         - action_eval
         - response_eval:sub-string
         - response_eval:accuracy
+      expected_tool_calls:
         - - name: oc_create
             arguments:
               kind: namespace

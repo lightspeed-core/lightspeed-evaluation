@@ -63,9 +63,10 @@ The evaluation is configured using a YAML file that defines conversations. Each 
 Each evaluation within a conversation can include:
 - `eval_id`: Unique identifier for the evaluation
 - `eval_query`: The query/task to send to the agent
-- `eval_types`: List of evaluation types to run (action_eval, response_eval:sub-string, response_eval:accuracy)
+- `eval_types`: List of evaluation types to run (action_eval, tool_eval, response_eval:sub-string, response_eval:accuracy)
 - `expected_response`: Expected response (for response_eval:accuracy evaluation)
 - `expected_keywords`: Keywords to look for (for response_eval:sub-string evaluation)
+- `expected_tool_calls`: Expected tool call sequences (list of lists) with arguments (for tool_eval)
 - `eval_verify_script`: Verification script (for action_eval evaluation)
 - `description`: Description of the evaluation (Optional)
 
@@ -130,7 +131,7 @@ Note: `eval_id` can't contain duplicate values within a conversation group. But 
         - - name: oc_get
             arguments:
               oc_get_args: [namespaces, openshift-lightspeed]
-      expected_keywords: ["yes", openshift-lightspeed]
+      expected_keywords: ["yes", "openshift-lightspeed"]
       description: Tool call with argument validation and response verification
 
 # Single-turn Conversations
@@ -140,7 +141,7 @@ Note: `eval_id` can't contain duplicate values within a conversation group. But 
   cleanup_script: sample_data/script/conv3/cleanup.sh
   conversation:
     - eval_id: eval1
-      eval_query: is there a openshift-lightspeed namespace ?
+      eval_query: is there an openshift-lightspeed namespace?
       eval_types: [response_eval:sub-string]
       expected_keywords: ["yes", lightspeed]
       description: Check for openshift-lightspeed namespace after setup
@@ -177,7 +178,7 @@ lsc_agent_eval \
     --judge_model gpt-4o-mini \
     --result_dir ./eval_output
 ```
-Pass token text file or set `AGENT_API_TOKEN` env var
+Pass token text file or set `AGENT_API_TOKEN` env var.
 
 ```python
 from lsc_agent_eval import AgentGoalEval
@@ -224,7 +225,7 @@ evaluator.run_evaluation()
    - Run all evaluations sequentially:
      - For the first evaluation: Send query without conversation ID, receive new conversation ID from API
      - For subsequent evaluations: Use the conversation ID from the first evaluation to maintain context
-     - Execute evaluation based on eval_type (either sub-string, judge-llm or script)
+     - Execute evaluation based on eval_type (any combination of valid eval_types)
    - Run cleanup script (if provided)
 3. **Save Results**: Export to CSV and JSON with statistics
 

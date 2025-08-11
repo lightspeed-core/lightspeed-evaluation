@@ -156,6 +156,7 @@ class TestEvaluationRunner:
                 "conversation_id": "conv-id-123",
             }
         )
+        mock_agent_client.query_agent.assert_not_called()
 
         # Verify judge was called
         mock_judge_manager.evaluate_response.assert_called_once()
@@ -430,11 +431,13 @@ class TestEvaluationRunner:
     ):
         """Test tool evaluation with success."""
         mock_compare_tool_calls.return_value = True
-        mock_agent_client.streaming_query_agent.return_value = {
-            "response": "Available versions listed",
-            "conversation_id": "conv-tools-1",
-            "tool_calls": [[{"name": "list_versions", "arguments": {}}]],
-        }
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, **kwargs: {
+                "response": "Available versions listed",
+                "conversation_id": "conv-tools-1",
+                "tool_calls": [[{"name": "list_versions", "arguments": {}}]],
+            }
+        )
 
         config = EvaluationDataConfig(
             eval_id="tools_test",
@@ -451,6 +454,7 @@ class TestEvaluationRunner:
         assert len(results) == 1
         assert results[0].result == "PASS"
         assert results[0].eval_type == "tool_eval"
+        assert results[0].tool_calls == [[{"name": "list_versions", "arguments": {}}]]
 
     @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_tool_eval_failure(
@@ -462,11 +466,13 @@ class TestEvaluationRunner:
     ):
         """Test tool evaluation with failure."""
         mock_compare_tool_calls.return_value = False
-        mock_agent_client.streaming_query_agent.return_value = {
-            "response": "Tool call failed",
-            "conversation_id": "conv-tools-2",
-            "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
-        }
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, **kwargs: {
+                "response": "Tool call failed",
+                "conversation_id": "conv-tools-2",
+                "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
+            }
+        )
 
         config = EvaluationDataConfig(
             eval_id="tools_fail_test",
@@ -483,6 +489,7 @@ class TestEvaluationRunner:
         assert len(results) == 1
         assert results[0].result == "FAIL"
         assert results[0].eval_type == "tool_eval"
+        assert results[0].tool_calls == [[{"name": "wrong_tool", "arguments": {}}]]
 
     def test_conversation_id_propagation(
         self, mock_agent_client, mock_script_runner, mock_judge_manager
@@ -604,7 +611,7 @@ class TestEvaluationRunner:
         # Mock mixed results
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, timeout=300: {
-                "response": "Sorry, I can't create a openshift-lightspeed namespace",
+                "response": "Sorry, I can't create openshift-lightspeed namespace",
                 "conversation_id": "conv-456",
                 "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
             }
@@ -660,7 +667,7 @@ class TestEvaluationRunner:
         """Test evaluation with multiple eval types where some have errors."""
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, timeout=300: {
-                "response": "Sorry, I can't create a openshift-lightspeed namespace",
+                "response": "Sorry, I can't create openshift-lightspeed namespace",
                 "conversation_id": "conv-789",
                 "tool_calls": [],
             }

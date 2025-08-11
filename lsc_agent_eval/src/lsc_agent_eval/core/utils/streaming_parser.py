@@ -8,6 +8,10 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+DATA_PREFIX = "data: "
+TOOL_PREFIX = "Tool:"
+ARGUMENTS_SEPARATOR = " arguments:"
+
 
 def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
     """Parse streaming response and extract data."""
@@ -17,10 +21,10 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
 
     for line in response.iter_lines():
         line = line.strip()
-        if not line or not line.startswith("data: "):
+        if not line or not line.startswith(DATA_PREFIX):
             continue
 
-        json_data = line[6:]  # Remove "data: " prefix
+        json_data = line[len(DATA_PREFIX) :]  # Remove data prefix
         parsed_data = _parse_streaming_line(json_data)
 
         if not parsed_data:
@@ -71,19 +75,24 @@ def _parse_tool_call(token: str) -> Optional[dict[str, Any]]:
     # format: 'Tool:<name> arguments:{...}'
     try:
         token = token.strip()
-        if not token.startswith("Tool:") or " arguments:" not in token:
+        if not token.startswith(TOOL_PREFIX) or ARGUMENTS_SEPARATOR not in token:
             return None
 
-        parts = token.split(" arguments:", 1)
+        parts = token.split(ARGUMENTS_SEPARATOR, 1)
         if len(parts) != 2:
             return None
 
-        tool_name = parts[0][5:]  # Remove "Tool:" prefix
+        tool_name = parts[0][len(TOOL_PREFIX) :]  # Remove Tool prefix
         arguments_str = parts[1]
 
         try:
             arguments = json.loads(arguments_str)
         except json.JSONDecodeError:
+            logger.warning(
+                "Failed to parse tool arguments for '%s': invalid JSON '%s'",
+                tool_name,
+                arguments_str,
+            )
             arguments = {}  # If JSON parsing fails, treat as empty arguments
 
         return {"name": tool_name, "arguments": arguments}
