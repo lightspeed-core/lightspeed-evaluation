@@ -94,7 +94,7 @@ class TestAgentHttpClient:
             assert result["conversation_id"] == "conv-id-123"
             # Tool calls should be formatted into sequences
             expected_formatted = [
-                [{"name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]
+                [{"tool_name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]
             ]
             assert result["tool_calls"] == expected_formatted
             mock_client.post.assert_called_once_with(

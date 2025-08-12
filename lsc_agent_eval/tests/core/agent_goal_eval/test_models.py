@@ -255,7 +255,7 @@ class TestEvaluationDataConfig:
 
     def test_evaluation_data_config_tool_eval(self):
         """Test EvaluationDataConfig for tools evaluation."""
-        expected_tool_calls = [[{"name": "list_versions", "arguments": {}}]]
+        expected_tool_calls = [[{"tool_name": "list_versions", "arguments": {}}]]
 
         config = EvaluationDataConfig(
             eval_id="test_tools",
@@ -300,17 +300,17 @@ class TestEvaluationDataConfig:
         expected_tool_calls = [
             [
                 {
-                    "name": "create_pod",
+                    "tool_name": "create_pod",
                     "arguments": {"name": "test-pod", "image": "nginx"},
                 },
                 {
-                    "name": "apply_service",
+                    "tool_name": "apply_service",
                     "arguments": {"pod_name": "test-pod", "port": 80},
                 },
             ],
             [
                 {
-                    "name": "oc_get",
+                    "tool_name": "oc_get",
                     "arguments": {"oc_get_args": ["pods"]},
                 }
             ],

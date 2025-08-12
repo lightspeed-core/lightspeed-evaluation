@@ -99,7 +99,7 @@ class AgentHttpClient:
         for tool_call in tool_calls:
             # OLS dependency
             formatted_tool = {
-                "name": tool_call.get("name", ""),
+                "tool_name": tool_call.get("name", ""),
                 "arguments": tool_call.get("args", {}),
             }
             formatted_sequences.append([formatted_tool])

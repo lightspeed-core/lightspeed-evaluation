@@ -40,6 +40,7 @@ def _compare_lists(
     if len(expected) != len(actual):
         logger.debug(mismatch_message, len(expected), len(actual))
         return False
+
     for i, (expected_item, actual_item) in enumerate(zip(expected, actual)):
         if not compare_func(expected_item, actual_item):
             logger.debug("Item %d does not match in %s", i, compare_func.__name__)
@@ -49,8 +50,8 @@ def _compare_lists(
 
 def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     """Compare a single tool call."""
-    expected_name = expected.get("name")
-    actual_name = actual.get("name")
+    expected_name = expected.get("tool_name")
+    actual_name = actual.get("tool_name")
 
     if expected_name != actual_name:
         logger.debug(

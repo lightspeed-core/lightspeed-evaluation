@@ -146,6 +146,7 @@ class TestEvaluationRunner:
         assert result.result == "PASS"
         assert result.conversation_id == "conv-id-123"
         assert result.error is None
+        assert result.tool_calls is None
 
         # Verify agent was called
         mock_agent_client.streaming_query_agent.assert_called_once_with(
@@ -435,7 +436,7 @@ class TestEvaluationRunner:
             lambda api_input, **kwargs: {
                 "response": "Available versions listed",
                 "conversation_id": "conv-tools-1",
-                "tool_calls": [[{"name": "list_versions", "arguments": {}}]],
+                "tool_calls": [[{"tool_name": "list_versions", "arguments": {}}]],
             }
         )
 
@@ -443,7 +444,7 @@ class TestEvaluationRunner:
             eval_id="tools_test",
             eval_query="List available versions",
             eval_types=["tool_eval"],
-            expected_tool_calls=[[{"name": "list_versions", "arguments": {}}]],
+            expected_tool_calls=[[{"tool_name": "list_versions", "arguments": {}}]],
         )
 
         runner = EvaluationRunner(
@@ -454,7 +455,13 @@ class TestEvaluationRunner:
         assert len(results) == 1
         assert results[0].result == "PASS"
         assert results[0].eval_type == "tool_eval"
-        assert results[0].tool_calls == [[{"name": "list_versions", "arguments": {}}]]
+        assert results[0].tool_calls == [
+            [{"tool_name": "list_versions", "arguments": {}}]
+        ]
+        mock_compare_tool_calls.assert_called_once_with(
+            [[{"tool_name": "list_versions", "arguments": {}}]],
+            [[{"tool_name": "list_versions", "arguments": {}}]],
+        )
 
     @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_tool_eval_failure(
@@ -470,7 +477,7 @@ class TestEvaluationRunner:
             lambda api_input, **kwargs: {
                 "response": "Tool call failed",
                 "conversation_id": "conv-tools-2",
-                "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
+                "tool_calls": [[{"tool_name": "wrong_tool", "arguments": {}}]],
             }
         )
 
@@ -478,7 +485,7 @@ class TestEvaluationRunner:
             eval_id="tools_fail_test",
             eval_query="Use correct tool",
             eval_types=["tool_eval"],
-            expected_tool_calls=[[{"name": "correct_tool", "arguments": {}}]],
+            expected_tool_calls=[[{"tool_name": "correct_tool", "arguments": {}}]],
         )
 
         runner = EvaluationRunner(
@@ -489,7 +496,11 @@ class TestEvaluationRunner:
         assert len(results) == 1
         assert results[0].result == "FAIL"
         assert results[0].eval_type == "tool_eval"
-        assert results[0].tool_calls == [[{"name": "wrong_tool", "arguments": {}}]]
+        assert results[0].tool_calls == [[{"tool_name": "wrong_tool", "arguments": {}}]]
+        mock_compare_tool_calls.assert_called_once_with(
+            [[{"tool_name": "correct_tool", "arguments": {}}]],
+            [[{"tool_name": "wrong_tool", "arguments": {}}]],
+        )
 
     def test_conversation_id_propagation(
         self, mock_agent_client, mock_script_runner, mock_judge_manager
@@ -541,7 +552,7 @@ class TestEvaluationRunner:
                 "tool_calls": [
                     [
                         {
-                            "name": "create_namespace",
+                            "tool_name": "create_namespace",
                             "arguments": {"name": "lightspeed"},
                         }
                     ]
@@ -569,7 +580,7 @@ class TestEvaluationRunner:
             ],  # All present in response
             expected_response="openshift-lightspeed namespace is created successfully",
             expected_tool_calls=[
-                [{"name": "create_namespace", "arguments": {"name": "lightspeed"}}]
+                [{"tool_name": "create_namespace", "arguments": {"name": "lightspeed"}}]
             ],
         )
 
@@ -613,7 +624,7 @@ class TestEvaluationRunner:
             lambda api_input, timeout=300: {
                 "response": "Sorry, I can't create openshift-lightspeed namespace",
                 "conversation_id": "conv-456",
-                "tool_calls": [[{"name": "wrong_tool", "arguments": {}}]],
+                "tool_calls": [[{"tool_name": "wrong_tool", "arguments": {}}]],
             }
         )
         mock_script_runner.run_script.return_value = False  # Script fails
@@ -633,7 +644,7 @@ class TestEvaluationRunner:
             expected_keywords=["lightspeed"],  # Only this should pass
             expected_response="openshift-lightspeed namespace is created successfully",
             expected_tool_calls=[
-                [{"name": "create_namespace", "arguments": {"name": "lightspeed"}}]
+                [{"tool_name": "create_namespace", "arguments": {"name": "lightspeed"}}]
             ],
         )
 
@@ -646,9 +657,13 @@ class TestEvaluationRunner:
 
         result_by_type = {r.eval_type: r for r in results}
         assert result_by_type["action_eval"].result == "FAIL"
+        assert result_by_type["action_eval"].error is None
         assert result_by_type["response_eval:sub-string"].result == "PASS"
+        assert result_by_type["response_eval:sub-string"].error is None
         assert result_by_type["response_eval:accuracy"].result == "FAIL"
+        assert result_by_type["response_eval:accuracy"].error is None
         assert result_by_type["tool_eval"].result == "FAIL"
+        assert result_by_type["tool_eval"].error is None
 
         assert all(r.eval_id == "multi_mixed_test" for r in results)
         assert all(r.query == "create openshift-lightspeed namespace" for r in results)
@@ -743,3 +758,28 @@ class TestEvaluationRunner:
 
         mock_agent_client.streaming_query_agent.assert_called_once()
         mock_agent_client.query_agent.assert_called_once()
+
+    def test_run_evaluation_invalid_endpoint_type_returns_error(
+        self,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+        sample_config_judge_llm,
+    ):
+        """Test invalid endpoint type."""
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+        results = runner.run_evaluation(
+            sample_config_judge_llm,
+            "openai",
+            "gpt-4",
+            "conv-id-xyz",
+            endpoint_type="invalid-endpoint",
+        )
+        assert len(results) == 1
+        assert results[0].result == "ERROR"
+        assert results[0].error is not None
+        # No agent call should have been made
+        mock_agent_client.streaming_query_agent.assert_not_called()
+        mock_agent_client.query_agent.assert_not_called()

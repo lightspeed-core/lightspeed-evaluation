@@ -49,7 +49,7 @@
       eval_query: List available openshift versions
       eval_types: [tool_eval]
       expected_tool_calls:
-        - - name: list_versions
+        - - tool_name: list_versions
             arguments: {}
       description: Verify correct tool call for listing versions
 
@@ -60,7 +60,7 @@
       eval_query: does openshift-lightspeed name exist ?
       eval_types: [tool_eval, response_eval:sub-string]
       expected_tool_calls:
-        - - name: oc_get
+        - - tool_name: oc_get
             arguments:
               oc_get_args: [namespaces, openshift-lightspeed]
       expected_keywords: [openshift-lightspeed]
@@ -73,9 +73,9 @@
       eval_query: List versions and then create a pod
       eval_types: [tool_eval]
       expected_tool_calls:
-        - - name: list_versions
+        - - tool_name: list_versions
             arguments: {}
-        - - name: create_pod
+        - - tool_name: create_pod
             arguments:
               name: my-pod
               image: httpd
@@ -109,7 +109,7 @@
         - response_eval:sub-string
         - response_eval:accuracy
       expected_tool_calls:
-        - - name: oc_create
+        - - tool_name: oc_create
             arguments:
               kind: namespace
               name: openshift-lightspeed

@@ -32,7 +32,7 @@ class TestStreamingResponseParser:
         mock_response = Mock()
         mock_response.iter_lines.return_value = [
             'data: {"event": "start", "data": {"conversation_id": "conv-tools"}}',
-            'data: {"event": "tool_call", "data": {"token": "Tool:create_pod arguments:{\\"name\\": \\"test\\"}"}}',
+            'data: {"event": "tool_call", "data": {"token": {"tool_name": "create_pod", "arguments": {"name": "test"}}}}',
             'data: {"event": "turn_complete", "data": {"token": "Task completed"}}',
         ]
 
@@ -41,7 +41,7 @@ class TestStreamingResponseParser:
         assert result["response"] == "Task completed"
         assert result["conversation_id"] == "conv-tools"
         assert len(result["tool_calls"]) == 1
-        assert result["tool_calls"][0][0]["name"] == "create_pod"
+        assert result["tool_calls"][0][0]["tool_name"] == "create_pod"
         assert result["tool_calls"][0][0]["arguments"] == {"name": "test"}
 
     def test_error_conditions(self):
@@ -66,17 +66,21 @@ class TestStreamingResponseParser:
     def test_tool_call_parsing(self):
         """Test tool call parsing functionality."""
         # Valid tool call
-        result = _parse_tool_call("Tool:list_versions arguments:{}")
-        assert result["name"] == "list_versions"
+        result = _parse_tool_call({"tool_name": "list_versions", "arguments": {}})
+        assert result["tool_name"] == "list_versions"
         assert result["arguments"] == {}
 
         # Tool call with arguments
-        result = _parse_tool_call('Tool:create_pod arguments:{"name": "test"}')
-        assert result["name"] == "create_pod"
+        result = _parse_tool_call(
+            {"tool_name": "create_pod", "arguments": {"name": "test"}}
+        )
+        assert result["tool_name"] == "create_pod"
         assert result["arguments"] == {"name": "test"}
 
-        # Invalid format
-        assert _parse_tool_call("invalid format") is None
+        # Invalid format - missing tool_name
+        assert _parse_tool_call({"arguments": {}}) is None
+        # Invalid format - missing arguments field
+        assert _parse_tool_call({"tool_name": "list_versions"}) is None
 
     def test_malformed_data_handling(self):
         """Test handling of malformed data and edge cases."""

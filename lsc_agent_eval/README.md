@@ -8,7 +8,7 @@ A framework for evaluating AI agent performance.
 - **Multi-turn Evaluation**: Organize evaluations into conversation groups for multi-turn testing
 - **Multi-type Evaluation**: Support for multiple evaluation types per query:
   - `action_eval`: Script-based evaluation using verification script (similar to [k8s-bench](https://github.com/GoogleCloudPlatform/kubectl-ai/tree/main/k8s-bench))
-  - `response_eval:sub-string`: Simple substring matching evaluation (ALL keywords must be present in response)
+  - `response_eval:sub-string`: Simple substring matching evaluation (ALL keywords must be present in response; case-insensitive)
   - `response_eval:accuracy`: LLM-based evaluation using a judge model. Result is either accurate or not in comparison to expected response
   - `tool_eval`: Tool call evaluation comparing expected vs actual tool calls with arguments
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after evaluation
@@ -66,7 +66,7 @@ Each evaluation within a conversation can include:
 - `eval_types`: List of evaluation types to run (action_eval, tool_eval, response_eval:sub-string, response_eval:accuracy)
 - `expected_response`: Expected response (for response_eval:accuracy evaluation)
 - `expected_keywords`: Keywords to look for (for response_eval:sub-string evaluation)
-- `expected_tool_calls`: Expected tool call sequences (list of lists) with arguments (for tool_eval)
+- `expected_tool_calls`: Expected tool call sequences (list of lists) with tool_name and arguments (for tool_eval)
 - `eval_verify_script`: Verification script (for action_eval evaluation)
 - `description`: Description of the evaluation (Optional)
 
@@ -121,14 +121,14 @@ Note: `eval_id` can't contain duplicate values within a conversation group. But 
       eval_query: List available OpenShift versions
       eval_types: [tool_eval]
       expected_tool_calls: 
-        - - name: list_versions
+        - - tool_name: list_versions
             arguments: {}
       description: Verify correct tool call for listing versions
     - eval_id: eval2
       eval_query: is there an openshift-lightspeed namespace
       eval_types: [tool_eval, response_eval:sub-string]
       expected_tool_calls:
-        - - name: oc_get
+        - - tool_name: oc_get
             arguments:
               oc_get_args: [namespaces, openshift-lightspeed]
       expected_keywords: ["yes", "openshift-lightspeed"]
