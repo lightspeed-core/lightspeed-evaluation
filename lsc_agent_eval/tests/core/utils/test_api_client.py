@@ -1,6 +1,6 @@
 """Tests for agent API client."""
 
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import httpx
 import pytest
@@ -67,10 +67,51 @@ class TestAgentHttpClient:
         """Test successful agent query."""
         # Mock HTTP response
         mock_response = Mock()
+        response_text = "There are 80 namespaces."
+        tool_calls_data = [{"name": "oc_get", "args": {"oc_get_args": ["namespaces"]}}]
+        mock_response.json.return_value = {
+            "response": response_text,
+            "conversation_id": "conv-id-123",
+            "tool_calls": tool_calls_data,
+        }
+        mock_response.raise_for_status.return_value = None
+
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_client.post.return_value = mock_response
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {
+                "query": "How many namespaces are there?",
+                "provider": "watsonx",
+                "model": "ibm/granite-3-3-8b-instruct",
+            }
+            result = client.query_agent(api_input)
+
+            assert result["response"] == response_text
+            assert result["conversation_id"] == "conv-id-123"
+            # Tool calls should be formatted into sequences
+            expected_formatted = [
+                [{"tool_name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]
+            ]
+            assert result["tool_calls"] == expected_formatted
+            mock_client.post.assert_called_once_with(
+                "/v1/query",
+                json=api_input,
+                timeout=300,
+            )
+
+    def test_query_agent_success_empty_tool_calls(self):
+        """Test successful agent query with empty tool_calls."""
+        # Mock HTTP response with empty tool_calls
+        mock_response = Mock()
         response_text = "OpenShift Virtualization is an extension of the OpenShift Container Platform"
         mock_response.json.return_value = {
             "response": response_text,
             "conversation_id": "conv-id-123",
+            "tool_calls": [],
         }
         mock_response.raise_for_status.return_value = None
 
@@ -86,15 +127,11 @@ class TestAgentHttpClient:
                 "provider": "watsonx",
                 "model": "ibm/granite-3-3-8b-instruct",
             }
-            result_response, result_conversation_id = client.query_agent(api_input)
+            result = client.query_agent(api_input)
 
-            assert result_response == response_text
-            assert result_conversation_id == "conv-id-123"
-            mock_client.post.assert_called_once_with(
-                "/v1/query",
-                json=api_input,
-                timeout=300,
-            )
+            assert result["response"] == response_text
+            assert result["conversation_id"] == "conv-id-123"
+            assert result["tool_calls"] == []
 
     def test_query_agent_http_error(self):
         """Test agent query with HTTP error."""
@@ -176,3 +213,118 @@ class TestAgentHttpClient:
                 AgentAPIError, match="Failed to setup HTTP client: Setup failed"
             ):
                 AgentHttpClient("http://localhost:8080")
+
+    # Streaming Query Tests
+    def test_streaming_query_agent_success(self):
+        """Test successful streaming agent query."""
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
+
+        mock_client = Mock()
+        mock_client.stream.return_value = mock_stream_response
+
+        # Expected parser result
+        expected_result = {
+            "response": "Hello World! This is the complete response.",
+            "conversation_id": "stream-conv-123",
+            "tool_calls": [],
+        }
+
+        with (
+            patch("httpx.Client", return_value=mock_client),
+            patch(
+                "lsc_agent_eval.core.utils.api_client.parse_streaming_response"
+            ) as mock_parser,
+        ):
+
+            mock_parser.return_value = expected_result
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {
+                "query": "What is OpenShift?",
+                "provider": "watsonx",
+                "model": "ibm/granite-3-3-8b-instruct",
+            }
+
+            result = client.streaming_query_agent(api_input)
+            assert result == expected_result
+
+            mock_client.stream.assert_called_once_with(
+                "POST",
+                "/v1/streaming_query",
+                json=api_input,
+                timeout=300,
+            )
+
+            mock_parser.assert_called_once_with(mock_response)
+
+    def test_streaming_query_agent_parser_error(self):
+        """Test streaming agent query when parser raises ValueError."""
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
+
+        mock_client = Mock()
+        mock_client.stream.return_value = mock_stream_response
+
+        with (
+            patch("httpx.Client", return_value=mock_client),
+            patch(
+                "lsc_agent_eval.core.utils.api_client.parse_streaming_response"
+            ) as mock_parser,
+        ):
+
+            # Mock the parser to raise the specific error
+            mock_parser.side_effect = ValueError("No Conversation ID found")
+
+            client = AgentHttpClient("http://localhost:8080")
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
+
+            with pytest.raises(
+                AgentAPIError,
+                match="Streaming response validation error: No Conversation ID found",
+            ):
+                client.streaming_query_agent(api_input)
+
+    def test_streaming_query_agent_timeout(self):
+        """Test streaming agent query with timeout."""
+        # Mock HTTP client
+        mock_client = Mock()
+        mock_client.stream.side_effect = httpx.TimeoutException("Request timeout")
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {
+                "query": "Test query",
+                "provider": "agent_provider",
+                "model": "agent_model",
+            }
+            with pytest.raises(AgentAPIError, match="Agent streaming query timeout"):
+                client.streaming_query_agent(api_input)
+
+    def test_streaming_query_agent_http_error(self):
+        """Test streaming agent query with HTTP error."""
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+
+        mock_client = Mock()
+        mock_client.stream.side_effect = httpx.HTTPStatusError(
+            "Server error", request=Mock(), response=mock_response
+        )
+
+        with patch("httpx.Client", return_value=mock_client):
+            client = AgentHttpClient("http://localhost:8080")
+
+            api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
+
+            with pytest.raises(AgentAPIError, match="Agent API error: 500"):
+                client.streaming_query_agent(api_input)

@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Optional
 
 from ..utils.exceptions import AgentAPIError, JudgeModelError, ScriptExecutionError
 from ..utils.prompt import ANSWER_CORRECTNESS_PROMPT
-from .utils import create_error_result, create_success_result
+from .tool_call_eval import compare_tool_calls
+from .utils import create_evaluation_results
 
 if TYPE_CHECKING:
     from ..utils.api_client import AgentHttpClient
@@ -30,16 +31,17 @@ class EvaluationRunner:
         self.judge_manager = judge_manager
         self.script_runner = script_runner
 
-    def run_evaluation(
+    def run_evaluation(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         data_config: "EvaluationDataConfig",
         agent_provider: str,
         agent_model: str,
         conversation_id: Optional[str] = None,
-    ) -> "EvaluationResult":
-        """Run a single evaluation based on configuration."""
+        endpoint_type: str = "streaming",
+    ) -> list["EvaluationResult"]:
+        """Run multiple evaluations based on configuration."""
         try:
-            # Query the agent
+            # Query the agent once
             api_input = {
                 "query": data_config.eval_query,
                 "provider": agent_provider,
@@ -47,33 +49,84 @@ class EvaluationRunner:
                 "conversation_id": conversation_id,
             }
 
-            response, conversation_id = self.agent_client.query_agent(api_input)
+            if endpoint_type == "streaming":
+                agent_response = self.agent_client.streaming_query_agent(api_input)
+            elif endpoint_type == "query":
+                agent_response = self.agent_client.query_agent(api_input)
+            else:
+                raise ValueError(f"Unsupported endpoint_type: {endpoint_type}")
 
-            # Evaluate agent action based on eval type
-            success = self._evaluate_agent_action(data_config, response)
+            response = agent_response["response"]
+            conversation_id = agent_response["conversation_id"]
+            tool_calls = agent_response.get("tool_calls", [])
 
-            return create_success_result(
-                data_config, response, success, conversation_id
+            # Run all evaluations
+            evaluation_results = []
+            for eval_type in data_config.eval_types:
+                try:
+                    success = self._evaluate_single_type(
+                        eval_type, data_config, response, tool_calls
+                    )
+                    evaluation_results.append(
+                        {
+                            "eval_type": eval_type,
+                            "result": "PASS" if success else "FAIL",
+                            "error": None,
+                        }
+                    )
+                except (
+                    ScriptExecutionError,
+                    JudgeModelError,
+                    ValueError,
+                    AttributeError,
+                    TypeError,
+                ) as e:
+                    logger.error(
+                        "Single evaluation failed for %s (%s): %s",
+                        data_config.eval_id,
+                        eval_type,
+                        e,
+                    )
+                    evaluation_results.append(
+                        {"eval_type": eval_type, "result": "ERROR", "error": str(e)}
+                    )
+
+            return create_evaluation_results(
+                data_config,
+                response,
+                evaluation_results,
+                conversation_id=conversation_id,
+                tool_calls=(
+                    tool_calls if "tool_eval" in data_config.eval_types else None
+                ),
             )
 
-        except (AgentAPIError, ScriptExecutionError, JudgeModelError) as e:
+        except (AgentAPIError, ScriptExecutionError, JudgeModelError, ValueError) as e:
             logger.error("Evaluation failed for %s: %s", data_config.eval_id, e)
-            return create_error_result(data_config, str(e), conversation_id)
+            return create_evaluation_results(
+                data_config, error_message=str(e), conversation_id=conversation_id
+            )
 
-    def _evaluate_agent_action(
-        self, data_config: "EvaluationDataConfig", response: str
+    def _evaluate_single_type(
+        self,
+        eval_type: str,
+        data_config: "EvaluationDataConfig",
+        response: str,
+        tool_calls: Optional[list[list[dict]]] = None,
     ) -> bool:
-        """Evaluate agent action based on configuration type."""
-        match data_config.eval_type:
-            case "script":
+        """Evaluate single evaluation type."""
+        match eval_type:
+            case "action_eval":
                 return self._evaluate_script(data_config)
-            case "sub-string":
+            case "response_eval:sub-string":
                 return self._evaluate_substring(data_config, response)
-            case "judge-llm":
+            case "response_eval:accuracy":
                 return self._evaluate_judge_llm(data_config, response)
+            # TODO(future): Consider always running tool_eval if tool_calls are present
+            case "tool_eval":
+                return self._evaluate_tools(data_config, tool_calls or [])
             case _:
-                logger.error("Unknown evaluation type: %s", data_config.eval_type)
-                return False
+                raise ValueError(f"Unknown evaluation type: {eval_type}")
 
     def _evaluate_script(self, data_config: "EvaluationDataConfig") -> bool:
         """Evaluate using script execution."""
@@ -134,6 +187,20 @@ class EvaluationRunner:
         # Extract numeric result (looking for 1 or 0)
         result = self._extract_numeric_result(judge_resp)
         return result == 1
+
+    def _evaluate_tools(
+        self,
+        data_config: "EvaluationDataConfig",
+        actual_tool_calls: Optional[list[list[dict]]],
+    ) -> bool:
+        """Evaluate using tool calls comparison."""
+        if not data_config.expected_tool_calls:
+            raise ValueError("Expected tool calls not provided for tool evaluation")
+
+        if actual_tool_calls is None:
+            raise ValueError("No tool calls provided for evaluation")
+
+        return compare_tool_calls(data_config.expected_tool_calls, actual_tool_calls)
 
     def get_judge_manager(self) -> Optional["JudgeModelManager"]:
         """Get the judge model manager."""

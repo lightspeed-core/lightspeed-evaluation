@@ -14,12 +14,25 @@ from .eval_data import AgentGoalEvalDataManager
 from .evaluator import EvaluationRunner
 from .results import ResultsManager
 from .script_runner import ScriptRunner
-from .utils import create_error_result
+from .utils import create_evaluation_results
 
 if TYPE_CHECKING:
     from .models import ConversationDataConfig, EvaluationDataConfig, EvaluationResult
 
 logger = logging.getLogger(__name__)
+
+
+def _get_result_marker(status: str) -> str:
+    """Get result marker/emoji for printing."""
+    match status:
+        case "PASS":
+            marker = "✅"
+        case "FAIL":
+            marker = "❌"
+        case _:
+            marker = "⚠️ "
+
+    return marker
 
 
 class AgentGoalEval:
@@ -113,10 +126,12 @@ class AgentGoalEval:
             except ScriptExecutionError as e:
                 # If setup fails, mark all evaluations as ERROR
                 for eval_data in evaluations:
-                    error_result = create_error_result(
-                        eval_data, f"Setup script failed: {str(e)}", conversation_id
+                    error_result = create_evaluation_results(
+                        eval_data,
+                        error_message=f"Setup script failed: {str(e)}",
+                        conversation_id=conversation_id,
                     )
-                    results.append(error_result)
+                    results.extend(error_result)
                 print(f"❌ Setup script failed for {conversation_group}: {e}")
                 return results
 
@@ -167,58 +182,79 @@ class AgentGoalEval:
             desc=f"Evaluating {conversation_group}",
         ) as pbar:
             for eval_data in evaluations:
-                result = self.evaluation_runner.run_evaluation(
+                eval_results = self.evaluation_runner.run_evaluation(
                     eval_data,
                     self.eval_args.agent_provider,
                     self.eval_args.agent_model,
                     conversation_id,
+                    getattr(self.eval_args, "endpoint_type", "streaming"),
                 )
 
                 # Update conversation_id from API response for subsequent evaluations
-                if conversation_id is None:
-                    conversation_id = result.conversation_id
-                    print(
-                        f"  Received conversation ID from API: {result.conversation_id}"
-                    )
+                if conversation_id is None and eval_results:
+                    conversation_id = eval_results[0].conversation_id
+                    print(f"  Received conversation ID from API: {conversation_id}")
 
-                self._print_individual_result(eval_data, result, pbar)
-                results.append(result)
+                self._print_individual_results(eval_data, eval_results, pbar)
+                results.extend(eval_results)
 
                 pbar.update(1)
 
         return results
 
     @staticmethod
-    def _print_individual_result(
-        data_config: "EvaluationDataConfig", result: "EvaluationResult", pbar: tqdm
+    def _print_individual_results(
+        data_config: "EvaluationDataConfig",
+        results: list["EvaluationResult"],
+        pbar: tqdm,
     ) -> None:
-        """Print individual result."""
-        match result.result:
-            case "PASS":
-                marker = "✅"
-            case "FAIL":
-                marker = "❌"
-            case _:
-                marker = "⚠️ "
+        """Print individual results for multiple eval types."""
+        if not results:
+            return
+
+        # Overall status - PASS if all pass, FAIL if any fail, ERROR if any error
+        overall_result = "PASS"
+        for result in results:
+            if result.result == "ERROR":
+                overall_result = "ERROR"
+                break
+            if result.result == "FAIL":
+                overall_result = "FAIL"
+
+        # Print summary line
+        marker = _get_result_marker(overall_result)
+        eval_types_str = ", ".join(r.eval_type for r in results)
         pbar.write(
-            f"{marker} {result.conversation_group}/{result.eval_id} "
-            f"{result.conversation_id}: {result.result}"
+            f"{marker} {results[0].conversation_group}/{results[0].eval_id} "
+            f"[{eval_types_str}]: {overall_result}"
         )
 
-        if result.result != "PASS":
-            pbar.write(f"   Query: {result.query}")
-            pbar.write(f"   Response: {result.response}")
-            pbar.write(f"   Evaluation type: {result.eval_type}")
+        # Print details if not all passed
+        if overall_result != "PASS":
+            pbar.write(f"   Query: {results[0].query}")
+            pbar.write(f"   Response: {results[0].response}")
+            if any(r.tool_calls for r in results):
+                tc = next((r.tool_calls for r in results if r.tool_calls), None)
+                pbar.write(f"   Tool Calls: {tc}")
+
+            # Print expected values for debugging
             if data_config.expected_keywords:
                 pbar.write(
                     f"   Expected keywords: {','.join(data_config.expected_keywords)}"
                 )
             if data_config.expected_response:
                 pbar.write(f"   Expected response: {data_config.expected_response}")
+            if data_config.expected_tool_calls:
+                pbar.write(f"   Expected tool calls: {data_config.expected_tool_calls}")
             if data_config.eval_verify_script:
                 pbar.write(f"   Verify script: {data_config.eval_verify_script}")
-        if result.result == "ERROR":
-            pbar.write(f"   Error message: {result.error}")
+
+            pbar.write("   Individual results:")
+            for result in results:
+                result_marker = _get_result_marker(result.result)
+                pbar.write(f"     {result_marker} {result.eval_type}: {result.result}")
+                if result.error:
+                    pbar.write(f"     Error message: {result.error}")
 
     def _print_summary(self, results_manager: ResultsManager) -> None:
         """Print evaluation summary."""

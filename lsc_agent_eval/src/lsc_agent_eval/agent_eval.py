@@ -36,6 +36,13 @@ def _args_parser(args: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--endpoint_type",
+        choices=["streaming", "query"],
+        default="streaming",
+        help="Endpoint type to use for agent queries (default: streaming)",
+    )
+
+    parser.add_argument(
         "--agent_provider", type=str, required=True, help="Agent provider name"
     )
 

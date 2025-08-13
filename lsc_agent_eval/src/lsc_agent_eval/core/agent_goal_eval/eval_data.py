@@ -128,9 +128,8 @@ class AgentGoalEvalDataManager:
             total_evaluations += len(conversation.conversation)
 
             for eval_config in conversation.conversation:
-                eval_types[eval_config.eval_type] = (
-                    eval_types.get(eval_config.eval_type, 0) + 1
-                )
+                for eval_type in eval_config.eval_types:
+                    eval_types[eval_type] = eval_types.get(eval_type, 0) + 1
 
         if total_evaluations == 0:
             raise EvaluationDataError("No valid evaluations found in eval data file")

@@ -5,16 +5,34 @@ from typing import Any, Callable, Optional, Union
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
-VALID_EVAL_TYPES = ["judge-llm", "script", "sub-string"]
 VALID_EVAL_RESULTS = ["PASS", "FAIL", "ERROR"]
+EVAL_TYPE_REQUIREMENTS = {
+    "response_eval:accuracy": (
+        "expected_response",
+        "requires non-empty 'expected_response'",
+    ),
+    "response_eval:sub-string": (
+        "expected_keywords",
+        "requires non-empty 'expected_keywords'",
+    ),
+    "action_eval": ("eval_verify_script", "requires non-empty 'eval_verify_script'"),
+    "tool_eval": ("expected_tool_calls", "requires non-empty 'expected_tool_calls'"),
+}
 
 
 def _validate_eval_type(eval_type: str) -> str:
     """Validate evaluation type."""
-    if eval_type not in VALID_EVAL_TYPES:
-        raise ValueError(
-            f"eval_type must be one of {VALID_EVAL_TYPES}, got '{eval_type}'"
-        )
+    if not isinstance(eval_type, str):
+        raise ValueError(f"eval_type must be a string, got {type(eval_type).__name__}")
+
+    eval_type = eval_type.strip()
+    if not eval_type:
+        raise ValueError("eval_type cannot be empty")
+
+    if eval_type not in EVAL_TYPE_REQUIREMENTS:
+        allowed = ", ".join(sorted(EVAL_TYPE_REQUIREMENTS.keys()))
+        raise ValueError(f"eval_type must be one of [{allowed}], got '{eval_type}'")
+
     return eval_type
 
 
@@ -79,14 +97,22 @@ class EvaluationDataConfig(BaseModel):
 
     eval_id: str = Field(..., min_length=1, description="Unique evaluation identifier")
     eval_query: str = Field(..., min_length=1, description="Query to send to the agent")
-    eval_type: str = Field(
-        ..., description="Type of evaluation (judge-llm, sub-string, script)"
+    eval_types: list[str] = Field(
+        ...,
+        min_length=1,
+        description=(
+            "List of evaluation types."
+            " -> action_eval, tool_eval, response_eval:sub-string, response_eval:accuracy"
+        ),
     )
     expected_response: Optional[str] = Field(
         None, min_length=1, description="Expected response for judge-llm"
     )
     expected_keywords: Optional[list[str]] = Field(
         None, min_length=1, description="List of expected keywords for sub-string"
+    )
+    expected_tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
+        None, min_length=1, description="Expected tool calls for tools evaluation"
     )
     eval_verify_script: Optional[Path] = Field(
         None, description="Script path for script evaluation"
@@ -96,11 +122,26 @@ class EvaluationDataConfig(BaseModel):
         None, min_length=1, max_length=500, description="Description of this evaluation"
     )
 
-    @field_validator("eval_type")
+    @field_validator("eval_types")
     @classmethod
-    def validate_eval_type(cls, v: str) -> str:
-        """Validate evaluation type."""
-        return _validate_eval_type(v)
+    def validate_eval_types(cls, v: list[str]) -> list[str]:
+        """Validate evaluation types."""
+        if not v:
+            raise ValueError("eval_types cannot be empty")
+
+        # Validate each type and remove duplicates while preserving order
+        validated_types = []
+        seen = set()
+        for eval_type in v:
+            validated_type = _validate_eval_type(eval_type)
+            if validated_type not in seen:
+                validated_types.append(validated_type)
+                seen.add(validated_type)
+
+        if not validated_types:
+            raise ValueError("No valid eval_types provided")
+
+        return validated_types
 
     @field_validator("expected_keywords")
     @classmethod
@@ -124,23 +165,13 @@ class EvaluationDataConfig(BaseModel):
     @model_validator(mode="after")
     def validate_eval_requirements(self) -> "EvaluationDataConfig":
         """Validate eval type specific requirements."""
-        if self.eval_type == "judge-llm":
-            if not self.expected_response:
-                raise ValueError(
-                    "eval_type 'judge-llm' requires non-empty 'expected_response'"
-                )
-
-        elif self.eval_type == "sub-string":
-            if not self.expected_keywords or len(self.expected_keywords) == 0:
-                raise ValueError(
-                    "eval_type 'sub-string' requires non-empty 'expected_keywords'"
-                )
-
-        elif self.eval_type == "script":
-            if not self.eval_verify_script:
-                raise ValueError(
-                    "eval_type 'script' requires non-empty 'eval_verify_script'"
-                )
+        # Check requirements for each eval type in the list
+        for eval_type in self.eval_types:
+            if eval_type in EVAL_TYPE_REQUIREMENTS:
+                field_name, error_msg = EVAL_TYPE_REQUIREMENTS[eval_type]
+                field_value = getattr(self, field_name)
+                if not field_value:
+                    raise ValueError(f"eval_types containing '{eval_type}' {error_msg}")
 
         return self
 
@@ -217,6 +248,9 @@ class EvaluationResult(BaseModel):
     eval_id: str = Field(..., min_length=1, description="Evaluation identifier")
     query: str = Field(..., min_length=1, description="Query sent to agent")
     response: str = Field(..., description="Agent response")
+    tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
+        None, description="Tool calls made by agent (for tool_eval type)"
+    )
     eval_type: str = Field(..., description="Type of evaluation performed")
     result: str = Field(..., description="Evaluation result")
     conversation_group: Optional[str] = Field(None, description="Conversation group")
