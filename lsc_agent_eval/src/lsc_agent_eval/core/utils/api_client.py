@@ -1,5 +1,6 @@
 """HTTP client for agent API communication."""
 
+import json
 import logging
 import os
 from typing import Any, Optional
@@ -120,7 +121,34 @@ class AgentHttpClient:
                 json=api_input,
                 timeout=timeout,
             ) as response:
-                response.raise_for_status()
+                # Potential change lsc-stack to provide SSE error message
+                if response.status_code != 200:
+                    error_content = response.read().decode("utf-8")
+                    try:
+                        error_data = json.loads(error_content)
+                        if isinstance(error_data, dict) and "detail" in error_data:
+                            detail = error_data["detail"]
+                            if isinstance(detail, dict):
+                                response_msg = detail.get("response", "")
+                                cause_msg = detail.get("cause", "")
+                                error_msg = (
+                                    f"{response_msg} - {cause_msg}"
+                                    if cause_msg
+                                    else response_msg
+                                )
+                            else:
+                                error_msg = str(detail)
+                        else:
+                            error_msg = error_content
+                    except (json.JSONDecodeError, KeyError, TypeError):
+                        error_msg = error_content
+
+                    raise httpx.HTTPStatusError(
+                        message=f"Agent API error: {response.status_code} - {error_msg}",
+                        request=response.request,
+                        response=response,
+                    )
+
                 return parse_streaming_response(response)
 
         except httpx.TimeoutException as e:
@@ -128,9 +156,7 @@ class AgentHttpClient:
                 f"Agent streaming query timeout after {timeout} seconds"
             ) from e
         except httpx.HTTPStatusError as e:
-            raise AgentAPIError(
-                f"Agent API error: {e.response.status_code} - {e.response.text}"
-            ) from e
+            raise AgentAPIError(str(e)) from e
         except ValueError as e:
             raise AgentAPIError(f"Streaming response validation error: {e}") from e
         except Exception as e:

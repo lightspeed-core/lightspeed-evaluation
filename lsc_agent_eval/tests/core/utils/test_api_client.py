@@ -1,5 +1,6 @@
 """Tests for agent API client."""
 
+import json
 from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import httpx
@@ -218,6 +219,7 @@ class TestAgentHttpClient:
     def test_streaming_query_agent_success(self):
         """Test successful streaming agent query."""
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.raise_for_status.return_value = None
 
         mock_stream_response = MagicMock()
@@ -265,6 +267,7 @@ class TestAgentHttpClient:
     def test_streaming_query_agent_parser_error(self):
         """Test streaming agent query when parser raises ValueError."""
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.raise_for_status.return_value = None
 
         mock_stream_response = MagicMock()
@@ -312,19 +315,32 @@ class TestAgentHttpClient:
 
     def test_streaming_query_agent_http_error(self):
         """Test streaming agent query with HTTP error."""
+        error_response = {
+            "detail": {
+                "response": "Access denied",
+                "cause": "You do not have permission to access this conversation",
+            }
+        }
+        error_json = json.dumps(error_response)
+
         mock_response = Mock()
-        mock_response.status_code = 500
-        mock_response.text = "Internal Server Error"
+        mock_response.status_code = 403
+        mock_response.read.return_value = error_json.encode("utf-8")
+
+        mock_stream_response = MagicMock()
+        mock_stream_response.__enter__.return_value = mock_response
+        mock_stream_response.__exit__.return_value = None
 
         mock_client = Mock()
-        mock_client.stream.side_effect = httpx.HTTPStatusError(
-            "Server error", request=Mock(), response=mock_response
-        )
+        mock_client.stream.return_value = mock_stream_response
 
         with patch("httpx.Client", return_value=mock_client):
             client = AgentHttpClient("http://localhost:8080")
 
             api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
 
-            with pytest.raises(AgentAPIError, match="Agent API error: 500"):
+            with pytest.raises(
+                AgentAPIError,
+                match="Agent API error: 403 - Access denied - You do not have permission to access this conversation",
+            ):
                 client.streaming_query_agent(api_input)

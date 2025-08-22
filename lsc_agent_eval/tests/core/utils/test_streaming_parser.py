@@ -63,6 +63,20 @@ class TestStreamingResponseParser:
         with pytest.raises(ValueError, match="No Conversation ID found"):
             parse_streaming_response(mock_response)
 
+    def test_error_event_handling(self):
+        """Test error event handling in streaming response."""
+        mock_response = Mock()
+        mock_response.iter_lines.return_value = [
+            'data: {"event": "start", "data": {"conversation_id": "conv-error"}}',
+            'data: {"event": "error", "data": {"id": 1, "token": "Unable to connect to LLama Stack backend: Connection timed out"}}',
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match="Streaming API error: Unable to connect to LLama Stack backend: Connection timed out",
+        ):
+            parse_streaming_response(mock_response)
+
     def test_tool_call_parsing(self):
         """Test tool call parsing functionality."""
         # Valid tool call
