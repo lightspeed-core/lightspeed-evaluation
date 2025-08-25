@@ -33,6 +33,10 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
         if event == "start" and "conversation_id" in event_data:
             conversation_id = event_data["conversation_id"].strip()
             logger.debug("Found conversation_id: %s", conversation_id)
+        elif event == "error" and "token" in event_data:
+            error_message = event_data["token"]
+            logger.error("Received error event from streaming API: %s", error_message)
+            raise ValueError(f"Streaming API error: {error_message}")
         elif event == "turn_complete" and "token" in event_data:
             final_response = event_data["token"].strip()
             logger.debug("Found final response (%d characters)", len(final_response))
