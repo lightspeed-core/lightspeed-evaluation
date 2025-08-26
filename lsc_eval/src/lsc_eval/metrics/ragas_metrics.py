@@ -48,7 +48,9 @@ class RagasMetrics:
             ),
         }
 
-    def _extract_turn_data(self, turn_data: Optional[TurnData]) -> Tuple[str, str, List[str]]:
+    def _extract_turn_data(
+        self, turn_data: Optional[TurnData]
+    ) -> Tuple[str, str, List[str]]:
         """Extract turn data."""
         if turn_data is None:
             return "", "", []
@@ -62,7 +64,11 @@ class RagasMetrics:
         return query, response, contexts
 
     def _evaluate_metric(
-        self, metric_class, dataset_dict, result_key: str, metric_name: str
+        self,
+        metric_class: Any,
+        dataset_dict: Dict[str, Any],
+        result_key: str,
+        metric_name: str,
     ) -> Tuple[Optional[float], str]:
         """Evaluate metric with configured LLM."""
         dataset = Dataset.from_dict(dataset_dict)
@@ -78,7 +84,7 @@ class RagasMetrics:
     def evaluate(
         self,
         metric_name: str,
-        conv_data,
+        conv_data: Any,
         scope: EvaluationScope,
     ) -> Tuple[Optional[float], str]:
         """Evaluate a Ragas metric."""
@@ -108,7 +114,7 @@ class RagasMetrics:
 
     def _evaluate_response_relevancy(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -127,7 +133,7 @@ class RagasMetrics:
 
     def _evaluate_faithfulness(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -138,13 +144,19 @@ class RagasMetrics:
 
         query, response, contexts = self._extract_turn_data(turn_data)
 
-        dataset_dict = {"question": [query], "answer": [response], "contexts": [contexts]}
+        dataset_dict = {
+            "question": [query],
+            "answer": [response],
+            "contexts": [contexts],
+        }
 
-        return self._evaluate_metric(Faithfulness, dataset_dict, "faithfulness", "faithfulness")
+        return self._evaluate_metric(
+            Faithfulness, dataset_dict, "faithfulness", "faithfulness"
+        )
 
     def _evaluate_context_precision_without_reference(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -155,7 +167,11 @@ class RagasMetrics:
 
         query, response, contexts = self._extract_turn_data(turn_data)
 
-        dataset_dict = {"question": [query], "answer": [response], "contexts": [contexts]}
+        dataset_dict = {
+            "question": [query],
+            "answer": [response],
+            "contexts": [contexts],
+        }
 
         return self._evaluate_metric(
             LLMContextPrecisionWithoutReference,
@@ -166,7 +182,7 @@ class RagasMetrics:
 
     def _evaluate_context_precision_with_reference(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -196,7 +212,7 @@ class RagasMetrics:
 
     def _evaluate_context_recall(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -223,7 +239,7 @@ class RagasMetrics:
 
     def _evaluate_context_relevance(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,

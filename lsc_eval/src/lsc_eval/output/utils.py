@@ -68,10 +68,17 @@ def calculate_detailed_stats(results: List[EvaluationResult]) -> Dict[str, Any]:
     return {"by_metric": by_metric, "by_conversation": by_conversation}
 
 
-def _update_metric_stats(by_metric: Dict[str, Dict[str, Any]], result: EvaluationResult) -> None:
+def _update_metric_stats(
+    by_metric: Dict[str, Dict[str, Any]], result: EvaluationResult
+) -> None:
     """Update metric statistics with a single result."""
     if result.metric_identifier not in by_metric:
-        by_metric[result.metric_identifier] = {"pass": 0, "fail": 0, "error": 0, "scores": []}
+        by_metric[result.metric_identifier] = {
+            "pass": 0,
+            "fail": 0,
+            "error": 0,
+            "scores": [],
+        }
 
     stats = by_metric[result.metric_identifier]
     stats[result.result.lower()] += 1
@@ -85,7 +92,11 @@ def _update_conversation_stats(
 ) -> None:
     """Update conversation statistics with a single result."""
     if result.conversation_group_id not in by_conversation:
-        by_conversation[result.conversation_group_id] = {"pass": 0, "fail": 0, "error": 0}
+        by_conversation[result.conversation_group_id] = {
+            "pass": 0,
+            "fail": 0,
+            "error": 0,
+        }
 
     by_conversation[result.conversation_group_id][result.result.lower()] += 1
 

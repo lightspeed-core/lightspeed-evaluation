@@ -37,7 +37,7 @@ class DeepEvalMetrics:
             "knowledge_retention": self._evaluate_knowledge_retention,
         }
 
-    def _build_conversational_test_case(self, conv_data) -> ConversationalTestCase:
+    def _build_conversational_test_case(self, conv_data: Any) -> ConversationalTestCase:
         """Build ConversationalTestCase from conversation data."""
         turns = []
         for turn_data in conv_data.turns:
@@ -48,7 +48,7 @@ class DeepEvalMetrics:
 
         return ConversationalTestCase(turns=turns)
 
-    def _evaluate_metric(self, metric, test_case) -> Tuple[float, str]:
+    def _evaluate_metric(self, metric: Any, test_case: Any) -> Tuple[float, str]:
         """Evaluate and get result."""
         metric.measure(test_case)
 
@@ -62,7 +62,7 @@ class DeepEvalMetrics:
     def evaluate(
         self,
         metric_name: str,
-        conv_data,
+        conv_data: Any,
         scope: EvaluationScope,
     ) -> Tuple[Optional[float], str]:
         """Evaluate a DeepEval metric."""
@@ -78,7 +78,7 @@ class DeepEvalMetrics:
 
     def _evaluate_conversation_completeness(
         self,
-        conv_data,
+        conv_data: Any,
         _turn_idx: Optional[int],
         _turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -94,7 +94,7 @@ class DeepEvalMetrics:
 
     def _evaluate_conversation_relevancy(
         self,
-        conv_data,
+        conv_data: Any,
         _turn_idx: Optional[int],
         _turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -114,7 +114,7 @@ class DeepEvalMetrics:
 
     def _evaluate_knowledge_retention(
         self,
-        conv_data,
+        conv_data: Any,
         _turn_idx: Optional[int],
         _turn_data: Optional[TurnData],
         is_conversation: bool,

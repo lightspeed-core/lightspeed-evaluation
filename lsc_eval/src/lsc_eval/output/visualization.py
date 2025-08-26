@@ -18,7 +18,10 @@ class GraphGenerator:
     """Handles generation of evaluation visualization graphs."""
 
     def __init__(
-        self, output_dir: str = "./eval_output", figsize: Optional[List[int]] = None, dpi: int = 300
+        self,
+        output_dir: str = "./eval_output",
+        figsize: Optional[List[int]] = None,
+        dpi: int = 300,
     ):
         """Initialize Graph generator."""
         self.output_dir = Path(output_dir)
@@ -36,11 +39,15 @@ class GraphGenerator:
         plt.rcParams["grid.alpha"] = 0.3
         sns.set_palette("husl")
 
-    def _calculate_summary_stats(self, results: List[EvaluationResult]) -> Dict[str, Any]:
+    def _calculate_summary_stats(
+        self, results: List[EvaluationResult]
+    ) -> Dict[str, Any]:
         """Calculate summary statistics from results."""
         return calculate_basic_stats(results)
 
-    def _group_results_by_metric(self, results: List[EvaluationResult]) -> Dict[str, List[float]]:
+    def _group_results_by_metric(
+        self, results: List[EvaluationResult]
+    ) -> Dict[str, List[float]]:
         """Group results by metric identifier."""
         metric_groups: Dict[str, List[float]] = {}
         for result in results:
@@ -81,18 +88,24 @@ class GraphGenerator:
                 graph_files["pass_rates"] = str(pass_rates_file)
 
             # 2. Score distribution graph
-            score_dist_file = self._generate_score_distribution_graph(results, base_filename)
+            score_dist_file = self._generate_score_distribution_graph(
+                results, base_filename
+            )
             if score_dist_file:
                 graph_files["score_distribution"] = str(score_dist_file)
 
             # 3. Status breakdown pie chart
-            pie_chart_file = self._generate_status_breakdown_pie_chart(results, base_filename)
+            pie_chart_file = self._generate_status_breakdown_pie_chart(
+                results, base_filename
+            )
             if pie_chart_file:
                 graph_files["status_breakdown"] = str(pie_chart_file)
 
             # 4. Conversation heatmap (only if multiple conversations)
             if len(summary_stats["by_conversation"]) > 1:
-                heatmap_file = self._generate_conversation_heatmap(results, base_filename)
+                heatmap_file = self._generate_conversation_heatmap(
+                    results, base_filename
+                )
                 if heatmap_file:
                     graph_files["conversation_heatmap"] = str(heatmap_file)
 
@@ -104,7 +117,12 @@ class GraphGenerator:
 
     def get_supported_graph_types(self) -> List[str]:
         """Get list of supported graph types."""
-        return ["pass_rates", "score_distribution", "status_breakdown", "conversation_heatmap"]
+        return [
+            "pass_rates",
+            "score_distribution",
+            "status_breakdown",
+            "conversation_heatmap",
+        ]
 
     def _generate_pass_rates_graph(
         self, by_metric_stats: Dict[str, Any], base_filename: str
@@ -118,7 +136,9 @@ class GraphGenerator:
         for metric, stats in by_metric_stats.items():
             metrics.append(metric)
             pass_rates.append(stats["pass_rate"])
-            status_breakdowns.append(f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']}")
+            status_breakdowns.append(
+                f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']}"
+            )
 
         # Create figure
         _, ax = plt.subplots(figsize=(12, 8))
@@ -204,15 +224,16 @@ class GraphGenerator:
 
         ax.grid(True)
 
-        # Create box plot
-        labels = results_df.columns
+        # Box plot
         bplot = ax.boxplot(
             results_df.fillna(0),
-            patch_artist=True,
             sym=".",
             widths=0.5,
             vert=False,
+            patch_artist=True,
         )
+
+        labels = results_df.columns
 
         colors = list(BASE_COLORS.keys())[: len(labels)]
         for patch, color in zip(bplot["boxes"], colors):
@@ -326,7 +347,11 @@ class GraphGenerator:
                 conversation_metrics[conv_id] = {}
 
             if metric_id not in conversation_metrics[conv_id]:
-                conversation_metrics[conv_id][metric_id] = {"pass": 0, "fail": 0, "error": 0}
+                conversation_metrics[conv_id][metric_id] = {
+                    "pass": 0,
+                    "fail": 0,
+                    "error": 0,
+                }
 
             if result.result == "PASS":
                 conversation_metrics[conv_id][metric_id]["pass"] += 1
@@ -407,6 +432,8 @@ class GraphGenerator:
 
         return filename
 
-    def _calculate_detailed_summary_stats(self, results: List[EvaluationResult]) -> Dict[str, Any]:
+    def _calculate_detailed_summary_stats(
+        self, results: List[EvaluationResult]
+    ) -> Dict[str, Any]:
         """Calculate detailed summary statistics for graphs."""
         return calculate_detailed_stats(results)

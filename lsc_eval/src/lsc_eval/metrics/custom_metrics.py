@@ -17,8 +17,12 @@ class EvaluationPromptParams(BaseModel):
     metric_name: str = Field(..., description="Name of the metric being evaluated")
     query: str = Field(..., description="The user query")
     response: str = Field(..., description="The model response")
-    expected_response: Optional[str] = Field(None, description="Expected response if available")
-    contexts: Optional[list] = Field(None, description="Context information if available")
+    expected_response: Optional[str] = Field(
+        None, description="Expected response if available"
+    )
+    contexts: Optional[list] = Field(
+        None, description="Context information if available"
+    )
     scale: str = Field("0.0 to 1.0", description="Scale for scoring")
 
 
@@ -35,14 +39,16 @@ class CustomMetrics:
         self.model_name = llm_manager.get_model_name()
         self.litellm_params = llm_manager.get_litellm_params()
 
-        self.supported_metrics = {"answer_correctness": self._evaluate_answer_correctness}
+        self.supported_metrics = {
+            "answer_correctness": self._evaluate_answer_correctness
+        }
 
         print(f"✅ Custom Metrics initialized: {self.model_name}")
 
     def evaluate(
         self,
         metric_name: str,
-        conv_data,
+        conv_data: Any,
         scope: EvaluationScope,
     ) -> Tuple[Optional[float], str]:
         """Evaluate a custom metric."""
@@ -192,7 +198,7 @@ class CustomMetrics:
 
     def _evaluate_answer_correctness(
         self,
-        _conv_data,
+        _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
@@ -231,7 +237,10 @@ class CustomMetrics:
         score, reason = self._parse_score_response(llm_response)
 
         if score is None:
-            return None, f"Could not parse score from LLM response: {llm_response[:100]}..."
+            return (
+                None,
+                f"Could not parse score from LLM response: {llm_response[:100]}...",
+            )
 
         return score, f"Custom answer correctness: {score:.2f} - {reason}"
 

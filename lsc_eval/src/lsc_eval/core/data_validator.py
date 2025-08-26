@@ -1,20 +1,20 @@
 """Data validation of input data before evaluation."""
 
-from typing import List
+from typing import List, Optional
 
 import yaml
 
-from .models import EvaluationData
 from .config_loader import CONVERSATION_LEVEL_METRICS, TURN_LEVEL_METRICS
+from .models import EvaluationData
 
 
 class DataValidator:
     """Data validator for evaluation data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize validator."""
-        self.validation_errors = []
-        self.evaluation_data = None
+        self.validation_errors: List[str] = []
+        self.evaluation_data: Optional[List[EvaluationData]] = None
 
     def load_evaluation_data(self, data_path: str) -> List[EvaluationData]:
         """Load and validate evaluation data from YAML file."""
@@ -53,7 +53,7 @@ class DataValidator:
         print("✅ All data validation passed")
         return True
 
-    def _validate_metrics_availability(self, data: EvaluationData):
+    def _validate_metrics_availability(self, data: EvaluationData) -> None:
         """Validate that specified metrics are available/supported."""
         conversation_id = data.conversation_group_id
 
@@ -71,7 +71,7 @@ class DataValidator:
                     f"Conversation {conversation_id}: Unknown conversation metric '{metric}'"
                 )
 
-    def _validate_metric_requirements(self, data: EvaluationData):
+    def _validate_metric_requirements(self, data: EvaluationData) -> None:
         """Validate that required fields exist for specified metrics."""
         conversation_id = data.conversation_group_id
 

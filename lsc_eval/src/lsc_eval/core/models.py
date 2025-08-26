@@ -56,7 +56,9 @@ class EvaluationData(BaseModel):
 
     # Metric-specific configuration (threshold, weights, etc.)
     turn_metrics_metadata: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    conversation_metrics_metadata: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    conversation_metrics_metadata: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict
+    )
 
     # Conversation turns
     turns: List[TurnData]
@@ -83,7 +85,9 @@ class EvaluationData(BaseModel):
         """Validate metrics are properly formatted."""
         for metric in v:
             if not metric or ":" not in metric:
-                raise ValueError(f'Metric "{metric}" must be in format "framework:metric_name"')
+                raise ValueError(
+                    f'Metric "{metric}" must be in format "framework:metric_name"'
+                )
         return v
 
     def validate_metric_requirements(self) -> List[str]:
@@ -114,7 +118,10 @@ class EvaluationData(BaseModel):
                         f"TurnData {turn_data.turn_id}: Metric '{metric}' requires contexts"
                     )
 
-                if metric in expected_response_required_metrics and not turn_data.expected_response:
+                if (
+                    metric in expected_response_required_metrics
+                    and not turn_data.expected_response
+                ):
                     errors.append(
                         f"TurnData {turn_data.turn_id}: "
                         f"Metric '{metric}' requires expected_response"
@@ -168,10 +175,16 @@ class LLMConfig(BaseModel):
     model_name: str = Field(..., description="The model name to use")
     api_base: Optional[str] = Field(None, description="Custom API base URL")
     api_key: Optional[str] = Field(None, description="API key for the model")
-    temperature: float = Field(0.0, ge=0.0, le=2.0, description="Temperature for sampling")
-    max_tokens: Optional[int] = Field(None, ge=1, description="Maximum tokens to generate")
+    temperature: float = Field(
+        0.0, ge=0.0, le=2.0, description="Temperature for sampling"
+    )
+    max_tokens: Optional[int] = Field(
+        None, ge=1, description="Maximum tokens to generate"
+    )
     timeout: Optional[int] = Field(None, ge=1, description="Request timeout in seconds")
-    num_retries: int = Field(3, ge=0, description="Number of retries for failed requests")
+    num_retries: int = Field(
+        3, ge=0, description="Number of retries for failed requests"
+    )
 
     @field_validator("model_name")
     @classmethod

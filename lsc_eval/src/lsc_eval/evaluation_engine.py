@@ -5,9 +5,15 @@ Controls the evaluation flow through conversations & turns
 """
 
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .core import ConfigLoader, DataValidator, EvaluationData, EvaluationResult, TurnData
+from .core import (
+    ConfigLoader,
+    DataValidator,
+    EvaluationData,
+    EvaluationResult,
+    TurnData,
+)
 from .llm_managers.llm_manager import LLMManager
 from .metrics.custom_metrics import CustomMetrics
 from .metrics.deepeval_metrics import DeepEvalMetrics
@@ -29,7 +35,11 @@ class EvaluationRequest:
 
     @classmethod
     def for_turn(
-        cls, conv_data: EvaluationData, metric_identifier: str, turn_idx: int, turn_data: TurnData
+        cls,
+        conv_data: EvaluationData,
+        metric_identifier: str,
+        turn_idx: int,
+        turn_data: TurnData,
     ) -> "EvaluationRequest":
         """Create request for turn-level evaluation."""
         request = cls(conv_data, metric_identifier)
@@ -74,13 +84,17 @@ class MetricsManager:
         self.custom_metrics = CustomMetrics(llm_manager)
 
         # Metric routing map
-        self.handlers: Dict[str, Union[RagasMetrics, DeepEvalMetrics, CustomMetrics]] = {
+        self.handlers: Dict[
+            str, Union[RagasMetrics, DeepEvalMetrics, CustomMetrics]
+        ] = {
             "ragas": self.ragas_metrics,
             "deepeval": self.deepeval_metrics,
             "custom": self.custom_metrics,
         }
 
-    def evaluate_metric(self, framework: str, metric_name: str, request: EvaluationRequest):
+    def evaluate_metric(
+        self, framework: str, metric_name: str, request: EvaluationRequest
+    ) -> Tuple[Optional[float], str]:
         """Route evaluation to appropriate handler."""
         if framework in self.handlers:
             # Create shared EvaluationScope
@@ -129,7 +143,9 @@ class EvaluationEngine:
         """Validate evaluation data using data validator."""
         return self.data_validator.validate_evaluation_data(evaluation_data)
 
-    def run_evaluation(self, evaluation_data: List[EvaluationData]) -> List[EvaluationResult]:
+    def run_evaluation(
+        self, evaluation_data: List[EvaluationData]
+    ) -> List[EvaluationResult]:
         """
         Run complete evaluation pipeline.
 
@@ -155,7 +171,7 @@ class EvaluationEngine:
         print(f"\n✅ Evaluation complete: {len(self.results)} results generated")
         return self.results
 
-    def _process_conversation(self, conv_data: EvaluationData):
+    def _process_conversation(self, conv_data: EvaluationData) -> None:
         """Process single conversation - handle turn and conversation level metrics."""
         print(f"\n📋 Evaluating: {conv_data.conversation_group_id}")
 
@@ -175,15 +191,19 @@ class EvaluationEngine:
             print(f"🗣️ Conversation-level metrics: {conv_data.conversation_metrics}")
             self._evaluate_conversation(conv_data)
 
-    def _evaluate_turn(self, conv_data: EvaluationData, turn_idx: int, turn_data: TurnData):
+    def _evaluate_turn(
+        self, conv_data: EvaluationData, turn_idx: int, turn_data: TurnData
+    ) -> None:
         """Evaluate single turn with specified turn metrics."""
         for metric_identifier in conv_data.turn_metrics:
-            request = EvaluationRequest.for_turn(conv_data, metric_identifier, turn_idx, turn_data)
+            request = EvaluationRequest.for_turn(
+                conv_data, metric_identifier, turn_idx, turn_data
+            )
             result = self._evaluate_metric(request)
             if result:
                 self.results.append(result)
 
-    def _evaluate_conversation(self, conv_data: EvaluationData):
+    def _evaluate_conversation(self, conv_data: EvaluationData) -> None:
         """Evaluate conversation-level metrics."""
         for metric_identifier in conv_data.conversation_metrics:
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
@@ -191,7 +211,9 @@ class EvaluationEngine:
             if result:
                 self.results.append(result)
 
-    def _evaluate_metric(self, request: EvaluationRequest) -> Optional[EvaluationResult]:
+    def _evaluate_metric(
+        self, request: EvaluationRequest
+    ) -> Optional[EvaluationResult]:
         """
         Evaluate single metric using context.
 
@@ -211,7 +233,9 @@ class EvaluationEngine:
             print(f"    {request.metric_identifier} (threshold: {threshold})")
 
             # Route to metrics manager
-            score, reason = self.metrics_manager.evaluate_metric(framework, metric_name, request)
+            score, reason = self.metrics_manager.evaluate_metric(
+                framework, metric_name, request
+            )
 
             # Determine result status
             if score is None:
@@ -220,7 +244,9 @@ class EvaluationEngine:
             else:
                 result_status = self._determine_status(score, threshold)
                 status_emoji = (
-                    "✅" if result_status == "PASS" else "❌" if result_status == "FAIL" else "⚠️"
+                    "✅"
+                    if result_status == "PASS"
+                    else "❌" if result_status == "FAIL" else "⚠️"
                 )
                 print(f"      {status_emoji} {result_status}: {score:.3f}")
 
@@ -264,7 +290,9 @@ class EvaluationEngine:
         """Get effective threshold for metric (conversation-specific or system default)."""
         # Check conversation-specific metadata first
         if is_conversation:
-            metadata = conv_data.conversation_metrics_metadata.get(metric_identifier, {})
+            metadata = conv_data.conversation_metrics_metadata.get(
+                metric_identifier, {}
+            )
         else:
             metadata = conv_data.turn_metrics_metadata.get(metric_identifier, {})
 
@@ -277,9 +305,9 @@ class EvaluationEngine:
             return None
 
         if is_conversation:
-            default_metadata = (system_config.default_conversation_metrics_metadata or {}).get(
-                metric_identifier, {}
-            )
+            default_metadata = (
+                system_config.default_conversation_metrics_metadata or {}
+            ).get(metric_identifier, {})
         else:
             default_metadata = (system_config.default_turn_metrics_metadata or {}).get(
                 metric_identifier, {}

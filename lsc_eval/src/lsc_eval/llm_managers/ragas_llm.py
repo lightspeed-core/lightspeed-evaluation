@@ -19,17 +19,21 @@ class RagasCustomLLM(BaseRagasLLM):
 
     def generate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
-        prompt,
+        prompt: Any,
         n: int = 1,
         temperature: float = 1e-08,
         stop: Optional[List[str]] = None,
-        callbacks=None,
+        callbacks: Optional[Any] = None,
     ) -> LLMResult:
         """Generate text using LiteLLM with provided parameters."""
         prompt_text = str(prompt)
 
         # Use temperature from params unless explicitly overridden
-        temp = temperature if temperature != 1e-08 else self.litellm_params.get("temperature", 0.0)
+        temp = (
+            temperature
+            if temperature != 1e-08
+            else self.litellm_params.get("temperature", 0.0)
+        )
 
         try:
             response = litellm.completion(
@@ -60,15 +64,17 @@ class RagasCustomLLM(BaseRagasLLM):
 
     async def agenerate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
-        prompt,
+        prompt: Any,
         n: int = 1,
         temperature: Optional[float] = None,
         stop: Optional[List[str]] = None,
-        callbacks=None,
+        callbacks: Optional[Any] = None,
     ) -> LLMResult:
         """Async generate."""
         temp = temperature if temperature is not None else 1e-08
-        return self.generate_text(prompt, n=n, temperature=temp, stop=stop, callbacks=callbacks)
+        return self.generate_text(
+            prompt, n=n, temperature=temp, stop=stop, callbacks=callbacks
+        )
 
     def is_finished(self, response: LLMResult) -> bool:
         """Check if response is complete."""

@@ -2,10 +2,13 @@
 
 import logging
 import os
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from .models import EvaluationData
 
 # Global metric mapping sets (populated dynamically from system config)
 TURN_LEVEL_METRICS: set[str] = set()
@@ -24,7 +27,7 @@ DEFAULT_CSV_COLUMNS = [
 ]
 
 
-def setup_environment_variables(config_path: str):
+def setup_environment_variables(config_path: str) -> None:
     """Early setup of environment variables from system config. Called before any other imports."""
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -44,18 +47,22 @@ def setup_environment_variables(config_path: str):
         os.environ["LITELLM_LOG_LEVEL"] = "ERROR"
 
 
-def setup_logging(logging_config: Dict[str, Any]):
+def setup_logging(logging_config: Dict[str, Any]) -> logging.Logger:
     """Configure logging for application and packages."""
     # Get logging settings with new structure
     source_level = getattr(logging, logging_config.get("source_level", "INFO").upper())
-    package_level = getattr(logging, logging_config.get("package_level", "WARNING").upper())
+    package_level = getattr(
+        logging, logging_config.get("package_level", "WARNING").upper()
+    )
     log_format = logging_config.get(
         "format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     # Configure root logger for our application
     logging.basicConfig(
-        level=source_level, format=log_format, force=True  # Override any existing configuration
+        level=source_level,
+        format=log_format,
+        force=True,  # Override any existing configuration
     )
 
     # Set logging levels for packages using system configuration
@@ -85,7 +92,9 @@ def setup_logging(logging_config: Dict[str, Any]):
             override_level_obj = getattr(logging, override_level.upper())
             logging.getLogger(package_name).setLevel(override_level_obj)
         except AttributeError:
-            print(f"Warning: Invalid log level '{override_level}' for package '{package_name}'")
+            print(
+                f"Warning: Invalid log level '{override_level}' for package '{package_name}'"
+            )
 
     # Get logger for our application
     logger = logging.getLogger("lsc_eval")
@@ -102,7 +111,7 @@ def setup_logging(logging_config: Dict[str, Any]):
     return logger
 
 
-def populate_metric_mappings(metrics_metadata: Dict[str, Any]):
+def populate_metric_mappings(metrics_metadata: Dict[str, Any]) -> None:
     """Populate global metric mapping sets from system config metadata."""
     TURN_LEVEL_METRICS.clear()
     CONVERSATION_LEVEL_METRICS.clear()
@@ -120,7 +129,9 @@ def populate_metric_mappings(metrics_metadata: Dict[str, Any]):
             CONVERSATION_LEVEL_METRICS.add(metric_name)
 
 
-def validate_metrics(turn_metrics: List[str], conversation_metrics: List[str]) -> List[str]:
+def validate_metrics(
+    turn_metrics: List[str], conversation_metrics: List[str]
+) -> List[str]:
     """Validate that provided metrics are recognized."""
     errors = []
 
@@ -151,7 +162,9 @@ class SystemConfig(BaseModel):
     # Logging Configuration
     logging_source_level: str = Field(default="INFO")
     logging_package_level: str = Field(default="WARNING")
-    logging_format: str = Field(default="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging_format: str = Field(
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     logging_show_timestamps: bool = Field(default=True)
     logging_package_overrides: Dict[str, str] = Field(default_factory=dict)
 
@@ -169,18 +182,22 @@ class SystemConfig(BaseModel):
     visualization_dpi: int = Field(default=300)
 
     # Default metrics metadata from system config
-    default_turn_metrics_metadata: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    default_conversation_metrics_metadata: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    default_turn_metrics_metadata: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict
+    )
+    default_conversation_metrics_metadata: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict
+    )
 
 
 class ConfigLoader:
     """Configuration loader for LSC Evaluation Framework."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Config Loader."""
-        self.system_config = None
-        self.evaluation_data = None
-        self.logger = None
+        self.system_config: Optional[SystemConfig] = None
+        self.evaluation_data: Optional[List[EvaluationData]] = None
+        self.logger: Optional[logging.Logger] = None
 
     def load_system_config(self, config_path: str) -> SystemConfig:
         """Load system configuration from YAML file."""
@@ -229,7 +246,9 @@ class ConfigLoader:
             visualization_dpi=visualization_config.get("dpi", 300),
             # Default metrics metadata from system config
             default_turn_metrics_metadata=metrics_metadata.get("turn_level", {}),
-            default_conversation_metrics_metadata=metrics_metadata.get("conversation_level", {}),
+            default_conversation_metrics_metadata=metrics_metadata.get(
+                "conversation_level", {}
+            ),
         )
 
         self.logger.debug(

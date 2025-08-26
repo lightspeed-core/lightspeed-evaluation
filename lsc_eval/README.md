@@ -30,7 +30,7 @@ cd lsc_eval && pdm install
 export OPENAI_API_KEY="your-key"
 
 # Run evaluation (Create your own data)
-python runner.py --system-config config/system.yaml --eval-data config/evaluation_data.yaml
+python -m runner --system-config config/system.yaml --eval-data config/evaluation_data.yaml
 ```
 
 ## 📊 Supported Metrics
