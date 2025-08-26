@@ -40,7 +40,7 @@ update-deps: ## Check pyproject.toml for changes, update the lock file if needed
 	pdm install --dev
 
 check-types: ## Checks type hints in sources
-	pdm run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/ lsc_agent_eval/src/ lsc_eval/src/ lsc_eval/runner.py
+	pdm run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/ lsc_agent_eval/src/
 
 format: install-deps-test ## Format the code into unified format
 	pdm run black .
@@ -49,7 +49,7 @@ format: install-deps-test ## Format the code into unified format
 verify:	install-deps-test ## Verify the code using various linters
 	pdm run black . --check
 	pdm run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
-	pdm run pylint src tests lsc_agent_eval/src lsc_agent_eval/tests lsc_eval/src/ lsc_eval/runner.py
+	pdm run pylint src tests lsc_agent_eval/src lsc_agent_eval/tests
 
 requirements.txt:	pyproject.toml pdm.lock ## Generate requirements.txt file containing hashes for all non-devel packages
 	pdm export --prod --format requirements --output requirements.txt
@@ -73,10 +73,10 @@ help: ## Show this help screen
 	@echo ''
 
 pylint:
-	pdm run pylint src lsc_agent_eval/src lsc_eval/src/ lsc_eval/runner.py
+	pdm run pylint src lsc_agent_eval/src
 
 pyright:
-	pdm run pyright src lsc_agent_eval/src lsc_eval/src/ lsc_eval/runner.py
+	pdm run pyright src lsc_agent_eval/src
 
 docstyle:
 	pdm run pydocstyle -v .
