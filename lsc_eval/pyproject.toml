@@ -17,10 +17,11 @@ dependencies = [
     "datasets>=2.0.0",
     "matplotlib>=3.5.0",
     "seaborn>=0.11.0",
-    "numpy>=1.23.0"
+    "numpy>=1.23.0",
+    "torch==2.7.0",
 ]
 
-[tool.pdm.dev-dependencies]
+[dependency-groups]
 dev = [
     "black>=25.1.0",
     "mypy>=1.15.0",
@@ -32,22 +33,14 @@ dev = [
     "pytest-cov>=5.0.0",
 ]
 
-[project.scripts]
-lsc-eval = "lsc_eval.runner:main"
 
 [project.urls]
 "Homepage" = "https://github.com/lightspeed-core/lightspeed-evaluation"
 "Bug Tracker" = "https://github.com/lightspeed-core/lightspeed-evaluation/issues"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[tool.pdm]
-distribution = true
-
-[tool.pdm.build]
-includes = ["lsc_eval/config/*.yaml"]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 # always generate Python 3.11-compatible code.

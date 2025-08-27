@@ -34,7 +34,7 @@ models_to_evaluate:
 ```
 
 ## Running
-`pdm run generate_answers -h`
+`uv run generate_answers -h`
 
 ```
 Usage: generate_answers [OPTIONS]
