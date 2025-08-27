@@ -6,7 +6,7 @@ Refer to [README](README.md) for the installation
 ## Configuration
 The default configuration file is [./src/generate_answers/eval_config.yaml](/src/generate_answers/eval_config.yaml)
 
-- `lightspeed_url` -- url of the running lightspeed-core/road-core service
+- `lightspeed_url` -- url of the running lightspeed-core service
 - `models` -- list of available models. `provider` and `model` have to match
 lightspeed-core service configuration. `display_name` is a nice short model name.
 - `models_to_evaluate` -- list of model names (`display_name`) for answers generation.
