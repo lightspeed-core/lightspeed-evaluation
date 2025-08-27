@@ -21,13 +21,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Python version
         run: python --version
-      - name: PDM installation
-        run: pip install --user pdm
+      - name: Install uv
+        run: pip install --user uv
       - name: Install dependencies
-        run: pdm install
+        run: uv sync
       - name: Install devel dependencies
-        run: pdm install --dev
+        run: uv sync --group dev
       - name: Run tests
-        run: pdm run python -m pytest tests --cov=src --cov-report term-missing
+        run: uv run python -m pytest tests --cov=src --cov-report term-missing
       - name: Run agent tests
-        run: cd lsc_agent_eval && pdm install --dev && pdm run python -m pytest tests --cov=src --cov-report term-missing
+        run: cd lsc_agent_eval && uv sync --group dev && uv run python -m pytest tests --cov=src --cov-report term-missing

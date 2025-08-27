@@ -21,7 +21,7 @@ A framework for evaluating AI agent performance.
 ### Prerequisites
 
 - Python 3.11 or 3.12
-- Package manager: `pdm` or `pip`
+- Package manager: `uv` or `pip`
 
 - Agent API is running. Any change to the API response may impact evaluation processing logic.
 - For Judge model, model inference server is up
@@ -32,8 +32,8 @@ A framework for evaluating AI agent performance.
 # Install directly from git repository
 pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_agent_eval
 
-# Or install with pdm
-pdm add git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_agent_eval
+# Or install with uv
+uv add git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_agent_eval
 ```
 
 ### Install from Source
@@ -46,8 +46,8 @@ cd lightspeed-evaluation/lsc_agent_eval
 # Install with pip
 pip install -e .
 
-# Or install with pdm
-pdm install
+# Or install with uv
+uv sync
 ```
 
 ## Data Configuration
@@ -280,18 +280,18 @@ git clone https://github.com/lightspeed-core/lightspeed-evaluation.git
 cd lightspeed-evaluation/lsc_agent_eval
 
 # Install development dependencies
-pdm install --dev
+uv sync --group dev
 
 # Run tests
-pdm run pytest tests --cov=src
+uv run pytest tests --cov=src
 
 # Run linting
-pdm run ruff check
-pdm run isort src tests
-pdm run black src tests
-pdm run mypy src
-pdm run pyright src
-pdm run pylint src
+uv run ruff check
+uv run isort src tests
+uv run black src tests
+uv run mypy src
+uv run pyright src
+uv run pylint src
 ```
 
 ### Contributing

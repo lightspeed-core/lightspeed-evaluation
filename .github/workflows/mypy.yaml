@@ -17,11 +17,11 @@ jobs:
           python-version: '3.11'
       - name: Python version
         run: python --version
-      - name: PDM installation
-        run: pip install --user pdm
+      - name: Install uv
+        run: pip install --user uv
       - name: Install dependencies
-        run: pdm install
+        run: uv sync
       - name: Install devel dependencies
-        run: pdm install --group default,dev
+        run: uv sync --group dev
       - name: Python linter
         run: make check-types
