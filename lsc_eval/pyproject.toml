@@ -47,7 +47,8 @@ build-backend = "pdm.backend"
 distribution = true
 
 [tool.pdm.build]
-includes = ["lsc_eval/config/*.yaml"]
+includes = ["lsc_eval/**"]
+package-dir = "src"
 
 [tool.ruff]
 # always generate Python 3.11-compatible code.
