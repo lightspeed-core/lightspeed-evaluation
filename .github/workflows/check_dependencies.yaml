@@ -17,11 +17,11 @@ jobs:
           python-version: '3.11'
       - name: Check Python version
         run: python --version
-      - name: PDM installation
-        run: pip install --user pdm
-      - name: PDM version
-        run: pdm --version
+      - name: Install uv
+        run: pip install --user uv
+      - name: uv version
+        run: uv --version
       - name: Generate requirements.txt file
-        run: pdm export --prod --format requirements --output requirements.txt --no-extras --no-hashes
+        run: uv export --format requirements-txt --output-file requirements.txt --no-hashes
       - name: List requirements.txt file
         run: cat requirements.txt

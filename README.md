@@ -3,12 +3,12 @@ Evaluation tooling for lightspeed-core project
 
 ## Installation
 - **Requires Python 3.11**
-- Install `pdm`
-- Check `pdm --version` is working
-- If running Python 3.11 from `venv`, make sure no conflicting packages are installed. In case of problems create a clean venv for Python 3.11 and `pdm`.
-- Run `pdm install`
+- Install `uv`
+- Check `uv --version` is working
+- If running Python 3.11 from `venv`, make sure no conflicting packages are installed. In case of problems create a clean venv for Python 3.11 and `uv`.
+- Run `uv sync`
 - Optional: For development, run `make install-tools`
-    + if `pdm` is not installed this will install `pdm` by running `pip install pdm` in your current Python environment.
+    + if `uv` is not installed this will install `uv` by running `pip install uv` in your current Python environment.
 
 
 ## Description
@@ -31,7 +31,7 @@ These evaluations are also part of **e2e test cases**. Currently *consistency* e
 
 ### Usage
 ```
-pdm run evaluate
+uv run evaluate
 ```
 
 ### Input Data/QnA pool

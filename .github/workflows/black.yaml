@@ -17,11 +17,11 @@ jobs:
           python-version: '3.11'
       - name: Python version
         run: python --version
-      - name: PDM installation
-        run: pip install --user pdm
+      - name: Install uv
+        run: pip install --user uv
       - name: Install devel dependencies
-        run: pdm install --dev
+        run: uv sync --group dev
       - name: Black version
-        run: pdm run black --version
+        run: uv run black --version
       - name: Black check
-        run: pdm run black --check .
+        run: uv run black --check .

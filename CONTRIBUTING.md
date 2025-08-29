@@ -41,8 +41,8 @@ The development requires at least [Python 3.11](https://docs.python.org/3/whatsn
 
 ### Tooling installation
 
-1. `pip install --user pdm`
-1. `pdm --version` -- should return no error
+1. `pip install --user uv`
+1. `uv --version` -- should return no error
 
 ## Setting up your development environment
 
@@ -53,10 +53,10 @@ git clone https://github.com/YOUR-GIT-PROFILE/lightspeed-evaluation.git
 # move into the directory
 cd lightspeed-evaluation
 
-# setup your development environment with pdm
-pdm install -G dev
+# setup your development environment with uv
+uv sync --group dev
 
-# Now you can run commands through make targets, or prefix commands with `pdm run`
+# Now you can run commands through make targets, or prefix commands with `uv run`
 
 # install all development tools
 make install-deps-test
@@ -74,7 +74,7 @@ make verify
 make check-types
 
 # run evaluation (requires OLS API to be running)
-pdm run evaluate --help
+uv run evaluate --help
 ```
 
 Happy hacking!
@@ -100,7 +100,7 @@ Happy hacking!
 Code coverage tools are available through the `pytest-cov` plugin, which is installed as a development dependency. However, coverage measurement is not currently configured by default in the test runs. To run tests with coverage measurement, you can use:
 
 ```
-pdm run pytest tests --cov=src --cov-report=html
+uv run pytest tests --cov=src --cov-report=html
 ```
 
 This will generate coverage reports in the `htmlcov` subdirectory.

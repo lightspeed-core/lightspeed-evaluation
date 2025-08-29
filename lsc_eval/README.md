@@ -17,11 +17,11 @@ A comprehensive framework/tool to evaluate GenAI application.
 ### Installation
 ```bash
 # From Git
-pdm add git+https://github.com/your-org/lightspeed-evaluation.git#subdirectory=lsc_eval
+uv add git+https://github.com/your-org/lightspeed-evaluation.git#subdirectory=lsc_eval
 # or pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_eval
 
 # Local Development  
-cd lsc_eval && pdm install
+cd lsc_eval && uv sync
 ```
 
 ### Basic Usage
@@ -30,7 +30,7 @@ cd lsc_eval && pdm install
 export OPENAI_API_KEY="your-key"
 
 # Run evaluation (Create your own data)
-python -m lsc_eval.runner --system-config config/system.yaml --eval-data config/evaluation_data.yaml
+uv run python runner.py --system-config config/system.yaml --eval-data config/evaluation_data.yaml
 ```
 
 ## 📊 Supported Metrics
@@ -125,11 +125,11 @@ metrics_metadata:
 
 ### Development Tools
 ```bash
-pdm run black .
-pdm run ruff check .
-pdm run mypy .
-pdm run pyright .
-pdm run pylint .
+uv run black .
+uv run ruff check .
+uv run mypy .
+uv run pyright .
+uv run pylint .
 ```
 
 ## 📄 License & Contributing

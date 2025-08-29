@@ -17,7 +17,7 @@ jobs:
           python-version: '3.11'
       - name: Check Python version
         run: python --version
-      - name: PDM installation
-        run: pip install --user pdm
+      - name: Install uv
+        run: pip install --user uv
       - name: List outdated dependencies
-        run: pdm outdated
+        run: uv tree --outdated
