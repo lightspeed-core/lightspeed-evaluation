@@ -1,5 +1,5 @@
 [project]
-name = "lightspeed-core-evaluation"
+name = "lightspeed-core-evaluation-tool"
 version = "0.1.0"
 description = "Evaluation tooling for lightspeed-core"
 authors = []
