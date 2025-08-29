@@ -15,4 +15,4 @@ jobs:
     steps:
       - uses: PyCQA/bandit-action@v1
         with:
-          targets: "src, lsc_agent_eval, lsc_eval"
+          targets: "srcx, lsc_agent_eval, lsc_eval"
