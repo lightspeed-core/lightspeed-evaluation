@@ -1,5 +1,5 @@
 """
-Evaluation Engine - Main evaluation controller.
+Evaluation Driver - Main evaluation controller.
 
 Controls the evaluation flow through conversations & turns
 """
@@ -7,18 +7,18 @@ Controls the evaluation flow through conversations & turns
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .core import (
+from ..core.config import (
     ConfigLoader,
     DataValidator,
     EvaluationData,
     EvaluationResult,
     TurnData,
 )
-from .llm_managers.llm_manager import LLMManager
-from .metrics.custom_metrics import CustomMetrics
-from .metrics.deepeval_metrics import DeepEvalMetrics
-from .metrics.ragas_metrics import RagasMetrics
-from .output.utils import EvaluationScope
+from ..core.llm.manager import LLMManager
+from ..core.metrics.custom import CustomMetrics
+from ..core.metrics.deepeval import DeepEvalMetrics
+from ..core.metrics.ragas import RagasMetrics
+from ..core.output.statistics import EvaluationScope
 
 
 class EvaluationRequest:
@@ -115,9 +115,9 @@ class MetricsManager:
         return list(self.handlers.keys())
 
 
-class EvaluationEngine:
+class EvaluationDriver:
     """
-    Main evaluation engine - orchestrates the evaluation process.
+    Main evaluation driver - orchestrates the evaluation process.
 
     Responsibilities:
     - Data validation
@@ -127,7 +127,7 @@ class EvaluationEngine:
     """
 
     def __init__(self, config_loader: ConfigLoader):
-        """Initialize evaluation engine with config."""
+        """Initialize evaluation driver with config."""
         self.config_loader = config_loader
         self.data_validator = DataValidator()
         self.results: List[EvaluationResult] = []
@@ -137,7 +137,7 @@ class EvaluationEngine:
         llm_manager = LLMManager.from_system_config(system_config_dict)
         self.metrics_manager = MetricsManager(llm_manager)
 
-        print("✅ Evaluation Engine initialized")
+        print("✅ Evaluation Driver initialized")
 
     def validate_data(self, evaluation_data: List[EvaluationData]) -> bool:
         """Validate evaluation data using data validator."""

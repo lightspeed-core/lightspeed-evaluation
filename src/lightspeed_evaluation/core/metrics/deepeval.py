@@ -10,10 +10,10 @@ from deepeval.metrics import (
 from deepeval.test_case import ConversationalTestCase
 from deepeval.test_case import Turn as DeepEvalTurn
 
-from ..core.models import TurnData
-from ..llm_managers.deepeval_llm import DeepEvalLLMManager
-from ..llm_managers.llm_manager import LLMManager
-from ..output.utils import EvaluationScope
+from ..config.models import TurnData
+from ..llm.deepeval import DeepEvalLLMManager
+from ..llm.manager import LLMManager
+from ..output.statistics import EvaluationScope
 
 
 class DeepEvalMetrics:

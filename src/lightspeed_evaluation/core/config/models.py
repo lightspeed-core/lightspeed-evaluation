@@ -1,4 +1,4 @@
-"""Data models for LSC Evaluation Framework."""
+"""Data models for Evaluation Framework."""
 
 from typing import Any, Dict, List, Optional
 

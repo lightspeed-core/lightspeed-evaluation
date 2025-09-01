@@ -13,10 +13,10 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
-from ..core.models import TurnData
-from ..llm_managers.llm_manager import LLMManager
-from ..llm_managers.ragas_llm import RagasLLMManager
-from ..output.utils import EvaluationScope
+from ..config.models import TurnData
+from ..llm.manager import LLMManager
+from ..llm.ragas import RagasLLMManager
+from ..output.statistics import EvaluationScope
 
 
 # Decide if Dataset will be used or not ?

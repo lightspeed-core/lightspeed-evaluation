@@ -99,8 +99,10 @@ class JudgeModelManager:
                 choices = getattr(response, "choices", None)
                 if choices and len(choices) > 0:
                     message = getattr(
-                        choices[0], "message", None
-                    )  # pylint: disable=unsubscriptable-object
+                        choices[0],  # pylint: disable=unsubscriptable-object
+                        "message",
+                        None,
+                    )
                     if message:
                         content = getattr(message, "content", None)
 

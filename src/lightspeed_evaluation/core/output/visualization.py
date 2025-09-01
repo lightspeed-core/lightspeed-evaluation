@@ -10,8 +10,8 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.colors import BASE_COLORS
 
-from ..core.models import EvaluationResult
-from .utils import calculate_basic_stats, calculate_detailed_stats
+from ..config.models import EvaluationResult
+from .statistics import calculate_basic_stats, calculate_detailed_stats
 
 
 class GraphGenerator:
@@ -29,7 +29,7 @@ class GraphGenerator:
         self.graphs_dir.mkdir(parents=True, exist_ok=True)
         self.figsize = figsize if figsize else [12, 8]
         self.dpi = dpi
-        self.logger = logging.getLogger("lsc_eval.GraphGenerator")
+        self.logger = logging.getLogger("lightspeed_evaluation.GraphGenerator")
 
         # Set basic matplotlib settings
         plt.rcParams["figure.facecolor"] = "white"

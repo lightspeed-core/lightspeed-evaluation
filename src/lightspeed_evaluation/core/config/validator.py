@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import yaml
 
-from .config_loader import CONVERSATION_LEVEL_METRICS, TURN_LEVEL_METRICS
+from .loader import CONVERSATION_LEVEL_METRICS, TURN_LEVEL_METRICS
 from .models import EvaluationData
 
 

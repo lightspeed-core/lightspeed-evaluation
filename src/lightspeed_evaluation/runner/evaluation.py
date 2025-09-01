@@ -1,15 +1,4 @@
-"""
-LSC Evaluation Framework - Main Evaluation Runner.
-
-Simple interface that uses EvaluationEngine as the core controller.
-
-Usage:
-    python -m runner --system-config config/system.yaml --eval-data config/evaluation_data.yaml
-
-Or programmatically:
-    from runner import run_evaluation
-    results = run_evaluation("config/system.yaml", "config/evaluation_data.yaml")
-"""
+"""LightSpeed Evaluation Framework - Main Evaluation Runner."""
 
 import argparse
 import sys
@@ -17,16 +6,17 @@ import traceback
 from pathlib import Path
 from typing import Dict, Optional
 
-from lsc_eval import ConfigLoader, DataValidator, EvaluationEngine, OutputHandler
-from lsc_eval.core import setup_environment_variables
-from lsc_eval.output.utils import calculate_basic_stats
+from ..core.config import ConfigLoader, DataValidator, setup_environment_variables
+from ..core.output import OutputHandler
+from ..core.output.statistics import calculate_basic_stats
+from ..drivers.evaluation import EvaluationDriver
 
 
 def run_evaluation(
     system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
 ) -> Optional[Dict[str, int]]:
     """
-    Run the complete evaluation pipeline using EvaluationEngine.
+    Run the complete evaluation pipeline using EvaluationDriver.
 
     Args:
         system_config_path: Path to system.yaml
@@ -36,7 +26,7 @@ def run_evaluation(
     Returns:
         dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR
     """
-    print("🚀 LSC Evaluation Framework")
+    print("🚀 LightSpeed Evaluation Framework")
     print("=" * 50)
 
     try:
@@ -53,13 +43,13 @@ def run_evaluation(
         )
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
 
-        # Step 2: Initialize evaluation engine (core controller)
-        print("\n⚙️ Initializing Evaluation Engine...")
-        engine = EvaluationEngine(loader)
+        # Step 2: Initialize evaluation driver (core controller)
+        print("\n⚙️ Initializing Evaluation Driver...")
+        driver = EvaluationDriver(loader)
 
-        # Step 3: Run evaluation (engine controls the flow)
+        # Step 3: Run evaluation (driver controls the flow)
         print("\n🔄 Running Evaluation...")
-        results = engine.run_evaluation(evaluation_data)
+        results = driver.run_evaluation(evaluation_data)
 
         # Step 4: Generate reports
         print("\n📊 Generating Reports...")
@@ -104,7 +94,9 @@ def run_evaluation(
 
 def main() -> int:
     """Command line interface."""
-    parser = argparse.ArgumentParser(description="LSC Evaluation Framework / Tool")
+    parser = argparse.ArgumentParser(
+        description="LightSpeed Evaluation Framework / Tool",
+    )
     parser.add_argument(
         "--system-config",
         default="config/system.yaml",

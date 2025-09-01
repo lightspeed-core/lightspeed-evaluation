@@ -6,9 +6,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..core.config_loader import DEFAULT_CSV_COLUMNS
-from ..core.models import EvaluationResult
-from .utils import calculate_basic_stats, calculate_detailed_stats
+from ..config.loader import DEFAULT_CSV_COLUMNS
+from ..config.models import EvaluationResult
+from .statistics import calculate_basic_stats, calculate_detailed_stats
 from .visualization import GraphGenerator
 
 

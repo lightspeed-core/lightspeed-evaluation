@@ -1,4 +1,4 @@
-"""Configuration loading for LSC Evaluation Framework."""
+"""Configuration loading for Evaluation Framework."""
 
 import logging
 import os
@@ -97,7 +97,7 @@ def setup_logging(logging_config: Dict[str, Any]) -> logging.Logger:
             )
 
     # Get logger for our application
-    logger = logging.getLogger("lsc_eval")
+    logger = logging.getLogger("lightspeed_evaluation")
     logger.setLevel(source_level)
 
     logger.debug(

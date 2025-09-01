@@ -6,9 +6,9 @@ from typing import Any, Dict, Optional, Tuple
 import litellm
 from pydantic import BaseModel, Field
 
-from ..core.models import TurnData
-from ..llm_managers.llm_manager import LLMManager
-from ..output.utils import EvaluationScope
+from ..config.models import TurnData
+from ..llm.manager import LLMManager
+from ..output.statistics import EvaluationScope
 
 
 class EvaluationPromptParams(BaseModel):
