@@ -28,6 +28,7 @@ from .core.config import (
     EvaluationResult,
     DataValidator,
 )
+from .core.config import LLMConfig
 from .core.metrics import RagasMetrics, DeepEvalMetrics, CustomMetrics
 
 # Output handling
@@ -43,6 +44,7 @@ __all__ = [
     "TurnData",
     "EvaluationResult",
     "DataValidator",
+    "LLMConfig",
     # Metrics
     "RagasMetrics",
     "DeepEvalMetrics",

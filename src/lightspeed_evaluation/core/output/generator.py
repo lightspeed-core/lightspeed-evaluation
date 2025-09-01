@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..config.loader import DEFAULT_CSV_COLUMNS
-from ..config.models import EvaluationResult
+from ..config import EvaluationResult
 from .statistics import calculate_basic_stats, calculate_detailed_stats
 from .visualization import GraphGenerator
 

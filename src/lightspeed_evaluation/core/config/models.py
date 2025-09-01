@@ -170,29 +170,36 @@ class EvaluationResult(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    """LLM Configuration with validation."""
+    """LLM configuration from system configuration."""
 
-    model_name: str = Field(..., description="The model name to use")
-    api_base: Optional[str] = Field(None, description="Custom API base URL")
-    api_key: Optional[str] = Field(None, description="API key for the model")
-    temperature: float = Field(
-        0.0, ge=0.0, le=2.0, description="Temperature for sampling"
+    provider: str = Field(
+        ..., description="Provider name, e.g., openai, azure, watsonx"
     )
-    max_tokens: Optional[int] = Field(
-        None, ge=1, description="Maximum tokens to generate"
-    )
-    timeout: Optional[int] = Field(None, ge=1, description="Request timeout in seconds")
-    num_retries: int = Field(
-        3, ge=0, description="Number of retries for failed requests"
-    )
+    model: str = Field(..., description="Model identifier or deployment name")
+    temperature: float = Field(0.0, ge=0.0, le=2.0, description="Sampling temperature")
+    max_tokens: int = Field(512, ge=1, description="Maximum tokens in response")
+    timeout: int = Field(300, ge=1, description="Request timeout in seconds")
+    num_retries: int = Field(3, ge=0, description="Retry attempts for failed requests")
 
-    @field_validator("model_name")
+    @field_validator("provider", "model")
     @classmethod
-    def validate_model_name(cls, v: str) -> str:
-        """Validate model name is non-empty."""
-        if not v or not v.strip():
-            raise ValueError("Model name cannot be empty")
+    def _validate_non_empty(cls, v: str) -> str:
+        """Validate provider and model are non-empty strings."""
+        if not v or not isinstance(v, str) or not v.strip():
+            raise ValueError("Value cannot be empty")
         return v.strip()
+
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "LLMConfig":
+        """Create LLMConfig from a plain dictionary."""
+        return cls(
+            provider=config_dict.get("provider", "openai"),
+            model=config_dict.get("model", "gpt-4o-mini"),
+            temperature=config_dict.get("temperature", 0.0),
+            max_tokens=config_dict.get("max_tokens", 512),
+            timeout=config_dict.get("timeout", 300),
+            num_retries=config_dict.get("num_retries", 3),
+        )
 
 
 # System configuration models

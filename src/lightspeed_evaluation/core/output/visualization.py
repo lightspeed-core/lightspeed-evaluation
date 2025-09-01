@@ -10,7 +10,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.colors import BASE_COLORS
 
-from ..config.models import EvaluationResult
+from ..config import EvaluationResult
 from .statistics import calculate_basic_stats, calculate_detailed_stats
 
 

@@ -8,7 +8,7 @@ from .config import (
     setup_environment_variables,
     DataValidator,
 )
-from .config.models import EvaluationResult, TurnData
+from .config import EvaluationResult, TurnData, LLMConfig
 
 # LLM management
 from .llm import LLMManager
@@ -22,6 +22,7 @@ __all__ = [
     "DataValidator",
     "EvaluationResult",
     "TurnData",
+    "LLMConfig",
     # LLM management
     "LLMManager",
 ]

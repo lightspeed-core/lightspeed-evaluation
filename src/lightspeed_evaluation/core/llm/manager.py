@@ -1,36 +1,13 @@
 """LLM Manager - Generic LLM configuration, validation, and parameter provider."""
 
 import os
-from dataclasses import dataclass
 from typing import Any, Dict
+
+from ..config import LLMConfig
 
 
 class LLMError(Exception):
     """LLM configuration error."""
-
-
-@dataclass
-class LLMConfig:
-    """LLM configuration from system configuration."""
-
-    provider: str
-    model: str
-    temperature: float = 0.0
-    max_tokens: int = 512
-    timeout: int = 300
-    num_retries: int = 3
-
-    @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "LLMConfig":
-        """Create config from dictionary."""
-        return cls(
-            provider=config_dict.get("provider", "openai"),
-            model=config_dict.get("model", "gpt-4o-mini"),
-            temperature=config_dict.get("temperature", 0.0),
-            max_tokens=config_dict.get("max_tokens", 512),
-            timeout=config_dict.get("timeout", 300),
-            num_retries=config_dict.get("num_retries", 3),
-        )
 
 
 class LLMManager:

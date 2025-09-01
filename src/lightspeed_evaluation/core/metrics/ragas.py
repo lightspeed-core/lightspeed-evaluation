@@ -13,7 +13,7 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
-from ..config.models import TurnData
+from ..config import TurnData
 from ..llm.manager import LLMManager
 from ..llm.ragas import RagasLLMManager
 from ..output.statistics import EvaluationScope

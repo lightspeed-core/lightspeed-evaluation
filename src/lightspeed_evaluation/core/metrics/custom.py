@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 import litellm
 from pydantic import BaseModel, Field
 
-from ..config.models import TurnData
+from ..config import TurnData
 from ..llm.manager import LLMManager
 from ..output.statistics import EvaluationScope
 
