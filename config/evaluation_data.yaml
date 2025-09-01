@@ -1,0 +1,72 @@
+# LightSpeed Evaluation Framework - Sample/Mock Data
+
+- conversation_group_id: "conv_group_1"
+  description: "conversation group description"
+
+  turn_metrics:
+    - "ragas:faithfulness"
+    - "ragas:response_relevancy"
+    - "ragas:context_precision_without_reference"
+  
+  turn_metrics_metadata: 
+    "ragas:faithfulness": 
+      threshold: 0.99
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  
+  turns:
+    - turn_id: 1
+      query: "User query"
+      response: "API response"
+      contexts:
+        - content: "Context 1"
+        - content: "Context 2"
+      expected_response: "Expected Response"
+
+- conversation_group_id: "conv_group_2"
+  description: "conversation group description"
+
+  turn_metrics:
+    - "ragas:context_recall"
+    - "ragas:context_relevance" 
+    - "ragas:context_precision_with_reference"
+  
+  turn_metrics_metadata: {}
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  
+  turns:
+    - turn_id: 1
+      query: "User Query"
+      response: "API Response"
+      contexts:
+        - content: "Context 1"
+      expected_response: "Expected Response"
+
+- conversation_group_id: "conv_group_3"
+  
+  turn_metrics:
+    - "custom:answer_correctness"
+  
+  turn_metrics_metadata: {}
+  
+  conversation_metrics:
+    - "deepeval:conversation_completeness"
+    - "deepeval:conversation_relevancy"
+  
+  conversation_metrics_metadata: {}
+  
+  turns:
+    - turn_id: 1
+      query: "User Query 1"
+      response: "API Response 1"
+      contexts:
+        - content: "Context"
+      expected_response: "Expected Response 1"
+    
+    - turn_id: 2
+      query: "User Query 2"
+      response: "API Response 2"
+      contexts:
+        - content: "Context"
+      expected_response: "Expected Response 2"
