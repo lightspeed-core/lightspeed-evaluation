@@ -8,9 +8,10 @@ import click
 import dotenv
 import pandas as pd
 import ragas
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from ragas import EvaluationDataset, SingleTurnSample
 from ragas.cache import DiskCacheBackend
+from ragas.embeddings import LangchainEmbeddingsWrapper
 from ragas.llms import LangchainLLMWrapper
 from ragas.metrics import ResponseRelevancy
 
@@ -81,16 +82,20 @@ def main(verbose: bool, input_filename: str) -> int:
     # TODO cache embeddings model as well
     ragas_cacher = DiskCacheBackend(cache_dir="ragas_llm_cache")
     cached_llm = LangchainLLMWrapper(ChatOpenAI(model="gpt-4o"), cache=ragas_cacher)
+    cached_embeddings = LangchainEmbeddingsWrapper(OpenAIEmbeddings(), cache=ragas_cacher)
 
-    metrics = [ResponseRelevancy(llm=cached_llm)]
+    metrics = [ResponseRelevancy(llm=cached_llm, embeddings=cached_embeddings)]
 
     pattern = re.compile("^.*_answers$")
     answer_cols = [c for c in list(df.columns) if pattern.match(c)]
     for model in answer_cols:
         print(f"====={model}=====")
 
-        res = evaluate_model(df, model, metrics)
-        print(res)
+        evals = evaluate_model(df, model, metrics)
+        print()
+        for eval in evals.scores:
+            print(eval)
+        print(evals)
 
 
 if __name__ == "__main__":
