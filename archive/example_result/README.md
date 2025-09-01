@@ -11,7 +11,7 @@
     - (watsonx) ibm/granite-3-2-8b-instruct (API Version: 2025-04-02)
     - (azure) gpt-4o-mini (Model Version: 2024-07-18, API Version: 2024-02-15-preview)
 - Judge provider/model (LLM based eval): (watsonx) llama-3-1-8b-instruct
-- QnA evaluation dataset: [QnAs from OCP doc](../ocp_doc_qna-edited.parquet)
+- QnA evaluation dataset: [QnAs from OCP doc](../../eval_data/ocp_doc_qna-edited.parquet)
 - API run mode: without tool calling (streaming internally)
 - RAG SHA: 56269892dcf5279b9857c04918e8fba587008990b09146e907d7af9303bd6c9e
     - OCP doc: 4.18
