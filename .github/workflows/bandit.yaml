@@ -13,6 +13,7 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: PyCQA/bandit-action@v1
+      - name: Bandit security scanner
+        uses: PyCQA/bandit-action@v1
         with:
           targets: "./src ./lsc_agent_eval ./lsc_eval"
