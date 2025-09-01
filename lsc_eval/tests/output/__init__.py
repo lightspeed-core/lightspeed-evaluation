@@ -1,0 +1,2 @@
+"""Output tests package."""
+
