@@ -258,7 +258,6 @@ def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "unit: mark test as a unit test")
     config.addinivalue_line("markers", "integration: mark test as an integration test")
-    config.addinivalue_line("markers", "slow: mark test as slow running")
     config.addinivalue_line("markers", "config: mark test as configuration-related")
     config.addinivalue_line("markers", "metrics: mark test as metrics-related")
     config.addinivalue_line("markers", "output: mark test as output-related")
@@ -282,7 +281,5 @@ def pytest_collection_modifyitems(config, items):
         # Add markers based on test names
         if "integration" in item.name:
             item.add_marker(pytest.mark.integration)
-        elif "slow" in item.name:
-            item.add_marker(pytest.mark.slow)
         else:
             item.add_marker(pytest.mark.unit)

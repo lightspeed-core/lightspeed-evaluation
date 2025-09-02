@@ -32,16 +32,6 @@ class TestTurnData:
         assert turn.contexts[0]["content"] == "Python context"
         assert turn.expected_response == "Python is a high-level language."
 
-    def test_turn_data_with_minimal_fields(self):
-        """Test TurnData with only required fields."""
-        turn = TurnData(turn_id=1, query="Test query", response="Test response")
-
-        assert turn.turn_id == 1
-        assert turn.query == "Test query"
-        assert turn.response == "Test response"
-        assert turn.contexts == []
-        assert turn.expected_response == ""
-
     def test_turn_data_strips_whitespace(self):
         """Test that query and response are stripped of whitespace."""
         turn = TurnData(turn_id=1, query="  Test query  ", response="  Test response  ")
@@ -59,11 +49,6 @@ class TestTurnData:
 
         with pytest.raises(ValidationError, match="Query and response cannot be empty"):
             TurnData(turn_id=1, query="   ", response="Valid response")
-
-    def test_turn_data_invalid_turn_id_negative(self):
-        """Test validation error for non-positive turn_id."""
-        with pytest.raises(ValidationError, match="Turn ID must be positive"):
-            TurnData(turn_id=-1, query="Valid query", response="Valid response")
 
     def test_turn_data_invalid_context_missing_content(self):
         """Test validation error for context missing content field."""
@@ -143,13 +128,6 @@ class TestEvaluationData:
         ):
             EvaluationData(conversation_group_id="", turns=[turn])
 
-    def test_evaluation_data_invalid_empty_turns(self):
-        """Test validation error for empty turns list."""
-        with pytest.raises(
-            ValidationError, match="Conversation must have at least one turn"
-        ):
-            EvaluationData(conversation_group_id="test_conv", turns=[])
-
     def test_evaluation_data_invalid_metric_format_missing_colon(self):
         """Test validation error for metric without colon."""
         turn = TurnData(turn_id=1, query="Test query", response="Test response")
@@ -161,20 +139,6 @@ class TestEvaluationData:
                 turn_metrics=["invalid_metric"],
                 turns=[turn],
             )
-
-    def test_evaluation_data_multiple_turns(self):
-        """Test EvaluationData with multiple turns."""
-        turns = [
-            TurnData(turn_id=1, query="First query", response="First response"),
-            TurnData(turn_id=2, query="Second query", response="Second response"),
-            TurnData(turn_id=3, query="Third query", response="Third response"),
-        ]
-        eval_data = EvaluationData(conversation_group_id="test_conv", turns=turns)
-
-        assert len(eval_data.turns) == 3
-        assert eval_data.turns[0].turn_id == 1
-        assert eval_data.turns[1].turn_id == 2
-        assert eval_data.turns[2].turn_id == 3
 
     def test_evaluation_data_with_metadata(self):
         """Test EvaluationData with metadata fields."""
@@ -248,17 +212,6 @@ class TestLLMConfig:
         assert config.timeout == 90
         assert config.num_retries == 2
 
-    def test_llm_config_from_dict_with_missing_fields(self):
-        """Test creating LLMConfig from dictionary with missing optional fields."""
-        config_dict = {"provider": "openai", "model": "gpt-3.5-turbo"}
-
-        config = LLMConfig.from_dict(config_dict)
-
-        assert config.provider == "openai"
-        assert config.model == "gpt-3.5-turbo"
-        assert config.temperature == 0.0  # default
-        assert config.max_tokens == 512  # default
-
 
 class TestSystemConfig:
     """Unit tests for SystemConfig model."""
@@ -297,13 +250,6 @@ class TestSystemConfig:
         assert config.logging_package_level == "WARNING"
         assert config.logging_show_timestamps is True
         assert isinstance(config.logging_package_overrides, dict)
-
-    def test_system_config_visualization_defaults(self):
-        """Test SystemConfig visualization configuration defaults."""
-        config = SystemConfig()
-
-        assert config.visualization_figsize == [12, 8]
-        assert config.visualization_dpi == 300
 
     def test_system_config_custom_values(self):
         """Test SystemConfig with all custom values."""

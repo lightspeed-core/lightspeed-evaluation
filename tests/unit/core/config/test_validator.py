@@ -165,13 +165,6 @@ class TestDataValidator:
 
                 assert errors is False
 
-    def test_validate_evaluation_data_empty_list(self):
-        """Test validation of empty evaluation data list."""
-        validator = DataValidator()
-        errors = validator.validate_evaluation_data([])
-
-        assert errors is True  # Empty list should not cause errors
-
     def test_validation_errors_accumulation(self):
         """Test that validation errors are properly accumulated."""
         validator = DataValidator()

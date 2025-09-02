@@ -174,7 +174,7 @@ class TestSetupLogging:
                 mock_logger = MagicMock()
                 mock_get_logger.return_value = mock_logger
 
-                logger = setup_logging(logging_config)
+                setup_logging(logging_config)
 
                 # Should have called getLogger for overridden packages
                 assert mock_get_logger.call_count >= 2
@@ -194,7 +194,7 @@ class TestSetupLogging:
         logging_config = {"source_level": "debug", "package_level": "warning"}
 
         with patch("logging.basicConfig") as mock_basic_config:
-            logger = setup_logging(logging_config)
+            setup_logging(logging_config)
 
             mock_basic_config.assert_called_once_with(
                 level=logging.DEBUG,

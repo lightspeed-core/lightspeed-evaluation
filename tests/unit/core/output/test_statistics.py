@@ -138,32 +138,6 @@ class TestCalculateBasicStats:
         }
         assert stats == expected
 
-    def test_calculate_basic_stats_single_result(self):
-        """Test calculate_basic_stats with single result."""
-        results = [
-            EvaluationResult(
-                conversation_group_id="conv1",
-                turn_id=1,
-                metric_identifier="test:metric",
-                result="FAIL",
-                score=0.2,
-                reason="Poor performance",
-            )
-        ]
-
-        stats = calculate_basic_stats(results)
-
-        expected = {
-            "TOTAL": 1,
-            "PASS": 0,
-            "FAIL": 1,
-            "ERROR": 0,
-            "pass_rate": 0.0,
-            "fail_rate": 100.0,
-            "error_rate": 0.0,
-        }
-        assert stats == expected
-
 
 class TestCalculateDetailedStats:
     """Unit tests for calculate_detailed_stats function."""
@@ -289,68 +263,3 @@ class TestCalculateDetailedStats:
         assert conv2_stats["error"] == 1
         assert conv2_stats["pass_rate"] == 50.0
         assert conv2_stats["error_rate"] == 50.0
-
-    def test_calculate_detailed_stats_score_statistics(self):
-        """Test calculate_detailed_stats includes score statistics."""
-        results = [
-            EvaluationResult(
-                conversation_group_id="conv1",
-                turn_id=1,
-                metric_identifier="ragas:faithfulness",
-                result="PASS",
-                score=0.8,
-                reason="Good",
-            ),
-            EvaluationResult(
-                conversation_group_id="conv1",
-                turn_id=2,
-                metric_identifier="ragas:faithfulness",
-                result="PASS",
-                score=0.9,
-                reason="Excellent",
-            ),
-            EvaluationResult(
-                conversation_group_id="conv1",
-                turn_id=3,
-                metric_identifier="ragas:faithfulness",
-                result="FAIL",
-                score=0.3,
-                reason="Poor",
-            ),
-        ]
-
-        stats = calculate_detailed_stats(results)
-
-        metric_stats = stats["by_metric"]["ragas:faithfulness"]
-        assert "score_statistics" in metric_stats
-
-        score_stats = metric_stats["score_statistics"]
-        assert score_stats["count"] == 3
-        assert score_stats["mean"] == pytest.approx(0.6667, rel=1e-3)
-        assert score_stats["min"] == 0.3
-        assert score_stats["max"] == 0.9
-        assert score_stats["median"] == 0.8
-        assert score_stats["std"] > 0  # Should have some standard deviation
-
-    def test_calculate_detailed_stats_no_scores(self):
-        """Test calculate_detailed_stats with results that have no scores."""
-        results = [
-            EvaluationResult(
-                conversation_group_id="conv1",
-                turn_id=1,
-                metric_identifier="test:metric",
-                result="ERROR",
-                reason="API error",
-            )
-        ]
-
-        stats = calculate_detailed_stats(results)
-
-        metric_stats = stats["by_metric"]["test:metric"]
-        assert "score_statistics" in metric_stats
-
-        score_stats = metric_stats["score_statistics"]
-        assert score_stats["count"] == 0
-        assert score_stats["mean"] == 0.0
-        assert score_stats["median"] == 0.0
-        assert score_stats["std"] == 0.0

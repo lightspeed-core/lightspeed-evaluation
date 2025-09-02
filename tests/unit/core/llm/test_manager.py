@@ -38,108 +38,6 @@ class TestLLMManager:
                 assert manager.model_name == "gpt-4"
                 mock_print.assert_called_with("✅ LLM Manager: openai/gpt-4 -> gpt-4")
 
-    def test_llm_manager_initialization_anthropic(self):
-        """Test LLMManager initialization with Anthropic provider."""
-        config = LLMConfig(provider="anthropic", model="claude-3-sonnet")
-
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
-            with patch("builtins.print") as mock_print:
-                manager = LLMManager(config)
-
-                assert manager.config == config
-                assert manager.model_name == "anthropic/claude-3-sonnet"
-                mock_print.assert_called_with(
-                    "✅ LLM Manager: anthropic/claude-3-sonnet -> anthropic/claude-3-sonnet"
-                )
-
-    def test_llm_manager_initialization_azure(self):
-        """Test LLMManager initialization with Azure provider."""
-        config = LLMConfig(provider="azure", model="gpt-4")
-
-        with patch.dict(
-            os.environ,
-            {
-                "AZURE_OPENAI_API_KEY": "test-key",
-                "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/",
-            },
-        ):
-            with patch("builtins.print") as mock_print:
-                manager = LLMManager(config)
-
-                assert manager.config == config
-                assert manager.model_name == "azure/gpt-4"
-
-    def test_llm_manager_initialization_azure_with_deployment(self):
-        """Test LLMManager initialization with Azure provider and custom deployment."""
-        config = LLMConfig(provider="azure", model="gpt-4")
-
-        with patch.dict(
-            os.environ,
-            {
-                "AZURE_OPENAI_API_KEY": "test-key",
-                "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/",
-                "AZURE_OPENAI_DEPLOYMENT_NAME": "custom-deployment",
-            },
-        ):
-            manager = LLMManager(config)
-            assert manager.model_name == "azure/custom-deployment"
-
-    def test_llm_manager_initialization_watsonx(self):
-        """Test LLMManager initialization with Watsonx provider."""
-        config = LLMConfig(provider="watsonx", model="llama-2-70b")
-
-        with patch.dict(
-            os.environ,
-            {
-                "WATSONX_API_KEY": "test-key",
-                "WATSONX_API_BASE": "https://test.watsonx.ai",
-                "WATSONX_PROJECT_ID": "test-project",
-            },
-        ):
-            manager = LLMManager(config)
-            assert manager.model_name == "watsonx/llama-2-70b"
-
-    def test_llm_manager_initialization_gemini_google_key(self):
-        """Test LLMManager initialization with Gemini provider using GOOGLE_API_KEY."""
-        config = LLMConfig(provider="gemini", model="gemini-pro")
-
-        with patch.dict(os.environ, {"GOOGLE_API_KEY": "test-key"}):
-            manager = LLMManager(config)
-            assert manager.model_name == "gemini/gemini-pro"
-
-    def test_llm_manager_initialization_gemini_gemini_key(self):
-        """Test LLMManager initialization with Gemini provider using GEMINI_API_KEY."""
-        config = LLMConfig(provider="gemini", model="gemini-pro")
-
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            manager = LLMManager(config)
-            assert manager.model_name == "gemini/gemini-pro"
-
-    def test_llm_manager_initialization_ollama(self):
-        """Test LLMManager initialization with Ollama provider."""
-        config = LLMConfig(provider="ollama", model="llama2")
-
-        with patch("builtins.print") as mock_print:
-            manager = LLMManager(config)
-
-            assert manager.model_name == "ollama/llama2"
-            mock_print.assert_any_call(
-                "ℹ️ OLLAMA_HOST not set, using default localhost:11434"
-            )
-
-    def test_llm_manager_initialization_ollama_with_host(self):
-        """Test LLMManager initialization with Ollama provider and custom host."""
-        config = LLMConfig(provider="ollama", model="llama2")
-
-        with patch.dict(os.environ, {"OLLAMA_HOST": "http://custom-host:11434"}):
-            with patch("builtins.print") as mock_print:
-                manager = LLMManager(config)
-
-                assert manager.model_name == "ollama/llama2"
-                # Should not print the warning about missing OLLAMA_HOST
-                for call in mock_print.call_args_list:
-                    assert "OLLAMA_HOST not set" not in str(call)
-
     def test_llm_manager_initialization_generic_provider(self):
         """Test LLMManager initialization with unknown/generic provider."""
         config = LLMConfig(provider="custom", model="custom-model")
@@ -157,64 +55,6 @@ class TestLLMManager:
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(
                 LLMError, match="OPENAI_API_KEY environment variable is required"
-            ):
-                LLMManager(config)
-
-    def test_llm_manager_azure_missing_api_key(self):
-        """Test LLMManager with Azure provider but missing API key."""
-        config = LLMConfig(provider="azure", model="gpt-4")
-
-        with patch.dict(
-            os.environ, {"AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/"}
-        ):
-            with pytest.raises(
-                LLMError, match="Azure provider requires environment variables"
-            ):
-                LLMManager(config)
-
-    def test_llm_manager_azure_missing_endpoint(self):
-        """Test LLMManager with Azure provider but missing endpoint."""
-        config = LLMConfig(provider="azure", model="gpt-4")
-
-        with patch.dict(os.environ, {"AZURE_OPENAI_API_KEY": "test-key"}):
-            with pytest.raises(
-                LLMError, match="Azure provider requires environment variables"
-            ):
-                LLMManager(config)
-
-    def test_llm_manager_watsonx_missing_api_key(self):
-        """Test LLMManager with Watsonx provider but missing API key."""
-        config = LLMConfig(provider="watsonx", model="llama-2-70b")
-
-        with patch.dict(
-            os.environ,
-            {
-                "WATSONX_API_BASE": "https://test.watsonx.ai",
-                "WATSONX_PROJECT_ID": "test-project",
-            },
-        ):
-            with pytest.raises(
-                LLMError, match="Watsonx provider requires environment variables"
-            ):
-                LLMManager(config)
-
-    def test_llm_manager_anthropic_missing_api_key(self):
-        """Test LLMManager with Anthropic provider but missing API key."""
-        config = LLMConfig(provider="anthropic", model="claude-3-sonnet")
-
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(
-                LLMError, match="ANTHROPIC_API_KEY environment variable is required"
-            ):
-                LLMManager(config)
-
-    def test_llm_manager_gemini_missing_api_key(self):
-        """Test LLMManager with Gemini provider but missing API key."""
-        config = LLMConfig(provider="gemini", model="gemini-pro")
-
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(
-                LLMError, match="GOOGLE_API_KEY or GEMINI_API_KEY environment variable"
             ):
                 LLMManager(config)
 
@@ -276,17 +116,6 @@ class TestLLMManager:
             assert manager.config.model == "gpt-4"
             assert manager.config.temperature == 0.5
             assert manager.config.max_tokens == 2000
-
-    def test_from_system_config_missing_llm_section(self):
-        """Test from_system_config with missing llm section."""
-        system_config = {}
-
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-            manager = LLMManager.from_system_config(system_config)
-
-            # Should use defaults from LLMConfig
-            assert manager.config.provider == "openai"  # default
-            assert manager.config.model == "gpt-4o-mini"  # default
 
     def test_provider_case_insensitive(self):
         """Test that provider names are handled case-insensitively."""

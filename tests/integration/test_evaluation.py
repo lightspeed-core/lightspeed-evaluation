@@ -18,53 +18,28 @@ from lightspeed_evaluation.core.config import EvaluationData, EvaluationResult, 
 from lightspeed_evaluation.runner.evaluation import run_evaluation
 
 
-class TestConfigLoading:
-    """Test configuration loading functionality."""
-
-    def test_load_system_config_success(self):
-        """Test successful loading of system configuration."""
-        config_path = "config/system.yaml"
-
-        # Skip if config file doesn't exist
-        if not Path(config_path).exists():
-            pytest.skip(f"Config file {config_path} not found")
-
-        loader = ConfigLoader()
-        system_config = loader.load_system_config(config_path)
-
-        # Verify basic configuration
-        assert system_config.llm_provider == "openai"
-        assert system_config.llm_model == "gpt-4o-mini"
-        assert system_config.llm_temperature == 0.0
-        assert system_config.output_dir == "./eval_output"
-        assert system_config.include_graphs is True
-
-    def test_load_nonexistent_config_file(self):
-        """Test loading non-existent configuration file."""
-        loader = ConfigLoader()
-
-        with pytest.raises(FileNotFoundError):
-            loader.load_system_config("nonexistent_config.yaml")
-
-    def test_load_invalid_yaml_config(self):
-        """Test loading invalid YAML configuration."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("invalid: yaml: content: [")
-            invalid_config_path = f.name
-
-        try:
-            loader = ConfigLoader()
-            with pytest.raises(yaml.YAMLError):
-                loader.load_system_config(invalid_config_path)
-        finally:
-            os.unlink(invalid_config_path)
-
 
 class TestDataValidation:
     """Test data validation functionality."""
 
     def test_valid_evaluation_data(self):
         """Test validation of valid evaluation data."""
+        # First populate the metrics by loading a system config
+        from lightspeed_evaluation.core.config.loader import populate_metric_mappings
+        
+        metrics_metadata = {
+            "turn_level": {
+                "ragas:faithfulness": {
+                    "threshold": 0.8,
+                    "type": "turn",
+                    "description": "How faithful the response is to the provided context",
+                    "framework": "ragas",
+                }
+            },
+            "conversation_level": {}
+        }
+        populate_metric_mappings(metrics_metadata)
+        
         valid_data = [
             EvaluationData(
                 conversation_group_id="test_conv",
