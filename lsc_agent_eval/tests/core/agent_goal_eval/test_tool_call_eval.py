@@ -93,7 +93,7 @@ class TestToolCallEvaluator:
 
             # Check that the specific argument mismatch was logged
             mock_logger.debug.assert_any_call(
-                "Argument value mismatch for '%s': expected %s, got %s",
+                "Argument value mismatch for '%s': pattern '%s' not found in '%s'",
                 "image",
                 "nginx",
                 "apache",
@@ -125,3 +125,38 @@ class TestToolCallEvaluator:
         actual = [[{"tool_name": "simple_call"}]]
 
         assert compare_tool_calls(expected, actual)
+
+    def test_multiple_arguments_with_regex(self):
+        """Test multiple arguments where some use regex patterns."""
+        expected = [
+            [
+                {
+                    "tool_name": "get_log",
+                    "arguments": {
+                        "name": "pod-\\d+",
+                        "kind": "pod",
+                        "namespace": "default",
+                    },
+                }
+            ]
+        ]
+        actual = [
+            [
+                {
+                    "tool_name": "get_log",
+                    "arguments": {
+                        "name": "pod-123",
+                        "kind": "pod",
+                        "namespace": "default",
+                    },
+                }
+            ]
+        ]
+        assert compare_tool_calls(expected, actual) is True
+
+    def test_invalid_regex_fails(self):
+        """Test invalid regex patterns."""
+        expected = [[{"tool_name": "oc_get", "arguments": {"name": "["}}]]
+        actual = [[{"tool_name": "oc_get", "arguments": {"name": "["}}]]
+        # Should fail due to invalid regex pattern
+        assert compare_tool_calls(expected, actual) is False

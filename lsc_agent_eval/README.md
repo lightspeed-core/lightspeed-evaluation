@@ -10,7 +10,7 @@ A framework for evaluating AI agent performance.
   - `action_eval`: Script-based evaluation using verification script (similar to [k8s-bench](https://github.com/GoogleCloudPlatform/kubectl-ai/tree/main/k8s-bench))
   - `response_eval:sub-string`: Simple substring matching evaluation (ALL keywords must be present in response; case-insensitive)
   - `response_eval:accuracy`: LLM-based evaluation using a judge model. Result is either accurate or not in comparison to expected response
-  - `tool_eval`: Tool call evaluation comparing expected vs actual tool calls with arguments
+  - `tool_eval`: Tool call evaluation comparing expected vs actual tool calls with arguments, Only regex pattern check (case sensitive) is done for argument value
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after evaluation
 - **Result Tracking**: Result tracking with CSV output and JSON statistics
 - **Standalone Package**: Can be installed and used independently of the main lightspeed-core-evaluation package
@@ -66,7 +66,7 @@ Each evaluation within a conversation can include:
 - `eval_types`: List of evaluation types to run (action_eval, tool_eval, response_eval:sub-string, response_eval:accuracy)
 - `expected_response`: Expected response (for response_eval:accuracy evaluation)
 - `expected_keywords`: Keywords to look for (for response_eval:sub-string evaluation)
-- `expected_tool_calls`: Expected tool call sequences (list of lists) with tool_name and arguments (for tool_eval)
+- `expected_tool_calls`: Expected tool call sequences (list of lists) with tool_name and arguments (for tool_eval), Regex pattern check is done for argument value
 - `eval_verify_script`: Verification script (for action_eval evaluation)
 - `description`: Description of the evaluation (Optional)
 
@@ -133,6 +133,13 @@ Note: `eval_id` can't contain duplicate values within a conversation group. But 
               oc_get_args: [namespaces, openshift-lightspeed]
       expected_keywords: ["yes", "openshift-lightspeed"]
       description: Tool call with argument validation and response verification
+    - eval_id: eval3
+      eval_query: get the log for the abc-pod
+      eval_types: [tool_eval]
+      expected_tool_calls:
+        - - tool_name: get_logs
+            arguments:
+              oc_get_args: abc-\\w+
 
 # Single-turn Conversations
 - conversation_group: conv3
