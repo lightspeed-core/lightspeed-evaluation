@@ -48,9 +48,7 @@ def run_evaluation(
         data_validator = DataValidator()
         evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
 
-        print(
-            f"✅ System config: {system_config.llm_provider}/{system_config.llm_model}"
-        )
+        print(f"✅ System config: {system_config.llm_provider}/{system_config.llm_model}")
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
 
         # Step 2: Initialize evaluation engine (core controller)
@@ -69,9 +67,7 @@ def run_evaluation(
             system_config=system_config,
         )
 
-        output_handler.generate_reports(
-            results, include_graphs=system_config.include_graphs
-        )
+        output_handler.generate_reports(results, include_graphs=system_config.include_graphs)
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
@@ -85,9 +81,7 @@ def run_evaluation(
         )
 
         if summary["ERROR"] > 0:
-            print(
-                f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report"
-            )
+            print(f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report")
 
         return {
             "TOTAL": summary["TOTAL"],

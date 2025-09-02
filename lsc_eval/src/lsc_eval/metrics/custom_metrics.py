@@ -40,7 +40,8 @@ class CustomMetrics:
         self.litellm_params = llm_manager.get_litellm_params()
 
         self.supported_metrics = {
-            "answer_correctness": self._evaluate_answer_correctness
+            "answer_correctness": self._evaluate_answer_correctness,
+            "rag_response_evaluation": self._evaluate_rag_response
         }
 
         print(f"✅ Custom Metrics initialized: {self.model_name}")
@@ -243,6 +244,80 @@ class CustomMetrics:
             )
 
         return score, f"Custom answer correctness: {score:.2f} - {reason}"
+
+    def _evaluate_rag_response(
+        self,
+        _conv_data: Any,
+        _turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> Tuple[Optional[float], str]:
+        """Evaluate a RAG-generated response against the original response."""
+        if is_conversation:
+            return None, "RAG response evaluation is a turn-level metric"
+
+        if turn_data is None:
+            return None, "TurnData is required for RAG response evaluation"
+
+        try:
+            # Try to import and use the RAG manager
+            from ..llm_managers.lightspeed_rag_llm import LightspeedRAGManager
+            
+            # Create a RAG manager with default config (should be configurable)
+            from ..llm_managers.lightspeed_rag_llm import LightspeedRAGConfig
+            rag_config = LightspeedRAGConfig()
+            rag_manager = LightspeedRAGManager(rag_config)
+            
+            # Generate RAG response
+            contexts = None
+            if turn_data.contexts:
+                contexts = [ctx['content'] if isinstance(ctx, dict) else ctx.content for ctx in turn_data.contexts]
+            
+            rag_response, _ = rag_manager.generate_response(
+                query=turn_data.query,
+                contexts=contexts
+            )
+            
+            # Print the RAG response for debugging/visibility
+            print(f"RAG Response: {rag_response}")
+            
+            # Compare RAG response with the original response
+            params = EvaluationPromptParams(
+                metric_name="RAG response quality",
+                query=turn_data.query,
+                response=rag_response,
+                expected_response=turn_data.response,  # Use original response as expected
+                contexts=turn_data.contexts if turn_data.contexts else None,
+                scale="0.0 to 1.0",
+            )
+            prompt = self._create_evaluation_prompt(params)
+
+            # Add specific instructions for RAG evaluation
+            prompt += "\n\nYou are comparing a RAG-generated response against an original response.\n"
+            prompt += "Consider:\n"
+            prompt += "- Factual accuracy and relevance\n"
+            prompt += "- Use of provided context\n"
+            prompt += "- Completeness compared to original response\n"
+            prompt += "- Overall quality and helpfulness\n"
+            prompt += f"\nRAG Response: {rag_response}\n"
+            prompt += f"Original Response (Expected): {turn_data.response}"
+
+            # Make LLM call and parse response
+            llm_response = self._call_llm(prompt)
+            score, reason = self._parse_score_response(llm_response)
+
+            if score is None:
+                return (
+                    None,
+                    f"Could not parse score from LLM response: {llm_response[:100]}...",
+                )
+
+            return score, f"RAG response evaluation: {score:.2f} - {reason}"
+            
+        except ImportError:
+            return None, "LightspeedRAGManager not available"
+        except Exception as e:
+            return None, f"RAG response evaluation failed: {str(e)}"
 
     @classmethod
     def from_system_config(cls, system_config: Dict[str, Any]) -> "CustomMetrics":
