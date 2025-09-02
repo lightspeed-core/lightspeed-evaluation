@@ -8,10 +8,11 @@ jobs:
   bandit:
     runs-on: ubuntu-latest
     permissions:
+      security-events: write
+      actions: read
       contents: read
       pull-requests: read
     steps:
-      - uses: mdegis/bandit-action@v1.0
+      - uses: PyCQA/bandit-action@v1
         with:
-          path: "src"
-          exit_zero: true
+          targets: "src"

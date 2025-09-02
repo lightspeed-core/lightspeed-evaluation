@@ -178,10 +178,9 @@ llm_cache/
 
 # Evaluation output folder
 eval_output*/
-lsc_eval/eval_output*/
 
 # DeepEval telemetry and configuration
-lsc_eval/.deepeval/
+.deepeval/
 
 # Keeping experimental changes here
 wip*/

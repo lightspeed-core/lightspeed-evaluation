@@ -33,6 +33,27 @@ models_to_evaluate:
   - "llama3-8b"
 ```
 
+You use the `models_to_evaluate` list to select which of the available models will be used for answer generation.
+All models included in this list must also be defined in the `models` section **and** properly configured and available in the running lightspeed-core service.
+
+## Input Data
+
+The tool supports multiple input formats for evaluation data:
+
+* **CSV** – must contain two columns: `id` and `question`.
+  Example file: [`eval_data/questions.csv`](eval_data/questions.csv)
+
+  ```csv
+  id,question
+  1,How do I enable VM high availability in my cluster?
+  2,How do I migrate a VM to a different project?
+  3,How do I manage RBAC in OpenShift Virtualization
+  ...
+  ```
+* **Parquet** – Lightspeed evaluation parquet format is supported.
+* **JSON** – Lightspeed evaluation JSON format is supported.
+
+
 ## Running
 `uv run generate_answers -h`
 
