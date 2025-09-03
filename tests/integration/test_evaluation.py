@@ -401,9 +401,3 @@ class TestIntegrationWithRealConfigs:
                 assert len(results) == 1
                 assert results[0].result == "FAIL"  # 0.85 < 0.9 threshold
                 assert results[0].threshold == 0.9
-
-
-# Pytest configuration
-def pytest_configure(config):
-    """Configure pytest with custom markers."""
-    config.addinivalue_line("markers", "integration: mark test as integration test")

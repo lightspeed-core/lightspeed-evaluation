@@ -9,7 +9,8 @@ import pytest
 import yaml
 
 from lightspeed_evaluation.core.config import EvaluationData, SystemConfig, TurnData
-from lightspeed_evaluation.core.llm.manager import LLMConfig, LLMManager
+from lightspeed_evaluation.core.config.models import LLMConfig
+from lightspeed_evaluation.core.llm.manager import LLMManager
 
 
 @pytest.fixture(scope="session")

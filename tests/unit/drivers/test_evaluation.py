@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from lightspeed_evaluation.core.config.models import (
     EvaluationData,
     EvaluationResult,
@@ -217,6 +218,40 @@ class TestEvaluationDriver:
                     assert result.metric_identifier == expected_result.metric_identifier
                     assert result.score == expected_result.score
 
+    def test_evaluate_single_unknown_framework(self):
+        """Test _evaluate_metric with unknown metric framework."""
+        config_loader = MagicMock()
+        config_loader.get_llm_config_dict.return_value = {
+            "llm": {
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "temperature": 0.0,
+                "max_tokens": 512,
+                "timeout": 300,
+                "num_retries": 3,
+            }
+        }
+
+        turn_data = TurnData(turn_id=1, query="Test query", response="Test response")
+        eval_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+
+        request = EvaluationRequest.for_turn(eval_data, "unknown:metric", 0, turn_data)
+
+        with patch("builtins.print"):
+            driver = EvaluationDriver(config_loader)
+
+            # Mock the _get_effective_threshold method to return None (no threshold)
+            with patch.object(driver, "_get_effective_threshold", return_value=None):
+                # Mock the metrics manager to return error for unknown framework
+                with patch.object(
+                    driver.metrics_manager,
+                    "evaluate_metric",
+                    return_value=(None, "Unsupported framework: unknown"),
+                ):
+                    result = driver._evaluate_metric(request)
+
+                    assert result.result == "ERROR"
+                    assert "Unsupported framework" in result.reason
     def test_evaluate_single_metric_exception(self):
         """Test _evaluate_metric when metric evaluation raises exception."""
         config_loader = MagicMock()
@@ -254,6 +289,28 @@ class TestEvaluationDriver:
                     assert result.result == "ERROR"
                     assert "API Error" in result.reason
 
+    def test_get_supported_frameworks(self):
+        """Test metrics manager supported frameworks."""
+        config_loader = MagicMock()
+        config_loader.get_llm_config_dict.return_value = {
+            "llm": {
+                "provider": "openai",
+                "model": "gpt-4o-mini",
+                "temperature": 0.0,
+                "max_tokens": 512,
+                "timeout": 300,
+                "num_retries": 3,
+            }
+        }
+
+        with patch("builtins.print"):
+            driver = EvaluationDriver(config_loader)
+
+            supported_frameworks = driver.metrics_manager.get_supported_frameworks()
+            expected_frameworks = ["ragas", "deepeval", "custom"]
+            for framework in expected_frameworks:
+                assert framework in supported_frameworks
+            assert "unknown" not in supported_frameworks
     def test_create_error_result_turn_level(self):
         """Test error result creation for turn-level metric."""
         config_loader = MagicMock()
@@ -268,8 +325,13 @@ class TestEvaluationDriver:
             }
         }
 
+        turn_data = TurnData(turn_id=1, query="Test query", response="Test response")
+        eval_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+
+        request = EvaluationRequest.for_turn(eval_data, "test:metric", 0, turn_data)
+
         with patch("builtins.print"):
-            EvaluationDriver(config_loader)
+            driver = EvaluationDriver(config_loader)
 
             # Create an error result manually to test the structure
             result = EvaluationResult(
@@ -304,9 +366,16 @@ class TestEvaluationDriver:
             }
         }
 
-        with patch("builtins.print"):
-            EvaluationDriver(config_loader)
+        # Create valid EvaluationData with at least one turn
+        turn_data = TurnData(turn_id=1, query="Test query", response="Test response")
+        eval_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
+        request = EvaluationRequest.for_conversation(
+            eval_data, "test:conversation_metric"
+        )
+
+        with patch("builtins.print"):
+            driver = EvaluationDriver(config_loader)
             # Create an error result manually to test the structure
             result = EvaluationResult(
                 conversation_group_id="test_conv",
