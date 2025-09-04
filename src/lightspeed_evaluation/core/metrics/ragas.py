@@ -48,9 +48,7 @@ class RagasMetrics:
             ),
         }
 
-    def _extract_turn_data(
-        self, turn_data: Optional[TurnData]
-    ) -> Tuple[str, str, List[str]]:
+    def _extract_turn_data(self, turn_data: Optional[TurnData]) -> Tuple[str, str, List[str]]:
         """Extract turn data."""
         if turn_data is None:
             return "", "", []
@@ -150,9 +148,7 @@ class RagasMetrics:
             "contexts": [contexts],
         }
 
-        return self._evaluate_metric(
-            Faithfulness, dataset_dict, "faithfulness", "faithfulness"
-        )
+        return self._evaluate_metric(Faithfulness, dataset_dict, "faithfulness", "faithfulness")
 
     def _evaluate_context_precision_without_reference(
         self,

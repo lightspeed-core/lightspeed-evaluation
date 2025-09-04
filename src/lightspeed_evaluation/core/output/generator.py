@@ -51,15 +51,11 @@ class OutputHandler:
         print(f"  ✅ CSV: {csv_file}")
 
         # Generate JSON summary (pass pre-calculated stats)
-        json_file = self._generate_json_summary(
-            results, base_filename, basic_stats, detailed_stats
-        )
+        json_file = self._generate_json_summary(results, base_filename, basic_stats, detailed_stats)
         print(f"  ✅ JSON: {json_file}")
 
         # Generate text summary (pass pre-calculated stats)
-        txt_file = self._generate_text_summary(
-            results, base_filename, basic_stats, detailed_stats
-        )
+        txt_file = self._generate_text_summary(results, base_filename, basic_stats, detailed_stats)
         print(f"  ✅ TXT: {txt_file}")
 
         # Generate graphs if we have results (pass pre-calculated stats)
@@ -79,9 +75,7 @@ class OutputHandler:
             except (ValueError, RuntimeError, OSError) as e:
                 print(f"  ⚠️ Graph generation failed: {e}")
 
-    def _generate_csv_report(
-        self, results: List[EvaluationResult], base_filename: str
-    ) -> Path:
+    def _generate_csv_report(self, results: List[EvaluationResult], base_filename: str) -> Path:
         """Generate detailed CSV report."""
         # Move to dataframe for better aggregation
         csv_file = self.output_dir / f"{base_filename}_detailed.csv"
@@ -180,12 +174,8 @@ class OutputHandler:
             # Overall statistics
             f.write("Overall Statistics:\n")
             f.write("-" * 20 + "\n")
-            f.write(
-                f"Pass: {stats['overall']['PASS']} ({stats['overall']['pass_rate']:.1f}%)\n"
-            )
-            f.write(
-                f"Fail: {stats['overall']['FAIL']} ({stats['overall']['fail_rate']:.1f}%)\n"
-            )
+            f.write(f"Pass: {stats['overall']['PASS']} ({stats['overall']['pass_rate']:.1f}%)\n")
+            f.write(f"Fail: {stats['overall']['FAIL']} ({stats['overall']['fail_rate']:.1f}%)\n")
             f.write(
                 f"Error: {stats['overall']['ERROR']} ({stats['overall']['error_rate']:.1f}%)\n\n"
             )
@@ -196,12 +186,8 @@ class OutputHandler:
                 f.write("-" * 10 + "\n")
                 for metric, metric_stats in stats["by_metric"].items():
                     f.write(f"{metric}:\n")
-                    f.write(
-                        f"  Pass: {metric_stats['pass']} ({metric_stats['pass_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Fail: {metric_stats['fail']} ({metric_stats['fail_rate']:.1f}%)\n"
-                    )
+                    f.write(f"  Pass: {metric_stats['pass']} ({metric_stats['pass_rate']:.1f}%)\n")
+                    f.write(f"  Fail: {metric_stats['fail']} ({metric_stats['fail_rate']:.1f}%)\n")
                     f.write(
                         f"  Error: {metric_stats['error']} ({metric_stats['error_rate']:.1f}%)\n"
                     )
@@ -226,15 +212,9 @@ class OutputHandler:
                 f.write("-" * 15 + "\n")
                 for conv_id, conv_stats in stats["by_conversation"].items():
                     f.write(f"{conv_id}:\n")
-                    f.write(
-                        f"  Pass: {conv_stats['pass']} ({conv_stats['pass_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Fail: {conv_stats['fail']} ({conv_stats['fail_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Error: {conv_stats['error']} ({conv_stats['error_rate']:.1f}%)\n"
-                    )
+                    f.write(f"  Pass: {conv_stats['pass']} ({conv_stats['pass_rate']:.1f}%)\n")
+                    f.write(f"  Fail: {conv_stats['fail']} ({conv_stats['fail_rate']:.1f}%)\n")
+                    f.write(f"  Error: {conv_stats['error']} ({conv_stats['error_rate']:.1f}%)\n")
                     f.write("\n")
 
         return txt_file
