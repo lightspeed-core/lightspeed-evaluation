@@ -76,8 +76,7 @@ class RagasCustomLLM(BaseRagasLLM):
 
 
 class RagasLLMManager:
-    """
-    Ragas LLM Manager - Takes LLM parameters directly.
+    """Ragas LLM Manager - Takes LLM parameters directly.
 
     This manager focuses solely on Ragas-specific LLM integration.
     """

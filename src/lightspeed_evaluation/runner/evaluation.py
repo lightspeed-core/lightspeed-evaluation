@@ -15,8 +15,7 @@ from ..drivers.evaluation import EvaluationDriver
 def run_evaluation(
     system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
 ) -> Optional[Dict[str, int]]:
-    """
-    Run the complete evaluation pipeline using EvaluationDriver.
+    """Run the complete evaluation pipeline using EvaluationDriver.
 
     Args:
         system_config_path: Path to system.yaml

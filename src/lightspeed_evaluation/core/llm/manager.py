@@ -11,8 +11,7 @@ class LLMError(Exception):
 
 
 class LLMManager:
-    """
-    Generic LLM Manager for all use cases (Ragas, DeepEval, Custom metrics).
+    """Generic LLM Manager for all use cases (Ragas, DeepEval, Custom metrics).
 
     Responsibilities:
     - Environment validation for multiple providers
