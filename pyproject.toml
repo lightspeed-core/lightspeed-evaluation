@@ -48,6 +48,12 @@ generate_answers = "generate_answers.generate_answers:main"
 # Note: torch[cpu] variant configuration removed for uv compatibility
 # Modern PyTorch versions are available on PyPI directly
 
+[tool.black]
+line-length = 88
+
+[tool.pydocstyle]
+convention = "google"
+
 [tool.mypy]
 disable_error_code = ["union-attr", "return-value", "arg-type", "import-untyped"]
 ignore_missing_imports = true

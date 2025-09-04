@@ -24,8 +24,7 @@ class RagasMetrics:
     """Handles Ragas metrics evaluation using LLM Manager."""
 
     def __init__(self, llm_manager: LLMManager):
-        """
-        Initialize with LLM Manager.
+        """Initialize with LLM Manager.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
