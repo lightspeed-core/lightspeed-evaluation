@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from lightspeed_evaluation.core.config.models import (
     EvaluationData,
     EvaluationResult,
@@ -42,6 +41,7 @@ class TestEvaluationRequest:
         assert request.turn_idx == 2
         assert request.turn_data == turn_data
         assert request.turn_id == 5
+
 
 class TestEvaluationDriver:
     """Unit tests for EvaluationDriver class."""
@@ -252,6 +252,7 @@ class TestEvaluationDriver:
 
                     assert result.result == "ERROR"
                     assert "Unsupported framework" in result.reason
+
     def test_evaluate_single_metric_exception(self):
         """Test _evaluate_metric when metric evaluation raises exception."""
         config_loader = MagicMock()
@@ -311,6 +312,7 @@ class TestEvaluationDriver:
             for framework in expected_frameworks:
                 assert framework in supported_frameworks
             assert "unknown" not in supported_frameworks
+
     def test_create_error_result_turn_level(self):
         """Test error result creation for turn-level metric."""
         config_loader = MagicMock()
@@ -325,14 +327,7 @@ class TestEvaluationDriver:
             }
         }
 
-        turn_data = TurnData(turn_id=1, query="Test query", response="Test response")
-        eval_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
-        request = EvaluationRequest.for_turn(eval_data, "test:metric", 0, turn_data)
-
         with patch("builtins.print"):
-            driver = EvaluationDriver(config_loader)
-
             # Create an error result manually to test the structure
             result = EvaluationResult(
                 conversation_group_id="test_conv",
@@ -366,16 +361,7 @@ class TestEvaluationDriver:
             }
         }
 
-        # Create valid EvaluationData with at least one turn
-        turn_data = TurnData(turn_id=1, query="Test query", response="Test response")
-        eval_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
-        request = EvaluationRequest.for_conversation(
-            eval_data, "test:conversation_metric"
-        )
-
         with patch("builtins.print"):
-            driver = EvaluationDriver(config_loader)
             # Create an error result manually to test the structure
             result = EvaluationResult(
                 conversation_group_id="test_conv",

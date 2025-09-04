@@ -12,6 +12,7 @@ from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
 from lightspeed_evaluation.core.output.statistics import EvaluationScope
 
+
 class TestCustomMetrics:
     """Test Custom Metrics functionality."""
 
@@ -89,6 +90,7 @@ class TestCustomMetrics:
 
         assert score is None
         assert "Unsupported custom metric" in reason
+
 
 class TestRagasMetrics:
     """Test Ragas Metrics functionality."""

@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 from lightspeed_evaluation import (
     ConfigLoader,
@@ -18,7 +17,6 @@ from lightspeed_evaluation.core.config import EvaluationData, EvaluationResult, 
 from lightspeed_evaluation.runner.evaluation import run_evaluation
 
 
-
 class TestDataValidation:
     """Test data validation functionality."""
 
@@ -26,7 +24,7 @@ class TestDataValidation:
         """Test validation of valid evaluation data."""
         # First populate the metrics by loading a system config
         from lightspeed_evaluation.core.config.loader import populate_metric_mappings
-        
+
         metrics_metadata = {
             "turn_level": {
                 "ragas:faithfulness": {
@@ -36,10 +34,10 @@ class TestDataValidation:
                     "framework": "ragas",
                 }
             },
-            "conversation_level": {}
+            "conversation_level": {},
         }
         populate_metric_mappings(metrics_metadata)
-        
+
         valid_data = [
             EvaluationData(
                 conversation_group_id="test_conv",

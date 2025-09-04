@@ -356,5 +356,3 @@ class TestRunEvaluation:
         finally:
             os.unlink(system_config_path)
             os.unlink(eval_data_path)
-
-

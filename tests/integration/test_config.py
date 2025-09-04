@@ -4,14 +4,13 @@ import os
 import tempfile
 from unittest.mock import patch
 
-import pytest
 import yaml
 
 from lightspeed_evaluation.core.config import (
     ConfigLoader,
     DataValidator,
-    setup_environment_variables,
 )
+
 
 class TestDataValidator:
     """Test data validation functionality."""
@@ -20,6 +19,7 @@ class TestDataValidator:
         """Test DataValidator initialization."""
         validator = DataValidator()
         assert validator is not None
+
 
 class TestConfigLoaderIntegration:
     """Test ConfigLoader integration scenarios."""
