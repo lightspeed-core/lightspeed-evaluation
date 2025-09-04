@@ -9,14 +9,14 @@ llm:
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
 
-# Lightspeed RAG Configuration TODO: Perhaps we don't need separate from above?
-lightspeed_rag:
-  base_url: "http://localhost:8080"    # Lightspeed Stack RAG API endpoint
-  provider: "openai"                   # LLM provider for RAG queries
-  model: "gpt-4o-mini"                 # Model to use for RAG queries
+# Lightspeed Stack Configuration
+lightspeed_stack:
+  base_url: "http://localhost:8080"    # Lightspeed Stack API endpoint
+  provider: "openai"                   # LLM provider for queries
+  model: "gpt-4o-mini"                 # Model to use for queries
   system_prompt: "You are a helpful assistant with access to a knowledge base. Use the provided context to answer questions accurately and comprehensively."
   no_tools: false                      # Whether to bypass tools and MCP servers
-  timeout: 300                         # Request timeout for RAG queries
+  timeout: 300                         # Request timeout for queries
 
 # Environment Variables - Set before any imports
 environment:
@@ -96,11 +96,6 @@ metrics_metadata:
       description: "Correctness vs expected answer using custom LLM evaluation"
       framework: "custom"
       
-    "custom:rag_response_evaluation":
-      threshold: 0.7 #not sure about threshold here, kept similar to others
-      type: "turn"
-      description: "Evaluation of RAG response compared to original"
-      framework: "custom"
   
   # Conversation-level metrics metadata
   conversation_level:
