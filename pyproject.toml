@@ -49,7 +49,7 @@ generate_answers = "generate_answers.generate_answers:main"
 # Modern PyTorch versions are available on PyPI directly
 
 [tool.black]
-line-length = 100
+line-length = 88
 
 [tool.pydocstyle]
 convention = "google"

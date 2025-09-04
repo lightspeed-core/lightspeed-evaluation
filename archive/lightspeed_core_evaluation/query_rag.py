@@ -29,7 +29,9 @@ QNA_QUERIES = [
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Utility script for querying RAG database")
+    parser = argparse.ArgumentParser(
+        description="Utility script for querying RAG database"
+    )
     parser.add_argument(
         "-p",
         "--db-path",
@@ -109,6 +111,8 @@ if __name__ == "__main__":
     result_df = DataFrame.from_dict(result)
 
     # Save result
-    result_dir = os.path.join((args.output_dir or os.path.dirname(__file__)), "eval_result")
+    result_dir = os.path.join(
+        (args.output_dir or os.path.dirname(__file__)), "eval_result"
+    )
     os.makedirs(result_dir, exist_ok=True)
     result_df.to_csv(os.path.join(result_dir, "retrieved_chunks.csv"), index=False)

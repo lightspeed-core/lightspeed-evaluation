@@ -29,7 +29,11 @@ class RagasCustomLLM(BaseRagasLLM):
         prompt_text = str(prompt)
 
         # Use temperature from params unless explicitly overridden
-        temp = temperature if temperature != 1e-08 else self.litellm_params.get("temperature", 0.0)
+        temp = (
+            temperature
+            if temperature != 1e-08
+            else self.litellm_params.get("temperature", 0.0)
+        )
 
         try:
             response = litellm.completion(
@@ -68,7 +72,9 @@ class RagasCustomLLM(BaseRagasLLM):
     ) -> LLMResult:
         """Async generate."""
         temp = temperature if temperature is not None else 1e-08
-        return self.generate_text(prompt, n=n, temperature=temp, stop=stop, callbacks=callbacks)
+        return self.generate_text(
+            prompt, n=n, temperature=temp, stop=stop, callbacks=callbacks
+        )
 
     def is_finished(self, response: LLMResult) -> bool:
         """Check if response is complete."""

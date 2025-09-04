@@ -40,7 +40,9 @@ class AgentGoalEvalDataManager:
                     f"Eval data file must contain a list of conversations, got {type(raw_data)}"
                 )
             if not raw_data:
-                raise EvaluationDataError("Eval data file must contain at least one conversation")
+                raise EvaluationDataError(
+                    "Eval data file must contain at least one conversation"
+                )
 
             logger.info("Found %d conversation(s) in YAML file", len(raw_data))
 
@@ -97,7 +99,9 @@ class AgentGoalEvalDataManager:
             except EvaluationDataError:
                 raise
             except Exception as e:
-                raise EvaluationDataError(f"Error processing conversation {idx}: {e}") from e
+                raise EvaluationDataError(
+                    f"Error processing conversation {idx}: {e}"
+                ) from e
 
     def _format_pydantic_error(self, error: ValidationError) -> str:
         """Format Pydantic validation error."""
@@ -133,9 +137,13 @@ class AgentGoalEvalDataManager:
         # Check for duplicate eval_ids across all conversations
         all_eval_ids = []
         for conversation in self.conversations:
-            all_eval_ids.extend([eval_config.eval_id for eval_config in conversation.conversation])
+            all_eval_ids.extend(
+                [eval_config.eval_id for eval_config in conversation.conversation]
+            )
 
-        duplicate_ids = [eval_id for eval_id in all_eval_ids if all_eval_ids.count(eval_id) > 1]
+        duplicate_ids = [
+            eval_id for eval_id in all_eval_ids if all_eval_ids.count(eval_id) > 1
+        ]
         if duplicate_ids:
             logger.warning(
                 "Duplicate eval_id(s) found across conversations: %s",
@@ -156,4 +164,6 @@ class AgentGoalEvalDataManager:
 
     def get_eval_count(self) -> int:
         """Get the total number of evaluation configurations."""
-        return sum(len(conversation.conversation) for conversation in self.conversations)
+        return sum(
+            len(conversation.conversation) for conversation in self.conversations
+        )

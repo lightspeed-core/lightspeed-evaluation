@@ -23,7 +23,9 @@ class LLMManager:
         """Initialize with validated environment and constructed model name."""
         self.config = config
         self.model_name = self._construct_model_name_and_validate()
-        print(f"✅ LLM Manager: {self.config.provider}/{self.config.model} -> {self.model_name}")
+        print(
+            f"✅ LLM Manager: {self.config.provider}/{self.config.model} -> {self.model_name}"
+        )
 
     def _construct_model_name_and_validate(self) -> str:
         """Construct model name for LiteLLM and validate required environment variables."""
@@ -49,7 +51,9 @@ class LLMManager:
     def _validate_openai_env(self) -> None:
         """Validate OpenAI environment variables."""
         if not os.environ.get("OPENAI_API_KEY"):
-            raise LLMError("OPENAI_API_KEY environment variable is required for OpenAI provider")
+            raise LLMError(
+                "OPENAI_API_KEY environment variable is required for OpenAI provider"
+            )
 
     def _validate_azure_env(self) -> None:
         """Validate Azure OpenAI environment variables."""
@@ -61,7 +65,9 @@ class LLMManager:
         """Validate Watsonx environment variables."""
         required = ["WATSONX_API_KEY", "WATSONX_API_BASE", "WATSONX_PROJECT_ID"]
         if not all(os.environ.get(var) for var in required):
-            raise LLMError(f"Watsonx provider requires environment variables: {required}")
+            raise LLMError(
+                f"Watsonx provider requires environment variables: {required}"
+            )
 
     def _validate_anthropic_env(self) -> None:
         """Validate Anthropic environment variables."""

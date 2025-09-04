@@ -48,7 +48,9 @@ class AgentHttpClient:
         except Exception as e:
             raise AgentAPIError(f"Error reading token file: {e}") from e
 
-    def query_agent(self, api_input: dict[str, str], timeout: int = 300) -> dict[str, Any]:
+    def query_agent(
+        self, api_input: dict[str, str], timeout: int = 300
+    ) -> dict[str, Any]:
         """Query the agent using non-streaming endpoint."""
         if not self.client:
             raise AgentAPIError("HTTP client not initialized")
@@ -87,7 +89,9 @@ class AgentHttpClient:
         except Exception as e:
             raise AgentAPIError(f"Unexpected error querying agent: {e}") from e
 
-    def _format_query_endpoint_tool_calls(self, tool_calls: list) -> list[list[dict[str, Any]]]:
+    def _format_query_endpoint_tool_calls(
+        self, tool_calls: list
+    ) -> list[list[dict[str, Any]]]:
         """Format tool calls from query endpoint to match expected structure."""
         if not tool_calls:
             return []
@@ -128,7 +132,9 @@ class AgentHttpClient:
                                 response_msg = detail.get("response", "")
                                 cause_msg = detail.get("cause", "")
                                 error_msg = (
-                                    f"{response_msg} - {cause_msg}" if cause_msg else response_msg
+                                    f"{response_msg} - {cause_msg}"
+                                    if cause_msg
+                                    else response_msg
                                 )
                             else:
                                 error_msg = str(detail)
@@ -146,7 +152,9 @@ class AgentHttpClient:
                 return parse_streaming_response(response)
 
         except httpx.TimeoutException as e:
-            raise AgentAPIError(f"Agent streaming query timeout after {timeout} seconds") from e
+            raise AgentAPIError(
+                f"Agent streaming query timeout after {timeout} seconds"
+            ) from e
         except httpx.HTTPStatusError as e:
             raise AgentAPIError(str(e)) from e
         except ValueError as e:

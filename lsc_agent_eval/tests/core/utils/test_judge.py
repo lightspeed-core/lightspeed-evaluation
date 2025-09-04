@@ -84,7 +84,9 @@ class TestJudgeModelManager:
             ),
         ):
 
-            with pytest.raises(JudgeModelError, match="Failed to setup JudgeLLM using LiteLLM"):
+            with pytest.raises(
+                JudgeModelError, match="Failed to setup JudgeLLM using LiteLLM"
+            ):
                 JudgeModelManager("openai", "gpt-4")
 
     @patch("lsc_agent_eval.core.utils.judge.litellm")
@@ -205,7 +207,8 @@ class TestJudgeModelManager:
             with pytest.raises(
                 JudgeModelError,
                 match=re.escape(
-                    "No valid response from Judge Model. " f"Check full response\n{mock_response}"
+                    "No valid response from Judge Model. "
+                    f"Check full response\n{mock_response}"
                 ),
             ):
                 judge.evaluate_response("Test prompt")

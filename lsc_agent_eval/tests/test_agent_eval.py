@@ -131,7 +131,9 @@ class TestMain:
     @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
     @patch("lsc_agent_eval.agent_eval._args_parser")
     @patch("lsc_agent_eval.agent_eval.logging.basicConfig")
-    def test_main_success(self, mock_logging_config, mock_args_parser, mock_agent_goal_eval):
+    def test_main_success(
+        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
+    ):
         """Test successful main execution."""
         # Setup mocks
         mock_args = Mock()
@@ -225,7 +227,9 @@ class TestMain:
             "gpt-4",
         ],
     )
-    def test_main_with_real_argv(self, mock_logging_config, mock_args_parser, mock_agent_goal_eval):
+    def test_main_with_real_argv(
+        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
+    ):
         """Test main with real sys.argv."""
         # Setup mocks
         mock_args = Mock()

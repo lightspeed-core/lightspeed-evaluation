@@ -96,7 +96,9 @@ class EvaluationRunner:
                 response,
                 evaluation_results,
                 conversation_id=conversation_id,
-                tool_calls=(tool_calls if "tool_eval" in data_config.eval_types else None),
+                tool_calls=(
+                    tool_calls if "tool_eval" in data_config.eval_types else None
+                ),
             )
 
         except (AgentAPIError, ScriptExecutionError, JudgeModelError, ValueError) as e:
@@ -134,7 +136,9 @@ class EvaluationRunner:
 
         return self.script_runner.run_script(data_config.eval_verify_script)
 
-    def _evaluate_substring(self, data_config: "EvaluationDataConfig", response: str) -> bool:
+    def _evaluate_substring(
+        self, data_config: "EvaluationDataConfig", response: str
+    ) -> bool:
         """Evaluate using substring matching."""
         if not data_config.expected_keywords:
             return False
@@ -160,7 +164,9 @@ class EvaluationRunner:
 
         return int(response)
 
-    def _evaluate_judge_llm(self, data_config: "EvaluationDataConfig", response: str) -> bool:
+    def _evaluate_judge_llm(
+        self, data_config: "EvaluationDataConfig", response: str
+    ) -> bool:
         """Evaluate using judge LLM."""
         if not self.judge_manager:
             logger.error("Judge model manager not available for judge-llm evaluation")

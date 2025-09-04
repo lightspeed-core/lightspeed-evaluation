@@ -36,7 +36,9 @@ class AnswerRelevancyScore:  # pylint: disable=R0903
         # Generate relevant questions.
         for retry_counter in range(retry_attempts):
             try:
-                out = self._judge_llm.invoke({"answer": response, "num_questions": N_QUESTIONS})
+                out = self._judge_llm.invoke(
+                    {"answer": response, "num_questions": N_QUESTIONS}
+                )
                 valid_flag = out["Valid"]
                 gen_questions = out["Question"]
                 score = 0

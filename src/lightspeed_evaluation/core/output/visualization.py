@@ -39,11 +39,15 @@ class GraphGenerator:
         plt.rcParams["grid.alpha"] = 0.3
         sns.set_palette("husl")
 
-    def _calculate_summary_stats(self, results: List[EvaluationResult]) -> Dict[str, Any]:
+    def _calculate_summary_stats(
+        self, results: List[EvaluationResult]
+    ) -> Dict[str, Any]:
         """Calculate summary statistics from results."""
         return calculate_basic_stats(results)
 
-    def _group_results_by_metric(self, results: List[EvaluationResult]) -> Dict[str, List[float]]:
+    def _group_results_by_metric(
+        self, results: List[EvaluationResult]
+    ) -> Dict[str, List[float]]:
         """Group results by metric identifier."""
         metric_groups: Dict[str, List[float]] = {}
         for result in results:
@@ -84,18 +88,24 @@ class GraphGenerator:
                 graph_files["pass_rates"] = str(pass_rates_file)
 
             # 2. Score distribution graph
-            score_dist_file = self._generate_score_distribution_graph(results, base_filename)
+            score_dist_file = self._generate_score_distribution_graph(
+                results, base_filename
+            )
             if score_dist_file:
                 graph_files["score_distribution"] = str(score_dist_file)
 
             # 3. Status breakdown pie chart
-            pie_chart_file = self._generate_status_breakdown_pie_chart(results, base_filename)
+            pie_chart_file = self._generate_status_breakdown_pie_chart(
+                results, base_filename
+            )
             if pie_chart_file:
                 graph_files["status_breakdown"] = str(pie_chart_file)
 
             # 4. Conversation heatmap (only if multiple conversations)
             if len(summary_stats["by_conversation"]) > 1:
-                heatmap_file = self._generate_conversation_heatmap(results, base_filename)
+                heatmap_file = self._generate_conversation_heatmap(
+                    results, base_filename
+                )
                 if heatmap_file:
                     graph_files["conversation_heatmap"] = str(heatmap_file)
 
@@ -126,7 +136,9 @@ class GraphGenerator:
         for metric, stats in by_metric_stats.items():
             metrics.append(metric)
             pass_rates.append(stats["pass_rate"])
-            status_breakdowns.append(f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']}")
+            status_breakdowns.append(
+                f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']}"
+            )
 
         # Create figure
         _, ax = plt.subplots(figsize=(12, 8))
@@ -420,6 +432,8 @@ class GraphGenerator:
 
         return filename
 
-    def _calculate_detailed_summary_stats(self, results: List[EvaluationResult]) -> Dict[str, Any]:
+    def _calculate_detailed_summary_stats(
+        self, results: List[EvaluationResult]
+    ) -> Dict[str, Any]:
         """Calculate detailed summary statistics for graphs."""
         return calculate_detailed_stats(results)

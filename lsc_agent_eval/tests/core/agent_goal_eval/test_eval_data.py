@@ -74,7 +74,9 @@ class TestAgentGoalEvalDataManager:
     def test_init_success(self, valid_conversation_yaml_content):
         """Test successful initialization."""
         with (
-            patch("builtins.open", mock_open(read_data=valid_conversation_yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
@@ -112,7 +114,9 @@ class TestAgentGoalEvalDataManager:
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
-            with pytest.raises(EvaluationDataError, match="Error loading eval data file"):
+            with pytest.raises(
+                EvaluationDataError, match="Error loading eval data file"
+            ):
                 AgentGoalEvalDataManager("test.yaml")
 
     def test_load_eval_data_not_list(self):
@@ -138,7 +142,9 @@ class TestAgentGoalEvalDataManager:
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
-            with pytest.raises(EvaluationDataError, match="must contain at least one conversation"):
+            with pytest.raises(
+                EvaluationDataError, match="must contain at least one conversation"
+            ):
                 AgentGoalEvalDataManager("test.yaml")
 
     def test_validate_conversation_missing_group(self):
@@ -282,7 +288,9 @@ class TestAgentGoalEvalDataManager:
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
-            with pytest.raises(EvaluationDataError, match=".*eval_type must be one of.*"):
+            with pytest.raises(
+                EvaluationDataError, match=".*eval_type must be one of.*"
+            ):
                 AgentGoalEvalDataManager("test.yaml")
 
     def test_validate_judge_llm_missing_expected_response(self):
@@ -394,13 +402,17 @@ class TestAgentGoalEvalDataManager:
             patch("pathlib.Path.is_file", return_value=True),
         ):
 
-            with pytest.raises(EvaluationDataError, match="Duplicate conversation_group"):
+            with pytest.raises(
+                EvaluationDataError, match="Duplicate conversation_group"
+            ):
                 AgentGoalEvalDataManager("test.yaml")
 
     def test_get_conversations(self, valid_conversation_yaml_content):
         """Test get conversations method."""
         with (
-            patch("builtins.open", mock_open(read_data=valid_conversation_yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
@@ -416,7 +428,9 @@ class TestAgentGoalEvalDataManager:
     def test_get_eval_data_via_conversations(self, valid_conversation_yaml_content):
         """Test getting evaluation data via conversations."""
         with (
-            patch("builtins.open", mock_open(read_data=valid_conversation_yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
@@ -436,7 +450,9 @@ class TestAgentGoalEvalDataManager:
     def test_get_eval_count(self, valid_conversation_yaml_content):
         """Test get_eval_count method."""
         with (
-            patch("builtins.open", mock_open(read_data=valid_conversation_yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):
@@ -446,10 +462,14 @@ class TestAgentGoalEvalDataManager:
 
             assert count == 2
 
-    def test_conversation_count_via_conversations(self, valid_conversation_yaml_content):
+    def test_conversation_count_via_conversations(
+        self, valid_conversation_yaml_content
+    ):
         """Test getting conversation count via conversations list."""
         with (
-            patch("builtins.open", mock_open(read_data=valid_conversation_yaml_content)),
+            patch(
+                "builtins.open", mock_open(read_data=valid_conversation_yaml_content)
+            ),
             patch("pathlib.Path.exists", return_value=True),
             patch("pathlib.Path.is_file", return_value=True),
         ):

@@ -17,8 +17,12 @@ class EvaluationPromptParams(BaseModel):
     metric_name: str = Field(..., description="Name of the metric being evaluated")
     query: str = Field(..., description="The user query")
     response: str = Field(..., description="The model response")
-    expected_response: Optional[str] = Field(None, description="Expected response if available")
-    contexts: Optional[list] = Field(None, description="Context information if available")
+    expected_response: Optional[str] = Field(
+        None, description="Expected response if available"
+    )
+    contexts: Optional[list] = Field(
+        None, description="Context information if available"
+    )
     scale: str = Field("0.0 to 1.0", description="Scale for scoring")
 
 
@@ -34,7 +38,9 @@ class CustomMetrics:
         self.model_name = llm_manager.get_model_name()
         self.litellm_params = llm_manager.get_litellm_params()
 
-        self.supported_metrics = {"answer_correctness": self._evaluate_answer_correctness}
+        self.supported_metrics = {
+            "answer_correctness": self._evaluate_answer_correctness
+        }
 
         print(f"✅ Custom Metrics initialized: {self.model_name}")
 

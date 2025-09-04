@@ -19,7 +19,9 @@ class TestAgentHttpClient:
             client = AgentHttpClient("http://localhost:8080")
 
             assert client.endpoint == "http://localhost:8080"
-            mock_client.assert_called_once_with(base_url="http://localhost:8080", verify=False)
+            mock_client.assert_called_once_with(
+                base_url="http://localhost:8080", verify=False
+            )
 
     def test_init_with_token_file(self):
         """Test initializing client with token file."""
@@ -33,7 +35,9 @@ class TestAgentHttpClient:
             client = AgentHttpClient("http://localhost:8080", "token.txt")
 
             assert client.endpoint == "http://localhost:8080"
-            mock_client.assert_called_once_with(base_url="http://localhost:8080", verify=False)
+            mock_client.assert_called_once_with(
+                base_url="http://localhost:8080", verify=False
+            )
             mock_client.return_value.headers.update.assert_called_once_with(
                 {"Authorization": "Bearer test-token-123"}
             )
@@ -104,9 +108,7 @@ class TestAgentHttpClient:
         """Test successful agent query with empty tool_calls."""
         # Mock HTTP response with empty tool_calls
         mock_response = Mock()
-        response_text = (
-            "OpenShift Virtualization is an extension of the OpenShift Container Platform"
-        )
+        response_text = "OpenShift Virtualization is an extension of the OpenShift Container Platform"
         mock_response.json.return_value = {
             "response": response_text,
             "conversation_id": "conv-id-123",
@@ -184,7 +186,9 @@ class TestAgentHttpClient:
             client = AgentHttpClient("http://localhost:8080")
 
             api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
-            with pytest.raises(AgentAPIError, match="Agent response missing 'response' field"):
+            with pytest.raises(
+                AgentAPIError, match="Agent response missing 'response' field"
+            ):
                 client.query_agent(api_input)
 
     def test_query_agent_client_not_initialized(self):
@@ -206,7 +210,9 @@ class TestAgentHttpClient:
     def test_client_setup_exception(self):
         """Test client setup exception."""
         with patch("httpx.Client", side_effect=Exception("Setup failed")):
-            with pytest.raises(AgentAPIError, match="Failed to setup HTTP client: Setup failed"):
+            with pytest.raises(
+                AgentAPIError, match="Failed to setup HTTP client: Setup failed"
+            ):
                 AgentHttpClient("http://localhost:8080")
 
     # Streaming Query Tests
@@ -232,7 +238,9 @@ class TestAgentHttpClient:
 
         with (
             patch("httpx.Client", return_value=mock_client),
-            patch("lsc_agent_eval.core.utils.api_client.parse_streaming_response") as mock_parser,
+            patch(
+                "lsc_agent_eval.core.utils.api_client.parse_streaming_response"
+            ) as mock_parser,
         ):
 
             mock_parser.return_value = expected_result
@@ -271,7 +279,9 @@ class TestAgentHttpClient:
 
         with (
             patch("httpx.Client", return_value=mock_client),
-            patch("lsc_agent_eval.core.utils.api_client.parse_streaming_response") as mock_parser,
+            patch(
+                "lsc_agent_eval.core.utils.api_client.parse_streaming_response"
+            ) as mock_parser,
         ):
 
             # Mock the parser to raise the specific error

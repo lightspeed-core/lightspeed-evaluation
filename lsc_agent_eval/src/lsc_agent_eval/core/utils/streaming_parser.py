@@ -103,5 +103,7 @@ def _format_tool_sequences(
 
     # TODO(future): Handle Parallel tool calls
     sequences = [[tool_call] for tool_call in tool_calls]
-    logger.debug("Formatted %d tool calls into %d sequences", len(tool_calls), len(sequences))
+    logger.debug(
+        "Formatted %d tool calls into %d sequences", len(tool_calls), len(sequences)
+    )
     return sequences

@@ -83,7 +83,9 @@ class MetricsManager:
         self.custom_metrics = CustomMetrics(llm_manager)
 
         # Metric routing map
-        self.handlers: Dict[str, Union[RagasMetrics, DeepEvalMetrics, CustomMetrics]] = {
+        self.handlers: Dict[
+            str, Union[RagasMetrics, DeepEvalMetrics, CustomMetrics]
+        ] = {
             "ragas": self.ragas_metrics,
             "deepeval": self.deepeval_metrics,
             "custom": self.custom_metrics,
@@ -139,7 +141,9 @@ class EvaluationDriver:
         """Validate evaluation data using data validator."""
         return self.data_validator.validate_evaluation_data(evaluation_data)
 
-    def run_evaluation(self, evaluation_data: List[EvaluationData]) -> List[EvaluationResult]:
+    def run_evaluation(
+        self, evaluation_data: List[EvaluationData]
+    ) -> List[EvaluationResult]:
         """Run complete evaluation pipeline.
 
         Args:
@@ -184,10 +188,14 @@ class EvaluationDriver:
             print(f"🗣️ Conversation-level metrics: {conv_data.conversation_metrics}")
             self._evaluate_conversation(conv_data)
 
-    def _evaluate_turn(self, conv_data: EvaluationData, turn_idx: int, turn_data: TurnData) -> None:
+    def _evaluate_turn(
+        self, conv_data: EvaluationData, turn_idx: int, turn_data: TurnData
+    ) -> None:
         """Evaluate single turn with specified turn metrics."""
         for metric_identifier in conv_data.turn_metrics:
-            request = EvaluationRequest.for_turn(conv_data, metric_identifier, turn_idx, turn_data)
+            request = EvaluationRequest.for_turn(
+                conv_data, metric_identifier, turn_idx, turn_data
+            )
             result = self._evaluate_metric(request)
             if result:
                 self.results.append(result)
@@ -200,7 +208,9 @@ class EvaluationDriver:
             if result:
                 self.results.append(result)
 
-    def _evaluate_metric(self, request: EvaluationRequest) -> Optional[EvaluationResult]:
+    def _evaluate_metric(
+        self, request: EvaluationRequest
+    ) -> Optional[EvaluationResult]:
         """Evaluate single metric using context.
 
         Returns:
@@ -219,7 +229,9 @@ class EvaluationDriver:
             print(f"    {request.metric_identifier} (threshold: {threshold})")
 
             # Route to metrics manager
-            score, reason = self.metrics_manager.evaluate_metric(framework, metric_name, request)
+            score, reason = self.metrics_manager.evaluate_metric(
+                framework, metric_name, request
+            )
 
             # Determine result status
             if score is None:
@@ -228,7 +240,9 @@ class EvaluationDriver:
             else:
                 result_status = self._determine_status(score, threshold)
                 status_emoji = (
-                    "✅" if result_status == "PASS" else "❌" if result_status == "FAIL" else "⚠️"
+                    "✅"
+                    if result_status == "PASS"
+                    else "❌" if result_status == "FAIL" else "⚠️"
                 )
                 print(f"      {status_emoji} {result_status}: {score:.3f}")
 
@@ -272,7 +286,9 @@ class EvaluationDriver:
         """Get effective threshold for metric (conversation-specific or system default)."""
         # Check conversation-specific metadata first
         if is_conversation:
-            metadata = conv_data.conversation_metrics_metadata.get(metric_identifier, {})
+            metadata = conv_data.conversation_metrics_metadata.get(
+                metric_identifier, {}
+            )
         else:
             metadata = conv_data.turn_metrics_metadata.get(metric_identifier, {})
 
@@ -285,9 +301,9 @@ class EvaluationDriver:
             return None
 
         if is_conversation:
-            default_metadata = (system_config.default_conversation_metrics_metadata or {}).get(
-                metric_identifier, {}
-            )
+            default_metadata = (
+                system_config.default_conversation_metrics_metadata or {}
+            ).get(metric_identifier, {})
         else:
             default_metadata = (system_config.default_turn_metrics_metadata or {}).get(
                 metric_identifier, {}

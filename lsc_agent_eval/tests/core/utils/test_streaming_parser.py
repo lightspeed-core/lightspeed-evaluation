@@ -85,7 +85,9 @@ class TestStreamingResponseParser:
         assert result["arguments"] == {}
 
         # Tool call with arguments
-        result = _parse_tool_call({"tool_name": "create_pod", "arguments": {"name": "test"}})
+        result = _parse_tool_call(
+            {"tool_name": "create_pod", "arguments": {"name": "test"}}
+        )
         assert result["tool_name"] == "create_pod"
         assert result["arguments"] == {"name": "test"}
 
