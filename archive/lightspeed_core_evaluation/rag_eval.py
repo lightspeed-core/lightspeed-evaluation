@@ -80,17 +80,11 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         config.rag_index  # pylint: disable=W0104
         if config.rag_index is None:
             raise RuntimeError("No valid rag index.")
-        self._retriever = config.rag_index.as_retriever(
-            similarity_top_k=self._args.n_chunks
-        )
+        self._retriever = config.rag_index.as_retriever(similarity_top_k=self._args.n_chunks)
 
-        provider_config = config.config.llm_providers.providers[
-            self._args.judge_provider
-        ]
+        provider_config = config.config.llm_providers.providers[self._args.judge_provider]
         assert provider_config.type is not None, "Provider type must be configured"
-        judge_llm = VANILLA_MODEL[
-            provider_config.type
-        ](  # pyright: ignore [reportCallIssue]
+        judge_llm = VANILLA_MODEL[provider_config.type](  # pyright: ignore [reportCallIssue]
             self._args.judge_model, provider_config
         ).load()
 
@@ -102,9 +96,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         eval_dir = os.path.dirname(__file__)
         input_dir = os.path.join(eval_dir, DEFAULT_INPUT_DIR)
 
-        result_dir = os.path.join(
-            (self._args.eval_out_dir or eval_dir), DEFAULT_RESULT_DIR
-        )
+        result_dir = os.path.join((self._args.eval_out_dir or eval_dir), DEFAULT_RESULT_DIR)
         os.makedirs(result_dir, exist_ok=True)
         return input_dir, result_dir
 
@@ -116,9 +108,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
 
         qna_pool_df = read_parquet(input_file)
         qna_pool_df = qna_pool_df[["Question"]].drop_duplicates().reset_index()
-        qna_pool_df = qna_pool_df.rename(
-            columns={"ID": "query_id", "Question": "question"}
-        )
+        qna_pool_df = qna_pool_df.rename(columns={"ID": "query_id", "Question": "question"})
         qna_pool_df.query_id = qna_pool_df.query_id.astype(str)
 
         if self._args.eval_query_ids is not None:
@@ -176,14 +166,12 @@ class RetrievalEvaluation:  # pylint: disable=R0903
 
     def get_final_score(self) -> None:
         """Get final score."""
-        self._qa_pool_df["raw_judge_response"] = (
-            self._qa_pool_df.question.progress_apply(self._get_judge_response)
+        self._qa_pool_df["raw_judge_response"] = self._qa_pool_df.question.progress_apply(
+            self._get_judge_response
         )
         self._qa_pool_df.to_csv(f"{self._result_dir}/chunk_eval.csv", index=False)
 
-        self._qa_pool_df["score"] = self._qa_pool_df.raw_judge_response.apply(
-            self._process_score
-        )
+        self._qa_pool_df["score"] = self._qa_pool_df.raw_judge_response.apply(self._process_score)
         self._qa_pool_df.to_csv(f"{self._result_dir}/chunk_eval_score.csv", index=False)
 
         plot_score(
@@ -193,9 +181,7 @@ class RetrievalEvaluation:  # pylint: disable=R0903
         )
         summary_result = {
             "timestamp": str(datetime.now(UTC)),
-            "score_based_on_first_chunk": self._qa_pool_df["score"]
-            .describe()
-            .T.to_dict(),
+            "score_based_on_first_chunk": self._qa_pool_df["score"].describe().T.to_dict(),
         }
         with open(f"{self._result_dir}/chunk_eval.json", "w", encoding="utf-8") as f:
             json.dump(summary_result, f)

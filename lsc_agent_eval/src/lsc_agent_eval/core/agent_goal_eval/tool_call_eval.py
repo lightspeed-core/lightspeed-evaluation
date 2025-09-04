@@ -101,9 +101,7 @@ def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) ->
                 )
                 return False
         except re.error as e:
-            logger.debug(
-                "Invalid regex pattern '%s' for key '%s': %s", expected_str, key, e
-            )
+            logger.debug("Invalid regex pattern '%s' for key '%s': %s", expected_str, key, e)
             # If regex is invalid, fail the comparison
             return False
 

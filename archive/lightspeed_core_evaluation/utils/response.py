@@ -44,9 +44,7 @@ def get_model_response(
     prompt = PromptTemplate.from_template("{query}")
     prompt_input = {"query": query}
     provider_config = config.config.llm_providers.providers[provider]
-    assert (
-        provider_config.type is not None
-    ), "Provider type needs to be specified in configuration"
+    assert provider_config.type is not None, "Provider type needs to be specified in configuration"
     assert (
         provider_config.models is not None
     ), "Models for provider are not specified in configuration"
@@ -57,21 +55,17 @@ def get_model_response(
 
     if mode == "ols_param":
         max_resp_tokens = model_config.parameters.max_tokens_for_response
-        override_params = {
-            GenericLLMParameters.MAX_TOKENS_FOR_RESPONSE: max_resp_tokens
-        }
-        llm = MODEL_OLS_PARAM[
-            provider_config.type
-        ](  # pyright: ignore [reportCallIssue]
+        override_params = {GenericLLMParameters.MAX_TOKENS_FOR_RESPONSE: max_resp_tokens}
+        llm = MODEL_OLS_PARAM[provider_config.type](  # pyright: ignore [reportCallIssue]
             model, provider_config, override_params
         ).load()
     if mode == "ols_prompt":
         prompt, prompt_input = GeneratePrompt(query, [], []).generate_prompt(model)
     if mode == "ols_rag":
         rag_chunks = retrieve_rag_chunks(query, model, model_config)
-        prompt, prompt_input = GeneratePrompt(
-            query, rag_chunks, [], BASIC_PROMPT
-        ).generate_prompt(model)
+        prompt, prompt_input = GeneratePrompt(query, rag_chunks, [], BASIC_PROMPT).generate_prompt(
+            model
+        )
 
     llm_chain = prompt | llm
     return llm_chain.invoke(input=prompt_input).content

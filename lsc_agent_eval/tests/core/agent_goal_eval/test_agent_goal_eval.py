@@ -77,9 +77,7 @@ class TestAgentGoalEval:
             ),
         ]
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
@@ -107,9 +105,7 @@ class TestAgentGoalEval:
             mock_judge_manager.return_value,
         )
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
@@ -135,9 +131,7 @@ class TestAgentGoalEval:
             None,
         )
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
@@ -163,9 +157,7 @@ class TestAgentGoalEval:
             mock_judge_manager.return_value,
         )
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
+    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
     @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
@@ -185,9 +177,7 @@ class TestAgentGoalEval:
     ):
         """Test successful evaluation execution."""
         # Setup mocks
-        mock_config_manager.return_value.get_conversations.return_value = [
-            sample_conversation
-        ]
+        mock_config_manager.return_value.get_conversations.return_value = [sample_conversation]
         mock_config_manager.return_value.get_eval_count.return_value = 2
         mock_evaluation_runner.return_value.run_evaluation.side_effect = [
             [sample_results[0]],
@@ -210,9 +200,7 @@ class TestAgentGoalEval:
         assert mock_evaluation_runner.return_value.run_evaluation.call_count == 2
 
         # Verify results were saved
-        mock_results_mgr_instance.save_results.assert_called_once_with(
-            mock_args.result_dir
-        )
+        mock_results_mgr_instance.save_results.assert_called_once_with(mock_args.result_dir)
 
         # Verify summary was printed
         mock_print.assert_called()
@@ -220,18 +208,10 @@ class TestAgentGoalEval:
     def test_get_result_summary_success(self, mock_args):
         """Test result summary with available results."""
         with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"),
             patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
             evaluator = AgentGoalEval(mock_args)
@@ -244,18 +224,10 @@ class TestAgentGoalEval:
     def test_get_result_summary_no_results(self, mock_args):
         """Test result summary with no available results."""
         with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"),
             patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
             evaluator = AgentGoalEval(mock_args)
@@ -266,18 +238,12 @@ class TestAgentGoalEval:
     def test_cleanup_with_client(self, mock_args):
         """Test cleanup method with client."""
         with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"),
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
             ) as mock_client_class,
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"),
             patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
 
@@ -293,18 +259,12 @@ class TestAgentGoalEval:
     def test_cleanup_exception(self, mock_args):
         """Test cleanup method with exception."""
         with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"),
             patch(
                 "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
             ) as mock_client_class,
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"),
+            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"),
             patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
         ):
 
@@ -314,9 +274,7 @@ class TestAgentGoalEval:
 
             evaluator = AgentGoalEval(mock_args)
 
-            with patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger"
-            ) as mock_logger:
+            with patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger") as mock_logger:
                 evaluator._cleanup()
 
             # Verify warning was logged

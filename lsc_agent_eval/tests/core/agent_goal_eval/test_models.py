@@ -221,9 +221,7 @@ class TestEvaluationDataConfig:
     @patch("builtins.open", mock_open())
     @patch("pathlib.Path.is_file", return_value=True)
     @patch("pathlib.Path.exists", return_value=True)
-    def test_evaluation_data_config_multiple_eval_types(
-        self, mock_exists, mock_is_file
-    ):
+    def test_evaluation_data_config_multiple_eval_types(self, mock_exists, mock_is_file):
         """Test EvaluationDataConfig with multiple eval types."""
         config = EvaluationDataConfig(
             eval_id="multi_001",
@@ -246,10 +244,7 @@ class TestEvaluationDataConfig:
         assert "response_eval:sub-string" in config.eval_types
         assert "response_eval:accuracy" in config.eval_types
         assert config.expected_keywords == ["openshift-lightspeed", "created"]
-        assert (
-            config.expected_response
-            == "openshift-lightspeed namespace is successfully created"
-        )
+        assert config.expected_response == "openshift-lightspeed namespace is successfully created"
         assert config.description == "Multi-evaluation test"
         assert isinstance(config.eval_verify_script, Path)
 

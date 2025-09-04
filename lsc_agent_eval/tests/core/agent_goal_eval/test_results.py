@@ -74,9 +74,7 @@ class TestResultsManager:
     @patch("pathlib.Path.mkdir")
     @patch("pandas.DataFrame.to_csv")
     @patch("builtins.open", new_callable=mock_open)
-    def test_save_results_success(
-        self, mock_file_open, mock_to_csv, mock_mkdir, sample_results
-    ):
+    def test_save_results_success(self, mock_file_open, mock_to_csv, mock_mkdir, sample_results):
         """Test successful results saving."""
         manager = ResultsManager(sample_results)
 
@@ -248,9 +246,7 @@ class TestResultsManager:
         """Test that filename generation follows expected format."""
         manager = ResultsManager(sample_results)
 
-        with patch(
-            "lsc_agent_eval.core.agent_goal_eval.results.datetime"
-        ) as mock_datetime:
+        with patch("lsc_agent_eval.core.agent_goal_eval.results.datetime") as mock_datetime:
             mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
 
             with (
@@ -263,9 +259,7 @@ class TestResultsManager:
 
                 # Verify the filename format is called correctly
                 mock_datetime.now.assert_called_once()
-                mock_datetime.now.return_value.strftime.assert_called_once_with(
-                    "%Y%m%d_%H%M%S"
-                )
+                mock_datetime.now.return_value.strftime.assert_called_once_with("%Y%m%d_%H%M%S")
 
     def test_integration_with_real_files(self, sample_results):
         """Integration test with real temporary files."""

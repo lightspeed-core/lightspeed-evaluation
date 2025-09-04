@@ -18,9 +18,7 @@ class TestScriptRunner:
     @patch("pathlib.Path.is_file")
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.chmod")
-    def test_run_script_success(
-        self, mock_chmod, mock_exists, mock_is_file, mock_subprocess_run
-    ):
+    def test_run_script_success(self, mock_chmod, mock_exists, mock_is_file, mock_subprocess_run):
         """Test successful script execution."""
         # Setup mocks
         mock_exists.return_value = True
@@ -93,9 +91,7 @@ class TestScriptRunner:
     @patch("pathlib.Path.is_file")
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.chmod")
-    def test_run_script_failure(
-        self, mock_chmod, mock_exists, mock_is_file, mock_subprocess_run
-    ):
+    def test_run_script_failure(self, mock_chmod, mock_exists, mock_is_file, mock_subprocess_run):
         """Test script execution failure."""
         mock_exists.return_value = True
         mock_is_file.return_value = True
@@ -120,9 +116,7 @@ class TestScriptRunner:
         """Test script execution with subprocess error."""
         mock_exists.return_value = True
         mock_is_file.return_value = True
-        mock_subprocess_run.side_effect = subprocess.SubprocessError(
-            "Subprocess failed"
-        )
+        mock_subprocess_run.side_effect = subprocess.SubprocessError("Subprocess failed")
 
         runner = ScriptRunner()
         with pytest.raises(ScriptExecutionError, match="Error running script"):
@@ -141,9 +135,7 @@ class TestScriptRunner:
         mock_subprocess_run.side_effect = Exception("Unexpected error")
 
         runner = ScriptRunner()
-        with pytest.raises(
-            ScriptExecutionError, match="Unexpected error running script"
-        ):
+        with pytest.raises(ScriptExecutionError, match="Unexpected error running script"):
             runner.run_script("test_script.sh")
 
     @patch("subprocess.run")
@@ -159,9 +151,7 @@ class TestScriptRunner:
         mock_chmod.side_effect = OSError("Permission denied")
 
         runner = ScriptRunner()
-        with pytest.raises(
-            ScriptExecutionError, match="Unexpected error running script"
-        ):
+        with pytest.raises(ScriptExecutionError, match="Unexpected error running script"):
             runner.run_script("test_script.sh")
 
     @patch("subprocess.run")

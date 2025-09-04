@@ -53,9 +53,7 @@ def create_evaluation_results(  # pylint: disable=too-many-arguments,too-many-po
                     conversation_group=eval_config.conversation_group,
                     conversation_id=conversation_id,
                     error=eval_result["error"],
-                    tool_calls=(
-                        tool_calls if eval_result["eval_type"] == "tool_eval" else None
-                    ),
+                    tool_calls=(tool_calls if eval_result["eval_type"] == "tool_eval" else None),
                 )
             )
     else:

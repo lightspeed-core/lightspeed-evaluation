@@ -19,30 +19,22 @@ class ResponseScore:  # pylint: disable=R0903
 
     def __init__(self, args: Namespace) -> None:
         """Initialize."""
-        self._embedding_model = HuggingFaceEmbedding(
-            "sentence-transformers/all-mpnet-base-v2"
-        )
+        self._embedding_model = HuggingFaceEmbedding("sentence-transformers/all-mpnet-base-v2")
 
         self._rouge_scorer = RougeScorer(["rougeL"], use_stemmer=True)
         self._relevancy_scorer = None
         self._llm_similarity_scorer = None
 
-        judge_llm_required = set(args.eval_metrics).intersection(
-            set(LLM_BASED_EVALS.keys())
-        )
+        judge_llm_required = set(args.eval_metrics).intersection(set(LLM_BASED_EVALS.keys()))
         if judge_llm_required:
             # Judge provider & model need to be configured correctly in config yaml file.
             provider_config = config.config.llm_providers.providers[args.judge_provider]
             assert provider_config.type is not None, "Provider type must be configured"
-            judge_llm = VANILLA_MODEL[
-                provider_config.type
-            ](  # pyright: ignore [reportCallIssue]
+            judge_llm = VANILLA_MODEL[provider_config.type](  # pyright: ignore [reportCallIssue]
                 args.judge_model, provider_config
             ).load()
             if "answer_relevancy" in judge_llm_required:
-                self._relevancy_scorer = AnswerRelevancyScore(
-                    judge_llm, self._embedding_model
-                )
+                self._relevancy_scorer = AnswerRelevancyScore(judge_llm, self._embedding_model)
             if "answer_similarity_llm" in judge_llm_required:
                 self._llm_similarity_scorer = AnswerSimilarityScore(judge_llm)
 
@@ -70,9 +62,7 @@ class ResponseScore:  # pylint: disable=R0903
             )
         llm_similarity_score = None
         if self._llm_similarity_scorer:
-            llm_similarity_score = self._llm_similarity_scorer.get_score(
-                query, answer, response
-            )
+            llm_similarity_score = self._llm_similarity_scorer.get_score(query, answer, response)
 
         print(
             f"cos_score: {cos_score}, "

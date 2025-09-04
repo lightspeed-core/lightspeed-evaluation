@@ -28,9 +28,7 @@ class JudgeModelManager:
 
     def _setup_litellm(self) -> None:
         """Initialize LiteLLM with provider-specific configuration."""
-        logger.debug(
-            "Setting up LiteLLM for %s/%s", self.judge_provider, self.judge_model
-        )
+        logger.debug("Setting up LiteLLM for %s/%s", self.judge_provider, self.judge_model)
 
         provider = self.judge_provider.lower()
 
@@ -38,8 +36,7 @@ class JudgeModelManager:
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 raise JudgeModelError(
-                    "OPENAI_API_KEY environment variable is required "
-                    "for OpenAI provider"
+                    "OPENAI_API_KEY environment variable is required for OpenAI provider"
                 )
             self.model_name = self.judge_model
 
@@ -120,9 +117,7 @@ class JudgeModelManager:
                         f"{MAX_RETRY_ATTEMPTS} attempts: {e}"
                     ) from e
 
-                logger.warning(
-                    "Judge model attempt %d failed: %s", retry_counter + 1, e
-                )
+                logger.warning("Judge model attempt %d failed: %s", retry_counter + 1, e)
                 sleep(TIME_TO_BREATH)
 
         return None

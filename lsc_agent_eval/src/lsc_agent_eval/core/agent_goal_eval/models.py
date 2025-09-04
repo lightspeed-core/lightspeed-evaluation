@@ -85,9 +85,7 @@ def _calculate_stats_by_category(
     for stats in category_stats.values():
         total = stats["passed"] + stats["failed"] + stats["errored"]
         stats["total"] = total
-        stats["success_rate"] = (
-            round((stats["passed"] / total) * 100, 2) if total > 0 else 0.0
-        )
+        stats["success_rate"] = round((stats["passed"] / total) * 100, 2) if total > 0 else 0.0
 
     return category_stats
 
@@ -276,15 +274,11 @@ class EvaluationStats(BaseModel):
     """Statistics for evaluation runs."""
 
     total_evaluations: int = Field(..., ge=0, description="Total number of evaluations")
-    total_conversations: int = Field(
-        ..., ge=0, description="Total number of conversations"
-    )
+    total_conversations: int = Field(..., ge=0, description="Total number of conversations")
     passed: int = Field(..., ge=0, description="Number of passed evaluations")
     failed: int = Field(..., ge=0, description="Number of failed evaluations")
     errored: int = Field(..., ge=0, description="Number of errored evaluations")
-    success_rate: float = Field(
-        ..., ge=0.0, le=100.0, description="Success rate percentage"
-    )
+    success_rate: float = Field(..., ge=0.0, le=100.0, description="Success rate percentage")
     by_conversation: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Statistics by conversation"
     )
@@ -302,9 +296,7 @@ class EvaluationStats(BaseModel):
         success_rate = (passed / total * 100) if total > 0 else 0.0
 
         # Count unique conversations
-        conversations: set[str] = set(
-            r.conversation_group for r in results if r.conversation_group
-        )
+        conversations: set[str] = set(r.conversation_group for r in results if r.conversation_group)
 
         # Calculate statistics by conversation
         by_conversation = _calculate_stats_by_category(

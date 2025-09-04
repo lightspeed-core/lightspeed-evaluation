@@ -29,9 +29,7 @@ class TestEvaluationRunner:
         def mock_agent_response(api_input, **kwargs):
             return {
                 "response": "Test agent response",
-                "conversation_id": api_input.get(
-                    "conversation_id", "generated-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "generated-conversation-id"),
                 "tool_calls": [],  # Always return empty tool sequences by default
             }
 
@@ -125,9 +123,7 @@ class TestEvaluationRunner:
         sample_config_judge_llm,
     ):
         """Test successful judge-llm evaluation."""
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
 
         results = runner.run_evaluation(
             sample_config_judge_llm,
@@ -173,9 +169,7 @@ class TestEvaluationRunner:
         # Mock judge to return 0 (failure)
         mock_judge_manager.evaluate_response.return_value = "0"
 
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
 
         results = runner.run_evaluation(
             sample_config_judge_llm,
@@ -239,9 +233,7 @@ class TestEvaluationRunner:
     ):
         """Test script evaluation with execution error."""
         # Mock script to raise exception
-        mock_script_runner.run_script.side_effect = ScriptExecutionError(
-            "Script failed"
-        )
+        mock_script_runner.run_script.side_effect = ScriptExecutionError("Script failed")
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
@@ -264,9 +256,7 @@ class TestEvaluationRunner:
         def mock_streaming_query_agent(api_input, timeout=300):
             return {
                 "response": "Podman is an open-source container engine developed by Red Hat",
-                "conversation_id": api_input.get(
-                    "conversation_id", "test-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "test-conversation-id"),
                 "tool_calls": [],
             }
 
@@ -296,9 +286,7 @@ class TestEvaluationRunner:
         def mock_streaming_query_agent(api_input, timeout=300):
             return {
                 "response": "No information available",
-                "conversation_id": api_input.get(
-                    "conversation_id", "test-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "test-conversation-id"),
                 "tool_calls": [],
             }
 
@@ -324,9 +312,7 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with agent API error."""
         # Mock agent client to raise API error
-        mock_agent_client.streaming_query_agent.side_effect = AgentAPIError(
-            "API connection failed"
-        )
+        mock_agent_client.streaming_query_agent.side_effect = AgentAPIError("API connection failed")
 
         runner = EvaluationRunner(mock_agent_client, mock_script_runner)
 
@@ -347,9 +333,7 @@ class TestEvaluationRunner:
         self, mock_agent_client, mock_script_runner, mock_judge_manager
     ):
         """Test sub-string evaluation with different keyword combinations."""
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
 
         config = EvaluationDataConfig(
             eval_id="substring_test",
@@ -362,9 +346,7 @@ class TestEvaluationRunner:
         def mock_streaming_query_agent_all_keywords(api_input, timeout=300):
             return {
                 "response": "Response with keyword1 and keyword2",
-                "conversation_id": api_input.get(
-                    "conversation_id", "test-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "test-conversation-id"),
                 "tool_calls": [],
             }
 
@@ -378,15 +360,11 @@ class TestEvaluationRunner:
         def mock_streaming_query_agent_one_keyword(api_input, timeout=300):
             return {
                 "response": "Response with only keyword1",
-                "conversation_id": api_input.get(
-                    "conversation_id", "test-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "test-conversation-id"),
                 "tool_calls": [],
             }
 
-        mock_agent_client.streaming_query_agent.side_effect = (
-            mock_streaming_query_agent_one_keyword
-        )
+        mock_agent_client.streaming_query_agent.side_effect = mock_streaming_query_agent_one_keyword
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result[0].result == "FAIL"
 
@@ -394,15 +372,11 @@ class TestEvaluationRunner:
         def mock_streaming_query_agent_no_keywords(api_input, timeout=300):
             return {
                 "response": "Response with no matching terms",
-                "conversation_id": api_input.get(
-                    "conversation_id", "test-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "test-conversation-id"),
                 "tool_calls": [],
             }
 
-        mock_agent_client.streaming_query_agent.side_effect = (
-            mock_streaming_query_agent_no_keywords
-        )
+        mock_agent_client.streaming_query_agent.side_effect = mock_streaming_query_agent_no_keywords
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result[0].result == "FAIL"
 
@@ -410,9 +384,7 @@ class TestEvaluationRunner:
         def mock_streaming_query_agent_case_insensitive(api_input, timeout=300):
             return {
                 "response": "Response with KEYWORD1 and Keyword2",
-                "conversation_id": api_input.get(
-                    "conversation_id", "test-conversation-id"
-                ),
+                "conversation_id": api_input.get("conversation_id", "test-conversation-id"),
                 "tool_calls": [],
             }
 
@@ -432,13 +404,11 @@ class TestEvaluationRunner:
     ):
         """Test tool evaluation with success."""
         mock_compare_tool_calls.return_value = True
-        mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, **kwargs: {
-                "response": "Available versions listed",
-                "conversation_id": "conv-tools-1",
-                "tool_calls": [[{"tool_name": "list_versions", "arguments": {}}]],
-            }
-        )
+        mock_agent_client.streaming_query_agent.side_effect = lambda api_input, **kwargs: {
+            "response": "Available versions listed",
+            "conversation_id": "conv-tools-1",
+            "tool_calls": [[{"tool_name": "list_versions", "arguments": {}}]],
+        }
 
         config = EvaluationDataConfig(
             eval_id="tools_test",
@@ -447,17 +417,13 @@ class TestEvaluationRunner:
             expected_tool_calls=[[{"tool_name": "list_versions", "arguments": {}}]],
         )
 
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
         results = runner.run_evaluation(config, "openai", "gpt-4")
 
         assert len(results) == 1
         assert results[0].result == "PASS"
         assert results[0].eval_type == "tool_eval"
-        assert results[0].tool_calls == [
-            [{"tool_name": "list_versions", "arguments": {}}]
-        ]
+        assert results[0].tool_calls == [[{"tool_name": "list_versions", "arguments": {}}]]
         mock_compare_tool_calls.assert_called_once_with(
             [[{"tool_name": "list_versions", "arguments": {}}]],
             [[{"tool_name": "list_versions", "arguments": {}}]],
@@ -473,13 +439,11 @@ class TestEvaluationRunner:
     ):
         """Test tool evaluation with failure."""
         mock_compare_tool_calls.return_value = False
-        mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, **kwargs: {
-                "response": "Tool call failed",
-                "conversation_id": "conv-tools-2",
-                "tool_calls": [[{"tool_name": "wrong_tool", "arguments": {}}]],
-            }
-        )
+        mock_agent_client.streaming_query_agent.side_effect = lambda api_input, **kwargs: {
+            "response": "Tool call failed",
+            "conversation_id": "conv-tools-2",
+            "tool_calls": [[{"tool_name": "wrong_tool", "arguments": {}}]],
+        }
 
         config = EvaluationDataConfig(
             eval_id="tools_fail_test",
@@ -488,9 +452,7 @@ class TestEvaluationRunner:
             expected_tool_calls=[[{"tool_name": "correct_tool", "arguments": {}}]],
         )
 
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
         results = runner.run_evaluation(config, "openai", "gpt-4")
 
         assert len(results) == 1
@@ -506,9 +468,7 @@ class TestEvaluationRunner:
         self, mock_agent_client, mock_script_runner, mock_judge_manager
     ):
         """Test that conversation ID is properly propagated to results."""
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
 
         config = EvaluationDataConfig(
             eval_id="conv_id_test",
@@ -545,20 +505,18 @@ class TestEvaluationRunner:
         mock_judge_manager,
     ):
         """Test evaluation with multiple eval types where all pass."""
-        mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, timeout=300: {
-                "response": "Successfully created openshift-lightspeed namespace",
-                "conversation_id": "conv-123",
-                "tool_calls": [
-                    [
-                        {
-                            "tool_name": "create_namespace",
-                            "arguments": {"name": "lightspeed"},
-                        }
-                    ]
-                ],
-            }
-        )
+        mock_agent_client.streaming_query_agent.side_effect = lambda api_input, timeout=300: {
+            "response": "Successfully created openshift-lightspeed namespace",
+            "conversation_id": "conv-123",
+            "tool_calls": [
+                [
+                    {
+                        "tool_name": "create_namespace",
+                        "arguments": {"name": "lightspeed"},
+                    }
+                ]
+            ],
+        }
         mock_script_runner.run_script.return_value = True
         mock_judge_manager.evaluate_response.return_value = "1"
         mock_compare_tool_calls.return_value = True
@@ -584,9 +542,7 @@ class TestEvaluationRunner:
             ],
         )
 
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
         results = runner.run_evaluation(config, "ollama", "gpt-oss:20b")
 
         # Should get 4 results, one for each eval_type
@@ -620,13 +576,11 @@ class TestEvaluationRunner:
     ):
         """Test evaluation with multiple eval types having mixed results."""
         # Mock mixed results
-        mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, timeout=300: {
-                "response": "Sorry, I can't create openshift-lightspeed namespace",
-                "conversation_id": "conv-456",
-                "tool_calls": [[{"tool_name": "wrong_tool", "arguments": {}}]],
-            }
-        )
+        mock_agent_client.streaming_query_agent.side_effect = lambda api_input, timeout=300: {
+            "response": "Sorry, I can't create openshift-lightspeed namespace",
+            "conversation_id": "conv-456",
+            "tool_calls": [[{"tool_name": "wrong_tool", "arguments": {}}]],
+        }
         mock_script_runner.run_script.return_value = False  # Script fails
         mock_judge_manager.evaluate_response.return_value = "0"  # Accuracy fails
         mock_compare_tool_calls.return_value = False  # Tool eval fails
@@ -648,9 +602,7 @@ class TestEvaluationRunner:
             ],
         )
 
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
         results = runner.run_evaluation(config, "some-provider", "some-model")
 
         assert len(results) == 4
@@ -680,17 +632,13 @@ class TestEvaluationRunner:
         mock_judge_manager,
     ):
         """Test evaluation with multiple eval types where some have errors."""
-        mock_agent_client.streaming_query_agent.side_effect = (
-            lambda api_input, timeout=300: {
-                "response": "Sorry, I can't create openshift-lightspeed namespace",
-                "conversation_id": "conv-789",
-                "tool_calls": [],
-            }
-        )
+        mock_agent_client.streaming_query_agent.side_effect = lambda api_input, timeout=300: {
+            "response": "Sorry, I can't create openshift-lightspeed namespace",
+            "conversation_id": "conv-789",
+            "tool_calls": [],
+        }
         # Script execution error
-        mock_script_runner.run_script.side_effect = ScriptExecutionError(
-            "Script file not found"
-        )
+        mock_script_runner.run_script.side_effect = ScriptExecutionError("Script file not found")
         mock_judge_manager.evaluate_response.return_value = "0"
 
         config = EvaluationDataConfig(
@@ -706,9 +654,7 @@ class TestEvaluationRunner:
             expected_response="openshift-lightspeed namespace is created successfully",
         )
 
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
         results = runner.run_evaluation(config, "some-provider", "some-model")
 
         assert len(results) == 3
@@ -730,9 +676,7 @@ class TestEvaluationRunner:
         sample_config_judge_llm,
     ):
         """Test that both streaming and query endpoint modes work correctly."""
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
 
         # Test streaming mode (default)
         results_streaming = runner.run_evaluation(
@@ -767,9 +711,7 @@ class TestEvaluationRunner:
         sample_config_judge_llm,
     ):
         """Test invalid endpoint type."""
-        runner = EvaluationRunner(
-            mock_agent_client, mock_script_runner, mock_judge_manager
-        )
+        runner = EvaluationRunner(mock_agent_client, mock_script_runner, mock_judge_manager)
         results = runner.run_evaluation(
             sample_config_judge_llm,
             "openai",

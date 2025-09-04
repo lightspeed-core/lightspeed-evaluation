@@ -42,13 +42,9 @@ def _args_parser(args: list[str]) -> argparse.Namespace:
         help="Endpoint type to use for agent queries (default: streaming)",
     )
 
-    parser.add_argument(
-        "--agent_provider", type=str, required=True, help="Agent provider name"
-    )
+    parser.add_argument("--agent_provider", type=str, required=True, help="Agent provider name")
 
-    parser.add_argument(
-        "--agent_model", type=str, required=True, help="Agent model name"
-    )
+    parser.add_argument("--agent_model", type=str, required=True, help="Agent model name")
 
     parser.add_argument(
         "--agent_auth_token_file",

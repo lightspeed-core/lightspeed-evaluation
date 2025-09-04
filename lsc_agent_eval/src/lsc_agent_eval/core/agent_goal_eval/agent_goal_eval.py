@@ -75,8 +75,7 @@ class AgentGoalEval:
             conversations = self.data_manager.get_conversations()
 
             logger.info(
-                "Starting Agent Goal Evaluation\n"
-                "Total: %d evaluations across %d conversations",
+                "Starting Agent Goal Evaluation\nTotal: %d evaluations across %d conversations",
                 self.data_manager.get_eval_count(),
                 len(conversations),
             )
@@ -155,9 +154,7 @@ class AgentGoalEval:
             raise ScriptExecutionError("Setup script returned non-zero exit code")
         logger.debug("Setup script executed successfully for %s", conversation_group)
 
-    def _run_cleanup_script(
-        self, cleanup_script: Path, conversation_group: str
-    ) -> None:
+    def _run_cleanup_script(self, cleanup_script: Path, conversation_group: str) -> None:
         """Run cleanup script for a conversation."""
         try:
             cleanup_success = self.script_runner.run_script(cleanup_script)
@@ -239,9 +236,7 @@ class AgentGoalEval:
 
             # Print expected values for debugging
             if data_config.expected_keywords:
-                pbar.write(
-                    f"   Expected keywords: {','.join(data_config.expected_keywords)}"
-                )
+                pbar.write(f"   Expected keywords: {','.join(data_config.expected_keywords)}")
             if data_config.expected_response:
                 pbar.write(f"   Expected response: {data_config.expected_response}")
             if data_config.expected_tool_calls:

@@ -17,12 +17,8 @@ class TestToolCallEvaluator:
 
     def test_with_arguments(self):
         """Test tool call comparison with arguments."""
-        expected = [
-            [{"tool_name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]
-        ]
-        actual = [
-            [{"tool_name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]
-        ]
+        expected = [[{"tool_name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]]
+        actual = [[{"tool_name": "oc_get", "arguments": {"oc_get_args": ["namespaces"]}}]]
 
         assert compare_tool_calls(expected, actual)
 
@@ -86,9 +82,7 @@ class TestToolCallEvaluator:
             ]
         ]
 
-        with patch(
-            "lsc_agent_eval.core.agent_goal_eval.tool_call_eval.logger"
-        ) as mock_logger:
+        with patch("lsc_agent_eval.core.agent_goal_eval.tool_call_eval.logger") as mock_logger:
             assert not compare_tool_calls(expected, actual)
 
             # Check that the specific argument mismatch was logged

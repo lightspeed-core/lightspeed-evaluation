@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 class LSClient:  # pylint: disable=too-few-public-methods
     """LightSpeed client."""
 
-    def __init__(
-        self, ls_url: str, provider: str, model: str, cache_dir: str = "./llm_cache"
-    ):
+    def __init__(self, ls_url: str, provider: str, model: str, cache_dir: str = "./llm_cache"):
         """Init LightSpeed."""
         self.url = ls_url
         self.provider = provider
@@ -48,9 +46,7 @@ class LSClient:  # pylint: disable=too-few-public-methods
 
     # Wait 2^x * 1 second between each retry starting with 4 seconds,
     # then up to 100 seconds, then 100 seconds afterwards
-    @retry(
-        stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=4, max=100)
-    )
+    @retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=4, max=100))
     def get_answer(self, query: str, skip_cache: bool = False) -> str:
         """Get LLM answer for query."""
         if not skip_cache:

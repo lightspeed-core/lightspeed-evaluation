@@ -79,13 +79,9 @@ class TaxonomyEval:  # pylint: disable=R0903
         cfg_file = os.environ.get("OLS_CONFIG_FILE", DEFAULT_CONFIG_FILE)
         config.reload_from_yaml_file(cfg_file)
 
-        provider_config = config.config.llm_providers.providers[
-            self._args.judge_provider
-        ]
+        provider_config = config.config.llm_providers.providers[self._args.judge_provider]
         assert provider_config.type is not None, "Provider type must be configured"
-        self._judge_llm = VANILLA_MODEL[
-            provider_config.type
-        ](  # pyright: ignore [reportCallIssue]
+        self._judge_llm = VANILLA_MODEL[provider_config.type](  # pyright: ignore [reportCallIssue]
             self._args.judge_model, provider_config
         ).load()
 
@@ -93,9 +89,7 @@ class TaxonomyEval:  # pylint: disable=R0903
         """Set output directory."""
         eval_dir = os.path.dirname(__file__)
 
-        result_dir = os.path.join(
-            (self._args.eval_out_dir or eval_dir), DEFAULT_RESULT_DIR
-        )
+        result_dir = os.path.join((self._args.eval_out_dir or eval_dir), DEFAULT_RESULT_DIR)
         os.makedirs(result_dir, exist_ok=True)
         self._result_dir = result_dir
 
@@ -143,9 +137,7 @@ class TaxonomyEval:  # pylint: disable=R0903
     def _get_score(self, df: DataFrame, scores: list[str], prompt: str) -> DataFrame:
         """Get score."""
         df["score"] = df.progress_apply(
-            lambda row: self._get_judge_response(
-                row.question, row.answer, row.context, prompt
-            ),
+            lambda row: self._get_judge_response(row.question, row.answer, row.context, prompt),
             axis=1,
             # result_type="expand",
         )
@@ -186,9 +178,7 @@ class TaxonomyEval:  # pylint: disable=R0903
                 response=data.answer,
                 retrieved_contexts=[data.context],
             )
-            return scorer.single_turn_score(
-                data  # pyright: ignore [reportArgumentType]
-            )
+            return scorer.single_turn_score(data)  # pyright: ignore [reportArgumentType]
 
         df = self._taxonomy_df.copy()
         if self._args.eval_type in ("all", "context"):

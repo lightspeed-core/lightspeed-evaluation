@@ -67,10 +67,6 @@ class ScriptRunner:
         except subprocess.TimeoutExpired as e:
             raise ScriptExecutionError(f"Script timeout: {script_path}") from e
         except subprocess.SubprocessError as e:
-            raise ScriptExecutionError(
-                f"Error running script {script_path}: {e}"
-            ) from e
+            raise ScriptExecutionError(f"Error running script {script_path}: {e}") from e
         except Exception as e:
-            raise ScriptExecutionError(
-                f"Unexpected error running script {script_path}: {e}"
-            ) from e
+            raise ScriptExecutionError(f"Unexpected error running script {script_path}: {e}") from e

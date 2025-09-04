@@ -57,9 +57,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
 
     def _validate_args(self) -> None:
         """Validate key arguments."""
-        invalid_provider_model = set(self._args.eval_provider_model_id) - set(
-            INSCOPE_MODELS.keys()
-        )
+        invalid_provider_model = set(self._args.eval_provider_model_id) - set(INSCOPE_MODELS.keys())
         if len(invalid_provider_model) > 0:
             raise ValueError(f"Invalid Provider/Model IDs: {invalid_provider_model}")
         invalid_metrics = set(self._args.eval_metrics) - set(SCORE_DESCRIPTION.keys())
@@ -72,8 +70,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
     def _load_config_and_rag(self) -> None:
         """Load config and RAG."""
         if (len(set(self._args.eval_modes) - {"ols"}) > 0) or (
-            len(set(self._args.eval_metrics).intersection(set(LLM_BASED_EVALS.keys())))
-            > 0
+            len(set(self._args.eval_metrics).intersection(set(LLM_BASED_EVALS.keys()))) > 0
         ):
             # load config separately
             # Use OLS config file to set provider/model related config. Ex: credential/url
@@ -91,9 +88,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
         eval_dir = os.path.dirname(__file__)
         input_dir = os.path.join(eval_dir, DEFAULT_INPUT_DIR)
 
-        result_dir = os.path.join(
-            (self._args.eval_out_dir or eval_dir), DEFAULT_RESULT_DIR
-        )
+        result_dir = os.path.join((self._args.eval_out_dir or eval_dir), DEFAULT_RESULT_DIR)
         os.makedirs(result_dir, exist_ok=True)
         return input_dir, result_dir
 
@@ -129,9 +124,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
             answer_data = self._qa_pool_json[query_id]["answer"][answer_id]
             consistency_cutoff = answer_data.get("cutoff_score", EVAL_THRESHOLD)
             if isinstance(consistency_cutoff, dict):
-                consistency_cutoff = consistency_cutoff.get(
-                    cutoff_score_id, EVAL_THRESHOLD
-                )
+                consistency_cutoff = consistency_cutoff.get(cutoff_score_id, EVAL_THRESHOLD)
             in_use = answer_data.get("in_use", True)
 
             for answer in answer_data["text"]:
@@ -157,9 +150,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
             qna_pool_df = qna_pool_df[  # pyright: ignore [reportAssignmentType]
                 qna_pool_df.query_id.isin(self._args.eval_query_ids)
             ]
-        qna_pool_df = qna_pool_df[
-            qna_pool_df.in_use
-        ]  # pyright: ignore [reportAssignmentType]
+        qna_pool_df = qna_pool_df[qna_pool_df.in_use]  # pyright: ignore [reportAssignmentType]
         return qna_pool_df.reset_index(drop=True).drop(columns="in_use")
 
     def _get_api_response(  # pylint: disable=R0913,R0917
@@ -228,8 +219,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
     ) -> DataFrame:
         """Get model responses for all questions."""
         temp_resp_file = (
-            f"{self._result_dir}/{eval_mode}_"
-            f"{provider_model_id.replace('/', '-')}_response.csv"
+            f"{self._result_dir}/{eval_mode}_" f"{provider_model_id.replace('/', '-')}_response.csv"
         )
         try:
             recent_resp_df = read_csv(temp_resp_file)
@@ -274,9 +264,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
             "answer_similarity_llm",
         ]
         qna_pool_df[score_cols] = qna_pool_df.progress_apply(
-            lambda row: self._scorer.calculate_scores(
-                row.question, row.answer, row.response
-            ),
+            lambda row: self._scorer.calculate_scores(row.question, row.answer, row.response),
             axis=1,
             result_type="expand",
         )
@@ -362,10 +350,7 @@ class ResponseEvaluation:  # pylint: disable=R0902
             result_df.to_csv(result_file)
             print(f"Result is saved to {result_file}")
             if not consistency_success_flag:
-                print(
-                    "Response is not matching for question(s): "
-                    "Please check result file."
-                )
+                print("Response is not matching for question(s): " "Please check result file.")
         else:
             print("No result. Nothing to process.")
 
@@ -404,7 +389,5 @@ class ResponseEvaluation:  # pylint: disable=R0902
             "score": summary_score,
         }
         # Save model evaluation summary report
-        with open(
-            f"{self._result_dir}/model_evaluation_summary.json", "w", encoding="utf-8"
-        ) as f:
+        with open(f"{self._result_dir}/model_evaluation_summary.json", "w", encoding="utf-8") as f:
             json.dump(summary_result, f)
