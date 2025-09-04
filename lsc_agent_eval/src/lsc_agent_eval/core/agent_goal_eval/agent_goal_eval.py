@@ -244,6 +244,10 @@ class AgentGoalEval:
                 )
             if data_config.expected_response:
                 pbar.write(f"   Expected response: {data_config.expected_response}")
+            # Check for expected_intent in results (for intent evaluation)
+            intent_result = next((r for r in results if r.expected_intent), None)
+            if intent_result and intent_result.expected_intent:
+                pbar.write(f"   Expected intent: {intent_result.expected_intent}")
             if data_config.expected_tool_calls:
                 pbar.write(f"   Expected tool calls: {data_config.expected_tool_calls}")
             if data_config.eval_verify_script:
