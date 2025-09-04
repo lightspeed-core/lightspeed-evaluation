@@ -1,9 +1,8 @@
 """Lightspeed Stack Client for API communication."""
 
-import requests
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
-
+import requests
 
 @dataclass
 class LightspeedStackConfig:
