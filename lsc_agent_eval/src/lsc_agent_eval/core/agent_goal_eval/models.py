@@ -269,7 +269,9 @@ class EvaluationResult(BaseModel):
     conversation_group: Optional[str] = Field(None, description="Conversation group")
     conversation_id: Optional[str] = Field(None, description="Conversation ID")
     error: Optional[str] = Field(None, description="Error message if any")
-    expected_intent: Optional[str] = Field(None, description="Expected intent for intent evaluation")
+    expected_intent: Optional[str] = Field(
+        None, description="Expected intent for intent evaluation"
+    )
 
     @field_validator("result")
     @classmethod

@@ -38,7 +38,11 @@ def create_evaluation_results(  # pylint: disable=too-many-arguments,too-many-po
                     conversation_id=conversation_id,
                     error=error_message,
                     tool_calls=(tool_calls if eval_type == "tool_eval" else None),
-                    expected_intent=(eval_config.expected_intent if eval_type == "response_eval:intent" else None),
+                    expected_intent=(
+                        eval_config.expected_intent
+                        if eval_type == "response_eval:intent"
+                        else None
+                    ),
                 )
             )
     elif evaluation_results:
@@ -58,7 +62,9 @@ def create_evaluation_results(  # pylint: disable=too-many-arguments,too-many-po
                         tool_calls if eval_result["eval_type"] == "tool_eval" else None
                     ),
                     expected_intent=(
-                        eval_config.expected_intent if eval_result["eval_type"] == "response_eval:intent" else None
+                        eval_config.expected_intent
+                        if eval_result["eval_type"] == "response_eval:intent"
+                        else None
                     ),
                 )
             )
