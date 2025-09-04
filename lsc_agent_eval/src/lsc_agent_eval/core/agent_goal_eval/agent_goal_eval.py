@@ -75,8 +75,7 @@ class AgentGoalEval:
             conversations = self.data_manager.get_conversations()
 
             logger.info(
-                "Starting Agent Goal Evaluation\n"
-                "Total: %d evaluations across %d conversations",
+                "Starting Agent Goal Evaluation\nTotal: %d evaluations across %d conversations",
                 self.data_manager.get_eval_count(),
                 len(conversations),
             )

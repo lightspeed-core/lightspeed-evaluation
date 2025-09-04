@@ -1,46 +1,40 @@
-# LSC Evaluation Framework
+# LightSpeed Evaluation Framework
 
-A comprehensive framework/tool to evaluate GenAI application.
+A comprehensive framework for evaluating GenAI applications.
 
 ## 🎯 Key Features
 
-- **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom metrics
+- **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations
 - **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations  
 - **LLM Provider Flexibility**: OpenAI, Anthropic, Watsonx, Azure, Gemini, Ollama via LiteLLM
 - **Flexible Configuration**: Configurable environment & metric metadata
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
 - **Early Validation**: Catch configuration errors before expensive LLM calls
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
+- **Agent Evaluation**: Framework for evaluating AI agent performance (future integration planned)
 
 ## 🚀 Quick Start
 
 ### Installation
+
 ```bash
 # From Git
-uv add git+https://github.com/your-org/lightspeed-evaluation.git#subdirectory=lsc_eval
-# or pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_eval
+pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git
 
-# Local Development  
-cd lsc_eval && uv sync
+# Local Development
+pip install uv
+uv sync
 ```
 
 ### Basic Usage
+
 ```bash
 # Set API key
 export OPENAI_API_KEY="your-key"
 
-# Navigate to the lsc_eval directory
-cd lsc_eval
-
-# Run evaluation (Create your own data)
-uv run python runner.py --system-config config/system.yaml --eval-data config/evaluation_data.yaml
+# Run evaluation
+lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation_data.yaml
 ```
-
-### Troubleshooting
-If you encounter `ModuleNotFoundError: No module named 'lsc_eval'`, ensure you:
-1. Are running from the `lsc_eval/` directory
-2. Use `uv run` instead of `python` directly
-3. Have run `uv sync` to install dependencies
 
 ## 📊 Supported Metrics
 
@@ -66,7 +60,7 @@ If you encounter `ModuleNotFoundError: No module named 'lsc_eval'`, ensure you:
 
 ## ⚙️ Configuration
 
-### System Config (`system.yaml`)
+### System Config (`config/system.yaml`)
 ```yaml
 llm:
   provider: "openai"
@@ -88,7 +82,7 @@ metrics_metadata:
       framework: "deepeval"
 ```
 
-### Evaluation Data (`evaluation_data.yaml`)
+### Evaluation Data (`config/evaluation_data.yaml`)
 ```yaml
 - conversation_group_id: "test_conversation"
   description: "Sample evaluation"
@@ -118,112 +112,6 @@ metrics_metadata:
         - content: "Red Hat OpenShift powers...."
       expected_response: "Red Hat OpenShift...."
 ```
-
-## RAG Evaluation
-
-### Overview
-The evaluation framework includes integration with Lightspeed Stack RAG for evaluating RAG-generated responses:
-
-- Use a running Lightspeed Stack RAG instance for generating responses
-- Evaluate RAG-generated responses against existing responses
-- Run comprehensive evaluations that include RAG metrics alongside traditional metrics
-
-### Setup
-
-#### Prerequisites
-1. **Lightspeed Stack RAG Service**: Must be running at `http://localhost:8080`
-2. **Environment Variables**: Set `OPENAI_API_KEY` or other LLM provider credentials
-3. **Dependencies**: Ensure `requests` and other required packages are installed
-
-#### Configuration
-Add RAG configuration to your `system.yaml`:
-
-```yaml
-# Lightspeed RAG Configuration
-lightspeed_rag:
-  base_url: "http://localhost:8080"    # Lightspeed Stack RAG API endpoint
-  provider: "openai"                   # LLM provider for RAG queries
-  model: "gpt-4o-mini"                 # Model to use for RAG queries
-  system_prompt: "You are a helpful assistant with access to a knowledge base..."
-  no_tools: false                      # Whether to bypass tools and MCP servers
-  timeout: 300                         # Request timeout for RAG queries
-
-# Add RAG metric to metrics metadata
-metrics_metadata:
-  turn_level:
-    "custom:rag_response_evaluation":
-      threshold: 0.7
-      type: "turn"
-      description: "Evaluation of RAG-generated response quality compared to original"
-      framework: "custom"
-```
-
-### Usage
-
-#### Evaluation Data
-Add RAG metrics to your `evaluation_data.yaml`:
-
-```yaml
-- conversation_group_id: "rag_test"
-  description: "Test RAG response evaluation"
-  
-  turn_metrics:
-    - "custom:rag_response_evaluation"
-  
-  turns:
-    - turn_id: 1
-      query: "What is Kubernetes?"
-      response: "Kubernetes is an open-source container orchestration platform..."
-      contexts:
-        - content: "Kubernetes documentation context here..."
-      expected_response: "Expected response for comparison"
-```
-
-#### Direct RAG Client Usage
-```python
-from rag_context import LightspeedRAGClient
-
-# Initialize client
-client = LightspeedRAGClient("http://localhost:8080")
-
-# Simple query
-result = client.query("What is Kubernetes?")
-print(f"Response: {result['response']}")
-print(f"Conversation ID: {result['conversation_id']}")
-```
-
-#### Programmatic Usage
-```python
-from lsc_eval.llm_managers.lightspeed_rag_llm import (
-    LightspeedRAGManager, 
-    LightspeedRAGConfig
-)
-
-# Create RAG manager
-config = LightspeedRAGConfig(
-    base_url="http://localhost:8080",
-    provider="openai",
-    model="gpt-4o-mini"
-)
-rag_manager = LightspeedRAGManager(config)
-
-# Generate response
-response, conv_id = rag_manager.generate_response(
-    query="What is container orchestration?",
-    contexts=["Kubernetes manages containerized applications..."]
-)
-```
-
-### Troubleshooting
-
-**Connection Issues**:
-- Ensure Lightspeed Stack RAG service is running
-- Check `base_url` in configuration
-- Test connectivity: `curl http://localhost:8080/v1/info`
-
-**Authentication Errors**:
-- Set appropriate API keys (`OPENAI_API_KEY`, etc.)
-- Check LLM provider configuration
 
 ## 📈 Output & Visualization
 

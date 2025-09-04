@@ -6,8 +6,7 @@ from deepeval.models import LiteLLMModel
 
 
 class DeepEvalLLMManager:
-    """
-    DeepEval LLM Manager - Takes LLM parameters directly.
+    """DeepEval LLM Manager - Takes LLM parameters directly.
 
     This manager focuses solely on DeepEval-specific LLM integration.
     """

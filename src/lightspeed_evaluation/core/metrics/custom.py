@@ -30,8 +30,7 @@ class CustomMetrics:
     """Handles custom metrics using LLMManager for direct LiteLLM calls."""
 
     def __init__(self, llm_manager: LLMManager):
-        """
-        Initialize with LLM Manager.
+        """Initialize with LLM Manager.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
@@ -90,8 +89,7 @@ class CustomMetrics:
             raise RuntimeError(f"LiteLLM call failed: {str(e)}") from e
 
     def _parse_score_response(self, response: str) -> Tuple[Optional[float], str]:
-        r"""
-        Parse LLM response to extract score and reason.
+        r"""Parse LLM response to extract score and reason.
 
         Expected formats:
         - "Score: 0.85\nReason: The answer is accurate..."

@@ -1,7 +1,6 @@
-"""
-Evaluation Driver - Main evaluation controller.
+"""Evaluation Driver - Main evaluation controller.
 
-Controls the evaluation flow through conversations & turns
+Controls the evaluation flow through conversations & turns.
 """
 
 import time
@@ -116,14 +115,13 @@ class MetricsManager:
 
 
 class EvaluationDriver:
-    """
-    Main evaluation driver - orchestrates the evaluation process.
+    """Main evaluation driver - orchestrates the evaluation process.
 
     Responsibilities:
     - Data validation
     - Metric routing and evaluation
     - Result collection
-    - Status determination (PASS/FAIL/ERROR)
+    - Status determination (PASS/FAIL/ERROR).
     """
 
     def __init__(self, config_loader: ConfigLoader):
@@ -146,14 +144,13 @@ class EvaluationDriver:
     def run_evaluation(
         self, evaluation_data: List[EvaluationData]
     ) -> List[EvaluationResult]:
-        """
-        Run complete evaluation pipeline.
+        """Run complete evaluation pipeline.
 
         Args:
             evaluation_data: List of conversation data to evaluate
 
         Returns:
-            List of evaluation results
+            List of evaluation results.
         """
         print("🚀 Starting evaluation...")
         self.results = []
@@ -214,11 +211,10 @@ class EvaluationDriver:
     def _evaluate_metric(
         self, request: EvaluationRequest
     ) -> Optional[EvaluationResult]:
-        """
-        Evaluate single metric using context.
+        """Evaluate single metric using context.
 
         Returns:
-            EvaluationResult or None if evaluation fails
+            EvaluationResult or None if evaluation fails.
         """
         start_time = time.time()
 

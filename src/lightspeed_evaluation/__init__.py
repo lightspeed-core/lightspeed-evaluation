@@ -1,5 +1,4 @@
-"""
-LightSpeed Evaluation Framework.
+"""LightSpeed Evaluation Framework.
 
 Main components:
 - EvaluationDriver: Runs complete evaluation

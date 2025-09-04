@@ -187,8 +187,8 @@ class TaxonomyEval:  # pylint: disable=R0903
                 retrieved_contexts=[data.context],
             )
             return scorer.single_turn_score(
-                data  # pyright: ignore [reportArgumentType]
-            )
+                data
+            )  # pyright: ignore [reportArgumentType]
 
         df = self._taxonomy_df.copy()
         if self._args.eval_type in ("all", "context"):
