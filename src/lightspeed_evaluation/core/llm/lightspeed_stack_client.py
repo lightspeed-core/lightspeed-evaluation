@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 import requests
 
+
 @dataclass
 class LightspeedStackConfig:
     """Configuration for Lightspeed Stack API client."""
@@ -32,8 +33,7 @@ class LightspeedStackClient:
         conversation_id: Optional[str] = None,
         attachments: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """
-        Send a query to the Lightspeed Stack API.
+        """Send a query to the Lightspeed Stack API.
 
         Args:
             query: The question/query to ask
@@ -73,8 +73,7 @@ class LightspeedStackClient:
     def from_system_config(
         cls, system_config: Dict[str, Any]
     ) -> "LightspeedStackClient":
-        """
-        Create LightspeedStackClient from system configuration.
+        """Create LightspeedStackClient from system configuration.
 
         Expected config structure:
         lightspeed_stack:

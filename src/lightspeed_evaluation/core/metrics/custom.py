@@ -242,7 +242,6 @@ class CustomMetrics:
 
         return score, f"Custom answer correctness: {score:.2f} - {reason}"
 
-
     @classmethod
     def from_system_config(cls, system_config: Dict[str, Any]) -> "CustomMetrics":
         """Create CustomMetrics from system configuration."""
