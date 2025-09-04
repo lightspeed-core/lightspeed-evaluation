@@ -38,8 +38,7 @@ class JudgeModelManager:
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 raise JudgeModelError(
-                    "OPENAI_API_KEY environment variable is required "
-                    "for OpenAI provider"
+                    "OPENAI_API_KEY environment variable is required for OpenAI provider"
                 )
             self.model_name = self.judge_model
 

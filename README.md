@@ -34,6 +34,7 @@ export OPENAI_API_KEY="your-key"
 
 # Run evaluation
 lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation_data.yaml
+```
 
 ## 📊 Supported Metrics
 
