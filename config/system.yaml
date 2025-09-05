@@ -9,6 +9,15 @@ llm:
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
 
+# Lightspeed Stack Configuration
+lightspeed_stack:
+  base_url: "http://localhost:8080"    # Lightspeed Stack API endpoint
+  provider: "openai"                   # LLM provider for queries
+  model: "gpt-4o-mini"                 # Model to use for queries
+  system_prompt: "You are a helpful assistant with access to a knowledge base. Use the provided context to answer questions accurately and comprehensively."
+  no_tools: false                      # Whether to bypass tools and MCP servers
+  timeout: 300                         # Request timeout for queries
+
 # Environment Variables - Set before any imports
 environment:
   DEEPEVAL_TELEMETRY_OPT_OUT: "YES"        # Disable DeepEval telemetry
@@ -80,12 +89,13 @@ metrics_metadata:
       description: "How precise the retrieved context is (without reference)"
       framework: "ragas"
     
-    # Custom metrics - only answer_correctness
+    # Custom metrics
     "custom:answer_correctness":
       threshold: 0.75
       type: "turn"
       description: "Correctness vs expected answer using custom LLM evaluation"
       framework: "custom"
+      
   
   # Conversation-level metrics metadata
   conversation_level:

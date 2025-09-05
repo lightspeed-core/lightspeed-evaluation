@@ -39,7 +39,7 @@ class CustomMetrics:
         self.litellm_params = llm_manager.get_litellm_params()
 
         self.supported_metrics = {
-            "answer_correctness": self._evaluate_answer_correctness
+            "answer_correctness": self._evaluate_answer_correctness,
         }
 
         print(f"✅ Custom Metrics initialized: {self.model_name}")
