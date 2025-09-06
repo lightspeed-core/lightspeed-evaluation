@@ -371,6 +371,31 @@ class TestEvaluationDataConfig:
 
         assert "requires non-empty 'eval_verify_script'" in str(exc_info.value)
 
+    def test_evaluation_data_config_intent_missing_expected_intent(self):
+        """Test intent evaluation missing expected_intent."""
+        with pytest.raises(ValidationError) as exc_info:
+            EvaluationDataConfig(
+                eval_id="test_intent",
+                eval_query="How do I scale my deployment?",
+                eval_types=["response_eval:intent"],
+            )
+
+        assert "requires non-empty 'expected_intent'" in str(exc_info.value)
+
+    def test_evaluation_data_config_intent_with_expected_intent(self):
+        """Test intent evaluation with valid expected_intent."""
+        config = EvaluationDataConfig(
+            eval_id="test_intent_valid",
+            eval_query="What is Kubernetes?",
+            eval_types=["response_eval:intent"],
+            expected_intent="explain a concept",
+        )
+
+        assert config.eval_id == "test_intent_valid"
+        assert config.eval_query == "What is Kubernetes?"
+        assert "response_eval:intent" in config.eval_types
+        assert config.expected_intent == "explain a concept"
+
     def test_evaluation_data_config_script_nonexistent_file(self):
         """Test script evaluation with non-existent script file."""
         with pytest.raises(ValidationError) as exc_info:

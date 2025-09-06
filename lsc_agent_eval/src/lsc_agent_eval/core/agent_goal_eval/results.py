@@ -59,6 +59,8 @@ class ResultsManager:
                     "eval_type": result.eval_type,
                     "result": result.result,
                     "error": result.error,
+                    "tool_calls": result.tool_calls,
+                    "expected_intent": result.expected_intent,
                 }
             )
 
