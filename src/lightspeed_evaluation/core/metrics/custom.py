@@ -6,9 +6,10 @@ from typing import Any, Dict, Optional, Tuple
 import litellm
 from pydantic import BaseModel, Field
 
-from ..config import TurnData
 from ..llm.manager import LLMManager
+from ..models import TurnData
 from ..output.statistics import EvaluationScope
+from .tool_eval import evaluate_tool_calls
 
 
 class EvaluationPromptParams(BaseModel):
@@ -40,6 +41,7 @@ class CustomMetrics:
 
         self.supported_metrics = {
             "answer_correctness": self._evaluate_answer_correctness,
+            "tool_eval": self._evaluate_tool_calls,
         }
 
         print(f"✅ Custom Metrics initialized: {self.model_name}")
@@ -216,7 +218,7 @@ class CustomMetrics:
         params = EvaluationPromptParams(
             metric_name="answer correctness",
             query=query,
-            response=response,
+            response=response or "",
             expected_response=expected_response,
             contexts=turn_data.contexts if turn_data.contexts else None,
             scale="0.0 to 1.0",
@@ -241,6 +243,36 @@ class CustomMetrics:
             )
 
         return score, f"Custom answer correctness: {score:.2f} - {reason}"
+
+    def _evaluate_tool_calls(
+        self,
+        _conv_data: Any,
+        _turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> Tuple[Optional[float], str]:
+        """Evaluate tool calls using the custom:tool_eval metric."""
+        if is_conversation:
+            return None, "Tool evaluation is a turn-level metric"
+
+        if turn_data is None:
+            return None, "TurnData is required for tool evaluation"
+
+        if not turn_data.expected_tool_calls:
+            return None, "No expected tool calls provided for tool evaluation"
+
+        # Get actual tool calls from turn data (will be populated by API)
+        actual_tool_calls = getattr(turn_data, "tool_calls", [])
+        if not actual_tool_calls:
+            return 0.0, "No actual tool calls found in response"
+
+        # Use the tool evaluation logic
+        success, details = evaluate_tool_calls(
+            turn_data.expected_tool_calls, actual_tool_calls
+        )
+        score = 1.0 if success else 0.0
+
+        return score, details
 
     @classmethod
     def from_system_config(cls, system_config: Dict[str, Any]) -> "CustomMetrics":
