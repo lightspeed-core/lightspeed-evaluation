@@ -2,50 +2,29 @@
 
 # LLM Configuration
 llm:
-  provider: "openai"          # openai, anthropic, watsonx, azure, groq, gemini, ollama
+  provider: "openai"          # LLM Provider (openai, watsonx, azure, gemini etc..)
   model: "gpt-4o-mini"        # Model name for the provider
-  temperature: 0.0            # Generation temperature (0.0 = deterministic)
+  temperature: 0.0            # Generation temperature
   max_tokens: 512             # Maximum tokens in response
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
 
-# Lightspeed Stack Configuration
-lightspeed_stack:
-  base_url: "http://localhost:8080"    # Lightspeed Stack API endpoint
+# API Configuration
+# To get real time data. Currently it supports lightspeed-stack API.
+# But can be easily integrated with other APIs with minimal change.
+api:
+  enabled: true                        # Enable API calls instead of using pre-filled data
+  api_base: http://localhost:8080      # Base API URL
+  endpoint_type: "streaming"           # Use "streaming" or "query" endpoint
+  timeout: 300                         # API request timeout in seconds
+
+  # API input configuration
   provider: "openai"                   # LLM provider for queries
   model: "gpt-4o-mini"                 # Model to use for queries
-  system_prompt: "You are a helpful assistant with access to a knowledge base. Use the provided context to answer questions accurately and comprehensively."
   no_tools: false                      # Whether to bypass tools and MCP servers
-  timeout: 300                         # Request timeout for queries
+  system_prompt: null                  # System prompt (default None)
 
-# Environment Variables - Set before any imports
-environment:
-  DEEPEVAL_TELEMETRY_OPT_OUT: "YES"        # Disable DeepEval telemetry
-  DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"     # Disable DeepEval progress bars
-  
-  LITELLM_LOG_LEVEL: "ERROR"               # Suppress LiteLLM verbose logging
-
-# Logging Configuration
-logging:
-  # Source code logging level
-  source_level: "INFO"        # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  
-  # Package logging level (imported libraries)
-  package_level: "ERROR"
-  
-  # Log format and display options
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  show_timestamps: true
-  
-  # Specific package log levels (override package_level for specific libraries)
-  package_overrides:
-    "httpx": "ERROR"
-    "urllib3": "ERROR"
-    "requests": "ERROR"
-    "matplotlib": "ERROR"
-    "openai": "ERROR"
-    "LiteLLM": "WARNING"
-    "DeepEval": "WARNING"
+  # Authentication via API_KEY environment variable only for MCP server
 
 # Default metrics metadata
 metrics_metadata:
@@ -95,7 +74,11 @@ metrics_metadata:
       type: "turn"
       description: "Correctness vs expected answer using custom LLM evaluation"
       framework: "custom"
-      
+
+    "custom:tool_eval":
+      type: "turn"
+      description: "Tool call evaluation comparing expected vs actual tool calls"
+      framework: "custom"
   
   # Conversation-level metrics metadata
   conversation_level:
@@ -152,3 +135,32 @@ visualization:
     - "score_distribution"    # Score distribution box plot
     - "conversation_heatmap"  # Heatmap of conversation performance
     - "status_breakdown"      # Pie chart for pass/fail/error breakdown
+
+# Environment Variables - Automatically get set before any imports
+environment:
+  DEEPEVAL_TELEMETRY_OPT_OUT: "YES"        # Disable DeepEval telemetry
+  DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"     # Disable DeepEval progress bars
+
+  LITELLM_LOG_LEVEL: "ERROR"               # Suppress LiteLLM verbose logging
+
+# Logging Configuration
+logging:
+  # Source code logging level
+  source_level: "INFO"        # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+  # Package logging level (imported libraries)
+  package_level: "ERROR"
+
+  # Log format and display options
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  show_timestamps: true
+
+  # Specific package log levels (override package_level for specific libraries)
+  package_overrides:
+    "httpx": "ERROR"
+    "urllib3": "ERROR"
+    "requests": "ERROR"
+    "matplotlib": "ERROR"
+    "openai": "ERROR"
+    "LiteLLM": "WARNING"
+    "DeepEval": "WARNING"
