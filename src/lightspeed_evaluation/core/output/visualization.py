@@ -10,8 +10,15 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.colors import BASE_COLORS
 
-from ..config import EvaluationResult
+from ..constants import DEFAULT_OUTPUT_DIR
+from ..models import EvaluationResult
 from .statistics import calculate_basic_stats, calculate_detailed_stats
+
+CHART_COLORS = {
+    "PASS": "#28a745",  # Green
+    "FAIL": "#dc3545",  # Red
+    "ERROR": "#ffc107",  # Yellow/Orange
+}
 
 
 class GraphGenerator:
@@ -19,7 +26,7 @@ class GraphGenerator:
 
     def __init__(
         self,
-        output_dir: str = "./eval_output",
+        output_dir: str = DEFAULT_OUTPUT_DIR,
         figsize: Optional[List[int]] = None,
         dpi: int = 300,
     ):
@@ -279,12 +286,7 @@ class GraphGenerator:
         sizes = list(filtered_counts.values())
         total = sum(sizes)
 
-        colors = {
-            "PASS": "#28a745",  # Green
-            "FAIL": "#dc3545",  # Red
-            "ERROR": "#ffc107",  # Yellow/Orange
-        }
-        pie_colors = [colors.get(label, "#6c757d") for label in labels]
+        pie_colors = [CHART_COLORS.get(label, "#6c757d") for label in labels]
 
         _, ax = plt.subplots(figsize=tuple(self.figsize), dpi=self.dpi)
 

@@ -4,7 +4,7 @@ import statistics
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from ..config import EvaluationResult, TurnData
+from ..models import EvaluationResult, TurnData
 
 
 @dataclass

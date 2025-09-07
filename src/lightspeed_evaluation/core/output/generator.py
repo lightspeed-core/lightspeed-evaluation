@@ -6,10 +6,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..config.loader import DEFAULT_CSV_COLUMNS
-from ..config import EvaluationResult
+from ..constants import DEFAULT_OUTPUT_DIR
+from ..models import EvaluationResult
 from .statistics import calculate_basic_stats, calculate_detailed_stats
 from .visualization import GraphGenerator
+
+# Default CSV columns for evaluation results
+DEFAULT_CSV_COLUMNS = [
+    "conversation_group_id",
+    "turn_id",
+    "metric_identifier",
+    "result",
+    "score",
+    "threshold",
+    "reason",
+    "execution_time",
+]
 
 
 class OutputHandler:
@@ -17,7 +29,7 @@ class OutputHandler:
 
     def __init__(
         self,
-        output_dir: str = "./eval_output",
+        output_dir: str = DEFAULT_OUTPUT_DIR,
         base_filename: str = "evaluation",
         system_config: Optional[Any] = None,
     ) -> None:

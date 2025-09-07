@@ -3,7 +3,7 @@
 import os
 from typing import Any, Dict
 
-from ..config import LLMConfig
+from ..models import LLMConfig
 
 
 class LLMError(Exception):

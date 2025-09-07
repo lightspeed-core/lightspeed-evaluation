@@ -13,9 +13,9 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
-from ..config import TurnData
 from ..llm.manager import LLMManager
 from ..llm.ragas import RagasLLMManager
+from ..models import TurnData
 from ..output.statistics import EvaluationScope
 
 
@@ -57,10 +57,10 @@ class RagasMetrics:
         query = turn_data.query
         response = turn_data.response
         contexts = [
-            ctx["content"] if isinstance(ctx, dict) else str(ctx)
+            ctx.get("content", str(ctx)) if isinstance(ctx, dict) else str(ctx)
             for ctx in turn_data.contexts or []
         ]
-        return query, response, contexts
+        return query, response or "", contexts
 
     def _evaluate_metric(
         self,

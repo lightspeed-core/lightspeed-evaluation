@@ -1,14 +1,14 @@
 """LLM management for Evaluation Framework."""
 
-from .manager import LLMManager, LLMError
+from ..models import LLMConfig
 from .deepeval import DeepEvalLLMManager
+from .manager import LLMError, LLMManager
 from .ragas import RagasLLMManager
-from ..config import LLMConfig
 
 __all__ = [
-    "LLMManager",
     "LLMConfig",
     "LLMError",
+    "LLMManager",
     "DeepEvalLLMManager",
     "RagasLLMManager",
 ]
