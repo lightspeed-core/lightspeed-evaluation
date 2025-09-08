@@ -2,79 +2,21 @@
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from ...core.llm.manager import LLMManager
 from ...core.metrics.custom import CustomMetrics
 from ...core.metrics.deepeval import DeepEvalMetrics
 from ...core.metrics.ragas import RagasMetrics
-from ...core.models import EvaluationData, EvaluationResult, TurnData
-from ...core.output.statistics import EvaluationScope
+from ...core.models import (
+    EvaluationData,
+    EvaluationRequest,
+    EvaluationResult,
+    EvaluationScope,
+)
 from ...core.system import ConfigLoader
 
 logger = logging.getLogger(__name__)
-
-
-class EvaluationRequest:
-    """Evaluation request containing conversation data and metric information."""
-
-    def __init__(self, conv_data: EvaluationData, metric_identifier: str):
-        """Initialize evaluation request with conversation data and metric identifier."""
-        self.conv_data = conv_data
-        self.metric_identifier = metric_identifier
-        self.is_conversation = False
-        self.turn_idx: Optional[int] = None
-        self.turn_data: Optional[TurnData] = None
-        self.turn_id: Optional[str] = None
-
-    @classmethod
-    def for_turn(
-        cls,
-        conv_data: EvaluationData,
-        metric_identifier: str,
-        turn_idx: int,
-        turn_data: TurnData,
-    ) -> "EvaluationRequest":
-        """Create request for turn-level evaluation."""
-        request = cls(conv_data, metric_identifier)
-        request.is_conversation = False
-        request.turn_idx = turn_idx
-        request.turn_data = turn_data
-        request.turn_id = turn_data.turn_id
-        return request
-
-    @classmethod
-    def for_conversation(
-        cls, conv_data: EvaluationData, metric_identifier: str
-    ) -> "EvaluationRequest":
-        """Create request for conversation-level evaluation."""
-        request = cls(conv_data, metric_identifier)
-        request.is_conversation = True
-        return request
-
-    def get_summary(self) -> str:
-        """Get summary string for logging."""
-        if self.is_conversation:
-            return f"Conversation {self.conv_data.conversation_group_id} - {self.metric_identifier}"
-        return f"Turn {self.turn_id} - {self.metric_identifier}"
-
-    def get_evaluation_context(self) -> Dict[str, Any]:
-        """Get context information for this evaluation request."""
-        context = {
-            "conversation_id": self.conv_data.conversation_group_id,
-            "metric": self.metric_identifier,
-            "is_conversation_level": self.is_conversation,
-        }
-        if not self.is_conversation and self.turn_data:
-            context.update(
-                {
-                    "turn_id": self.turn_data.turn_id,
-                    "query": self.turn_data.query,
-                    "has_response": bool(self.turn_data.response),
-                    "has_contexts": bool(self.turn_data.contexts),
-                }
-            )
-        return context
 
 
 class MetricsEvaluator:
@@ -100,8 +42,17 @@ class MetricsEvaluator:
     def evaluate_metric(self, request: EvaluationRequest) -> Optional[EvaluationResult]:
         """Evaluate a single metric and return result."""
         start_time = time.time()
+
         try:
-            logger.debug("Evaluating: %s", request.get_summary())
+            # Create logging summary
+            if request.is_conversation:
+                summary = (
+                    f"Conversation {request.conv_data.conversation_group_id} - "
+                    f"{request.metric_identifier}"
+                )
+            else:
+                summary = f"Turn {request.turn_id} - {request.metric_identifier}"
+            logger.debug("Evaluating: %s", summary)
 
             # Parse framework and metric
             framework, metric_name = request.metric_identifier.split(":", 1)
@@ -145,11 +96,7 @@ class MetricsEvaluator:
                 threshold=threshold,
                 reason=reason,
                 query=request.turn_data.query if request.turn_data else "",
-                response=(
-                    request.turn_data.response
-                    if request.turn_data and request.turn_data.response
-                    else ""
-                ),
+                response=request.turn_data.response or "" if request.turn_data else "",
                 execution_time=execution_time,
             )
 
@@ -173,11 +120,7 @@ class MetricsEvaluator:
             threshold=None,
             reason=reason,
             query=request.turn_data.query if request.turn_data else "",
-            response=(
-                request.turn_data.response
-                if request.turn_data and request.turn_data.response
-                else ""
-            ),
+            response=request.turn_data.response or "" if request.turn_data else "",
             execution_time=execution_time,
         )
 
@@ -215,7 +158,7 @@ class MetricsEvaluator:
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:
         """Determine evaluation status based on score and threshold."""
         if threshold is None:
-            threshold = 0
+            threshold = 0.5  # This will also handle binary metrics
         return "PASS" if score >= threshold else "FAIL"
 
     def get_supported_frameworks(self) -> List[str]:

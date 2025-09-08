@@ -30,10 +30,6 @@ class APIDataAmender:
         conversation_id: Optional[str] = None
 
         for turn_data in conv_data.turns:
-            # Use existing conversation_id if available
-            if turn_data.conversation_id:
-                conversation_id = turn_data.conversation_id
-
             logger.debug("Amending turn %s with API data", turn_data.turn_id)
 
             try:
@@ -53,10 +49,11 @@ class APIDataAmender:
                 if api_response.contexts:
                     turn_data.contexts = api_response.contexts
 
-                # Update tool calls from API output (already converted to ToolCallData)
+                # Update tool calls from API output
                 if api_response.tool_calls:
                     logger.debug(
-                        "Tool calls provided: %d sequences", len(api_response.tool_calls)
+                        "Tool calls provided: %d sequences",
+                        len(api_response.tool_calls),
                     )
                     turn_data.tool_calls = api_response.tool_calls
 
@@ -65,7 +62,7 @@ class APIDataAmender:
             except APIError as e:
                 logger.error("API Error for turn %s: %s", turn_data.turn_id, e)
                 return True  # Indicate API error occurred
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Unexpected error for turn %s: %s", turn_data.turn_id, e)
                 return True  # Indicate error occurred
 
@@ -74,7 +71,7 @@ class APIDataAmender:
     def get_amendment_summary(self, conv_data: EvaluationData) -> Dict[str, Any]:
         """Get summary of what would be amended for a conversation."""
         return {
-            "conversation_id": conv_data.conversation_group_id,
+            "conversation_group_id": conv_data.conversation_group_id,
             "total_turns": len(conv_data.turns),
             "api_enabled": self.api_client is not None,
             "turns_with_existing_data": len(

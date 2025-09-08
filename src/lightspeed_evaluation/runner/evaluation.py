@@ -3,13 +3,11 @@
 import argparse
 import sys
 import traceback
-from pathlib import Path
 from typing import Dict, Optional
 
 from ..core.output import OutputHandler
 from ..core.output.statistics import calculate_basic_stats
 from ..core.system import ConfigLoader, DataValidator
-from ..core.system.setup import setup_environment_variables
 from ..pipeline.evaluation import EvaluationPipeline
 
 
@@ -35,41 +33,45 @@ def run_evaluation(
         loader = ConfigLoader()
         system_config = loader.load_system_config(system_config_path)
 
-        data_validator = DataValidator()
+        llm_config = system_config.llm
+        output_config = system_config.output
+
+        # Step 2: Load and validate evaluation data
+        data_validator = DataValidator(api_enabled=system_config.api.enabled)
         evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
 
-        config_dict = system_config.model_dump()
-        llm_info = config_dict["llm"]
-        output_info = config_dict["output"]
-        print(f"✅ System config: {llm_info['provider']}/{llm_info['model']}")
+        print(f"✅ System config: {llm_config.provider}/{llm_config.model}")
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
 
-        # Step 2: Initialize evaluation pipeline
+        # Step 3: Run evaluation with pre-loaded data
         print("\n⚙️ Initializing Evaluation Pipeline...")
         pipeline = EvaluationPipeline(loader)
 
-        # Step 3: Run evaluation (pipeline controls the flow)
         print("\n🔄 Running Evaluation...")
-        results = pipeline.run_evaluation(evaluation_data)
+        try:
+            results = pipeline.run_evaluation(evaluation_data, evaluation_data_path)
+        finally:
+            # Ensure pipeline resources are cleaned up
+            pipeline.close()
 
         # Step 4: Generate reports and calculate stats
         print("\n📊 Generating Reports...")
         output_handler = OutputHandler(
-            output_dir=output_dir or output_info["output_dir"],
-            base_filename=output_info["base_filename"],
+            output_dir=output_dir or output_config.output_dir,
+            base_filename=output_config.base_filename,
             system_config=system_config,
         )
 
         # Generate reports
         output_handler.generate_reports(
-            results, include_graphs=output_info["include_graphs"]
+            results, include_graphs="graphs" in output_config.enabled_outputs
         )
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
         print(f"📁 Reports generated in: {output_handler.output_dir}")
 
-        # Step 4: Final Summary
+        # Step 5: Final Summary
         summary = calculate_basic_stats(results)
         print(
             f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, ⚠️ Error: {summary['ERROR']}"
@@ -111,19 +113,7 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # CRITICAL: Setup environment variables from system config FIRST
-    setup_environment_variables(args.system_config)
-
-    # Validate input files exist
-    if not Path(args.system_config).exists():
-        print(f"❌ System config file not found: {args.system_config}")
-        return 1
-
-    if not Path(args.eval_data).exists():
-        print(f"❌ Evaluation data file not found: {args.eval_data}")
-        return 1
-
-    # Run evaluation
+    # Run evaluation - environment setup now happens in ConfigLoader
     summary = run_evaluation(args.system_config, args.eval_data, args.output_dir)
 
     return 0 if summary is not None else 1

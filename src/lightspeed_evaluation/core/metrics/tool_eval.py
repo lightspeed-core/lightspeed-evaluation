@@ -4,35 +4,23 @@ import logging
 import re
 from typing import Any, Callable, Dict, List
 
-from ..models import ToolCallData
-
 logger = logging.getLogger(__name__)
 
 
 def evaluate_tool_calls(
-    expected: List[List[ToolCallData]], actual: List[List[Dict[str, Any]]]
+    expected: List[List[Dict[str, Any]]], actual: List[List[Dict[str, Any]]]
 ) -> tuple[bool, str]:
     """Evaluate tool calls using the custom:tool_eval metric.
 
     Args:
-        expected: Expected tool calls structure (List[List[ToolCallData]])
+        expected: Expected tool calls structure (List[List[Dict[str, Any]]])
         actual: Actual tool calls from API response (List[List[Dict[str, Any]]])
 
     Returns:
         tuple: (success: bool, details: str)
     """
     try:
-        # Convert expected ToolCallData objects to dict format for comparison
-        expected_dicts = []
-        for sequence in expected:
-            sequence_dicts = []
-            for tool_call in sequence:
-                sequence_dicts.append(
-                    {"name": tool_call.name, "arguments": tool_call.arguments}
-                )
-            expected_dicts.append(sequence_dicts)
-
-        success = compare_tool_calls(expected_dicts, actual)
+        success = compare_tool_calls(expected, actual)
 
         if success:
             details = "Tool calls match expected structure and arguments"
@@ -90,8 +78,8 @@ def _compare_lists(
 
 def _compare_single_tool_call(expected: Dict[str, Any], actual: Dict[str, Any]) -> bool:
     """Compare a single tool call."""
-    expected_name = expected.get("name")
-    actual_name = actual.get("name")
+    expected_name = expected.get("tool_name")
+    actual_name = actual.get("tool_name")
 
     if expected_name != actual_name:
         logger.debug(
@@ -164,9 +152,9 @@ def format_tool_calls_for_logging(tool_calls: List[List[Dict[str, Any]]]) -> str
     for i, sequence in enumerate(tool_calls):
         sequence_str = f"Sequence {i+1}:"
         for j, tool_call in enumerate(sequence):
-            tool_name = tool_call.get("name", "unknown")
-            args = tool_call.get("arguments", {})
-            sequence_str += f"\n  Tool {j+1}: {tool_name}({args})"
+            tool_name = tool_call.get("tool_name", "unknown")
+            arguments = tool_call.get("arguments", {})
+            sequence_str += f"\n  Tool {j+1}: {tool_name}({arguments})"
         formatted.append(sequence_str)
 
     return "\n".join(formatted)

@@ -15,8 +15,7 @@ from ragas.metrics import (
 
 from ..llm.manager import LLMManager
 from ..llm.ragas import RagasLLMManager
-from ..models import TurnData
-from ..output.statistics import EvaluationScope
+from ..models import EvaluationScope, TurnData
 
 
 # Decide if Dataset will be used or not ?

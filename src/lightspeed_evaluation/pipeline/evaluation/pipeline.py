@@ -6,6 +6,7 @@ from typing import List, Optional
 from ...core.api import APIClient
 from ...core.llm.manager import LLMManager
 from ...core.models import EvaluationData, EvaluationResult
+from ...core.output.data_persistence import save_evaluation_data
 from ...core.system import ConfigLoader, DataValidator
 from .amender import APIDataAmender
 from .errors import EvaluationErrorHandler
@@ -33,6 +34,7 @@ class EvaluationPipeline:
         if not self.config:
             raise ValueError("SystemConfig must be loaded before initializing pipeline")
         self.results: List[EvaluationResult] = []
+        self.original_data_path: Optional[str] = None
 
         # Initialize components
         self._initialize_components()
@@ -48,8 +50,7 @@ class EvaluationPipeline:
         self.data_validator = DataValidator(api_enabled=self.config.api.enabled)
 
         # LLM Manager
-        system_config_dict = self.config_loader.get_llm_config_dict()
-        llm_manager = LLMManager.from_system_config(system_config_dict)
+        llm_manager = LLMManager.from_llm_config(self.config.llm)
 
         # Create pipeline components
         api_client = self._create_api_client()
@@ -102,16 +103,20 @@ class EvaluationPipeline:
         return self.data_validator.validate_evaluation_data(evaluation_data)
 
     def run_evaluation(
-        self, evaluation_data: List[EvaluationData]
+        self,
+        evaluation_data: List[EvaluationData],
+        original_data_path: Optional[str] = None,
     ) -> List[EvaluationResult]:
         """Run evaluation on provided data.
 
         Args:
             evaluation_data: List of conversation data to evaluate
+            original_data_path: Path to original data file for saving updates
 
         Returns:
             List of evaluation results.
         """
+        self.original_data_path = original_data_path
         logger.info("Starting evaluation")
         self.results = []
 
@@ -138,14 +143,19 @@ class EvaluationPipeline:
 
     def _save_updated_data(self, evaluation_data: List[EvaluationData]) -> None:
         """Save updated evaluation data with API amendments."""
+        if not self.original_data_path:
+            logger.warning("No original data path available, cannot save updated data")
+            return
+
         try:
-            updated_file = self.data_validator.save_updated_evaluation_data(
-                evaluation_data
+            updated_file = save_evaluation_data(
+                evaluation_data, self.original_data_path
             )
             if updated_file:
                 logger.info("Updated data saved: %s", updated_file)
                 logger.info(
-                    "Next run with same file will skip API calls (uses amended data)"
+                    "To use amended data without new API calls, "
+                    "disable the API call using system config"
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Don't fail the evaluation if saving fails

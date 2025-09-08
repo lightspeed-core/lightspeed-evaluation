@@ -6,7 +6,6 @@ import yaml
 from pydantic import ValidationError
 
 from ..models import EvaluationData
-from ..output.data_persistence import save_evaluation_data
 from .exceptions import DataValidationError
 from .loader import CONVERSATION_LEVEL_METRICS, TURN_LEVEL_METRICS
 
@@ -42,7 +41,10 @@ METRIC_REQUIREMENTS = {
     },
     "custom:tool_eval": {
         "required_fields": ["tool_calls", "expected_tool_calls"],
-        "description": "requires 'tool_calls' and 'expected_tool_calls' fields",
+        "description": (
+            "requires 'tool_calls' and 'expected_tool_calls' fields "
+            "with 'tool_name' and 'arguments'"
+        ),
     },
 }
 
@@ -71,8 +73,23 @@ class DataValidator:
         """Load and validate evaluation data from YAML file."""
         self.original_data_path = data_path
 
-        with open(data_path, "r", encoding="utf-8") as f:
-            raw_data = yaml.safe_load(f)
+        try:
+            with open(data_path, "r", encoding="utf-8") as f:
+                raw_data = yaml.safe_load(f)
+        except FileNotFoundError as exc:
+            raise DataValidationError(
+                f"Evaluation data file not found: {data_path}"
+            ) from exc
+        except yaml.YAMLError as e:
+            raise DataValidationError(f"Invalid YAML syntax in {data_path}: {e}") from e
+
+        # Validate YAML root structure
+        if raw_data is None:
+            raise DataValidationError("Empty or invalid YAML file")
+        if not isinstance(raw_data, list):
+            raise DataValidationError(
+                f"YAML root must be a list, got {type(raw_data).__name__}"
+            )
 
         # Convert raw data to Pydantic models
         evaluation_data = []
@@ -150,7 +167,9 @@ class DataValidator:
 
         # Add conversation group ID prefix to errors
         for error in field_errors:
-            self.validation_errors.append(f"Conversation {conversation_group_id}: {error}")
+            self.validation_errors.append(
+                f"Conversation {conversation_group_id}: {error}"
+            )
 
     def _check_metric_requirements(
         self, data: EvaluationData, api_enabled: bool = True
@@ -203,13 +222,3 @@ class DataValidator:
                         break  # Only report once per metric per turn
 
         return errors
-
-    def save_updated_evaluation_data(
-        self, evaluation_data: List[EvaluationData]
-    ) -> Optional[str]:
-        """Save updated evaluation data."""
-        if not self.original_data_path:
-            print("⚠️ No original data path available, cannot save updated data")
-            return None
-
-        return save_evaluation_data(evaluation_data, self.original_data_path)

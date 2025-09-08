@@ -7,8 +7,7 @@ import litellm
 from pydantic import BaseModel, Field
 
 from ..llm.manager import LLMManager
-from ..models import TurnData
-from ..output.statistics import EvaluationScope
+from ..models import EvaluationScope, TurnData
 from .tool_eval import evaluate_tool_calls
 
 

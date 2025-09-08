@@ -4,12 +4,6 @@ Main components:
 - EvaluationPipeline: Runs complete evaluation pipeline
 - Runner: Simple runner for command-line usage
 - Core modules organized by functionality (config, llm, metrics, output)
-
-Usage:
-    from lightspeed_evaluation import EvaluationPipeline, ConfigLoader
-    loader = ConfigLoader()
-    pipeline = EvaluationPipeline(loader)
-    results = pipeline.run_evaluation(evaluation_data)
 """
 
 __version__ = "0.1.0"
@@ -24,7 +18,6 @@ from .core.models import (
     LLMConfig,
     LoggingConfig,
     OutputConfig,
-    ToolCallData,
     TurnData,
     VisualizationConfig,
 )
@@ -50,7 +43,6 @@ __all__ = [
     "VisualizationConfig",
     "EvaluationData",
     "TurnData",
-    "ToolCallData",
     "EvaluationResult",
     "DataValidator",
     "LLMManager",

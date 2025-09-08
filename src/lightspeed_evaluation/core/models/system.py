@@ -2,16 +2,13 @@
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..constants import (
     DEFAULT_API_BASE,
     DEFAULT_API_TIMEOUT,
     DEFAULT_BASE_FILENAME,
-    DEFAULT_CSV_FORMAT,
     DEFAULT_ENDPOINT_TYPE,
-    DEFAULT_INCLUDE_GRAPHS,
-    DEFAULT_JSON_FORMAT,
     DEFAULT_LLM_MAX_TOKENS,
     DEFAULT_LLM_MODEL,
     DEFAULT_LLM_PROVIDER,
@@ -22,7 +19,6 @@ from ..constants import (
     DEFAULT_LOG_SHOW_TIMESTAMPS,
     DEFAULT_LOG_SOURCE_LEVEL,
     DEFAULT_OUTPUT_DIR,
-    DEFAULT_TXT_FORMAT,
     DEFAULT_VISUALIZATION_DPI,
     DEFAULT_VISUALIZATION_FIGSIZE,
     SUPPORTED_ENDPOINT_TYPES,
@@ -31,6 +27,8 @@ from ..constants import (
 
 class LLMConfig(BaseModel):
     """LLM configuration from system configuration."""
+
+    model_config = ConfigDict(extra="forbid")
 
     provider: str = Field(
         default=DEFAULT_LLM_PROVIDER,
@@ -60,21 +58,11 @@ class LLMConfig(BaseModel):
         description="Retry attempts for failed requests",
     )
 
-    @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "LLMConfig":
-        """Create LLMConfig from a plain dictionary."""
-        return cls(
-            provider=config_dict.get("provider", DEFAULT_LLM_PROVIDER),
-            model=config_dict.get("model", DEFAULT_LLM_MODEL),
-            temperature=config_dict.get("temperature", DEFAULT_LLM_TEMPERATURE),
-            max_tokens=config_dict.get("max_tokens", DEFAULT_LLM_MAX_TOKENS),
-            timeout=config_dict.get("timeout", DEFAULT_API_TIMEOUT),
-            num_retries=config_dict.get("num_retries", DEFAULT_LLM_RETRIES),
-        )
-
 
 class APIConfig(BaseModel):
     """API configuration for dynamic data generation."""
+
+    model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True, description="Enable API-based data generation")
     api_base: str = Field(
@@ -91,7 +79,9 @@ class APIConfig(BaseModel):
         default=DEFAULT_LLM_PROVIDER, description="LLM provider for API"
     )
     model: str = Field(default=DEFAULT_LLM_MODEL, description="LLM model for API")
-    no_tools: bool = Field(default=False, description="Disable tool usage in API calls")
+    no_tools: Optional[bool] = Field(
+        default=None, description="Disable tool usage in API calls"
+    )
     system_prompt: Optional[str] = Field(
         default=None, description="System prompt for API calls"
     )
@@ -108,28 +98,24 @@ class APIConfig(BaseModel):
 class OutputConfig(BaseModel):
     """Output configuration for evaluation results."""
 
+    model_config = ConfigDict(extra="forbid")
+
     output_dir: str = Field(
         default=DEFAULT_OUTPUT_DIR, description="Output directory for results"
     )
     base_filename: str = Field(
         default=DEFAULT_BASE_FILENAME, description="Base filename for output files"
     )
-    csv_format: bool = Field(
-        default=DEFAULT_CSV_FORMAT, description="Generate CSV output"
-    )
-    json_format: bool = Field(
-        default=DEFAULT_JSON_FORMAT, description="Generate JSON output"
-    )
-    txt_format: bool = Field(
-        default=DEFAULT_TXT_FORMAT, description="Generate TXT output"
-    )
-    include_graphs: bool = Field(
-        default=DEFAULT_INCLUDE_GRAPHS, description="Generate visualization graphs"
+    enabled_outputs: List[str] = Field(
+        default=["csv", "json", "txt", "graphs"],
+        description="List of enabled output types: csv, json, txt, graphs",
     )
 
 
 class LoggingConfig(BaseModel):
     """Logging configuration."""
+
+    model_config = ConfigDict(extra="forbid")
 
     source_level: str = Field(
         default=DEFAULT_LOG_SOURCE_LEVEL, description="Source code logging level"
@@ -143,10 +129,15 @@ class LoggingConfig(BaseModel):
     show_timestamps: bool = Field(
         default=DEFAULT_LOG_SHOW_TIMESTAMPS, description="Show timestamps in logs"
     )
+    package_overrides: Dict[str, str] = Field(
+        default_factory=dict, description="Package-specific log level overrides"
+    )
 
 
 class VisualizationConfig(BaseModel):
     """Visualization configuration for graphs and charts."""
+
+    model_config = ConfigDict(extra="forbid")
 
     figsize: List[int] = Field(
         default=DEFAULT_VISUALIZATION_FIGSIZE, description="Figure size [width, height]"
@@ -158,6 +149,8 @@ class VisualizationConfig(BaseModel):
 
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
+
+    model_config = ConfigDict(extra="forbid")
 
     # Individual configuration models
     llm: LLMConfig = Field(default_factory=LLMConfig, description="LLM configuration")

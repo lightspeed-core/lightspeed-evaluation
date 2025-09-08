@@ -65,6 +65,8 @@ class EvaluationErrorHandler:
                 )
                 error_results.append(error_result)
 
+        # Store results internally for summary tracking
+        self.results.extend(error_results)
         return error_results
 
     def get_error_summary(self) -> Dict[str, int]:

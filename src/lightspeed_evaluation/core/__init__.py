@@ -2,18 +2,12 @@
 
 from .llm import LLMManager
 from .models import EvaluationData, EvaluationResult, LLMConfig, TurnData
-from .system import (
-    ConfigLoader,
-    DataValidator,
-    SystemConfig,
-    setup_environment_variables,
-)
+from .system import ConfigLoader, DataValidator, SystemConfig
 
 __all__ = [
     # Configuration & data
     "ConfigLoader",
     "SystemConfig",
-    "setup_environment_variables",
     "DataValidator",
     # Data models
     "EvaluationData",

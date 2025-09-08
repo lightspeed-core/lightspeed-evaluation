@@ -3,24 +3,17 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..constants import SUPPORTED_RESULT_STATUSES
 
 logger = logging.getLogger(__name__)
 
 
-class ToolCallData(BaseModel):
-    """Individual tool call structure."""
-
-    name: str = Field(..., min_length=1, description="Tool name")
-    arguments: Dict[str, Any] = Field(
-        default_factory=dict, description="Tool arguments"
-    )
-
-
 class TurnData(BaseModel):
     """Individual turn data within a conversation."""
+
+    model_config = ConfigDict(extra="forbid")
 
     turn_id: str = Field(..., min_length=1, description="Turn ID (alphanumeric)")
     query: str = Field(..., min_length=1, description="Query")
@@ -32,7 +25,7 @@ class TurnData(BaseModel):
         min_length=1,
         description="Actual Response - populated by API if enabled",
     )
-    tool_calls: Optional[List[List[ToolCallData]]] = Field(
+    tool_calls: Optional[List[List[Dict[str, Any]]]] = Field(
         default=None, description="Actual Tool calls - populated by API if enabled"
     )
     contexts: Optional[List[str]] = Field(
@@ -41,7 +34,7 @@ class TurnData(BaseModel):
     expected_response: Optional[str] = Field(
         default=None, min_length=1, description="Expected response for comparison"
     )
-    expected_tool_calls: Optional[List[List[ToolCallData]]] = Field(
+    expected_tool_calls: Optional[List[List[Dict[str, Any]]]] = Field(
         default=None, description="Expected tool call sequences"
     )
     conversation_id: Optional[str] = Field(
@@ -52,51 +45,52 @@ class TurnData(BaseModel):
     @classmethod
     def validate_expected_tool_calls(
         cls, v: Optional[Any]
-    ) -> Optional[List[List[ToolCallData]]]:
+    ) -> Optional[List[List[Dict[str, Any]]]]:
         """Validate expected tool calls when provided."""
         if v is None:
             return None
 
-        # If it's already a List[List[ToolCallData]], return it
-        if isinstance(v, list) and all(isinstance(seq, list) for seq in v):
-            # Check if it's already ToolCallData objects
-            if all(isinstance(tool, ToolCallData) for seq in v for tool in seq):
-                return v
+        if not isinstance(v, list):
+            raise ValueError("Expected tool calls must be a list of sequences")
 
-        # If it's a list format from YAML, convert it to ToolCallData objects
-        if isinstance(v, list):
-            result = []
-            for sequence in v:
-                if not isinstance(sequence, list):
-                    raise ValueError("Each tool call sequence must be a list")
+        result = []
+        for i, sequence in enumerate(v):
+            if not isinstance(sequence, list):
+                raise ValueError(f"Sequence {i} must be a list")
 
-                tool_calls = []
-                for tool_call_dict in sequence:
-                    if isinstance(tool_call_dict, ToolCallData):
-                        tool_calls.append(tool_call_dict)
-                    elif isinstance(tool_call_dict, dict):
-                        name = tool_call_dict.get("name")
-                        if not name:
-                            raise ValueError("Tool call must have 'name' field")
+            tool_calls = []
+            for j, tool_call in enumerate(sequence):
+                if not isinstance(tool_call, dict):
+                    raise ValueError(
+                        f"Tool call {j} in sequence {i} must be a dictionary"
+                    )
 
-                        tool_calls.append(
-                            ToolCallData(
-                                name=name, arguments=tool_call_dict.get("arguments", {})
-                            )
-                        )
-                    else:
-                        raise ValueError(
-                            "Each tool call must be a dictionary or ToolCallData object"
-                        )
+                # Validate required keys
+                if "tool_name" not in tool_call:
+                    raise ValueError(
+                        f"Tool call {j} in sequence {i} missing required 'tool_name' field"
+                    )
 
-                result.append(tool_calls)
-            return result
+                if not tool_call["tool_name"]:
+                    raise ValueError(
+                        f"Tool call {j} in sequence {i} has empty 'tool_name' field"
+                    )
 
-        raise ValueError("Expected tool calls must be a list of sequences")
+                # Ensure arguments field exists (can be empty dict)
+                validated_tool_call = {
+                    "tool_name": tool_call["tool_name"],
+                    "arguments": tool_call.get("arguments", {}),
+                }
+                tool_calls.append(validated_tool_call)
+
+            result.append(tool_calls)
+        return result
 
 
 class EvaluationData(BaseModel):
     """Complete evaluation data for a conversation group."""
+
+    model_config = ConfigDict(extra="forbid")
 
     conversation_group_id: str = Field(
         ..., min_length=1, description="Unique conversation group identifier"
@@ -144,6 +138,8 @@ class EvaluationData(BaseModel):
 class EvaluationResult(BaseModel):
     """Single evaluation result."""
 
+    model_config = ConfigDict(extra="forbid")
+
     conversation_group_id: str = Field(
         ..., min_length=1, description="Conversation group identifier"
     )
@@ -179,3 +175,73 @@ class EvaluationResult(BaseModel):
         if v not in SUPPORTED_RESULT_STATUSES:
             raise ValueError(f"Result must be one of {SUPPORTED_RESULT_STATUSES}")
         return v
+
+
+class EvaluationScope(BaseModel):
+    """Scope and parameters for metric evaluation."""
+
+    turn_idx: Optional[int] = Field(
+        default=None, ge=0, description="Turn index for turn-level evaluation"
+    )
+    turn_data: Optional[TurnData] = Field(
+        default=None, description="Turn data for turn-level evaluation"
+    )
+    is_conversation: bool = Field(
+        default=False, description="Whether this is conversation-level evaluation"
+    )
+
+
+class EvaluationRequest(BaseModel):
+    """Evaluation request data model with validation."""
+
+    conv_data: EvaluationData = Field(..., description="Conversation data")
+    metric_identifier: str = Field(
+        ..., min_length=1, description="Metric identifier (e.g., 'ragas:faithfulness')"
+    )
+    is_conversation: bool = Field(
+        default=False, description="Whether this is conversation-level evaluation"
+    )
+    turn_idx: Optional[int] = Field(
+        default=None, ge=0, description="Turn index for turn-level evaluation"
+    )
+    turn_data: Optional[TurnData] = Field(
+        default=None, description="Turn data for turn-level evaluation"
+    )
+
+    # Computed field for convenience
+    turn_id: Optional[str] = Field(
+        default=None, description="Turn ID extracted from turn_data"
+    )
+
+    def model_post_init(self, context: Any, /) -> None:
+        """Post-initialization to set computed fields."""
+        if self.turn_data:
+            self.turn_id = self.turn_data.turn_id  # pylint: disable=no-member
+
+    @classmethod
+    def for_turn(
+        cls,
+        conv_data: EvaluationData,
+        metric_identifier: str,
+        turn_idx: int,
+        turn_data: TurnData,
+    ) -> "EvaluationRequest":
+        """Create request for turn-level evaluation."""
+        return cls(
+            conv_data=conv_data,
+            metric_identifier=metric_identifier,
+            is_conversation=False,
+            turn_idx=turn_idx,
+            turn_data=turn_data,
+        )
+
+    @classmethod
+    def for_conversation(
+        cls, conv_data: EvaluationData, metric_identifier: str
+    ) -> "EvaluationRequest":
+        """Create request for conversation-level evaluation."""
+        return cls(
+            conv_data=conv_data,
+            metric_identifier=metric_identifier,
+            is_conversation=True,
+        )

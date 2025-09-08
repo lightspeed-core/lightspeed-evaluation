@@ -145,5 +145,10 @@ class LLMManager:
     def from_system_config(cls, system_config: Dict[str, Any]) -> "LLMManager":
         """Create LLM Manager from system configuration."""
         llm_config_dict = system_config.get("llm", {})
-        config = LLMConfig.from_dict(llm_config_dict)
+        config = LLMConfig(**llm_config_dict)
         return cls(config)
+
+    @classmethod
+    def from_llm_config(cls, llm_config: LLMConfig) -> "LLMManager":
+        """Create LLM Manager from LLMConfig directly."""
+        return cls(llm_config)

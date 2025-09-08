@@ -2,14 +2,15 @@
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from .data import ToolCallData
 from ..constants import DEFAULT_LLM_MODEL, DEFAULT_LLM_PROVIDER
 
 
 class AttachmentData(BaseModel):
     """Individual attachment structure for API."""
+
+    model_config = ConfigDict(extra="forbid")
 
     attachment_type: str = Field(default="configuration", description="Attachment type")
     content: str = Field(..., description="Attachment content or reference")
@@ -19,10 +20,12 @@ class AttachmentData(BaseModel):
 class APIRequest(BaseModel):
     """API request model for dynamic data generation."""
 
+    model_config = ConfigDict(extra="forbid")
+
     query: str = Field(..., min_length=1, description="User query")
     provider: str = Field(default=DEFAULT_LLM_PROVIDER, description="LLM provider")
     model: str = Field(default=DEFAULT_LLM_MODEL, description="LLM model")
-    no_tools: bool = Field(default=False, description="Disable tool usage")
+    no_tools: Optional[bool] = Field(default=None, description="Disable tool usage")
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation ID for context"
     )
@@ -43,7 +46,7 @@ class APIRequest(BaseModel):
         # Extract parameters with defaults
         provider = kwargs.get("provider", DEFAULT_LLM_PROVIDER)
         model = kwargs.get("model", DEFAULT_LLM_MODEL)
-        no_tools = kwargs.get("no_tools", False)
+        no_tools = kwargs.get("no_tools")
         conversation_id = kwargs.get("conversation_id")
         system_prompt = kwargs.get("system_prompt")
         attachments = kwargs.get("attachments")
@@ -67,38 +70,29 @@ class APIRequest(BaseModel):
 class APIResponse(BaseModel):
     """API response model."""
 
+    model_config = ConfigDict(extra="forbid")
+
     response: str = Field(..., description="Response text from API")
     conversation_id: str = Field(
         ..., min_length=1, description="Conversation tracking ID"
     )
-    tool_calls: List[List[ToolCallData]] = Field(
+    tool_calls: List[List[Dict[str, Any]]] = Field(
         default_factory=list, description="Tool call sequences"
     )
-    contexts: List[str] = Field(
-        default_factory=list, description="Context from API"
-    )
+    contexts: List[str] = Field(default_factory=list, description="Context from API")
 
     @classmethod
     def from_raw_response(cls, raw_data: Dict[str, Any]) -> "APIResponse":
         """Create APIResponse from raw API response data."""
-        # Convert tool calls from List[List[Dict]] to List[List[ToolCallData]]
-        tool_call_sequences = []
-        raw_tool_calls = raw_data.get("tool_calls", [])
+        tool_call_sequences = raw_data.get("tool_calls", [])
 
-        for sequence in raw_tool_calls:
-            tool_call_sequence = []
-            for tool_call_dict in sequence:
-                tool_call_sequence.append(
-                    ToolCallData(
-                        name=tool_call_dict.get("name", ""),
-                        arguments=tool_call_dict.get("arguments", {}),
-                    )
-                )
-            tool_call_sequences.append(tool_call_sequence)
+        conversation_id = raw_data.get("conversation_id")
+        if not conversation_id:
+            raise ValueError("conversation_id is required in API response")
 
         return cls(
             response=raw_data["response"].strip(),
-            conversation_id=raw_data.get("conversation_id"),
+            conversation_id=conversation_id,
             tool_calls=tool_call_sequences,
             contexts=raw_data.get("contexts", []),  # Contexts from API output
         )

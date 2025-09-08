@@ -3,11 +3,11 @@
 import logging
 from typing import Dict, List
 
-from ...core.models import EvaluationData, EvaluationResult, TurnData
+from ...core.models import EvaluationData, EvaluationRequest, EvaluationResult, TurnData
 from ...core.system import ConfigLoader
 from .amender import APIDataAmender
 from .errors import EvaluationErrorHandler
-from .evaluator import EvaluationRequest, MetricsEvaluator
+from .evaluator import MetricsEvaluator
 
 logger = logging.getLogger(__name__)
 

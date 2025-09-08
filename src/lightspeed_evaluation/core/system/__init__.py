@@ -26,7 +26,6 @@ from ..constants import (
     SUPPORTED_RESULT_STATUSES,
 )
 from ..models import SystemConfig
-
 from .exceptions import (
     APIError,
     ConfigurationError,

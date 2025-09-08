@@ -1,19 +1,9 @@
 """Shared utilities for output and evaluation."""
 
 import statistics
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from ..models import EvaluationResult, TurnData
-
-
-@dataclass
-class EvaluationScope:
-    """Scope and parameters for metric evaluation."""
-
-    turn_idx: Optional[int] = None
-    turn_data: Optional[TurnData] = None
-    is_conversation: bool = False
+from ..models import EvaluationResult
 
 
 def calculate_basic_stats(results: List[EvaluationResult]) -> Dict[str, Any]:

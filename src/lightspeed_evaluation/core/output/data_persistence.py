@@ -11,6 +11,7 @@ from ..constants import DEFAULT_OUTPUT_DIR
 from ..models import EvaluationData
 
 
+# Use caching
 def save_evaluation_data(
     evaluation_data: List[EvaluationData],
     original_data_path: str,
@@ -32,8 +33,8 @@ def save_evaluation_data(
             output_path / f"{original_path.stem}_bkp_{timestamp}{original_path.suffix}"
         )
 
-        # Move original to backup
-        shutil.move(str(original_path), str(backup_path))
+        # Copy original to backup
+        shutil.copy2(str(original_path), str(backup_path))
         print(f"📋 Original file backed up: {backup_path}")
 
         # Save updated data to original filename
@@ -53,11 +54,5 @@ def save_evaluation_data(
 
     except (OSError, yaml.YAMLError) as e:
         print(f"❌ Failed to save updated evaluation data: {e}")
-        # Try to restore backup if it exists
-        if backup_path and backup_path.exists():
-            try:
-                shutil.move(str(backup_path), str(original_path))
-                print(f"🔄 Restored original file from backup: {original_path}")
-            except OSError as restore_error:
-                print(f"❌ Failed to restore backup: {restore_error}")
+        print(f"💾 Original file remains intact, backup available at: {backup_path}")
         return None

@@ -77,19 +77,19 @@ def _parse_sse_line(json_data: str) -> Optional[Tuple[str, Dict[str, Any]]]:
 def _parse_tool_call(token: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Parse tool call from token."""
     try:
-        name = token.get("tool_name")
+        tool_name = token.get("tool_name")
         arguments = token.get("arguments")
 
-        if not name:
+        if not tool_name:
             logger.debug("Tool call missing tool_name field")
             return None
 
         # Only process tool calls that explicitly have arguments field
         if arguments is None:
-            logger.debug("Tool call missing arguments field for %s", name)
+            logger.debug("Tool call missing arguments field for %s", tool_name)
             return None
 
-        return {"name": name, "arguments": arguments}
+        return {"tool_name": tool_name, "arguments": arguments}
 
     except (ValueError, IndexError, AttributeError) as e:
         logger.debug("Failed to parse tool call '%s': %s", token, e)

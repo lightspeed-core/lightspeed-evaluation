@@ -15,13 +15,13 @@ llm:
 api:
   enabled: true                        # Enable API calls instead of using pre-filled data
   api_base: http://localhost:8080      # Base API URL
-  endpoint_type: "streaming"           # Use "streaming" or "query" endpoint
+  endpoint_type: streaming             # Use "streaming" or "query" endpoint
   timeout: 300                         # API request timeout in seconds
 
   # API input configuration
   provider: "openai"                   # LLM provider for queries
   model: "gpt-4o-mini"                 # Model to use for queries
-  no_tools: false                      # Whether to bypass tools and MCP servers
+  no_tools: null                       # Whether to bypass tools and MCP servers (optional)
   system_prompt: null                  # System prompt (default None)
 
   # Authentication via API_KEY environment variable only for MCP server
@@ -33,83 +33,61 @@ metrics_metadata:
     # Ragas Response Evaluation metrics
     "ragas:faithfulness":
       threshold: 0.8
-      type: "turn"
       description: "How faithful the response is to the provided context"
-      framework: "ragas"
       
     "ragas:response_relevancy":
       threshold: 0.8
-      type: "turn"
       description: "How relevant the response is to the question"
-      framework: "ragas"
     
     # Ragas Context/Retrieval Evaluation metrics
     "ragas:context_recall":
       threshold: 0.8
-      type: "turn"
       description: "Did we fetch every fact the answer needs?"
-      framework: "ragas"
       
     "ragas:context_relevance":
       threshold: 0.7
-      type: "turn"
       description: "Is what we retrieved actually relevant to user query?"
-      framework: "ragas"
       
     "ragas:context_precision_with_reference":
       threshold: 0.7
-      type: "turn"
       description: "How precise the retrieved context is (with reference)"
-      framework: "ragas"
       
     "ragas:context_precision_without_reference":
       threshold: 0.7
-      type: "turn"
       description: "How precise the retrieved context is (without reference)"
-      framework: "ragas"
     
     # Custom metrics
     "custom:answer_correctness":
       threshold: 0.75
-      type: "turn"
       description: "Correctness vs expected answer using custom LLM evaluation"
-      framework: "custom"
 
     "custom:tool_eval":
-      type: "turn"
       description: "Tool call evaluation comparing expected vs actual tool calls"
-      framework: "custom"
   
   # Conversation-level metrics metadata
   conversation_level:
     # DeepEval metrics
     "deepeval:conversation_completeness":
       threshold: 0.8
-      type: "conversation"
       description: "How completely the conversation addresses user intentions"
-      framework: "deepeval"
       
     "deepeval:conversation_relevancy":
       threshold: 0.7
-      type: "conversation" 
       description: "How relevant the conversation is to the topic/context"
-      framework: "deepeval"
       
     "deepeval:knowledge_retention":
       threshold: 0.7
-      type: "conversation"
       description: "How well the model retains information from previous turns"
-      framework: "deepeval"
 
 # Output Configuration
 output:
-  base_directory: "./eval_output"
+  output_dir: "./eval_output"
   base_filename: "evaluation"
-  formats:
-    csv: true               # Detailed results CSV
-    json: true              # Summary JSON
-    txt: true               # Human-readable summary
-  include_graphs: true      # Generate visualization graphs
+  enabled_outputs:          # Enable specific output types
+    - csv                   # Detailed results CSV
+    - json                  # Summary JSON with statistics
+    - txt                   # Human-readable summary
+    - graphs                # Visualization
   
   # CSV columns to include
   csv_columns:
@@ -141,26 +119,26 @@ environment:
   DEEPEVAL_TELEMETRY_OPT_OUT: "YES"        # Disable DeepEval telemetry
   DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"     # Disable DeepEval progress bars
 
-  LITELLM_LOG_LEVEL: "ERROR"               # Suppress LiteLLM verbose logging
+  LITELLM_LOG_LEVEL: ERROR                 # Suppress LiteLLM verbose logging
 
 # Logging Configuration
 logging:
   # Source code logging level
-  source_level: "INFO"        # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  source_level: INFO          # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
   # Package logging level (imported libraries)
-  package_level: "ERROR"
+  package_level: ERROR
 
   # Log format and display options
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   show_timestamps: true
 
   # Specific package log levels (override package_level for specific libraries)
   package_overrides:
-    "httpx": "ERROR"
-    "urllib3": "ERROR"
-    "requests": "ERROR"
-    "matplotlib": "ERROR"
-    "openai": "ERROR"
-    "LiteLLM": "WARNING"
-    "DeepEval": "WARNING"
+    httpx: ERROR
+    urllib3: ERROR
+    requests: ERROR
+    matplotlib: ERROR
+    openai: ERROR
+    LiteLLM: WARNING
+    DeepEval: WARNING

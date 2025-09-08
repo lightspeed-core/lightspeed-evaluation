@@ -12,8 +12,7 @@ from deepeval.test_case import Turn as DeepEvalTurn
 
 from ..llm.deepeval import DeepEvalLLMManager
 from ..llm.manager import LLMManager
-from ..models import TurnData
-from ..output.statistics import EvaluationScope
+from ..models import EvaluationScope, TurnData
 
 
 class DeepEvalMetrics:

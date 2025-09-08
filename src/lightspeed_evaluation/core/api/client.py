@@ -40,7 +40,7 @@ class APIClient:
         default_config = {
             "provider": DEFAULT_LLM_PROVIDER,
             "model": DEFAULT_LLM_MODEL,
-            "no_tools": True,
+            "no_tools": None,
             "system_prompt": None,
         }
         self.llm_config = {**default_config, **(config or {})}
@@ -62,7 +62,10 @@ class APIClient:
         """Initialize API client with authentication."""
         try:
             # Enable verify, currently for eval it is set to False
-            self.client = httpx.Client(base_url=self.api_base, verify=False)
+            verify = False
+            self.client = httpx.Client(
+                base_url=self.api_base, verify=verify, timeout=self.timeout
+            )
             self.client.headers.update({"Content-Type": "application/json"})
 
             # Use API_KEY environment variable for authentication
@@ -123,7 +126,6 @@ class APIClient:
             response = self.client.post(
                 "/v1/query",
                 json=api_request.model_dump(exclude_none=True),
-                timeout=self.timeout,
             )
             response.raise_for_status()
 
@@ -141,7 +143,7 @@ class APIClient:
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
                         formatted_tool = {
-                            "name": tool_call.get("name", ""),
+                            "tool_name": tool_call.get("name", ""),
                             "arguments": tool_call.get("args", {}),
                         }
                         formatted_tool_calls.append([formatted_tool])
@@ -154,6 +156,10 @@ class APIClient:
             raise self._handle_timeout_error("standard", self.timeout) from e
         except httpx.HTTPStatusError as e:
             raise self._handle_http_error(e) from e
+        except ValueError as e:
+            raise self._handle_validation_error(e) from e
+        except APIError:
+            raise
         except Exception as e:
             raise self._handle_unexpected_error(e, "standard query") from e
 
@@ -166,7 +172,6 @@ class APIClient:
                 "POST",
                 "/v1/streaming_query",
                 json=api_request.model_dump(exclude_none=True),
-                timeout=self.timeout,
             ) as response:
                 self._handle_response_errors(response)
                 raw_data = parse_streaming_response(response)
@@ -178,6 +183,8 @@ class APIClient:
             raise APIError(str(e)) from e
         except ValueError as e:
             raise self._handle_validation_error(e) from e
+        except APIError:
+            raise
         except Exception as e:
             raise self._handle_unexpected_error(e, "streaming query") from e
 
