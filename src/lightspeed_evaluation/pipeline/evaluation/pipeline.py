@@ -1,0 +1,158 @@
+"""Evaluation Pipeline - Main evaluation orchestrator."""
+
+import logging
+from typing import List, Optional
+
+from ...core.api import APIClient
+from ...core.llm.manager import LLMManager
+from ...core.models import EvaluationData, EvaluationResult
+from ...core.system import ConfigLoader, DataValidator
+from .amender import APIDataAmender
+from .errors import EvaluationErrorHandler
+from .evaluator import MetricsEvaluator
+from .processor import ConversationProcessor
+
+logger = logging.getLogger(__name__)
+
+
+class EvaluationPipeline:
+    """Evaluation pipeline - orchestrates the evaluation process through different stages.
+
+    Responsibilities:
+    - Initialize and coordinate components
+    - Validate data
+    - Orchestrate evaluation flow
+    - Collect results
+    - Save updated data
+    """
+
+    def __init__(self, config_loader: ConfigLoader):
+        """Initialize evaluation pipeline with config and create components."""
+        self.config_loader = config_loader
+        self.config = config_loader.system_config
+        if not self.config:
+            raise ValueError("SystemConfig must be loaded before initializing pipeline")
+        self.results: List[EvaluationResult] = []
+
+        # Initialize components
+        self._initialize_components()
+        logger.info("Evaluation Pipeline initialized")
+
+    def _initialize_components(self) -> None:
+        """Initialize all required components."""
+        # Data validator
+        if self.config is None:
+            raise ValueError(
+                "SystemConfig must be loaded before initializing components"
+            )
+        self.data_validator = DataValidator(api_enabled=self.config.api.enabled)
+
+        # LLM Manager
+        system_config_dict = self.config_loader.get_llm_config_dict()
+        llm_manager = LLMManager.from_system_config(system_config_dict)
+
+        # Create pipeline components
+        api_client = self._create_api_client()
+        api_amender = APIDataAmender(api_client)
+        error_handler = EvaluationErrorHandler()
+        metrics_evaluator = MetricsEvaluator(llm_manager, self.config_loader)
+        # Group components for easier access
+        self.components = {
+            "api_client": api_client,
+            "api_amender": api_amender,
+            "error_handler": error_handler,
+            "metrics_evaluator": metrics_evaluator,
+        }
+
+        # Conversation processor
+        self.conversation_processor = ConversationProcessor(
+            self.config_loader,
+            self.components["metrics_evaluator"],
+            self.components["api_amender"],
+            self.components["error_handler"],
+        )
+
+    def _create_api_client(self) -> Optional[APIClient]:
+        """Create API client if enabled."""
+        if self.config is None:
+            raise ValueError("SystemConfig must be loaded before creating API client")
+        if not self.config.api.enabled:
+            return None
+
+        api_config = self.config.api
+        logger.info("Setting up API client: %s", api_config.api_base)
+
+        client = APIClient(
+            api_base=api_config.api_base,
+            config={
+                "provider": api_config.provider,
+                "model": api_config.model,
+                "no_tools": api_config.no_tools,
+                "system_prompt": api_config.system_prompt,
+            },
+            endpoint_type=api_config.endpoint_type,
+            timeout=api_config.timeout,
+        )
+
+        logger.info("API client initialized for %s endpoint", api_config.endpoint_type)
+        return client
+
+    def validate_data(self, evaluation_data: List[EvaluationData]) -> bool:
+        """Validate evaluation data using data validator."""
+        return self.data_validator.validate_evaluation_data(evaluation_data)
+
+    def run_evaluation(
+        self, evaluation_data: List[EvaluationData]
+    ) -> List[EvaluationResult]:
+        """Run evaluation on provided data.
+
+        Args:
+            evaluation_data: List of conversation data to evaluate
+
+        Returns:
+            List of evaluation results.
+        """
+        logger.info("Starting evaluation")
+        self.results = []
+
+        # Step 1: Validate data
+        logger.info("Validating data")
+        if not self.validate_data(evaluation_data):
+            raise ValueError("Data validation failed. Cannot proceed with evaluation.")
+
+        # Step 2: Process each conversation
+        logger.info("Processing conversations")
+        for conv_data in evaluation_data:
+            conv_results = self.conversation_processor.process_conversation(conv_data)
+            self.results.extend(conv_results)
+
+        # Step 3: Save updated data if API was used
+        if self.config is None:
+            raise ValueError("SystemConfig must be loaded")
+        if self.config.api.enabled:
+            logger.info("Saving updated evaluation data")
+            self._save_updated_data(evaluation_data)
+
+        logger.info("Evaluation complete: %d results generated", len(self.results))
+        return self.results
+
+    def _save_updated_data(self, evaluation_data: List[EvaluationData]) -> None:
+        """Save updated evaluation data with API amendments."""
+        try:
+            updated_file = self.data_validator.save_updated_evaluation_data(
+                evaluation_data
+            )
+            if updated_file:
+                logger.info("Updated data saved: %s", updated_file)
+                logger.info(
+                    "Next run with same file will skip API calls (uses amended data)"
+                )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Don't fail the evaluation if saving fails
+            logger.warning("Failed to save updated data: %s", e)
+
+    def close(self) -> None:
+        """Clean up resources."""
+        api_client = self.components.get("api_client")
+        if api_client:
+            api_client.close()
