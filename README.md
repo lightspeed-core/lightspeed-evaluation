@@ -131,11 +131,12 @@ metrics_metadata:
 ### Development Tools
 ```bash
 uv sync --group dev
-uv run black .
-uv run ruff check .
-uv run mypy .
-uv run pyright .
-uv run pylint .
+make format
+make pylint
+make pyright
+make docstyle
+make check-types
+
 uv run pytest tests --cov=src
 ```
 
