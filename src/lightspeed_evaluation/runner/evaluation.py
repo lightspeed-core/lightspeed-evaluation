@@ -6,16 +6,17 @@ import traceback
 from pathlib import Path
 from typing import Dict, Optional
 
-from ..core.config import ConfigLoader, DataValidator, setup_environment_variables
 from ..core.output import OutputHandler
 from ..core.output.statistics import calculate_basic_stats
-from ..drivers.evaluation import EvaluationDriver
+from ..core.system import ConfigLoader, DataValidator
+from ..core.system.setup import setup_environment_variables
+from ..pipeline.evaluation import EvaluationPipeline
 
 
 def run_evaluation(
     system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
 ) -> Optional[Dict[str, int]]:
-    """Run the complete evaluation pipeline using EvaluationDriver.
+    """Run the complete evaluation pipeline using EvaluationPipeline.
 
     Args:
         system_config_path: Path to system.yaml
@@ -37,42 +38,42 @@ def run_evaluation(
         data_validator = DataValidator()
         evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
 
-        print(
-            f"✅ System config: {system_config.llm_provider}/{system_config.llm_model}"
-        )
+        config_dict = system_config.model_dump()
+        llm_info = config_dict["llm"]
+        output_info = config_dict["output"]
+        print(f"✅ System config: {llm_info['provider']}/{llm_info['model']}")
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
 
-        # Step 2: Initialize evaluation driver (core controller)
-        print("\n⚙️ Initializing Evaluation Driver...")
-        driver = EvaluationDriver(loader)
+        # Step 2: Initialize evaluation pipeline
+        print("\n⚙️ Initializing Evaluation Pipeline...")
+        pipeline = EvaluationPipeline(loader)
 
-        # Step 3: Run evaluation (driver controls the flow)
+        # Step 3: Run evaluation (pipeline controls the flow)
         print("\n🔄 Running Evaluation...")
-        results = driver.run_evaluation(evaluation_data)
+        results = pipeline.run_evaluation(evaluation_data)
 
-        # Step 4: Generate reports
+        # Step 4: Generate reports and calculate stats
         print("\n📊 Generating Reports...")
         output_handler = OutputHandler(
-            output_dir=output_dir or system_config.output_dir,
-            base_filename=system_config.base_filename,
+            output_dir=output_dir or output_info["output_dir"],
+            base_filename=output_info["base_filename"],
             system_config=system_config,
         )
 
+        # Generate reports
         output_handler.generate_reports(
-            results, include_graphs=system_config.include_graphs
+            results, include_graphs=output_info["include_graphs"]
         )
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
         print(f"📁 Reports generated in: {output_handler.output_dir}")
 
-        # Calculate and show summary
+        # Step 4: Final Summary
         summary = calculate_basic_stats(results)
-
         print(
             f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, ⚠️ Error: {summary['ERROR']}"
         )
-
         if summary["ERROR"] > 0:
             print(
                 f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report"
