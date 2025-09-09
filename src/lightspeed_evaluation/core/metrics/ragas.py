@@ -101,13 +101,13 @@ class RagasMetrics:
                 f"connection issue: {str(e)}",
             )
         except OSError as e:
+            err_msg = f"Ragas {metric_name} evaluation failed: {str(e)}"
             if e.errno == 32:  # Broken pipe
-                return (
-                    None,
+                err_msg = (
                     f"Ragas {metric_name} evaluation failed due to broken pipe "
-                    f"(network/LLM timeout): {str(e)}",
+                    f"(network/LLM timeout): {str(e)}"
                 )
-            return None, f"Ragas {metric_name} evaluation failed: {str(e)}"
+            return None, err_msg
         except (RuntimeError, ValueError, TypeError, ImportError) as e:
             return None, f"Ragas {metric_name} evaluation failed: {str(e)}"
 
