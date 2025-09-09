@@ -60,7 +60,10 @@ class TestEvaluationRunner:
             eval_id="test_001",
             eval_query="What is Openshift Virtualization?",
             eval_types=["response_eval:accuracy"],
-            expected_response="OpenShift Virtualization is an extension of the OpenShift Container Platform",
+            expected_response=(
+                "OpenShift Virtualization is an extension "
+                "of the OpenShift Container Platform"
+            ),
         )
 
     @pytest.fixture
@@ -95,6 +98,16 @@ class TestEvaluationRunner:
             eval_query="What is Podman?",
             eval_types=["response_eval:sub-string"],
             expected_keywords=["container", "podman"],
+        )
+
+    @pytest.fixture
+    def sample_config_intent(self):
+        """Sample intent evaluation configuration."""
+        return EvaluationDataConfig(
+            eval_id="test_004",
+            eval_query="How do I scale my deployment?",
+            eval_types=["response_eval:intent"],
+            expected_intent="provide instructions",
         )
 
     def test_init(self, mock_agent_client, mock_script_runner, mock_judge_manager):
@@ -501,6 +514,145 @@ class TestEvaluationRunner:
             [[{"tool_name": "correct_tool", "arguments": {}}]],
             [[{"tool_name": "wrong_tool", "arguments": {}}]],
         )
+
+    def test_run_evaluation_intent_success(
+        self,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+        sample_config_intent,
+    ):
+        """Test successful intent evaluation."""
+        # Mock agent response that has instructional intent
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, timeout=300: {
+                "response": (
+                    "To scale your deployment, use the following command: "
+                    "kubectl scale deployment <name> --replicas=<number>. "
+                    "First, identify your deployment name with kubectl get deployments."
+                ),
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
+        )
+
+        # Mock judge to return 1 (response has instructional intent)
+        mock_judge_manager.evaluate_response.return_value = "1"
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+
+        results = runner.run_evaluation(
+            sample_config_intent,
+            "openai",
+            "gpt-4",
+            "conv-intent-123",
+        )
+
+        assert len(results) == 1
+        result = results[0]
+        assert result.eval_id == "test_004"
+        assert result.eval_type == "response_eval:intent"
+        assert result.result == "PASS"
+        assert result.error is None
+
+        # Verify judge was called
+        mock_judge_manager.evaluate_response.assert_called_once()
+
+    def test_run_evaluation_intent_failure(
+        self,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+        sample_config_intent,
+    ):
+        """Test failed intent evaluation."""
+        # Mock agent response that doesn't have instructional intent
+        # (has explanatory intent instead)
+        mock_agent_client.streaming_query_agent.side_effect = (
+            lambda api_input, timeout=300: {
+                "response": (
+                    "Deployment scaling is an important concept in Kubernetes "
+                    "that allows you to adjust the number of pod replicas."
+                ),
+                "conversation_id": api_input.get(
+                    "conversation_id", "test-conversation-id"
+                ),
+                "tool_calls": [],
+            }
+        )
+
+        # Mock judge to return 0 (response doesn't have expected instructional intent)
+        mock_judge_manager.evaluate_response.return_value = "0"
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+
+        results = runner.run_evaluation(
+            sample_config_intent,
+            "openai",
+            "gpt-4",
+            "conv-intent-456",
+        )
+
+        result = results[0]
+        assert result.result == "FAIL"
+        assert result.eval_type == "response_eval:intent"
+        assert result.error is None
+
+    def test_run_evaluation_intent_no_judge_manager(
+        self,
+        mock_agent_client,
+        mock_script_runner,
+        sample_config_intent,
+    ):
+        """Test intent evaluation without judge manager."""
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner
+        )  # No judge manager
+
+        results = runner.run_evaluation(
+            sample_config_intent,
+            "openai",
+            "gpt-4",
+            "conv-intent-789",
+        )
+
+        result = results[0]
+        assert result.result == "FAIL"  # Should fail without judge
+        assert result.eval_type == "response_eval:intent"
+        assert result.error is None
+
+    def test_run_evaluation_intent_invalid_judge_response(
+        self,
+        mock_agent_client,
+        mock_script_runner,
+        mock_judge_manager,
+        sample_config_intent,
+    ):
+        """Test intent evaluation with invalid judge response."""
+        # Mock judge to return invalid response
+        mock_judge_manager.evaluate_response.return_value = "invalid"
+
+        runner = EvaluationRunner(
+            mock_agent_client, mock_script_runner, mock_judge_manager
+        )
+
+        results = runner.run_evaluation(
+            sample_config_intent,
+            "openai",
+            "gpt-4",
+            "conv-intent-999",
+        )
+
+        result = results[0]
+        assert result.result == "ERROR"
+        assert result.eval_type == "response_eval:intent"
+        assert "Invalid response from the judge model" in result.error
 
     def test_conversation_id_propagation(
         self, mock_agent_client, mock_script_runner, mock_judge_manager

@@ -202,6 +202,28 @@ class AgentGoalEval:
         return results
 
     @staticmethod
+    def _print_expected_values(
+        data_config: "EvaluationDataConfig",
+        results: list["EvaluationResult"],
+        pbar: tqdm,
+    ) -> None:
+        """Print expected values for debugging."""
+        if data_config.expected_keywords:
+            pbar.write(
+                f"   Expected keywords: {','.join(data_config.expected_keywords)}"
+            )
+        if data_config.expected_response:
+            pbar.write(f"   Expected response: {data_config.expected_response}")
+        # Check for expected_intent in results (for intent evaluation)
+        intent_result = next((r for r in results if r.expected_intent), None)
+        if intent_result and intent_result.expected_intent:
+            pbar.write(f"   Expected intent: {intent_result.expected_intent}")
+        if data_config.expected_tool_calls:
+            pbar.write(f"   Expected tool calls: {data_config.expected_tool_calls}")
+        if data_config.eval_verify_script:
+            pbar.write(f"   Verify script: {data_config.eval_verify_script}")
+
+    @staticmethod
     def _print_individual_results(
         data_config: "EvaluationDataConfig",
         results: list["EvaluationResult"],
@@ -237,16 +259,7 @@ class AgentGoalEval:
                 pbar.write(f"   Tool Calls: {tc}")
 
             # Print expected values for debugging
-            if data_config.expected_keywords:
-                pbar.write(
-                    f"   Expected keywords: {','.join(data_config.expected_keywords)}"
-                )
-            if data_config.expected_response:
-                pbar.write(f"   Expected response: {data_config.expected_response}")
-            if data_config.expected_tool_calls:
-                pbar.write(f"   Expected tool calls: {data_config.expected_tool_calls}")
-            if data_config.eval_verify_script:
-                pbar.write(f"   Verify script: {data_config.eval_verify_script}")
+            AgentGoalEval._print_expected_values(data_config, results, pbar)
 
             pbar.write("   Individual results:")
             for result in results:

@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from ..utils.exceptions import AgentAPIError, JudgeModelError, ScriptExecutionError
-from ..utils.prompt import ANSWER_CORRECTNESS_PROMPT
+from ..utils.prompt import ANSWER_CORRECTNESS_PROMPT, INTENT_DETECTION_PROMPT
 from .tool_call_eval import compare_tool_calls
 from .utils import create_evaluation_results
 
@@ -122,6 +122,8 @@ class EvaluationRunner:
                 return self._evaluate_substring(data_config, response)
             case "response_eval:accuracy":
                 return self._evaluate_judge_llm(data_config, response)
+            case "response_eval:intent":
+                return self._evaluate_intent(data_config, response)
             # TODO(future): Consider always running tool_eval if tool_calls are present
             case "tool_eval":
                 return self._evaluate_tools(data_config, tool_calls or [])
@@ -180,6 +182,41 @@ class EvaluationRunner:
         prompt = ANSWER_CORRECTNESS_PROMPT.format(
             question=data_config.eval_query,
             answer=data_config.expected_response,
+            response=response,
+        )
+        judge_resp = self.judge_manager.evaluate_response(prompt)
+
+        # Extract numeric result (looking for 1 or 0)
+        result = self._extract_numeric_result(judge_resp)
+        return result == 1
+
+    def _evaluate_intent(
+        self, data_config: "EvaluationDataConfig", response: str
+    ) -> bool:
+        """Evaluate whether the response has the expected intent using judge LLM.
+
+        Args:
+            data_config: Configuration containing eval_query and expected_intent.
+            response: The actual response from the agent to evaluate.
+
+        Returns:
+            True if the response demonstrates the expected intent, False otherwise.
+
+        Raises:
+            JudgeModelError: If judge model evaluation fails.
+        """
+        if not self.judge_manager:
+            logger.error("Judge model manager not available for intent evaluation")
+            return False
+
+        if not data_config.expected_intent:
+            logger.error("Expected intent not provided for intent evaluation")
+            return False
+
+        # Format prompt with parameters
+        prompt = INTENT_DETECTION_PROMPT.format(
+            question=data_config.eval_query,
+            intent=data_config.expected_intent,
             response=response,
         )
         judge_resp = self.judge_manager.evaluate_response(prompt)

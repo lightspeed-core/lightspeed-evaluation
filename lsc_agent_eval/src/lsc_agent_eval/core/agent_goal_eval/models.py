@@ -15,6 +15,10 @@ EVAL_TYPE_REQUIREMENTS = {
         "expected_keywords",
         "requires non-empty 'expected_keywords'",
     ),
+    "response_eval:intent": (
+        "expected_intent",
+        "requires non-empty 'expected_intent'",
+    ),
     "action_eval": ("eval_verify_script", "requires non-empty 'eval_verify_script'"),
     "tool_eval": ("expected_tool_calls", "requires non-empty 'expected_tool_calls'"),
 }
@@ -102,7 +106,8 @@ class EvaluationDataConfig(BaseModel):
         min_length=1,
         description=(
             "List of evaluation types."
-            " -> action_eval, tool_eval, response_eval:sub-string, response_eval:accuracy"
+            " -> action_eval, tool_eval, response_eval:sub-string, "
+            "response_eval:accuracy, response_eval:intent"
         ),
     )
     expected_response: Optional[str] = Field(
@@ -110,6 +115,14 @@ class EvaluationDataConfig(BaseModel):
     )
     expected_keywords: Optional[list[str]] = Field(
         None, min_length=1, description="List of expected keywords for sub-string"
+    )
+    expected_intent: Optional[str] = Field(
+        None,
+        min_length=1,
+        description=(
+            "Expected intent/purpose of the LLM's response "
+            "(e.g., 'provide instructions', 'explain concept', 'refuse request')"
+        ),
     )
     expected_tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
         None, min_length=1, description="Expected tool calls for tools evaluation"
@@ -256,6 +269,9 @@ class EvaluationResult(BaseModel):
     conversation_group: Optional[str] = Field(None, description="Conversation group")
     conversation_id: Optional[str] = Field(None, description="Conversation ID")
     error: Optional[str] = Field(None, description="Error message if any")
+    expected_intent: Optional[str] = Field(
+        None, description="Expected intent for intent evaluation"
+    )
 
     @field_validator("result")
     @classmethod
