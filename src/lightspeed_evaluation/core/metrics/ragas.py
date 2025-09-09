@@ -1,5 +1,6 @@
 """Ragas metrics evaluation using LLM Manager."""
 
+import math
 from typing import Any, Optional
 
 from datasets import Dataset
@@ -90,7 +91,7 @@ class RagasMetrics:
             return None, f"Unsupported Ragas metric: {metric_name}"
 
         try:
-            return self.supported_metrics[metric_name](
+            result = self.supported_metrics[metric_name](
                 conv_data, scope.turn_idx, scope.turn_data, scope.is_conversation
             )
         except BrokenPipeError as e:
@@ -109,6 +110,17 @@ class RagasMetrics:
             return None, f"Ragas {metric_name} evaluation failed: {str(e)}"
         except (RuntimeError, ValueError, TypeError, ImportError) as e:
             return None, f"Ragas {metric_name} evaluation failed: {str(e)}"
+
+        # Ragas returns float('NaN') when it cannot parse the output from the
+        # LLM (OutputParserException)
+        if result[0] is not None and math.isnan(result[0]):
+            return (
+                None,
+                f"Ragas {metric_name} evaluation failed due to malformed "
+                "output from the LLM",
+            )
+
+        return result
 
     def _evaluate_response_relevancy(
         self,
