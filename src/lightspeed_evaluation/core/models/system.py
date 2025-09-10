@@ -21,7 +21,10 @@ from ..constants import (
     DEFAULT_OUTPUT_DIR,
     DEFAULT_VISUALIZATION_DPI,
     DEFAULT_VISUALIZATION_FIGSIZE,
+    SUPPORTED_CSV_COLUMNS,
     SUPPORTED_ENDPOINT_TYPES,
+    SUPPORTED_GRAPH_TYPES,
+    SUPPORTED_OUTPUT_TYPES,
 )
 
 
@@ -107,9 +110,37 @@ class OutputConfig(BaseModel):
         default=DEFAULT_BASE_FILENAME, description="Base filename for output files"
     )
     enabled_outputs: List[str] = Field(
-        default=["csv", "json", "txt", "graphs"],
-        description="List of enabled output types: csv, json, txt, graphs",
+        default=SUPPORTED_OUTPUT_TYPES,
+        description="List of enabled output types: csv, json, txt",
     )
+    csv_columns: List[str] = Field(
+        default=SUPPORTED_CSV_COLUMNS,
+        description="CSV columns to include in detailed results",
+    )
+
+    @field_validator("csv_columns")
+    @classmethod
+    def validate_csv_columns(cls, v: List[str]) -> List[str]:
+        """Validate that all CSV columns are supported."""
+        for column in v:
+            if column not in SUPPORTED_CSV_COLUMNS:
+                raise ValueError(
+                    f"Unsupported CSV column: {column}. "
+                    f"Supported columns: {SUPPORTED_CSV_COLUMNS}"
+                )
+        return v
+
+    @field_validator("enabled_outputs")
+    @classmethod
+    def validate_enabled_outputs(cls, v: List[str]) -> List[str]:
+        """Validate that all enabled outputs are supported."""
+        for output_type in v:
+            if output_type not in SUPPORTED_OUTPUT_TYPES:
+                raise ValueError(
+                    f"Unsupported output type: {output_type}. "
+                    f"Supported types: {SUPPORTED_OUTPUT_TYPES}"
+                )
+        return v
 
 
 class LoggingConfig(BaseModel):
@@ -145,6 +176,22 @@ class VisualizationConfig(BaseModel):
     dpi: int = Field(
         default=DEFAULT_VISUALIZATION_DPI, ge=50, description="Resolution in DPI"
     )
+    enabled_graphs: List[str] = Field(
+        default=[],
+        description="List of graph types to generate",
+    )
+
+    @field_validator("enabled_graphs")
+    @classmethod
+    def validate_enabled_graphs(cls, v: List[str]) -> List[str]:
+        """Validate that all enabled graphs are supported."""
+        for graph_type in v:
+            if graph_type not in SUPPORTED_GRAPH_TYPES:
+                raise ValueError(
+                    f"Unsupported graph type: {graph_type}. "
+                    f"Supported types: {SUPPORTED_GRAPH_TYPES}"
+                )
+        return v
 
 
 class SystemConfig(BaseModel):

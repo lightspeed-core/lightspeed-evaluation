@@ -13,17 +13,33 @@ DEFAULT_LLM_RETRIES = 3
 
 DEFAULT_OUTPUT_DIR = "./eval_output"
 DEFAULT_BASE_FILENAME = "evaluation"
-DEFAULT_CSV_FORMAT = True
-DEFAULT_JSON_FORMAT = True
-DEFAULT_TXT_FORMAT = True
-DEFAULT_INCLUDE_GRAPHS = True
+
+SUPPORTED_OUTPUT_TYPES = ["csv", "json", "txt"]
+SUPPORTED_CSV_COLUMNS = [
+    "conversation_group_id",
+    "turn_id",
+    "metric_identifier",
+    "result",
+    "score",
+    "threshold",
+    "reason",
+    "execution_time",
+    "query",
+    "response",
+]
+SUPPORTED_GRAPH_TYPES = [
+    "pass_rates",
+    "score_distribution",
+    "conversation_heatmap",
+    "status_breakdown",
+]
+
+DEFAULT_VISUALIZATION_FIGSIZE = [12, 8]
+DEFAULT_VISUALIZATION_DPI = 300
 
 DEFAULT_LOG_SOURCE_LEVEL = "INFO"
 DEFAULT_LOG_PACKAGE_LEVEL = "WARNING"
 DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 DEFAULT_LOG_SHOW_TIMESTAMPS = True
-
-DEFAULT_VISUALIZATION_FIGSIZE = [12, 8]
-DEFAULT_VISUALIZATION_DPI = 300
 
 SUPPORTED_RESULT_STATUSES = ["PASS", "FAIL", "ERROR"]

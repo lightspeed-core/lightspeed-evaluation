@@ -87,7 +87,6 @@ output:
     - csv                   # Detailed results CSV
     - json                  # Summary JSON with statistics
     - txt                   # Human-readable summary
-    - graphs                # Visualization
   
   # CSV columns to include
   csv_columns:

@@ -62,10 +62,8 @@ def run_evaluation(
             system_config=system_config,
         )
 
-        # Generate reports
-        output_handler.generate_reports(
-            results, include_graphs="graphs" in output_config.enabled_outputs
-        )
+        # Generate reports based on configuration
+        output_handler.generate_reports(results)
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
