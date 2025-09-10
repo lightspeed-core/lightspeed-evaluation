@@ -138,6 +138,6 @@ logging:
     urllib3: ERROR
     requests: ERROR
     matplotlib: ERROR
-    openai: ERROR
     LiteLLM: WARNING
     DeepEval: WARNING
+    ragas: WARNING

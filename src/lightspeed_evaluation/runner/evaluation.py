@@ -5,13 +5,11 @@ import sys
 import traceback
 from typing import Dict, Optional
 
-from ..core.output import OutputHandler
-from ..core.output.statistics import calculate_basic_stats
-from ..core.system import ConfigLoader, DataValidator
-from ..pipeline.evaluation import EvaluationPipeline
+# Import only lightweight modules at top level
+from ..core.system import ConfigLoader
 
 
-def run_evaluation(
+def run_evaluation(  # pylint: disable=too-many-locals
     system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
 ) -> Optional[Dict[str, int]]:
     """Run the complete evaluation pipeline using EvaluationPipeline.
@@ -28,10 +26,23 @@ def run_evaluation(
     print("=" * 50)
 
     try:
-        # Step 1: Load configuration
-        print("\n📋 Loading Configuration...")
+        # Step 0: Setup environment from config
+        print("🔧 Loading Configuration & Setting up environment and logging...")
         loader = ConfigLoader()
         system_config = loader.load_system_config(system_config_path)
+
+        # pylint: disable=import-outside-toplevel
+
+        # Step 1: Import heavy modules once environment & logging is set
+        print("\n📋 Loading Heavy Modules...")
+        from ..core.output import OutputHandler
+        from ..core.output.statistics import calculate_basic_stats
+        from ..core.system import DataValidator
+        from ..pipeline.evaluation import EvaluationPipeline
+
+        # pylint: enable=import-outside-toplevel
+
+        print("✅ Environment setup complete, modules loaded")
 
         llm_config = system_config.llm
         output_config = system_config.output
@@ -51,7 +62,6 @@ def run_evaluation(
         try:
             results = pipeline.run_evaluation(evaluation_data, evaluation_data_path)
         finally:
-            # Ensure pipeline resources are cleaned up
             pipeline.close()
 
         # Step 4: Generate reports and calculate stats
@@ -111,7 +121,6 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Run evaluation - environment setup now happens in ConfigLoader
     summary = run_evaluation(args.system_config, args.eval_data, args.output_dir)
 
     return 0 if summary is not None else 1

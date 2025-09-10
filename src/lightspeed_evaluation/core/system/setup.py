@@ -51,16 +51,13 @@ def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
 
     # Apply default package level to commonly problematic packages if not explicitly configured
     default_noisy_packages = [
+        "httpx",
         "urllib3",
         "requests",
-        "httpx",
-        "openai",
-        "anthropic",
-        "litellm",
-        "ragas",
-        "deepeval",
         "matplotlib",
-        "seaborn",
+        "LiteLLM",
+        "DeepEval",
+        "ragas",
     ]
 
     for package_name in default_noisy_packages:
