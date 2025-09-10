@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from lightspeed_evaluation.core.config.models import LLMConfig
 from lightspeed_evaluation.core.llm.manager import LLMError, LLMManager
+from lightspeed_evaluation.core.models import LLMConfig
 
 
 class TestLLMError:

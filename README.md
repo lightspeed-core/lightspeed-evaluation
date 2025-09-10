@@ -2,6 +2,8 @@
 
 A comprehensive framework for evaluating GenAI applications.
 
+**This is WIP; We are actively working to add more features, fix any issues & add more examples. Please give a try,  provide your feedback & report any bug.**
+
 ## 🎯 Key Features
 
 - **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations

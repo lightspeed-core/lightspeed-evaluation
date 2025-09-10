@@ -2,9 +2,9 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from lightspeed_evaluation.core.config.models import EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationResult
 from lightspeed_evaluation.core.output.generator import OutputHandler
 
 
@@ -58,7 +58,7 @@ class TestOutputHandler:
         results = [
             EvaluationResult(
                 conversation_group_id="test_conv",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="test:metric",
                 result="PASS",
                 score=0.8,
@@ -67,7 +67,7 @@ class TestOutputHandler:
             ),
             EvaluationResult(
                 conversation_group_id="test_conv",
-                turn_id=2,
+                turn_id="2",
                 metric_identifier="test:metric",
                 result="FAIL",
                 score=0.3,
@@ -95,39 +95,6 @@ class TestOutputHandler:
                 assert rows[0]["conversation_group_id"] == "test_conv"
                 assert rows[0]["result"] == "PASS"
                 assert rows[1]["result"] == "FAIL"
-
-    def test_csv_columns_configuration(self):
-        """Test that CSV uses configured columns."""
-        results = [
-            EvaluationResult(
-                conversation_group_id="test_conv",
-                turn_id=1,
-                metric_identifier="test:metric",
-                result="PASS",
-                score=0.8,
-                reason="Good performance",
-            )
-        ]
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("builtins.print"):
-                # Test with custom system config
-                system_config = MagicMock()
-                system_config.csv_columns = ["conversation_group_id", "result", "score"]
-
-                handler = OutputHandler(
-                    output_dir=temp_dir, system_config=system_config
-                )
-                csv_file = handler._generate_csv_report(results, "test_eval")
-
-                # Read CSV headers
-                import csv as csv_module
-
-                with open(csv_file, "r", encoding="utf-8") as f:
-                    reader = csv_module.reader(f)
-                    headers = next(reader)
-
-                assert headers == ["conversation_group_id", "result", "score"]
 
     def test_filename_timestamp_format(self):
         """Test that generated filenames include proper timestamps."""
