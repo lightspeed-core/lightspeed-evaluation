@@ -1,6 +1,6 @@
 """Data validation of input data before evaluation."""
 
-from typing import List, Optional
+from typing import Optional
 
 import yaml
 from pydantic import ValidationError
@@ -64,12 +64,12 @@ class DataValidator:
 
     def __init__(self, api_enabled: bool = False) -> None:
         """Initialize validator."""
-        self.validation_errors: List[str] = []
-        self.evaluation_data: Optional[List[EvaluationData]] = None
+        self.validation_errors: list[str] = []
+        self.evaluation_data: Optional[list[EvaluationData]] = None
         self.api_enabled = api_enabled
         self.original_data_path: Optional[str] = None
 
-    def load_evaluation_data(self, data_path: str) -> List[EvaluationData]:
+    def load_evaluation_data(self, data_path: str) -> list[EvaluationData]:
         """Load and validate evaluation data from YAML file."""
         self.original_data_path = data_path
 
@@ -119,7 +119,7 @@ class DataValidator:
 
         return evaluation_data
 
-    def validate_evaluation_data(self, evaluation_data: List[EvaluationData]) -> bool:
+    def validate_evaluation_data(self, evaluation_data: list[EvaluationData]) -> bool:
         """Validate all evaluation data."""
         self.validation_errors = []
 
@@ -173,7 +173,7 @@ class DataValidator:
 
     def _check_metric_requirements(
         self, data: EvaluationData, api_enabled: bool = True
-    ) -> List[str]:
+    ) -> list[str]:
         """Check that required fields exist for specified metrics and API configuration."""
         errors = []
 

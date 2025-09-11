@@ -1,6 +1,6 @@
 """System configuration models."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -109,18 +109,18 @@ class OutputConfig(BaseModel):
     base_filename: str = Field(
         default=DEFAULT_BASE_FILENAME, description="Base filename for output files"
     )
-    enabled_outputs: List[str] = Field(
+    enabled_outputs: list[str] = Field(
         default=SUPPORTED_OUTPUT_TYPES,
         description="List of enabled output types: csv, json, txt",
     )
-    csv_columns: List[str] = Field(
+    csv_columns: list[str] = Field(
         default=SUPPORTED_CSV_COLUMNS,
         description="CSV columns to include in detailed results",
     )
 
     @field_validator("csv_columns")
     @classmethod
-    def validate_csv_columns(cls, v: List[str]) -> List[str]:
+    def validate_csv_columns(cls, v: list[str]) -> list[str]:
         """Validate that all CSV columns are supported."""
         for column in v:
             if column not in SUPPORTED_CSV_COLUMNS:
@@ -132,7 +132,7 @@ class OutputConfig(BaseModel):
 
     @field_validator("enabled_outputs")
     @classmethod
-    def validate_enabled_outputs(cls, v: List[str]) -> List[str]:
+    def validate_enabled_outputs(cls, v: list[str]) -> list[str]:
         """Validate that all enabled outputs are supported."""
         for output_type in v:
             if output_type not in SUPPORTED_OUTPUT_TYPES:
@@ -160,7 +160,7 @@ class LoggingConfig(BaseModel):
     show_timestamps: bool = Field(
         default=DEFAULT_LOG_SHOW_TIMESTAMPS, description="Show timestamps in logs"
     )
-    package_overrides: Dict[str, str] = Field(
+    package_overrides: dict[str, str] = Field(
         default_factory=dict, description="Package-specific log level overrides"
     )
 
@@ -170,20 +170,20 @@ class VisualizationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    figsize: List[int] = Field(
+    figsize: list[int] = Field(
         default=DEFAULT_VISUALIZATION_FIGSIZE, description="Figure size [width, height]"
     )
     dpi: int = Field(
         default=DEFAULT_VISUALIZATION_DPI, ge=50, description="Resolution in DPI"
     )
-    enabled_graphs: List[str] = Field(
+    enabled_graphs: list[str] = Field(
         default=[],
         description="List of graph types to generate",
     )
 
     @field_validator("enabled_graphs")
     @classmethod
-    def validate_enabled_graphs(cls, v: List[str]) -> List[str]:
+    def validate_enabled_graphs(cls, v: list[str]) -> list[str]:
         """Validate that all enabled graphs are supported."""
         for graph_type in v:
             if graph_type not in SUPPORTED_GRAPH_TYPES:
@@ -213,9 +213,9 @@ class SystemConfig(BaseModel):
     )
 
     # Default metrics metadata from system config
-    default_turn_metrics_metadata: Dict[str, Dict[str, Any]] = Field(
+    default_turn_metrics_metadata: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Default turn metrics metadata"
     )
-    default_conversation_metrics_metadata: Dict[str, Dict[str, Any]] = Field(
+    default_conversation_metrics_metadata: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Default conversation metrics metadata"
     )

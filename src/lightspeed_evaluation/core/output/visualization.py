@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,7 +27,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         output_dir: str = DEFAULT_OUTPUT_DIR,
-        figsize: Optional[List[int]] = None,
+        figsize: Optional[list[int]] = None,
         dpi: int = 300,
     ):
         """Initialize Graph generator."""
@@ -47,16 +47,16 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         sns.set_palette("husl")
 
     def _calculate_summary_stats(
-        self, results: List[EvaluationResult]
-    ) -> Dict[str, Any]:
+        self, results: list[EvaluationResult]
+    ) -> dict[str, Any]:
         """Calculate summary statistics from results."""
         return calculate_basic_stats(results)
 
     def _group_results_by_metric(
-        self, results: List[EvaluationResult]
-    ) -> Dict[str, List[float]]:
+        self, results: list[EvaluationResult]
+    ) -> dict[str, list[float]]:
         """Group results by metric identifier."""
-        metric_groups: Dict[str, List[float]] = {}
+        metric_groups: dict[str, list[float]] = {}
         for result in results:
             if result.score is not None:
                 if result.metric_identifier not in metric_groups:
@@ -66,11 +66,11 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
 
     def generate_all_graphs(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        detailed_stats: Optional[Dict[str, Any]] = None,
-        enabled_graphs: Optional[List[str]] = None,
-    ) -> Dict[str, str]:
+        detailed_stats: Optional[dict[str, Any]] = None,
+        enabled_graphs: Optional[list[str]] = None,
+    ) -> dict[str, str]:
         """Generate visualization graphs based on configuration."""
         graph_files = {}
 
@@ -136,7 +136,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         return graph_files
 
     def _generate_pass_rates_graph(
-        self, by_metric_stats: Dict[str, Any], base_filename: str
+        self, by_metric_stats: dict[str, Any], base_filename: str
     ) -> Path:
         """Generate pass rates bar chart."""
         # Prepare data
@@ -189,7 +189,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         return filename
 
     def _generate_score_distribution_graph(  # pylint: disable=too-many-locals
-        self, results: List[EvaluationResult], base_filename: str
+        self, results: list[EvaluationResult], base_filename: str
     ) -> Optional[Path]:
         """Generate score distribution box plot with quartile backgrounds."""
         # Prepare data - only include results with valid scores
@@ -199,7 +199,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
             return None
 
         # Group by metric
-        metric_groups: Dict[str, List[float]] = {}
+        metric_groups: dict[str, list[float]] = {}
         for result in valid_results:
             if result.metric_identifier not in metric_groups:
                 metric_groups[result.metric_identifier] = []
@@ -267,7 +267,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         return filename
 
     def _generate_status_breakdown_pie_chart(  # pylint: disable=too-many-locals
-        self, results: List[EvaluationResult], base_filename: str
+        self, results: list[EvaluationResult], base_filename: str
     ) -> Optional[Path]:
         """Generate pie chart showing overall pass/fail/error breakdown."""
         if not results:
@@ -338,12 +338,12 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         return filename
 
     def _generate_conversation_heatmap(  # pylint: disable=too-many-locals
-        self, results: List[EvaluationResult], base_filename: str
+        self, results: list[EvaluationResult], base_filename: str
     ) -> Optional[Path]:
         """Generate conversation-level heatmap showing pass rates for each metric."""
         # Build conversation vs metric matrix
         # (only include existing metric-conversation combinations)
-        conversation_metrics: Dict[str, Dict[str, Dict[str, int]]] = {}
+        conversation_metrics: dict[str, dict[str, dict[str, int]]] = {}
 
         for result in results:
             conv_id = result.conversation_group_id
@@ -370,11 +370,11 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
             return None
 
         # Get all unique conversations and metrics that actually have data
-        all_conversations: List[str] = list(conversation_metrics.keys())
+        all_conversations: list[str] = list(conversation_metrics.keys())
         all_metrics_set: set[str] = set()
         for conv_metrics in conversation_metrics.values():
             all_metrics_set.update(conv_metrics.keys())
-        all_metrics: List[str] = sorted(all_metrics_set)
+        all_metrics: list[str] = sorted(all_metrics_set)
 
         # Build the heatmap matrix - only populate cells where data exists
         heatmap_data = []
@@ -439,7 +439,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         return filename
 
     def _calculate_detailed_summary_stats(
-        self, results: List[EvaluationResult]
-    ) -> Dict[str, Any]:
+        self, results: list[EvaluationResult]
+    ) -> dict[str, Any]:
         """Calculate detailed summary statistics for graphs."""
         return calculate_detailed_stats(results)

@@ -1,7 +1,7 @@
 """Custom metrics using direct LLM integration."""
 
 import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import litellm
 from pydantic import BaseModel, Field
@@ -50,7 +50,7 @@ class CustomMetrics:
         metric_name: str,
         conv_data: Any,
         scope: EvaluationScope,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate a custom metric."""
         if metric_name not in self.supported_metrics:
             return None, f"Unsupported custom metric: {metric_name}"
@@ -88,7 +88,7 @@ class CustomMetrics:
         except Exception as e:
             raise RuntimeError(f"LiteLLM call failed: {str(e)}") from e
 
-    def _parse_score_response(self, response: str) -> Tuple[Optional[float], str]:
+    def _parse_score_response(self, response: str) -> tuple[Optional[float], str]:
         r"""Parse LLM response to extract score and reason.
 
         Expected formats:
@@ -201,7 +201,7 @@ class CustomMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate answer correctness using custom prompt."""
         if is_conversation:
             return None, "Answer correctness is a turn-level metric"
@@ -249,7 +249,7 @@ class CustomMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate tool calls using the custom:tool_eval metric."""
         if is_conversation:
             return None, "Tool evaluation is a turn-level metric"
@@ -274,7 +274,7 @@ class CustomMetrics:
         return score, details
 
     @classmethod
-    def from_system_config(cls, system_config: Dict[str, Any]) -> "CustomMetrics":
+    def from_system_config(cls, system_config: dict[str, Any]) -> "CustomMetrics":
         """Create CustomMetrics from system configuration."""
         llm_manager = LLMManager.from_system_config(system_config)
         return cls(llm_manager)

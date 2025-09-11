@@ -4,7 +4,7 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..constants import (
     DEFAULT_OUTPUT_DIR,
@@ -34,7 +34,7 @@ class OutputHandler:
 
         print(f"✅ Output handler initialized: {self.output_dir}")
 
-    def generate_reports(self, results: List[EvaluationResult]) -> None:
+    def generate_reports(self, results: list[EvaluationResult]) -> None:
         """Generate all output reports based on configuration."""
         # Prepare timestamped base filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -64,7 +64,7 @@ class OutputHandler:
         ):
             self._create_graphs(results, base_filename, stats["detailed"])
 
-    def _calculate_stats(self, results: List[EvaluationResult]) -> Dict[str, Any]:
+    def _calculate_stats(self, results: list[EvaluationResult]) -> dict[str, Any]:
         """Pre-calculate statistics for reuse across reports."""
         return {
             "basic": calculate_basic_stats(results),
@@ -77,10 +77,10 @@ class OutputHandler:
 
     def _generate_individual_reports(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        enabled_outputs: List[str],
-        stats: Dict[str, Any],
+        enabled_outputs: list[str],
+        stats: dict[str, Any],
     ) -> None:
         """Generate reports based on enabled outputs."""
         if "csv" in enabled_outputs:
@@ -101,9 +101,9 @@ class OutputHandler:
 
     def _create_graphs(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        detailed_stats: Dict[str, Any],
+        detailed_stats: dict[str, Any],
     ) -> None:
         """Create visualization graphs."""
         try:
@@ -128,7 +128,7 @@ class OutputHandler:
             print(f"  ⚠️ Graph generation failed: {e}")
 
     def _generate_csv_report(
-        self, results: List[EvaluationResult], base_filename: str
+        self, results: list[EvaluationResult], base_filename: str
     ) -> Path:
         """Generate detailed CSV report."""
         # Move to dataframe for better aggregation
@@ -167,10 +167,10 @@ class OutputHandler:
 
     def _generate_json_summary(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        basic_stats: Dict[str, Any],
-        detailed_stats: Dict[str, Any],
+        basic_stats: dict[str, Any],
+        detailed_stats: dict[str, Any],
     ) -> Path:
         """Generate JSON summary report."""
         json_file = self.output_dir / f"{base_filename}_summary.json"
@@ -204,10 +204,10 @@ class OutputHandler:
 
     def _generate_text_summary(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        basic_stats: Dict[str, Any],
-        detailed_stats: Dict[str, Any],
+        basic_stats: dict[str, Any],
+        detailed_stats: dict[str, Any],
     ) -> Path:
         """Generate human-readable text summary."""
         txt_file = self.output_dir / f"{base_filename}_summary.txt"

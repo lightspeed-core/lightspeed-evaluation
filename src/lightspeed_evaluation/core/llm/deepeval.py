@@ -1,6 +1,6 @@
 """DeepEval LLM Manager - DeepEval-specific LLM wrapper that takes LiteLLM parameters."""
 
-from typing import Any, Dict
+from typing import Any
 
 from deepeval.models import LiteLLMModel
 
@@ -11,7 +11,7 @@ class DeepEvalLLMManager:
     This manager focuses solely on DeepEval-specific LLM integration.
     """
 
-    def __init__(self, model_name: str, litellm_params: Dict[str, Any]):
+    def __init__(self, model_name: str, litellm_params: dict[str, Any]):
         """Initialize with LLM parameters from LLMManager."""
         self.model_name = model_name
         self.litellm_params = litellm_params
@@ -31,7 +31,7 @@ class DeepEvalLLMManager:
         """Get the configured DeepEval LiteLLM model."""
         return self.llm_model
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """Get information about the configured model."""
         return {
             "model_name": self.model_name,

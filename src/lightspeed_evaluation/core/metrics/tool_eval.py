@@ -2,19 +2,19 @@
 
 import logging
 import re
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 
 def evaluate_tool_calls(
-    expected: List[List[Dict[str, Any]]], actual: List[List[Dict[str, Any]]]
+    expected: list[list[dict[str, Any]]], actual: list[list[dict[str, Any]]]
 ) -> tuple[bool, str]:
     """Evaluate tool calls using the custom:tool_eval metric.
 
     Args:
-        expected: Expected tool calls structure (List[List[Dict[str, Any]]])
-        actual: Actual tool calls from API response (List[List[Dict[str, Any]]])
+        expected: Expected tool calls structure (list[list[dict[str, Any]]])
+        actual: Actual tool calls from API response (list[list[dict[str, Any]]])
 
     Returns:
         tuple: (success: bool, details: str)
@@ -35,7 +35,7 @@ def evaluate_tool_calls(
 
 
 def compare_tool_calls(
-    expected: List[List[Dict[str, Any]]], actual: List[List[Dict[str, Any]]]
+    expected: list[list[dict[str, Any]]], actual: list[list[dict[str, Any]]]
 ) -> bool:
     """Compare expected and actual tool calls."""
     return _compare_lists(
@@ -47,7 +47,7 @@ def compare_tool_calls(
 
 
 def _compare_tool_call_sequence(
-    expected: List[Dict[str, Any]], actual: List[Dict[str, Any]]
+    expected: list[dict[str, Any]], actual: list[dict[str, Any]]
 ) -> bool:
     """Compare a single sequence of tool calls."""
     return _compare_lists(
@@ -59,8 +59,8 @@ def _compare_tool_call_sequence(
 
 
 def _compare_lists(
-    expected: List,
-    actual: List,
+    expected: list,
+    actual: list,
     compare_func: Callable[[Any, Any], bool],
     mismatch_message: str,
 ) -> bool:
@@ -76,7 +76,7 @@ def _compare_lists(
     return True
 
 
-def _compare_single_tool_call(expected: Dict[str, Any], actual: Dict[str, Any]) -> bool:
+def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     """Compare a single tool call."""
     expected_name = expected.get("tool_name")
     actual_name = actual.get("tool_name")
@@ -95,7 +95,7 @@ def _compare_single_tool_call(expected: Dict[str, Any], actual: Dict[str, Any]) 
     return _compare_tool_arguments(expected_args, actual_args)
 
 
-def _compare_tool_arguments(expected: Dict[str, Any], actual: Dict[str, Any]) -> bool:
+def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
     """Compare tool arguments name & value (regex pattern for the value)."""
     if not isinstance(expected, dict) or not isinstance(actual, dict):
         logger.debug(
@@ -143,7 +143,7 @@ def _compare_tool_arguments(expected: Dict[str, Any], actual: Dict[str, Any]) ->
     return True
 
 
-def format_tool_calls_for_logging(tool_calls: List[List[Dict[str, Any]]]) -> str:
+def format_tool_calls_for_logging(tool_calls: list[list[dict[str, Any]]]) -> str:
     """Format tool calls for logging purposes."""
     if not tool_calls:
         return "No tool calls"

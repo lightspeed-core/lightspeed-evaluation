@@ -1,7 +1,7 @@
 """Configuration loading for evaluation framework."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -44,8 +44,8 @@ def populate_metric_mappings(system_config: "SystemConfig") -> None:
 
 
 def validate_metrics(
-    turn_metrics: List[str], conversation_metrics: List[str]
-) -> List[str]:
+    turn_metrics: list[str], conversation_metrics: list[str]
+) -> list[str]:
     """Validate that provided metrics are recognized."""
     errors = []
 
@@ -68,7 +68,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         """Initialize Config Loader."""
         self.system_config: Optional[SystemConfig] = None
-        self.evaluation_data: Optional[List[EvaluationData]] = None
+        self.evaluation_data: Optional[list[EvaluationData]] = None
         self.logger: Optional[logging.Logger] = None
 
     def load_system_config(self, config_path: str) -> SystemConfig:
@@ -102,7 +102,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         self.logger.debug("System config loaded successfully")
         return self.system_config
 
-    def _create_system_config(self, config_data: Dict[str, Any]) -> SystemConfig:
+    def _create_system_config(self, config_data: dict[str, Any]) -> SystemConfig:
         """Create SystemConfig object from validated configuration data."""
         metrics_metadata = config_data.get("metrics_metadata", {})
         return SystemConfig(

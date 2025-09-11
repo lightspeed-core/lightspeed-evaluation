@@ -1,7 +1,7 @@
 """API Data Amendment module - handles API data enrichment."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ...core.api import APIClient
 from ...core.models import EvaluationData
@@ -68,7 +68,7 @@ class APIDataAmender:
 
         return False  # No errors occurred
 
-    def get_amendment_summary(self, conv_data: EvaluationData) -> Dict[str, Any]:
+    def get_amendment_summary(self, conv_data: EvaluationData) -> dict[str, Any]:
         """Get summary of what would be amended for a conversation."""
         return {
             "conversation_group_id": conv_data.conversation_group_id,

@@ -1,7 +1,6 @@
 """Error handling module for evaluation errors."""
 
 import logging
-from typing import Dict, List
 
 from ...core.models import EvaluationData, EvaluationResult
 
@@ -13,15 +12,15 @@ class EvaluationErrorHandler:
 
     def __init__(self) -> None:
         """Initialize error handler."""
-        self.results: List[EvaluationResult] = []
+        self.results: list[EvaluationResult] = []
 
     def mark_all_metrics_as_error(
         self, conv_data: EvaluationData, error_reason: str
-    ) -> List[EvaluationResult]:
+    ) -> list[EvaluationResult]:
         """Mark all turn and conversation metrics as ERROR when there is an error.
 
         Returns:
-            List[EvaluationResult]: ERROR results for all metrics
+            list[EvaluationResult]: ERROR results for all metrics
         """
         logger.warning(
             "Marking all metrics as ERROR for conversation %s: %s",
@@ -69,7 +68,7 @@ class EvaluationErrorHandler:
         self.results.extend(error_results)
         return error_results
 
-    def get_error_summary(self) -> Dict[str, int]:
+    def get_error_summary(self) -> dict[str, int]:
         """Get summary of error results collected."""
         return {
             "total_errors": len(self.results),

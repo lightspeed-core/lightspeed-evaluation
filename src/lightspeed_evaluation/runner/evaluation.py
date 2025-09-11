@@ -3,7 +3,7 @@
 import argparse
 import sys
 import traceback
-from typing import Dict, Optional
+from typing import Optional
 
 # Import only lightweight modules at top level
 from ..core.system import ConfigLoader
@@ -11,7 +11,7 @@ from ..core.system import ConfigLoader
 
 def run_evaluation(  # pylint: disable=too-many-locals
     system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
-) -> Optional[Dict[str, int]]:
+) -> Optional[dict[str, int]]:
     """Run the complete evaluation pipeline using EvaluationPipeline.
 
     Args:

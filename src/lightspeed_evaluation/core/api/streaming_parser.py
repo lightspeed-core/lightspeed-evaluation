@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import httpx
 
@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 DATA_PREFIX = "data: "
 
 
-def parse_streaming_response(response: httpx.Response) -> Dict[str, Any]:
+def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
     """Parse streaming response and extract data."""
     conversation_id = ""
     final_response = ""
-    tool_calls: List[Dict[str, Any]] = []
-    contexts: List[str] = []
+    tool_calls: list[dict[str, Any]] = []
+    contexts: list[str] = []
 
     for line in response.iter_lines():
         line = line.strip()
@@ -62,7 +62,7 @@ def parse_streaming_response(response: httpx.Response) -> Dict[str, Any]:
     }
 
 
-def _parse_sse_line(json_data: str) -> Optional[Tuple[str, Dict[str, Any]]]:
+def _parse_sse_line(json_data: str) -> Optional[tuple[str, dict[str, Any]]]:
     """Parse a SSE line and return event and data."""
     try:
         data = json.loads(json_data)
@@ -74,7 +74,7 @@ def _parse_sse_line(json_data: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         return None
 
 
-def _parse_tool_call(token: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _parse_tool_call(token: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Parse tool call from token."""
     try:
         tool_name = token.get("tool_name")
@@ -97,8 +97,8 @@ def _parse_tool_call(token: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def _format_tool_sequences(
-    tool_calls: List[Dict[str, Any]],
-) -> List[List[Dict[str, Any]]]:
+    tool_calls: list[dict[str, Any]],
+) -> list[list[dict[str, Any]]]:
     """Format tool calls into sequences."""
     if not tool_calls:
         return []

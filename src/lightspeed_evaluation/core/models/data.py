@@ -1,7 +1,7 @@
 """Core data models for evaluation framework."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -17,7 +17,7 @@ class TurnData(BaseModel):
 
     turn_id: str = Field(..., min_length=1, description="Turn ID (alphanumeric)")
     query: str = Field(..., min_length=1, description="Query")
-    attachments: Optional[List[str]] = Field(
+    attachments: Optional[list[str]] = Field(
         default=None, min_length=1, description="Attachments"
     )
     response: Optional[str] = Field(
@@ -25,16 +25,16 @@ class TurnData(BaseModel):
         min_length=1,
         description="Actual Response - populated by API if enabled",
     )
-    tool_calls: Optional[List[List[Dict[str, Any]]]] = Field(
+    tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
         default=None, description="Actual Tool calls - populated by API if enabled"
     )
-    contexts: Optional[List[str]] = Field(
+    contexts: Optional[list[str]] = Field(
         default=None, min_length=1, description="Contexts"
     )
     expected_response: Optional[str] = Field(
         default=None, min_length=1, description="Expected response for comparison"
     )
-    expected_tool_calls: Optional[List[List[Dict[str, Any]]]] = Field(
+    expected_tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
         default=None, description="Expected tool call sequences"
     )
     conversation_id: Optional[str] = Field(
@@ -45,7 +45,7 @@ class TurnData(BaseModel):
     @classmethod
     def validate_expected_tool_calls(
         cls, v: Optional[Any]
-    ) -> Optional[List[List[Dict[str, Any]]]]:
+    ) -> Optional[list[list[dict[str, Any]]]]:
         """Validate expected tool calls when provided."""
         if v is None:
             return None
@@ -102,29 +102,29 @@ class EvaluationData(BaseModel):
     )
 
     # Metrics to run (None = skip that level of evaluation)
-    turn_metrics: Optional[List[str]] = Field(
+    turn_metrics: Optional[list[str]] = Field(
         default=None, description="Turn-level metrics to evaluate"
     )
-    conversation_metrics: Optional[List[str]] = Field(
+    conversation_metrics: Optional[list[str]] = Field(
         default=None, description="Conversation-level metrics to evaluate"
     )
 
     # Metric-specific configuration (threshold, weights, etc.)
-    turn_metrics_metadata: Optional[Dict[str, Dict[str, Any]]] = Field(
+    turn_metrics_metadata: Optional[dict[str, dict[str, Any]]] = Field(
         default=None, description="Turn-level metric configuration"
     )
-    conversation_metrics_metadata: Optional[Dict[str, Dict[str, Any]]] = Field(
+    conversation_metrics_metadata: Optional[dict[str, dict[str, Any]]] = Field(
         default=None, description="Conversation-level metric configuration"
     )
 
     # Conversation turns
-    turns: List[TurnData] = Field(
+    turns: list[TurnData] = Field(
         ..., min_length=1, description="Conversation turns - must have at least one"
     )
 
     @field_validator("turn_metrics", "conversation_metrics")
     @classmethod
-    def validate_metrics(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         """Validate metrics are properly formatted."""
         if v is not None:
             for metric in v:

@@ -1,7 +1,7 @@
 """Evaluation Pipeline - Main evaluation orchestrator."""
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from ...core.api import APIClient
 from ...core.llm.manager import LLMManager
@@ -33,7 +33,7 @@ class EvaluationPipeline:
         self.config = config_loader.system_config
         if not self.config:
             raise ValueError("SystemConfig must be loaded before initializing pipeline")
-        self.results: List[EvaluationResult] = []
+        self.results: list[EvaluationResult] = []
         self.original_data_path: Optional[str] = None
 
         # Initialize components
@@ -98,15 +98,15 @@ class EvaluationPipeline:
         logger.info("API client initialized for %s endpoint", api_config.endpoint_type)
         return client
 
-    def validate_data(self, evaluation_data: List[EvaluationData]) -> bool:
+    def validate_data(self, evaluation_data: list[EvaluationData]) -> bool:
         """Validate evaluation data using data validator."""
         return self.data_validator.validate_evaluation_data(evaluation_data)
 
     def run_evaluation(
         self,
-        evaluation_data: List[EvaluationData],
+        evaluation_data: list[EvaluationData],
         original_data_path: Optional[str] = None,
-    ) -> List[EvaluationResult]:
+    ) -> list[EvaluationResult]:
         """Run evaluation on provided data.
 
         Args:
@@ -141,7 +141,7 @@ class EvaluationPipeline:
         logger.info("Evaluation complete: %d results generated", len(self.results))
         return self.results
 
-    def _save_updated_data(self, evaluation_data: List[EvaluationData]) -> None:
+    def _save_updated_data(self, evaluation_data: list[EvaluationData]) -> None:
         """Save updated evaluation data with API amendments."""
         if not self.original_data_path:
             logger.warning("No original data path available, cannot save updated data")

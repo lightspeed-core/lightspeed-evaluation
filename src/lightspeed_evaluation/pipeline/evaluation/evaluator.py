@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import List, Optional
+from typing import Optional
 
 from ...core.llm.manager import LLMManager
 from ...core.metrics.custom import CustomMetrics
@@ -161,6 +161,6 @@ class MetricsEvaluator:
             threshold = 0.5  # This will also handle binary metrics
         return "PASS" if score >= threshold else "FAIL"
 
-    def get_supported_frameworks(self) -> List[str]:
+    def get_supported_frameworks(self) -> list[str]:
         """Get list of supported evaluation frameworks."""
         return list(self.handlers.keys())

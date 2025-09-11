@@ -1,7 +1,6 @@
 """Conversation processing module - handles conversation and turn processing."""
 
 import logging
-from typing import Dict, List
 
 from ...core.models import EvaluationData, EvaluationRequest, EvaluationResult, TurnData
 from ...core.system import ConfigLoader
@@ -29,14 +28,14 @@ class ConversationProcessor:
         self.api_amender = api_amender
         self.error_handler = error_handler
 
-    def process_conversation(self, conv_data: EvaluationData) -> List[EvaluationResult]:
+    def process_conversation(self, conv_data: EvaluationData) -> list[EvaluationResult]:
         """Process single conversation - handle turn and conversation level metrics.
 
         Returns:
-            List[EvaluationResult]: Results from processing this conversation
+            list[EvaluationResult]: Results from processing this conversation
         """
         logger.info("Evaluating conversation: %s", conv_data.conversation_group_id)
-        results: List[EvaluationResult] = []
+        results: list[EvaluationResult] = []
 
         # Skip if no metrics specified at any level
         if not conv_data.turn_metrics and not conv_data.conversation_metrics:
@@ -79,7 +78,7 @@ class ConversationProcessor:
 
     def _evaluate_turn(
         self, conv_data: EvaluationData, turn_idx: int, turn_data: TurnData
-    ) -> List[EvaluationResult]:
+    ) -> list[EvaluationResult]:
         """Evaluate single turn with specified turn metrics."""
         results = []
         for metric_identifier in conv_data.turn_metrics or []:
@@ -93,7 +92,7 @@ class ConversationProcessor:
 
     def _evaluate_conversation(
         self, conv_data: EvaluationData
-    ) -> List[EvaluationResult]:
+    ) -> list[EvaluationResult]:
         """Evaluate conversation-level metrics."""
         results = []
         for metric_identifier in conv_data.conversation_metrics or []:
@@ -103,7 +102,7 @@ class ConversationProcessor:
                 results.append(result)
         return results
 
-    def get_metrics_summary(self, conv_data: EvaluationData) -> Dict[str, int]:
+    def get_metrics_summary(self, conv_data: EvaluationData) -> dict[str, int]:
         """Get summary of metrics to be evaluated for a conversation."""
         summary = {
             "turn_metrics": len(conv_data.turn_metrics or []),

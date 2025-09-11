@@ -1,7 +1,7 @@
 """LLM Manager - Generic LLM configuration, validation, and parameter provider."""
 
 import os
-from typing import Any, Dict
+from typing import Any
 
 from ..models import LLMConfig
 
@@ -127,7 +127,7 @@ class LLMManager:
         """Get the constructed LiteLLM model name."""
         return self.model_name
 
-    def get_litellm_params(self) -> Dict[str, Any]:
+    def get_litellm_params(self) -> dict[str, Any]:
         """Get parameters for LiteLLM completion calls."""
         return {
             "model": self.model_name,
@@ -142,7 +142,7 @@ class LLMManager:
         return self.config
 
     @classmethod
-    def from_system_config(cls, system_config: Dict[str, Any]) -> "LLMManager":
+    def from_system_config(cls, system_config: dict[str, Any]) -> "LLMManager":
         """Create LLM Manager from system configuration."""
         llm_config_dict = system_config.get("llm", {})
         config = LLMConfig(**llm_config_dict)

@@ -1,6 +1,6 @@
 """API communication data models."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,7 +32,7 @@ class APIRequest(BaseModel):
     system_prompt: Optional[str] = Field(
         default=None, description="System prompt override"
     )
-    attachments: Optional[List[AttachmentData]] = Field(
+    attachments: Optional[list[AttachmentData]] = Field(
         default=None, description="File attachments"
     )
 
@@ -76,13 +76,13 @@ class APIResponse(BaseModel):
     conversation_id: str = Field(
         ..., min_length=1, description="Conversation tracking ID"
     )
-    tool_calls: List[List[Dict[str, Any]]] = Field(
+    tool_calls: list[list[dict[str, Any]]] = Field(
         default_factory=list, description="Tool call sequences"
     )
-    contexts: List[str] = Field(default_factory=list, description="Context from API")
+    contexts: list[str] = Field(default_factory=list, description="Context from API")
 
     @classmethod
-    def from_raw_response(cls, raw_data: Dict[str, Any]) -> "APIResponse":
+    def from_raw_response(cls, raw_data: dict[str, Any]) -> "APIResponse":
         """Create APIResponse from raw API response data."""
         tool_call_sequences = raw_data.get("tool_calls", [])
 

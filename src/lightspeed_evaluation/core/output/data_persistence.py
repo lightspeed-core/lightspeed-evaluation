@@ -3,7 +3,7 @@
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import yaml
 
@@ -13,7 +13,7 @@ from ..models import EvaluationData
 
 # Use caching
 def save_evaluation_data(
-    evaluation_data: List[EvaluationData],
+    evaluation_data: list[EvaluationData],
     original_data_path: str,
     output_dir: str = DEFAULT_OUTPUT_DIR,
 ) -> Optional[str]:

@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -28,7 +28,7 @@ class APIClient:
         self,
         api_base: str,
         *,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
         endpoint_type: str = DEFAULT_ENDPOINT_TYPE,
         timeout: int = DEFAULT_API_TIMEOUT,
     ):
@@ -80,7 +80,7 @@ class APIClient:
         self,
         query: str,
         conversation_id: Optional[str] = None,
-        attachments: Optional[List[str]] = None,
+        attachments: Optional[list[str]] = None,
     ) -> APIResponse:
         """Query the API using the configured endpoint type.
 
@@ -105,7 +105,7 @@ class APIClient:
         self,
         query: str,
         conversation_id: Optional[str] = None,
-        attachments: Optional[List[str]] = None,
+        attachments: Optional[list[str]] = None,
     ) -> APIRequest:
         """Prepare API request with common parameters."""
         return APIRequest.create(
@@ -139,7 +139,7 @@ class APIClient:
                 raw_tool_calls = response_data["tool_calls"]
                 formatted_tool_calls = []
 
-                # Convert List[Dict] to List[List[Dict]] format
+                # Convert list[dict] to list[list[dict]] format
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
                         formatted_tool = {

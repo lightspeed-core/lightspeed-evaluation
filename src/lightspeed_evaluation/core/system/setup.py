@@ -2,12 +2,12 @@
 
 import logging
 import os
-from typing import Any, Dict
+from typing import Any
 
 from ..models import LoggingConfig
 
 
-def setup_environment_variables(config_data: Dict[str, Any]) -> None:
+def setup_environment_variables(config_data: dict[str, Any]) -> None:
     """Setup environment variables from validated config data."""
     try:
         # Set environment variables from config
