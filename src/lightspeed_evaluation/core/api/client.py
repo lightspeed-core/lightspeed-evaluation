@@ -10,8 +10,6 @@ import httpx
 from ..constants import (
     DEFAULT_API_TIMEOUT,
     DEFAULT_ENDPOINT_TYPE,
-    DEFAULT_LLM_MODEL,
-    DEFAULT_LLM_PROVIDER,
     SUPPORTED_ENDPOINT_TYPES,
 )
 from ..models import APIRequest, APIResponse
@@ -36,14 +34,8 @@ class APIClient:
         self.api_base = api_base
         self.endpoint_type = endpoint_type
         self.timeout = timeout
-        # LLM configuration with defaults
-        default_config = {
-            "provider": DEFAULT_LLM_PROVIDER,
-            "model": DEFAULT_LLM_MODEL,
-            "no_tools": None,
-            "system_prompt": None,
-        }
-        self.llm_config = {**default_config, **(config or {})}
+
+        self.llm_config = config or {}
 
         self.client: Optional[httpx.Client] = None
 
