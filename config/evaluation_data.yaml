@@ -15,12 +15,12 @@
   conversation_metrics_metadata: {}
   
   turns:
-    - turn_id: 1
+    - turn_id: "1"
       query: "User query"
       response: "API response"
       contexts:
-        - content: "Context 1"
-        - content: "Context 2"
+        - "Context 1"
+        - "Context 2"
       expected_response: "Expected Response"
 
 - conversation_group_id: "conv_group_2"
@@ -36,15 +36,16 @@
   conversation_metrics_metadata: {}
   
   turns:
-    - turn_id: 1
+    - turn_id: "1"
       query: "User Query"
       response: "API Response"
       contexts:
-        - content: "Context 1"
+        - "Context 1"
       expected_response: "Expected Response"
 
 - conversation_group_id: "conv_group_3"
-  
+  description: "conversation group description"
+
   turn_metrics:
     - "custom:answer_correctness"
   
@@ -57,16 +58,16 @@
   conversation_metrics_metadata: {}
   
   turns:
-    - turn_id: 1
+    - turn_id: "1"
       query: "User Query 1"
       response: "API Response 1"
       contexts:
-        - content: "Context"
+        - "Context"
       expected_response: "Expected Response 1"
     
-    - turn_id: 2
+    - turn_id: "2"
       query: "User Query 2"
       response: "API Response 2"
       contexts:
-        - content: "Context"
+        - "Context"
       expected_response: "Expected Response 2"
