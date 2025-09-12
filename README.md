@@ -2,6 +2,8 @@
 
 A comprehensive framework for evaluating GenAI applications.
 
+**This is WIP; We are actively working to add more features, fix any issues & add more examples. Please give a try,  provide your feedback & report any bug.**
+
 ## 🎯 Key Features
 
 - **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations
@@ -131,11 +133,12 @@ metrics_metadata:
 ### Development Tools
 ```bash
 uv sync --group dev
-uv run black .
-uv run ruff check .
-uv run mypy .
-uv run pyright .
-uv run pylint .
+make format
+make pylint
+make pyright
+make docstyle
+make check-types
+
 uv run pytest tests --cov=src
 ```
 

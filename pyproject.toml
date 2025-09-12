@@ -36,7 +36,7 @@ dev = [
     "ruff>=0.8.0",
     "pyright>=1.1.401",
     "pydocstyle>=6.3.0",
-    "pylint>=3.3.2",
+    "pylint-pydantic>=0.3.0",
     "pytest>=8.3.2",
     "pytest-cov>=5.0.0",
 ]
@@ -63,6 +63,9 @@ plugins = ["pydantic.mypy"]
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+[tool.pylint.MASTER]
+load-plugins = ["pylint_pydantic"]
 
 [build-system]
 requires = ["hatchling"]

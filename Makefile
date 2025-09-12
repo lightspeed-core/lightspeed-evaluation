@@ -71,7 +71,8 @@ help: ## Show this help screen
 	@echo ''
 
 pylint:
-	uv run pylint src lsc_agent_eval/src
+	uv run pylint src
+	uv run pylint lsc_agent_eval/src
 
 pyright:
 	uv run pyright src lsc_agent_eval/src

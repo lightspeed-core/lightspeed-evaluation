@@ -8,8 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 
-from lightspeed_evaluation.core.config import EvaluationData, SystemConfig, TurnData
-from lightspeed_evaluation.core.config.models import LLMConfig
+from lightspeed_evaluation.core import EvaluationData, LLMConfig, SystemConfig, TurnData
 from lightspeed_evaluation.core.llm.manager import LLMManager
 
 
@@ -56,16 +55,12 @@ def sample_llm_config():
 def sample_turn_data():
     """Provide sample TurnData for testing."""
     return TurnData(
-        turn_id=1,
+        turn_id="1",
         query="What is Python?",
         response="Python is a high-level programming language.",
         contexts=[
-            {
-                "content": "Python is a programming language created by Guido van Rossum."
-            },
-            {
-                "content": "Python is widely used for web development, data science, and automation."
-            },
+            "Python is a programming language created by Guido van Rossum.",
+            "Python is widely used for web development, data science, and automation.",
         ],
         expected_response="Python is a high-level programming language used for various applications.",
     )
@@ -158,12 +153,10 @@ def temp_config_files():
             "conversation_metrics_metadata": {},
             "turns": [
                 {
-                    "turn_id": 1,
+                    "turn_id": "1",
                     "query": "What is machine learning?",
                     "response": "Machine learning is a subset of AI.",
-                    "contexts": [
-                        {"content": "Machine learning is a method of data analysis."}
-                    ],
+                    "contexts": ["Machine learning is a method of data analysis."],
                     "expected_response": "Machine learning is a subset of artificial intelligence.",
                 }
             ],
@@ -177,22 +170,18 @@ def temp_config_files():
             "conversation_metrics_metadata": {},
             "turns": [
                 {
-                    "turn_id": 1,
+                    "turn_id": "1",
                     "query": "Explain neural networks",
                     "response": "Neural networks are computing systems inspired by biological neural networks.",
-                    "contexts": [
-                        {"content": "Neural networks consist of interconnected nodes."}
-                    ],
+                    "contexts": ["Neural networks consist of interconnected nodes."],
                     "expected_response": "Neural networks are computational models inspired by the human brain.",
                 },
                 {
-                    "turn_id": 2,
+                    "turn_id": "2",
                     "query": "What are the applications?",
                     "response": "Neural networks are used in image recognition, NLP, and more.",
                     "contexts": [
-                        {
-                            "content": "Applications include computer vision and natural language processing."
-                        }
+                        "Applications include computer vision and natural language processing."
                     ],
                     "expected_response": "Applications include computer vision, NLP, and pattern recognition.",
                 },

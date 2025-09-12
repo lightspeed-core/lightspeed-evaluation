@@ -1,22 +1,12 @@
 """Shared utilities for output and evaluation."""
 
 import statistics
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..config import EvaluationResult, TurnData
-
-
-@dataclass
-class EvaluationScope:
-    """Scope and parameters for metric evaluation."""
-
-    turn_idx: Optional[int] = None
-    turn_data: Optional[TurnData] = None
-    is_conversation: bool = False
+from ..models import EvaluationResult
 
 
-def calculate_basic_stats(results: List[EvaluationResult]) -> Dict[str, Any]:
+def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
     """Calculate basic pass/fail/error statistics from results."""
     if not results:
         return {
@@ -45,13 +35,13 @@ def calculate_basic_stats(results: List[EvaluationResult]) -> Dict[str, Any]:
     }
 
 
-def calculate_detailed_stats(results: List[EvaluationResult]) -> Dict[str, Any]:
+def calculate_detailed_stats(results: list[EvaluationResult]) -> dict[str, Any]:
     """Calculate detailed statistics broken down by metric and conversation."""
     if not results:
         return {"by_metric": {}, "by_conversation": {}}
 
-    by_metric: Dict[str, Dict[str, Any]] = {}
-    by_conversation: Dict[str, Dict[str, Any]] = {}
+    by_metric: dict[str, dict[str, Any]] = {}
+    by_conversation: dict[str, dict[str, Any]] = {}
 
     # Collect data
     for result in results:
@@ -69,7 +59,7 @@ def calculate_detailed_stats(results: List[EvaluationResult]) -> Dict[str, Any]:
 
 
 def _update_metric_stats(
-    by_metric: Dict[str, Dict[str, Any]], result: EvaluationResult
+    by_metric: dict[str, dict[str, Any]], result: EvaluationResult
 ) -> None:
     """Update metric statistics with a single result."""
     if result.metric_identifier not in by_metric:
@@ -88,7 +78,7 @@ def _update_metric_stats(
 
 
 def _update_conversation_stats(
-    by_conversation: Dict[str, Dict[str, Any]], result: EvaluationResult
+    by_conversation: dict[str, dict[str, Any]], result: EvaluationResult
 ) -> None:
     """Update conversation statistics with a single result."""
     if result.conversation_group_id not in by_conversation:
@@ -101,7 +91,7 @@ def _update_conversation_stats(
     by_conversation[result.conversation_group_id][result.result.lower()] += 1
 
 
-def _finalize_metric_stats(stats: Dict[str, Any]) -> None:
+def _finalize_metric_stats(stats: dict[str, Any]) -> None:
     """Calculate final statistics for a metric."""
     total = stats["pass"] + stats["fail"] + stats["error"]
     if total > 0:
@@ -135,7 +125,7 @@ def _finalize_metric_stats(stats: Dict[str, Any]) -> None:
         }
 
 
-def _finalize_conversation_stats(stats: Dict[str, Any]) -> None:
+def _finalize_conversation_stats(stats: dict[str, Any]) -> None:
     """Calculate final statistics for a conversation."""
     total = stats["pass"] + stats["fail"] + stats["error"]
     if total > 0:

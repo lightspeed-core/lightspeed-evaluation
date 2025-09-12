@@ -1,25 +1,16 @@
 """Core functionality - Components for evaluation."""
 
-# Configuration
-from .config import (
-    ConfigLoader,
-    SystemConfig,
-    EvaluationData,
-    setup_environment_variables,
-    DataValidator,
-)
-from .config import EvaluationResult, TurnData, LLMConfig
-
-# LLM management
 from .llm import LLMManager
+from .models import EvaluationData, EvaluationResult, LLMConfig, TurnData
+from .system import ConfigLoader, DataValidator, SystemConfig
 
 __all__ = [
     # Configuration & data
     "ConfigLoader",
     "SystemConfig",
-    "EvaluationData",
-    "setup_environment_variables",
     "DataValidator",
+    # Data models
+    "EvaluationData",
     "EvaluationResult",
     "TurnData",
     "LLMConfig",

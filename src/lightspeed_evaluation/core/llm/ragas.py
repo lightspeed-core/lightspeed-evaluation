@@ -1,6 +1,6 @@
 """Ragas LLM Manager - Ragas-specific LLM wrapper that takes LiteLLM parameters."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import litellm
 from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
@@ -10,7 +10,7 @@ from ragas.metrics import answer_relevancy, faithfulness
 class RagasCustomLLM(BaseRagasLLM):
     """Custom LLM for Ragas using LiteLLM parameters."""
 
-    def __init__(self, model_name: str, litellm_params: Dict[str, Any]):
+    def __init__(self, model_name: str, litellm_params: dict[str, Any]):
         """Initialize Ragas custom LLM with model name and LiteLLM parameters."""
         super().__init__()
         self.model_name = model_name
@@ -22,7 +22,7 @@ class RagasCustomLLM(BaseRagasLLM):
         prompt: Any,
         n: int = 1,
         temperature: float = 1e-08,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         callbacks: Optional[Any] = None,
     ) -> LLMResult:
         """Generate text using LiteLLM with provided parameters."""
@@ -67,7 +67,7 @@ class RagasCustomLLM(BaseRagasLLM):
         prompt: Any,
         n: int = 1,
         temperature: Optional[float] = None,
-        stop: Optional[List[str]] = None,
+        stop: Optional[list[str]] = None,
         callbacks: Optional[Any] = None,
     ) -> LLMResult:
         """Async generate."""
@@ -87,7 +87,7 @@ class RagasLLMManager:
     This manager focuses solely on Ragas-specific LLM integration.
     """
 
-    def __init__(self, model_name: str, litellm_params: Dict[str, Any]):
+    def __init__(self, model_name: str, litellm_params: dict[str, Any]):
         """Initialize with LLM parameters from LLMManager."""
         self.model_name = model_name
         self.litellm_params = litellm_params
@@ -103,7 +103,7 @@ class RagasLLMManager:
         """Get the configured Ragas LLM."""
         return self.custom_llm
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """Get information about the configured model."""
         return {
             "model_name": self.model_name,

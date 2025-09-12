@@ -2,9 +2,8 @@
 
 import pytest
 
-from lightspeed_evaluation.core.config.models import EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationResult, EvaluationScope
 from lightspeed_evaluation.core.output.statistics import (
-    EvaluationScope,
     calculate_basic_stats,
     calculate_detailed_stats,
 )
@@ -59,7 +58,7 @@ class TestCalculateBasicStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="test:metric",
                 result="PASS",
                 score=0.8,
@@ -67,7 +66,7 @@ class TestCalculateBasicStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=2,
+                turn_id="2",
                 metric_identifier="test:metric",
                 result="PASS",
                 score=0.9,
@@ -93,7 +92,7 @@ class TestCalculateBasicStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="test:metric",
                 result="PASS",
                 score=0.8,
@@ -101,7 +100,7 @@ class TestCalculateBasicStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=2,
+                turn_id="2",
                 metric_identifier="test:metric",
                 result="FAIL",
                 score=0.3,
@@ -109,7 +108,7 @@ class TestCalculateBasicStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=3,
+                turn_id="3",
                 metric_identifier="test:metric",
                 result="ERROR",
                 score=0.0,
@@ -117,7 +116,7 @@ class TestCalculateBasicStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=4,
+                turn_id="4",
                 metric_identifier="test:metric",
                 result="PASS",
                 score=0.9,
@@ -154,7 +153,7 @@ class TestCalculateDetailedStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="ragas:faithfulness",
                 result="PASS",
                 score=0.8,
@@ -162,7 +161,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=2,
+                turn_id="2",
                 metric_identifier="ragas:faithfulness",
                 result="FAIL",
                 score=0.3,
@@ -193,7 +192,7 @@ class TestCalculateDetailedStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="ragas:faithfulness",
                 result="PASS",
                 score=0.8,
@@ -201,7 +200,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="ragas:relevancy",
                 result="FAIL",
                 score=0.3,
@@ -209,7 +208,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv2",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="ragas:faithfulness",
                 result="PASS",
                 score=0.9,
@@ -217,7 +216,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv2",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="ragas:relevancy",
                 result="ERROR",
                 score=0.0,
@@ -269,7 +268,7 @@ class TestCalculateDetailedStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="ragas:faithfulness",
                 result="PASS",
                 score=0.8,
@@ -277,7 +276,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=2,
+                turn_id="2",
                 metric_identifier="ragas:faithfulness",
                 result="PASS",
                 score=0.9,
@@ -285,7 +284,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=3,
+                turn_id="3",
                 metric_identifier="ragas:faithfulness",
                 result="FAIL",
                 score=0.3,
@@ -311,7 +310,7 @@ class TestCalculateDetailedStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                turn_id=1,
+                turn_id="1",
                 metric_identifier="test:metric",
                 result="ERROR",
                 reason="API error",

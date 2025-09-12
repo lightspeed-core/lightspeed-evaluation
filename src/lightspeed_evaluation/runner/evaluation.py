@@ -3,19 +3,16 @@
 import argparse
 import sys
 import traceback
-from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
-from ..core.config import ConfigLoader, DataValidator, setup_environment_variables
-from ..core.output import OutputHandler
-from ..core.output.statistics import calculate_basic_stats
-from ..drivers.evaluation import EvaluationDriver
+# Import only lightweight modules at top level
+from ..core.system import ConfigLoader
 
 
-def run_evaluation(
+def run_evaluation(  # pylint: disable=too-many-locals
     system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
-) -> Optional[Dict[str, int]]:
-    """Run the complete evaluation pipeline using EvaluationDriver.
+) -> Optional[dict[str, int]]:
+    """Run the complete evaluation pipeline using EvaluationPipeline.
 
     Args:
         system_config_path: Path to system.yaml
@@ -29,50 +26,64 @@ def run_evaluation(
     print("=" * 50)
 
     try:
-        # Step 1: Load configuration
-        print("\n📋 Loading Configuration...")
+        # Step 0: Setup environment from config
+        print("🔧 Loading Configuration & Setting up environment and logging...")
         loader = ConfigLoader()
         system_config = loader.load_system_config(system_config_path)
 
-        data_validator = DataValidator()
+        # pylint: disable=import-outside-toplevel
+
+        # Step 1: Import heavy modules once environment & logging is set
+        print("\n📋 Loading Heavy Modules...")
+        from ..core.output import OutputHandler
+        from ..core.output.statistics import calculate_basic_stats
+        from ..core.system import DataValidator
+        from ..pipeline.evaluation import EvaluationPipeline
+
+        # pylint: enable=import-outside-toplevel
+
+        print("✅ Environment setup complete, modules loaded")
+
+        llm_config = system_config.llm
+        output_config = system_config.output
+
+        # Step 2: Load and validate evaluation data
+        data_validator = DataValidator(api_enabled=system_config.api.enabled)
         evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
 
-        print(
-            f"✅ System config: {system_config.llm_provider}/{system_config.llm_model}"
-        )
+        print(f"✅ System config: {llm_config.provider}/{llm_config.model}")
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
 
-        # Step 2: Initialize evaluation driver (core controller)
-        print("\n⚙️ Initializing Evaluation Driver...")
-        driver = EvaluationDriver(loader)
+        # Step 3: Run evaluation with pre-loaded data
+        print("\n⚙️ Initializing Evaluation Pipeline...")
+        pipeline = EvaluationPipeline(loader)
 
-        # Step 3: Run evaluation (driver controls the flow)
         print("\n🔄 Running Evaluation...")
-        results = driver.run_evaluation(evaluation_data)
+        try:
+            results = pipeline.run_evaluation(evaluation_data, evaluation_data_path)
+        finally:
+            pipeline.close()
 
-        # Step 4: Generate reports
+        # Step 4: Generate reports and calculate stats
         print("\n📊 Generating Reports...")
         output_handler = OutputHandler(
-            output_dir=output_dir or system_config.output_dir,
-            base_filename=system_config.base_filename,
+            output_dir=output_dir or output_config.output_dir,
+            base_filename=output_config.base_filename,
             system_config=system_config,
         )
 
-        output_handler.generate_reports(
-            results, include_graphs=system_config.include_graphs
-        )
+        # Generate reports based on configuration
+        output_handler.generate_reports(results)
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
         print(f"📁 Reports generated in: {output_handler.output_dir}")
 
-        # Calculate and show summary
+        # Step 5: Final Summary
         summary = calculate_basic_stats(results)
-
         print(
             f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, ⚠️ Error: {summary['ERROR']}"
         )
-
         if summary["ERROR"] > 0:
             print(
                 f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report"
@@ -110,19 +121,6 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # CRITICAL: Setup environment variables from system config FIRST
-    setup_environment_variables(args.system_config)
-
-    # Validate input files exist
-    if not Path(args.system_config).exists():
-        print(f"❌ System config file not found: {args.system_config}")
-        return 1
-
-    if not Path(args.eval_data).exists():
-        print(f"❌ Evaluation data file not found: {args.eval_data}")
-        return 1
-
-    # Run evaluation
     summary = run_evaluation(args.system_config, args.eval_data, args.output_dir)
 
     return 0 if summary is not None else 1

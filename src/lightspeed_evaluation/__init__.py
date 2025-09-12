@@ -1,54 +1,55 @@
 """LightSpeed Evaluation Framework.
 
 Main components:
-- EvaluationDriver: Runs complete evaluation
+- EvaluationPipeline: Runs complete evaluation pipeline
 - Runner: Simple runner for command-line usage
 - Core modules organized by functionality (config, llm, metrics, output)
-
-Usage:
-    from lightspeed_evaluation import EvaluationDriver, ConfigLoader
-    loader = ConfigLoader()
-    driver = EvaluationDriver(loader)
-    results = driver.run_evaluation(evaluation_data)
 """
 
 __version__ = "0.1.0"
 
-# Main driver
-from .drivers.evaluation import EvaluationDriver
-
 # Core components
+from .core.api import APIClient
 from .core.llm import LLMManager
-from .core.config import (
-    ConfigLoader,
-    SystemConfig,
+from .core.models import (
+    APIConfig,
     EvaluationData,
-    TurnData,
     EvaluationResult,
-    DataValidator,
+    LLMConfig,
+    LoggingConfig,
+    OutputConfig,
+    TurnData,
+    VisualizationConfig,
 )
-from .core.config import LLMConfig
-from .core.metrics import RagasMetrics, DeepEvalMetrics, CustomMetrics
 
 # Output handling
-from .core.output import OutputHandler, GraphGenerator
+from .core.output import GraphGenerator, OutputHandler
+
+# System config
+from .core.system import ConfigLoader, DataValidator, SystemConfig
+from .core.system.exceptions import APIError, DataValidationError, EvaluationError
+
+# Main pipeline
+from .pipeline.evaluation import EvaluationPipeline
 
 __all__ = [
-    # Main components
-    "EvaluationDriver",
-    "LLMManager",
+    "EvaluationPipeline",
     "ConfigLoader",
     "SystemConfig",
+    "LLMConfig",
+    "APIConfig",
+    "OutputConfig",
+    "LoggingConfig",
+    "VisualizationConfig",
     "EvaluationData",
     "TurnData",
     "EvaluationResult",
     "DataValidator",
-    "LLMConfig",
-    # Metrics
-    "RagasMetrics",
-    "DeepEvalMetrics",
-    "CustomMetrics",
-    # Output handling
+    "LLMManager",
+    "APIClient",
     "OutputHandler",
     "GraphGenerator",
+    "APIError",
+    "DataValidationError",
+    "EvaluationError",
 ]

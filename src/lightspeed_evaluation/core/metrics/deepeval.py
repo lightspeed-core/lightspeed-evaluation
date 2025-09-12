@@ -1,6 +1,6 @@
 """DeepEval metrics evaluation using LLM Manager."""
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 from deepeval.metrics import (
     ConversationCompletenessMetric,
@@ -10,10 +10,9 @@ from deepeval.metrics import (
 from deepeval.test_case import ConversationalTestCase
 from deepeval.test_case import Turn as DeepEvalTurn
 
-from ..config import TurnData
 from ..llm.deepeval import DeepEvalLLMManager
 from ..llm.manager import LLMManager
-from ..output.statistics import EvaluationScope
+from ..models import EvaluationScope, TurnData
 
 
 class DeepEvalMetrics:
@@ -47,7 +46,7 @@ class DeepEvalMetrics:
 
         return ConversationalTestCase(turns=turns)
 
-    def _evaluate_metric(self, metric: Any, test_case: Any) -> Tuple[float, str]:
+    def _evaluate_metric(self, metric: Any, test_case: Any) -> tuple[float, str]:
         """Evaluate and get result."""
         metric.measure(test_case)
 
@@ -63,7 +62,7 @@ class DeepEvalMetrics:
         metric_name: str,
         conv_data: Any,
         scope: EvaluationScope,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate a DeepEval metric."""
         if metric_name not in self.supported_metrics:
             return None, f"Unsupported DeepEval metric: {metric_name}"
@@ -81,7 +80,7 @@ class DeepEvalMetrics:
         _turn_idx: Optional[int],
         _turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate conversation completeness."""
         if not is_conversation:
             return None, "Conversation completeness is a conversation-level metric"
@@ -97,7 +96,7 @@ class DeepEvalMetrics:
         _turn_idx: Optional[int],
         _turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate conversation relevancy using DeepEval TurnRelevancyMetric."""
         if not is_conversation:
             return None, "Conversation relevancy is a conversation-level metric"
@@ -117,7 +116,7 @@ class DeepEvalMetrics:
         _turn_idx: Optional[int],
         _turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate knowledge retention."""
         if not is_conversation:
             return None, "Knowledge retention is a conversation-level metric"
@@ -131,7 +130,7 @@ class DeepEvalMetrics:
         return self._evaluate_metric(metric, test_case)
 
     @classmethod
-    def from_system_config(cls, system_config: Dict[str, Any]) -> "DeepEvalMetrics":
+    def from_system_config(cls, system_config: dict[str, Any]) -> "DeepEvalMetrics":
         """Create DeepEvalMetrics from system configuration."""
         llm_manager = LLMManager.from_system_config(system_config)
         return cls(llm_manager)

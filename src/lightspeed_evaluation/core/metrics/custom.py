@@ -1,14 +1,14 @@
 """Custom metrics using direct LLM integration."""
 
 import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import litellm
 from pydantic import BaseModel, Field
 
-from ..config import TurnData
 from ..llm.manager import LLMManager
-from ..output.statistics import EvaluationScope
+from ..models import EvaluationScope, TurnData
+from .tool_eval import evaluate_tool_calls
 
 
 class EvaluationPromptParams(BaseModel):
@@ -40,6 +40,7 @@ class CustomMetrics:
 
         self.supported_metrics = {
             "answer_correctness": self._evaluate_answer_correctness,
+            "tool_eval": self._evaluate_tool_calls,
         }
 
         print(f"✅ Custom Metrics initialized: {self.model_name}")
@@ -49,7 +50,7 @@ class CustomMetrics:
         metric_name: str,
         conv_data: Any,
         scope: EvaluationScope,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate a custom metric."""
         if metric_name not in self.supported_metrics:
             return None, f"Unsupported custom metric: {metric_name}"
@@ -87,7 +88,7 @@ class CustomMetrics:
         except Exception as e:
             raise RuntimeError(f"LiteLLM call failed: {str(e)}") from e
 
-    def _parse_score_response(self, response: str) -> Tuple[Optional[float], str]:
+    def _parse_score_response(self, response: str) -> tuple[Optional[float], str]:
         r"""Parse LLM response to extract score and reason.
 
         Expected formats:
@@ -200,7 +201,7 @@ class CustomMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate answer correctness using custom prompt."""
         if is_conversation:
             return None, "Answer correctness is a turn-level metric"
@@ -216,7 +217,7 @@ class CustomMetrics:
         params = EvaluationPromptParams(
             metric_name="answer correctness",
             query=query,
-            response=response,
+            response=response or "",
             expected_response=expected_response,
             contexts=turn_data.contexts if turn_data.contexts else None,
             scale="0.0 to 1.0",
@@ -242,8 +243,38 @@ class CustomMetrics:
 
         return score, f"Custom answer correctness: {score:.2f} - {reason}"
 
+    def _evaluate_tool_calls(
+        self,
+        _conv_data: Any,
+        _turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Evaluate tool calls using the custom:tool_eval metric."""
+        if is_conversation:
+            return None, "Tool evaluation is a turn-level metric"
+
+        if turn_data is None:
+            return None, "TurnData is required for tool evaluation"
+
+        if not turn_data.expected_tool_calls:
+            return None, "No expected tool calls provided for tool evaluation"
+
+        # Get actual tool calls from turn data (will be populated by API)
+        actual_tool_calls = getattr(turn_data, "tool_calls", [])
+        if not actual_tool_calls:
+            return 0.0, "No actual tool calls found in response"
+
+        # Use the tool evaluation logic
+        success, details = evaluate_tool_calls(
+            turn_data.expected_tool_calls, actual_tool_calls
+        )
+        score = 1.0 if success else 0.0
+
+        return score, details
+
     @classmethod
-    def from_system_config(cls, system_config: Dict[str, Any]) -> "CustomMetrics":
+    def from_system_config(cls, system_config: dict[str, Any]) -> "CustomMetrics":
         """Create CustomMetrics from system configuration."""
         llm_manager = LLMManager.from_system_config(system_config)
         return cls(llm_manager)

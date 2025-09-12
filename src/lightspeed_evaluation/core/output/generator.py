@@ -4,10 +4,15 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from ..config.loader import DEFAULT_CSV_COLUMNS
-from ..config import EvaluationResult
+from ..constants import (
+    DEFAULT_OUTPUT_DIR,
+    SUPPORTED_CSV_COLUMNS,
+    SUPPORTED_GRAPH_TYPES,
+    SUPPORTED_OUTPUT_TYPES,
+)
+from ..models import EvaluationResult
 from .statistics import calculate_basic_stats, calculate_detailed_stats
 from .visualization import GraphGenerator
 
@@ -17,7 +22,7 @@ class OutputHandler:
 
     def __init__(
         self,
-        output_dir: str = "./eval_output",
+        output_dir: str = DEFAULT_OUTPUT_DIR,
         base_filename: str = "evaluation",
         system_config: Optional[Any] = None,
     ) -> None:
@@ -25,62 +30,105 @@ class OutputHandler:
         self.output_dir = Path(output_dir)
         self.base_filename = base_filename
         self.system_config = system_config
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"✅ Output handler initialized: {self.output_dir}")
 
-    def generate_reports(
-        self, results: List[EvaluationResult], include_graphs: bool = True
-    ) -> None:
-        """Generate all output reports."""
+    def generate_reports(self, results: list[EvaluationResult]) -> None:
+        """Generate all output reports based on configuration."""
+        # Prepare timestamped base filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_filename = f"{self.base_filename}_{timestamp}"
+
+        # Get enabled outputs from system config
+        enabled_outputs = (
+            self.system_config.output.enabled_outputs
+            if self.system_config is not None
+            else SUPPORTED_OUTPUT_TYPES
+        )
 
         print(f"\n📊 Generating reports: {base_filename}")
 
         # Pre-calculate stats once for reuse across all reports
-        basic_stats = calculate_basic_stats(results)
-        detailed_stats = (
-            calculate_detailed_stats(results)
-            if results
-            else {"by_metric": {}, "by_conversation": {}}
+        stats = self._calculate_stats(results)
+
+        # Generate individual reports based on configuration
+        self._generate_individual_reports(
+            results, base_filename, enabled_outputs, stats
         )
 
-        # Generate CSV report
-        csv_file = self._generate_csv_report(results, base_filename)
-        print(f"  ✅ CSV: {csv_file}")
+        # Generate graphs if enabled
+        if results and (
+            self.system_config is not None
+            and self.system_config.visualization.enabled_graphs
+        ):
+            self._create_graphs(results, base_filename, stats["detailed"])
 
-        # Generate JSON summary (pass pre-calculated stats)
-        json_file = self._generate_json_summary(
-            results, base_filename, basic_stats, detailed_stats
-        )
-        print(f"  ✅ JSON: {json_file}")
+    def _calculate_stats(self, results: list[EvaluationResult]) -> dict[str, Any]:
+        """Pre-calculate statistics for reuse across reports."""
+        return {
+            "basic": calculate_basic_stats(results),
+            "detailed": (
+                calculate_detailed_stats(results)
+                if results
+                else {"by_metric": {}, "by_conversation": {}}
+            ),
+        }
 
-        # Generate text summary (pass pre-calculated stats)
-        txt_file = self._generate_text_summary(
-            results, base_filename, basic_stats, detailed_stats
-        )
-        print(f"  ✅ TXT: {txt_file}")
+    def _generate_individual_reports(
+        self,
+        results: list[EvaluationResult],
+        base_filename: str,
+        enabled_outputs: list[str],
+        stats: dict[str, Any],
+    ) -> None:
+        """Generate reports based on enabled outputs."""
+        if "csv" in enabled_outputs:
+            csv_file = self._generate_csv_report(results, base_filename)
+            print(f"  ✅ CSV: {csv_file}")
 
-        # Generate graphs if we have results (pass pre-calculated stats)
-        if results and include_graphs:
-            try:
-                # Use system config values or fallback to defaults
-                figsize = getattr(self.system_config, "visualization_figsize", [12, 8])
-                dpi = getattr(self.system_config, "visualization_dpi", 300)
+        if "json" in enabled_outputs:
+            json_file = self._generate_json_summary(
+                results, base_filename, stats["basic"], stats["detailed"]
+            )
+            print(f"  ✅ JSON: {json_file}")
 
-                graph_generator = GraphGenerator(
-                    output_dir=str(self.output_dir), figsize=figsize, dpi=dpi
-                )
-                graph_files = graph_generator.generate_all_graphs(
-                    results, base_filename, detailed_stats
-                )
-                print(f"  ✅ Graphs: {len(graph_files)} files")
-            except (ValueError, RuntimeError, OSError) as e:
-                print(f"  ⚠️ Graph generation failed: {e}")
+        if "txt" in enabled_outputs:
+            txt_file = self._generate_text_summary(
+                results, base_filename, stats["basic"], stats["detailed"]
+            )
+            print(f"  ✅ TXT: {txt_file}")
+
+    def _create_graphs(
+        self,
+        results: list[EvaluationResult],
+        base_filename: str,
+        detailed_stats: dict[str, Any],
+    ) -> None:
+        """Create visualization graphs."""
+        try:
+            # Use system config visualization values or defaults
+            if self.system_config is not None:
+                figsize = self.system_config.visualization.figsize
+                dpi = self.system_config.visualization.dpi
+                enabled_graphs = self.system_config.visualization.enabled_graphs
+            else:
+                figsize = [12, 8]
+                dpi = 300
+                enabled_graphs = SUPPORTED_GRAPH_TYPES
+
+            graph_generator = GraphGenerator(
+                output_dir=str(self.output_dir), figsize=figsize, dpi=dpi
+            )
+            graph_files = graph_generator.generate_all_graphs(
+                results, base_filename, detailed_stats, enabled_graphs
+            )
+            print(f"  ✅ Graphs: {len(graph_files)} files")
+        except (ValueError, RuntimeError, OSError) as e:
+            print(f"  ⚠️ Graph generation failed: {e}")
 
     def _generate_csv_report(
-        self, results: List[EvaluationResult], base_filename: str
+        self, results: list[EvaluationResult], base_filename: str
     ) -> Path:
         """Generate detailed CSV report."""
         # Move to dataframe for better aggregation
@@ -89,11 +137,11 @@ class OutputHandler:
         with open(csv_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
 
-            # Get CSV columns from system config, with fallback to defaults
-            csv_columns = getattr(
-                self.system_config,
-                "csv_columns",
-                DEFAULT_CSV_COLUMNS + ["query", "response"],
+            # Get CSV columns from system config output configuration
+            csv_columns = (
+                self.system_config.output.csv_columns
+                if self.system_config is not None
+                else SUPPORTED_CSV_COLUMNS
             )
 
             # Header
@@ -119,10 +167,10 @@ class OutputHandler:
 
     def _generate_json_summary(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        basic_stats: Dict[str, Any],
-        detailed_stats: Dict[str, Any],
+        basic_stats: dict[str, Any],
+        detailed_stats: dict[str, Any],
     ) -> Path:
         """Generate JSON summary report."""
         json_file = self.output_dir / f"{base_filename}_summary.json"
@@ -156,10 +204,10 @@ class OutputHandler:
 
     def _generate_text_summary(
         self,
-        results: List[EvaluationResult],
+        results: list[EvaluationResult],
         base_filename: str,
-        basic_stats: Dict[str, Any],
-        detailed_stats: Dict[str, Any],
+        basic_stats: dict[str, Any],
+        detailed_stats: dict[str, Any],
     ) -> Path:
         """Generate human-readable text summary."""
         txt_file = self.output_dir / f"{base_filename}_summary.txt"

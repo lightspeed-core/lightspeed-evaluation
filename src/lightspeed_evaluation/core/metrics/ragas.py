@@ -1,6 +1,6 @@
 """Ragas metrics evaluation using LLM Manager."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from datasets import Dataset
 from ragas import evaluate
@@ -13,10 +13,9 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
-from ..config import TurnData
 from ..llm.manager import LLMManager
 from ..llm.ragas import RagasLLMManager
-from ..output.statistics import EvaluationScope
+from ..models import EvaluationScope, TurnData
 
 
 # Decide if Dataset will be used or not ?
@@ -49,7 +48,7 @@ class RagasMetrics:
 
     def _extract_turn_data(
         self, turn_data: Optional[TurnData]
-    ) -> Tuple[str, str, List[str]]:
+    ) -> tuple[str, str, list[str]]:
         """Extract turn data."""
         if turn_data is None:
             return "", "", []
@@ -57,18 +56,18 @@ class RagasMetrics:
         query = turn_data.query
         response = turn_data.response
         contexts = [
-            ctx["content"] if isinstance(ctx, dict) else str(ctx)
+            ctx.get("content", str(ctx)) if isinstance(ctx, dict) else str(ctx)
             for ctx in turn_data.contexts or []
         ]
-        return query, response, contexts
+        return query, response or "", contexts
 
     def _evaluate_metric(
         self,
         metric_class: Any,
-        dataset_dict: Dict[str, Any],
+        dataset_dict: dict[str, Any],
         result_key: str,
         metric_name: str,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate metric with configured LLM."""
         dataset = Dataset.from_dict(dataset_dict)
 
@@ -85,7 +84,7 @@ class RagasMetrics:
         metric_name: str,
         conv_data: Any,
         scope: EvaluationScope,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate a Ragas metric."""
         if metric_name not in self.supported_metrics:
             return None, f"Unsupported Ragas metric: {metric_name}"
@@ -117,7 +116,7 @@ class RagasMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate response relevancy."""
         if is_conversation:
             return None, "Response relevancy is a turn-level metric"
@@ -136,7 +135,7 @@ class RagasMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate faithfulness."""
         if is_conversation:
             return None, "Faithfulness is a turn-level metric"
@@ -159,7 +158,7 @@ class RagasMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate context precision without reference."""
         if is_conversation:
             return None, "Context precision without reference is a turn-level metric"
@@ -185,7 +184,7 @@ class RagasMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate context precision with reference."""
         if is_conversation:
             return None, "Context precision with reference is a turn-level metric"
@@ -215,7 +214,7 @@ class RagasMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate context recall."""
         if is_conversation:
             return None, "Context recall is a turn-level metric"
@@ -242,7 +241,7 @@ class RagasMetrics:
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
-    ) -> Tuple[Optional[float], str]:
+    ) -> tuple[Optional[float], str]:
         """Evaluate context relevance."""
         if is_conversation:
             return None, "Context relevance is a turn-level metric"
@@ -256,7 +255,7 @@ class RagasMetrics:
         )
 
     @classmethod
-    def from_system_config(cls, system_config: Dict[str, Any]) -> "RagasMetrics":
+    def from_system_config(cls, system_config: dict[str, Any]) -> "RagasMetrics":
         """Create RagasMetrics from system configuration."""
         llm_manager = LLMManager.from_system_config(system_config)
         return cls(llm_manager)
