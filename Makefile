@@ -11,7 +11,7 @@ install-tools: ## Install required utilities/tools
 	# CI job configuration would need to be updated in follow-up task
 	# pip uninstall -v -y mypy 2> /dev/null || true
 	# display setuptools version
-	pip show setuptools
+	uv pip show setuptools
 	export PIP_DEFAULT_TIMEOUT=100
 	# install all dependencies, including devel ones
 	@for a in 1 2 3 4 5; do uv sync --group dev && break || sleep 15; done
@@ -53,7 +53,7 @@ requirements.txt:	pyproject.toml uv.lock ## Generate requirements.txt file conta
 	uv export --no-dev --format requirements-txt --output-file requirements.txt
 
 verify-packages-completeness:	requirements.txt ## Verify that requirements.txt file contains complete list of packages
-	pip download -d /tmp/ --use-pep517 --verbose -r requirements.txt
+	uv pip download -d /tmp/ --use-pep517 --verbose -r requirements.txt
 
 distribution-archives: ## Generate distribution archives to be uploaded into Python registry
 	uv run python -m build
