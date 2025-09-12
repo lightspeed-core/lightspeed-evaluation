@@ -13,6 +13,7 @@ def setup_environment_variables(config_data: dict[str, Any]) -> None:
         "DEEPEVAL_TELEMETRY_OPT_OUT": "YES",
         "DEEPEVAL_DISABLE_PROGRESS_BAR": "YES",
         "LITELLM_LOG": "ERROR",
+        "RAGAS_DO_NOT_TRACK": "true",
     }
 
     try:
