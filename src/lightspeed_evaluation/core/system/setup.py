@@ -9,19 +9,22 @@ from ..models import LoggingConfig
 
 def setup_environment_variables(config_data: dict[str, Any]) -> None:
     """Setup environment variables from validated config data."""
-    try:
-        # Set environment variables from config
-        env_config = config_data.get("environment", {})
-        for env_var, value in env_config.items():
-            os.environ[env_var] = str(value)
+    env_values = {
+        "DEEPEVAL_TELEMETRY_OPT_OUT": "YES",
+        "DEEPEVAL_DISABLE_PROGRESS_BAR": "YES",
+        "LITELLM_LOG": "ERROR",
+    }
 
+    try:
+        env_values = {**env_values, **config_data.get("environment", {})}
+        for key, value in env_values.items():
+            os.environ[str(key)] = str(value)
     except (KeyError, TypeError) as e:
         # Fallback to hardcoded defaults if config processing fails
         print(f"Warning: Could not process environment config: {e}")
         print("Using fallback environment settings...")
-        os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] = "YES"
-        os.environ["DEEPEVAL_DISABLE_PROGRESS_BAR"] = "YES"
-        os.environ["LITELLM_LOG_LEVEL"] = "ERROR"
+        for key, value in env_values.items():
+            os.environ[str(key)] = str(value)
 
 
 def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
