@@ -78,10 +78,8 @@ class APIConfig(BaseModel):
     timeout: int = Field(
         default=DEFAULT_API_TIMEOUT, ge=1, description="Request timeout in seconds"
     )
-    provider: str = Field(
-        default=DEFAULT_LLM_PROVIDER, description="LLM provider for API"
-    )
-    model: str = Field(default=DEFAULT_LLM_MODEL, description="LLM model for API")
+    provider: Optional[str] = Field(default=None, description="LLM provider for API")
+    model: Optional[str] = Field(default=None, description="LLM model for API")
     no_tools: Optional[bool] = Field(
         default=None, description="Disable tool usage in API calls"
     )
