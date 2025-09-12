@@ -34,28 +34,28 @@ metrics_metadata:
     "ragas:faithfulness":
       threshold: 0.8
       description: "How faithful the response is to the provided context"
-      
+
     "ragas:response_relevancy":
       threshold: 0.8
       description: "How relevant the response is to the question"
-    
+
     # Ragas Context/Retrieval Evaluation metrics
     "ragas:context_recall":
       threshold: 0.8
       description: "Did we fetch every fact the answer needs?"
-      
+
     "ragas:context_relevance":
       threshold: 0.7
       description: "Is what we retrieved actually relevant to user query?"
-      
+
     "ragas:context_precision_with_reference":
       threshold: 0.7
       description: "How precise the retrieved context is (with reference)"
-      
+
     "ragas:context_precision_without_reference":
       threshold: 0.7
       description: "How precise the retrieved context is (without reference)"
-    
+
     # Custom metrics
     "custom:answer_correctness":
       threshold: 0.75
@@ -63,18 +63,18 @@ metrics_metadata:
 
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls"
-  
+
   # Conversation-level metrics metadata
   conversation_level:
     # DeepEval metrics
     "deepeval:conversation_completeness":
       threshold: 0.8
       description: "How completely the conversation addresses user intentions"
-      
+
     "deepeval:conversation_relevancy":
       threshold: 0.7
       description: "How relevant the conversation is to the topic/context"
-      
+
     "deepeval:knowledge_retention":
       threshold: 0.7
       description: "How well the model retains information from previous turns"
@@ -87,11 +87,11 @@ output:
     - csv                   # Detailed results CSV
     - json                  # Summary JSON with statistics
     - txt                   # Human-readable summary
-  
+
   # CSV columns to include
   csv_columns:
     - "conversation_group_id"
-    - "turn_id" 
+    - "turn_id"
     - "metric_identifier"
     - "score"
     - "threshold"
@@ -105,7 +105,7 @@ output:
 visualization:
   figsize: [12, 8]            # Graph size (width, height)
   dpi: 300                    # Image resolution
-  
+
   # Graph types to generate
   enabled_graphs:
     - "pass_rates"            # Pass rate bar chart
