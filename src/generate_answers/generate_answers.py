@@ -4,9 +4,10 @@ import json
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 
 import click
 import pandas as pd
@@ -66,6 +67,19 @@ def read_qna_lightspeed_eval_json(filename: str) -> pd.DataFrame:
     return df
 
 
+def parallel_apply(
+    series: pd.Series,
+    func: Callable[[str], str],
+    parallelism: int,
+) -> list[str]:
+    """Apply func to each question in series with at most `parallelism` questions at once."""
+    with ThreadPoolExecutor(max_workers=parallelism) as executor:
+        results = list(
+            tqdm(executor.map(func, series), total=len(series), desc="Questions")
+        )
+    return results
+
+
 @click.command(
     help="""
 Generate answers from LLMs by connection to LightSpeed core service.
@@ -118,6 +132,14 @@ Generate answers from LLMs by connection to LightSpeed core service.
     is_flag=True,
     help="Increase the logging level to DEBUG",
 )
+@click.option(
+    "--max-concurrent",
+    "-p",
+    default=1,
+    type=int,
+    show_default=True,
+    help="Maximum number of questions to process in parallel simultaneously",
+)
 def main(  # pylint: disable=R0913,R0917,R0914
     config_filename: str,
     input_filename: str,
@@ -125,6 +147,7 @@ def main(  # pylint: disable=R0913,R0917,R0914
     llm_cache_dir: str,
     force_overwrite: bool,
     verbose: bool,
+    max_concurrent: int,
 ) -> int:
     """Run main entrypoint."""
     logging_level = logging.INFO
@@ -169,7 +192,7 @@ def main(  # pylint: disable=R0913,R0917,R0914
     qna_df = qna_df[qna_df[_QUESTION_COL].notna() & (qna_df[_QUESTION_COL] != "")]
 
     # Generate the answers
-    # Parallelize this? pytorch Dataset?
+    # pytorch Dataset?
     for model, ls_client in evaluators:
         if model.display_name not in config.models_to_evaluate:
             continue
@@ -180,8 +203,10 @@ def main(  # pylint: disable=R0913,R0917,R0914
 
         generate_answer_func = partial(ls_client.get_answer, skip_cache=False)
 
-        qna_df[output_column] = qna_df[_QUESTION_COL].progress_apply(  # type:  ignore
-            generate_answer_func
+        qna_df[output_column] = parallel_apply(
+            pd.Series(qna_df[_QUESTION_COL]),
+            generate_answer_func,
+            parallelism=max_concurrent,  # max questions processed at once
         )
 
     # Save result

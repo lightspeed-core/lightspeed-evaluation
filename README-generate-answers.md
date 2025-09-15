@@ -76,6 +76,8 @@ Options:
   -f, --force-overwrite       Overwrite the output file if it exists
   -v, --verbose               Increase the logging level to DEBUG
   -h, --help                  Show this message and exit.
+  -p, --max-concurrent INTEGER  Maximum number of questions to process in
+                                parallel simultaneously  [default: 1]
 ```
 
 ## Results
