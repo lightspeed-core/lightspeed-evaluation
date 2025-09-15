@@ -4,8 +4,6 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..constants import DEFAULT_LLM_MODEL, DEFAULT_LLM_PROVIDER
-
 
 class AttachmentData(BaseModel):
     """Individual attachment structure for API."""
@@ -23,8 +21,8 @@ class APIRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query: str = Field(..., min_length=1, description="User query")
-    provider: str = Field(default=DEFAULT_LLM_PROVIDER, description="LLM provider")
-    model: str = Field(default=DEFAULT_LLM_MODEL, description="LLM model")
+    provider: Optional[str] = Field(default=None, description="LLM provider")
+    model: Optional[str] = Field(default=None, description="LLM model")
     no_tools: Optional[bool] = Field(default=None, description="Disable tool usage")
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation ID for context"
@@ -44,8 +42,8 @@ class APIRequest(BaseModel):
     ) -> "APIRequest":
         """Create API request with optional attachments."""
         # Extract parameters with defaults
-        provider = kwargs.get("provider", DEFAULT_LLM_PROVIDER)
-        model = kwargs.get("model", DEFAULT_LLM_MODEL)
+        provider = kwargs.get("provider")
+        model = kwargs.get("model")
         no_tools = kwargs.get("no_tools")
         conversation_id = kwargs.get("conversation_id")
         system_prompt = kwargs.get("system_prompt")
