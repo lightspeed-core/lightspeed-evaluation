@@ -2,18 +2,19 @@
 
 A comprehensive framework for evaluating GenAI applications.
 
-**This is WIP; We are actively working to add more features, fix any issues & add more examples. Please give a try,  provide your feedback & report any bug.**
+**This is a WIP. We’re actively adding features, fixing issues, and expanding examples. Please give it a try, share feedback, and report bugs.**
 
 ## 🎯 Key Features
 
 - **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations
-- **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations  
+- **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations
+- **Evaluation types**: Response, Context & Tool Call evaluation
 - **LLM Provider Flexibility**: OpenAI, Anthropic, Watsonx, Azure, Gemini, Ollama via LiteLLM
+- **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Flexible Configuration**: Configurable environment & metric metadata
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
 - **Early Validation**: Catch configuration errors before expensive LLM calls
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
-- **Agent Evaluation**: Framework for evaluating AI agent performance (future integration planned)
 
 ## 🚀 Quick Start
 
@@ -31,11 +32,37 @@ uv sync
 ### Basic Usage
 
 ```bash
-# Set API key
+# Set required environment variable(s) for Judge-LLM
 export OPENAI_API_KEY="your-key"
 
 # Run evaluation
+lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --output-dir <OUTPUT_DIR>
+```
+
+### Usage Scenarios
+
+#### 1. API-Enabled Real-time data collection
+```bash
+# Set required environment variable(s) for both Judge-LLM and API authentication (for MCP)
+export OPENAI_API_KEY="your-evaluation-llm-key"
+
+export API_KEY="your-api-endpoint-key"
+
+# Ensure API is running at configured endpoint
+# Default: http://localhost:8080
+
+# Run with API-enabled configuration
 lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation_data.yaml
+```
+
+#### 2. Static Data Evaluation (API Disabled)
+```bash
+# Set required environment variable(s) for Judge-LLM
+export OPENAI_API_KEY="your-key"
+
+# Use configuration with api.enabled: false
+# Pre-fill response, contexts & tool_calls data in YAML
+lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data config/evaluation_data.yaml
 ```
 
 ## 📊 Supported Metrics
@@ -53,6 +80,8 @@ lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation
 - **Custom**
   - Response Evaluation
     - `answer_correctness`
+  - Tool Evaluation
+    - `tool_eval` - Validates tool calls and arguments with regex pattern matching
 
 ### Conversation-Level (Multi-turn)
 - **DeepEval**
@@ -63,56 +92,180 @@ lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation
 ## ⚙️ Configuration
 
 ### System Config (`config/system.yaml`)
-```yaml
-llm:
-  provider: "openai"
-  model: "gpt-4o-mini"
-  temperature: 0.0
-  timeout: 120
 
+```yaml
+# Judge-LLM Configuration
+llm:
+  provider: openai            # openai, watsonx, azure, gemini etc.
+  model: gpt-4o-mini          # Model name for the provider
+  temperature: 0.0            # Generation temperature
+  max_tokens: 512             # Maximum tokens in response
+  timeout: 300                # Request timeout in seconds
+  num_retries: 3              # Retry attempts
+
+# API Configuration for Real-time Data Generation
+api:
+  enabled: true                        # Enable/disable API calls
+  api_base: http://localhost:8080      # Base API URL
+  endpoint_type: streaming             # streaming or query endpoint
+  timeout: 300                         # API request timeout in seconds
+  
+  provider: openai                     # LLM provider for API queries (optional)
+  model: gpt-4o-mini                   # Model to use for API queries (optional)
+  no_tools: null                       # Whether to bypass tools (optional)
+  system_prompt: null                  # Custom system prompt (optional)
+
+# Metrics Configuration with thresholds
 metrics_metadata:
   turn_level:
     "ragas:faithfulness":
       threshold: 0.8
-      type: "turn"
-      framework: "ragas"
+      description: "How faithful the response is to the provided context"
+    
+    "ragas:response_relevancy":
+      threshold: 0.8
+      description: "How relevant the response is to the question"
+      
+    "custom:tool_eval":
+      description: "Tool call evaluation comparing expected vs actual tool calls (regex for arguments)"
   
   conversation_level:
     "deepeval:conversation_completeness":
       threshold: 0.8
-      type: "conversation"
-      framework: "deepeval"
+      description: "How completely the conversation addresses user intentions"
+
+# Output Configuration
+output:
+  output_dir: ./eval_output
+  base_filename: evaluation
+  enabled_outputs:          # Enable specific output types
+    - csv                   # Detailed results CSV
+    - json                  # Summary JSON with statistics
+    - txt                   # Human-readable summary
+
+# Visualization Configuration
+visualization:
+  figsize: [12, 8]            # Graph size (width, height)
+  dpi: 300                    # Image resolution
+  enabled_graphs:
+    - "pass_rates"            # Pass rate bar chart
+    - "score_distribution"    # Score distribution box plot
+    - "conversation_heatmap"  # Heatmap of conversation performance
+    - "status_breakdown"      # Pie chart for pass/fail/error breakdown
 ```
 
-### Evaluation Data (`config/evaluation_data.yaml`)
+### Evaluation Data Structure (`config/evaluation_data.yaml`)
+
 ```yaml
 - conversation_group_id: "test_conversation"
   description: "Sample evaluation"
   
-  # Turn-level metrics (empty list = skip turn evaluation)
+  # Turn-level metrics to evaluate
   turn_metrics:
     - "ragas:faithfulness"
     - "custom:answer_correctness"
   
-  # Turn-level metrics metadata (threshold + other properties)
+  # Metric-specific configuration
   turn_metrics_metadata:
-    "ragas:response_relevancy": 
+    "ragas:faithfulness": 
       threshold: 0.8
-      weight: 1.0
-    "custom:answer_correctness": 
-      threshold: 0.75
   
-  # Conversation-level metrics (empty list = skip conversation evaluation)   
+  # Conversation-level metrics   
   conversation_metrics:
     - "deepeval:conversation_completeness"
   
+  conversation_metrics_metadata:
+    "deepeval:conversation_completeness":
+      threshold: 0.8
+  
   turns:
-    - turn_id: 1
-      query: "What is OpenShift?"
-      response: "Red Hat OpenShift powers the entire application lifecycle...."
+    - turn_id: id1
+      query: What is OpenShift Virtualization?
+      response: null                    # Populated by API if enabled, otherwise provide
       contexts:
-        - content: "Red Hat OpenShift powers...."
-      expected_response: "Red Hat OpenShift...."
+        - OpenShift Virtualization is an extension of the OpenShift ...
+      attachments: []                   # Attachments (Optional)
+      expected_response: OpenShift Virtualization is an extension of the OpenShift Container Platform that allows running virtual machines alongside containers
+
+    - turn_id: id2  
+      query: How do I create a virtual machine in OpenShift Virtualization?
+      response: null                    # Populated by API if enabled, otherwise provide
+      contexts:
+        - OpenShift web console provides ...
+      expected_response: You can create a virtual machine using the OpenShift ...
+```
+
+### API Modes
+
+#### With API Enabled (`api.enabled: true`)
+- **Real-time data generation**: Queries are sent to external API
+- **Dynamic responses**: `response` and `tool_calls` fields populated by API
+- **Conversation context**: Conversation context is maintained across turns
+- **Authentication**: Use `API_KEY` environment variable
+- **Data persistence**: Writes `response`/`tool_calls` back to the original evaluation data so it can be reused with API disabled
+
+#### With API Disabled (`api.enabled: false`)
+- **Static data mode**: Use pre-filled `response` and `tool_calls` data
+- **Faster execution**: No external API calls
+- **Reproducible results**: Same data used across runs
+
+### Data Structure Details
+
+#### Turn Data Fields
+
+| Field                 | Type             | Required | Description                          | API Populated         |
+|-----------------------|------------------|----------|--------------------------------------|-----------------------|
+| `turn_id`             | string           | ✅       | Unique identifier for the turn       | ❌                    |
+| `query`               | string           | ✅       | The question/prompt to evaluate      | ❌                    |
+| `response`            | string           | 📋       | Actual response from system          | ✅ (if API enabled)   |
+| `contexts`            | list[string]     | ❌       | Context information for evaluation   | ❌                    |
+| `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
+| `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
+| `expected_tool_calls` | list[list[dict]] | 📋       | Expected tool call sequences         | ❌                    |
+| `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
+
+Note: Context will be collected automatically in the future.
+
+> 📋 **Required based on metrics**: Some fields are required only when using specific metrics
+
+Examples
+> - `expected_response`: Required for `custom:answer_correctness`
+> - `expected_tool_calls`: Required for `custom:tool_eval`
+> - `response`: Required for most metrics (auto-populated if API enabled)
+
+#### Tool Call Structure
+
+  ```yaml
+  expected_tool_calls:
+    -
+      - tool_name: oc_get           # Tool name
+        arguments:                  # Tool arguments
+          kind: pod
+          name: openshift-light*    # Regex patterns supported for flexible matching
+  ```
+
+## 🔑 Authentication & Environment
+
+### Required Environment Variables
+
+#### For LLM Evaluation (Always Required)
+```bash
+# OpenAI
+export OPENAI_API_KEY="your-openai-key"
+
+# IBM Watsonx
+export WATSONX_API_KEY="your-key"
+export WATSONX_API_BASE="https://us-south.ml.cloud.ibm.com"
+export WATSONX_PROJECT_ID="your-project-id"
+
+# Gemini
+export GEMINI_API_KEY="your-key"
+```
+
+#### For API Integration (When `api.enabled: true`)
+```bash
+# API authentication for external system (MCP)
+export API_KEY="your-api-endpoint-key"
 ```
 
 ## 📈 Output & Visualization
