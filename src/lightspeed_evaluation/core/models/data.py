@@ -41,6 +41,28 @@ class TurnData(BaseModel):
         default=None, description="Conversation ID - populated by API if enabled"
     )
 
+    # Per-turn metrics support
+    turn_metrics: Optional[list[str]] = Field(
+        default=None,
+        description="Turn-specific metrics to evaluate (overrides system defaults)",
+    )
+    turn_metrics_metadata: Optional[dict[str, dict[str, Any]]] = Field(
+        default=None,
+        description="Turn-specific metric configuration (overrides system defaults)",
+    )
+
+    @field_validator("turn_metrics")
+    @classmethod
+    def validate_turn_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        """Validate turn-specific metrics are properly formatted."""
+        if v is not None:
+            for metric in v:
+                if not metric or ":" not in metric:
+                    raise ValueError(
+                        f'Turn metric "{metric}" must be in format "framework:metric_name"'
+                    )
+        return v
+
     @field_validator("expected_tool_calls", mode="before")
     @classmethod
     def validate_expected_tool_calls(
@@ -101,18 +123,12 @@ class EvaluationData(BaseModel):
         description="Optional description of the conversation group",
     )
 
-    # Metrics to run (None = skip that level of evaluation)
-    turn_metrics: Optional[list[str]] = Field(
-        default=None, description="Turn-level metrics to evaluate"
-    )
+    # Conversation-level metrics
     conversation_metrics: Optional[list[str]] = Field(
         default=None, description="Conversation-level metrics to evaluate"
     )
 
-    # Metric-specific configuration (threshold, weights, etc.)
-    turn_metrics_metadata: Optional[dict[str, dict[str, Any]]] = Field(
-        default=None, description="Turn-level metric configuration"
-    )
+    # Conversation-level metric configuration
     conversation_metrics_metadata: Optional[dict[str, dict[str, Any]]] = Field(
         default=None, description="Conversation-level metric configuration"
     )
@@ -122,15 +138,17 @@ class EvaluationData(BaseModel):
         ..., min_length=1, description="Conversation turns - must have at least one"
     )
 
-    @field_validator("turn_metrics", "conversation_metrics")
+    @field_validator("conversation_metrics")
     @classmethod
-    def validate_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
-        """Validate metrics are properly formatted."""
+    def validate_conversation_metrics(
+        cls, v: Optional[list[str]]
+    ) -> Optional[list[str]]:
+        """Validate conversation metrics are properly formatted."""
         if v is not None:
             for metric in v:
                 if not metric or ":" not in metric:
                     raise ValueError(
-                        f'Metric "{metric}" must be in format "framework:metric_name"'
+                        f'Conversation metric "{metric}" must be in format "framework:metric_name"'
                     )
         return v
 
