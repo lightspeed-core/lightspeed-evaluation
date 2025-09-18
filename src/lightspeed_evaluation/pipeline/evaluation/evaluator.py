@@ -7,13 +7,9 @@ from typing import Optional
 from ...core.llm.manager import LLMManager
 from ...core.metrics.custom import CustomMetrics
 from ...core.metrics.deepeval import DeepEvalMetrics
+from ...core.metrics.manager import MetricLevel, MetricManager
 from ...core.metrics.ragas import RagasMetrics
-from ...core.models import (
-    EvaluationData,
-    EvaluationRequest,
-    EvaluationResult,
-    EvaluationScope,
-)
+from ...core.models import EvaluationRequest, EvaluationResult, EvaluationScope
 from ...core.system import ConfigLoader
 
 logger = logging.getLogger(__name__)
@@ -22,8 +18,13 @@ logger = logging.getLogger(__name__)
 class MetricsEvaluator:
     """Handles individual metric evaluation with proper scoring and status determination."""
 
-    def __init__(self, llm_manager: LLMManager, config_loader: ConfigLoader) -> None:
-        """Initialize with LLM manager and config."""
+    def __init__(
+        self,
+        llm_manager: LLMManager,
+        config_loader: ConfigLoader,
+        metric_manager: MetricManager,
+    ) -> None:
+        """Initialize with LLM manager, config, and metric manager."""
         self.config_loader = config_loader
         self.config = config_loader.system_config
 
@@ -38,6 +39,8 @@ class MetricsEvaluator:
             "deepeval": self.deepeval_metrics,
             "custom": self.custom_metrics,
         }
+
+        self.metric_manager = metric_manager
 
     def evaluate_metric(self, request: EvaluationRequest) -> Optional[EvaluationResult]:
         """Evaluate a single metric and return result."""
@@ -81,9 +84,14 @@ class MetricsEvaluator:
             if score is None:
                 return self._create_error_result(request, reason, execution_time)
 
-            # Get threshold and determine status
-            threshold = self._get_effective_threshold(
-                request.conv_data, request.metric_identifier, request.is_conversation
+            # Get threshold
+            level = (
+                MetricLevel.CONVERSATION
+                if request.is_conversation
+                else MetricLevel.TURN
+            )
+            threshold = self.metric_manager.get_effective_threshold(
+                request.metric_identifier, level, request.conv_data, request.turn_data
             )
             status = self._determine_status(score, threshold)
 
@@ -123,37 +131,6 @@ class MetricsEvaluator:
             response=request.turn_data.response or "" if request.turn_data else "",
             execution_time=execution_time,
         )
-
-    def _get_effective_threshold(
-        self, conv_data: EvaluationData, metric_identifier: str, is_conversation: bool
-    ) -> Optional[float]:
-        """Get effective threshold for metric (conversation-specific or system default)."""
-        # Check conversation-specific metadata first
-        if is_conversation:
-            metadata = (conv_data.conversation_metrics_metadata or {}).get(
-                metric_identifier, {}
-            )
-        else:
-            metadata = (conv_data.turn_metrics_metadata or {}).get(
-                metric_identifier, {}
-            )
-
-        if "threshold" in metadata:
-            return metadata["threshold"]
-
-        # Fall back to system defaults
-        if self.config is None:
-            raise ValueError("SystemConfig must be loaded")
-        if is_conversation:
-            default_metadata = (
-                self.config.default_conversation_metrics_metadata or {}
-            ).get(metric_identifier, {})
-        else:
-            default_metadata = (self.config.default_turn_metrics_metadata or {}).get(
-                metric_identifier, {}
-            )
-
-        return default_metadata.get("threshold")
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:
         """Determine evaluation status based on score and threshold."""

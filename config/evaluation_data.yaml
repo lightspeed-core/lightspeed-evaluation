@@ -60,4 +60,4 @@
     - turn_id: "2"
       query: "User Query 2"
       response: "API Response 2"
-      # Use default metric from system config (Ex: response_relevancy)
+      # turn_metrics: null (omitted) → Use system defaults (metrics with default=true)
