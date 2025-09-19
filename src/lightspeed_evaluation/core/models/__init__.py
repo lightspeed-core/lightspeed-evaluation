@@ -10,6 +10,7 @@ from .data import (
 )
 from .system import (
     APIConfig,
+    EmbeddingConfig,
     LLMConfig,
     LoggingConfig,
     OutputConfig,
@@ -26,6 +27,7 @@ __all__ = [
     "EvaluationScope",
     # System config models
     "LLMConfig",
+    "EmbeddingConfig",
     "APIConfig",
     "OutputConfig",
     "LoggingConfig",

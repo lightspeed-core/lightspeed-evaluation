@@ -27,6 +27,8 @@ dependencies = [
     "click>=8.0.0",
     "diskcache>=5.6.3",
     "tenacity>=9.1.2",
+    "langchain[huggingface]>=0.3.27",
+    "sentence-transformers>=5.1.0",
 ]
 
 [dependency-groups]

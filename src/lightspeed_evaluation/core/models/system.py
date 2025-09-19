@@ -8,6 +8,8 @@ from ..constants import (
     DEFAULT_API_BASE,
     DEFAULT_API_TIMEOUT,
     DEFAULT_BASE_FILENAME,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_EMBEDDING_PROVIDER,
     DEFAULT_ENDPOINT_TYPE,
     DEFAULT_LLM_MAX_TOKENS,
     DEFAULT_LLM_MODEL,
@@ -59,6 +61,27 @@ class LLMConfig(BaseModel):
         default=DEFAULT_LLM_RETRIES,
         ge=0,
         description="Retry attempts for failed requests",
+    )
+
+
+class EmbeddingConfig(BaseModel):
+    """Embedding configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(
+        default=DEFAULT_EMBEDDING_PROVIDER,
+        min_length=1,
+        description="Provider name, e.g., huggingface, openai, google",
+    )
+    model: str = Field(
+        default=DEFAULT_EMBEDDING_MODEL,
+        min_length=1,
+        description="Embedding model identifier",
+    )
+    provider_kwargs: Optional[dict] = Field(
+        default=None,
+        description="Embedding provider arguments, e.g. model_kwargs: device:cpu",
     )
 
 
@@ -199,6 +222,9 @@ class SystemConfig(BaseModel):
 
     # Individual configuration models
     llm: LLMConfig = Field(default_factory=LLMConfig, description="LLM configuration")
+    embedding: EmbeddingConfig = Field(
+        default_factory=EmbeddingConfig, description="Embeddings configuration"
+    )
     api: APIConfig = Field(default_factory=APIConfig, description="API configuration")
     output: OutputConfig = Field(
         default_factory=OutputConfig, description="Output configuration"

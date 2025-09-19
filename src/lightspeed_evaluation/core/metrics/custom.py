@@ -26,7 +26,7 @@ class EvaluationPromptParams(BaseModel):
     scale: str = Field("0.0 to 1.0", description="Scale for scoring")
 
 
-class CustomMetrics:
+class CustomMetrics:  # pylint: disable=too-few-public-methods
     """Handles custom metrics using LLMManager for direct LiteLLM calls."""
 
     def __init__(self, llm_manager: LLMManager):
@@ -272,9 +272,3 @@ class CustomMetrics:
         score = 1.0 if success else 0.0
 
         return score, details
-
-    @classmethod
-    def from_system_config(cls, system_config: dict[str, Any]) -> "CustomMetrics":
-        """Create CustomMetrics from system configuration."""
-        llm_manager = LLMManager.from_system_config(system_config)
-        return cls(llm_manager)

@@ -3,11 +3,59 @@
 import os
 from typing import Any
 
-from ..models import LLMConfig
+from ..models import EmbeddingConfig, LLMConfig, SystemConfig
 
 
 class LLMError(Exception):
     """LLM configuration error."""
+
+
+def _validate_openai_env() -> None:
+    """Validate OpenAI environment variables."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise LLMError(
+            "OPENAI_API_KEY environment variable is required for OpenAI provider"
+        )
+
+
+def _validate_azure_env() -> None:
+    """Validate Azure OpenAI environment variables."""
+    required = ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"]
+    if not all(os.environ.get(var) for var in required):
+        raise LLMError(f"Azure provider requires environment variables: {required}")
+
+
+def _validate_watsonx_env() -> None:
+    """Validate Watsonx environment variables."""
+    required = ["WATSONX_API_KEY", "WATSONX_API_BASE", "WATSONX_PROJECT_ID"]
+    if not all(os.environ.get(var) for var in required):
+        raise LLMError(f"Watsonx provider requires environment variables: {required}")
+
+
+def _validate_anthropic_env() -> None:
+    """Validate Anthropic environment variables."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise LLMError(
+            "ANTHROPIC_API_KEY environment variable is required for Anthropic provider"
+        )
+
+
+def _validate_gemini_env() -> None:
+    """Validate Google Gemini environment variables."""
+    # Gemini can use either GOOGLE_API_KEY or GEMINI_API_KEY
+    if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
+        raise LLMError(
+            "GOOGLE_API_KEY or GEMINI_API_KEY environment variable "
+            "is required for Gemini provider"
+        )
+
+
+def _validate_ollama_env() -> None:
+    """Validate Ollama environment variables."""
+    # Ollama typically runs locally, but may need OLLAMA_HOST for remote instances
+    # No required env vars for basic local setup, but warn if OLLAMA_HOST is not set
+    if not os.environ.get("OLLAMA_HOST"):
+        print("ℹ️ OLLAMA_HOST not set, using default localhost:11434")
 
 
 class LLMManager:
@@ -48,79 +96,35 @@ class LLMManager:
         print(f"⚠️ Using generic provider format for {provider}")
         return f"{provider}/{self.config.model}"
 
-    def _validate_openai_env(self) -> None:
-        """Validate OpenAI environment variables."""
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise LLMError(
-                "OPENAI_API_KEY environment variable is required for OpenAI provider"
-            )
-
-    def _validate_azure_env(self) -> None:
-        """Validate Azure OpenAI environment variables."""
-        required = ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"]
-        if not all(os.environ.get(var) for var in required):
-            raise LLMError(f"Azure provider requires environment variables: {required}")
-
-    def _validate_watsonx_env(self) -> None:
-        """Validate Watsonx environment variables."""
-        required = ["WATSONX_API_KEY", "WATSONX_API_BASE", "WATSONX_PROJECT_ID"]
-        if not all(os.environ.get(var) for var in required):
-            raise LLMError(
-                f"Watsonx provider requires environment variables: {required}"
-            )
-
-    def _validate_anthropic_env(self) -> None:
-        """Validate Anthropic environment variables."""
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            raise LLMError(
-                "ANTHROPIC_API_KEY environment variable is required for Anthropic provider"
-            )
-
-    def _validate_gemini_env(self) -> None:
-        """Validate Google Gemini environment variables."""
-        # Gemini can use either GOOGLE_API_KEY or GEMINI_API_KEY
-        if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
-            raise LLMError(
-                "GOOGLE_API_KEY or GEMINI_API_KEY environment variable "
-                "is required for Gemini provider"
-            )
-
-    def _validate_ollama_env(self) -> None:
-        """Validate Ollama environment variables."""
-        # Ollama typically runs locally, but may need OLLAMA_HOST for remote instances
-        # No required env vars for basic local setup, but warn if OLLAMA_HOST is not set
-        if not os.environ.get("OLLAMA_HOST"):
-            print("ℹ️ OLLAMA_HOST not set, using default localhost:11434")
-
     def _handle_openai_provider(self) -> str:
         """Handle OpenAI provider setup."""
-        self._validate_openai_env()
+        _validate_openai_env()
         return self.config.model
 
     def _handle_azure_provider(self) -> str:
         """Handle Azure provider setup."""
-        self._validate_azure_env()
+        _validate_azure_env()
         deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME") or self.config.model
         return f"azure/{deployment}"
 
     def _handle_watsonx_provider(self) -> str:
         """Handle WatsonX provider setup."""
-        self._validate_watsonx_env()
+        _validate_watsonx_env()
         return f"watsonx/{self.config.model}"
 
     def _handle_anthropic_provider(self) -> str:
         """Handle Anthropic provider setup."""
-        self._validate_anthropic_env()
+        _validate_anthropic_env()
         return f"anthropic/{self.config.model}"
 
     def _handle_gemini_provider(self) -> str:
         """Handle Gemini provider setup."""
-        self._validate_gemini_env()
+        _validate_gemini_env()
         return f"gemini/{self.config.model}"
 
     def _handle_ollama_provider(self) -> str:
         """Handle Ollama provider setup."""
-        self._validate_ollama_env()
+        _validate_ollama_env()
         return f"ollama/{self.config.model}"
 
     def get_model_name(self) -> str:
@@ -142,13 +146,46 @@ class LLMManager:
         return self.config
 
     @classmethod
-    def from_system_config(cls, system_config: dict[str, Any]) -> "LLMManager":
+    def from_system_config(cls, system_config: SystemConfig) -> "LLMManager":
         """Create LLM Manager from system configuration."""
-        llm_config_dict = system_config.get("llm", {})
-        config = LLMConfig(**llm_config_dict)
-        return cls(config)
+        return cls(system_config.llm)
 
     @classmethod
     def from_llm_config(cls, llm_config: LLMConfig) -> "LLMManager":
         """Create LLM Manager from LLMConfig directly."""
         return cls(llm_config)
+
+
+class EmbeddingManager:  # pylint: disable=too-few-public-methods
+    """Generic Embedding Manager."""
+
+    def __init__(self, config: EmbeddingConfig):
+        """Initialize with validated environment and constructed model name."""
+        self.config = config
+        self._validate_config()
+        print(
+            f"""
+✅ Embedding Manager: {self.config.provider} -- {self.config.model} {self.config.provider_kwargs}"""
+        )
+
+    def _validate_config(self) -> None:
+        """Validate config and env variables."""
+
+        def empty_check() -> None:
+            pass
+
+        env_validator = {
+            "openai": _validate_openai_env,
+            # "google": _validate_gemini_env, # Google embeddings are not supported at the moment
+            "huggingface": empty_check,
+        }.get(self.config.provider)
+
+        if env_validator is None:
+            raise LLMError(f"Unsupported embedding provider {self.config.provider}")
+
+        env_validator()
+
+    @classmethod
+    def from_system_config(cls, system_config: SystemConfig) -> "EmbeddingManager":
+        """Create LLM Manager from system configuration."""
+        return cls(system_config.embedding)

@@ -15,7 +15,7 @@ from ..llm.manager import LLMManager
 from ..models import EvaluationScope, TurnData
 
 
-class DeepEvalMetrics:
+class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
     """Handles DeepEval metrics evaluation using LLM Manager."""
 
     def __init__(self, llm_manager: LLMManager):
@@ -128,9 +128,3 @@ class DeepEvalMetrics:
         metric = KnowledgeRetentionMetric(model=self.llm_manager.get_llm())
 
         return self._evaluate_metric(metric, test_case)
-
-    @classmethod
-    def from_system_config(cls, system_config: dict[str, Any]) -> "DeepEvalMetrics":
-        """Create DeepEvalMetrics from system configuration."""
-        llm_manager = LLMManager.from_system_config(system_config)
-        return cls(llm_manager)

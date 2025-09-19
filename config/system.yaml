@@ -8,6 +8,28 @@ llm:
   max_tokens: 512             # Maximum tokens in response
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
+# Example Google Gemini LLM
+# llm:
+#   provider: "gemini"
+#   model: "gemini-1.5-pro"    
+#   temperature: 0.0  
+#   max_tokens: 512  
+#   timeout: 120        
+#   num_retries: 3
+
+# LLM Embeddings Configuration
+# provider: "huggingface" or "openai"
+# model: model name
+# provider_kwargs: additional arguments,
+#   for example see https://docs.ragas.io/en/stable/references/embeddings/#ragas.embeddings.HuggingfaceEmbeddings
+
+# embedding:
+#   provider: "huggingface"
+#   model: "sentence-transformers/all-mpnet-base-v2"
+#   provider_kwargs:
+#     # cache_folder: <path>
+#     model_kwargs:
+#       device: "cpu"
 
 # API Configuration
 # To get real time data. Currently it supports lightspeed-stack API.
