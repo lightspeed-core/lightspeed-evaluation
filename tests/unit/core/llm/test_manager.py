@@ -4,9 +4,8 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from lightspeed_evaluation.core.llm.manager import LLMError, LLMManager
-from lightspeed_evaluation.core.models import LLMConfig
+from lightspeed_evaluation.core.models import LLMConfig, SystemConfig
 
 
 class TestLLMError:
@@ -100,14 +99,16 @@ class TestLLMManager:
 
     def test_from_system_config(self):
         """Test from_system_config class method."""
-        system_config = {
-            "llm": {
-                "provider": "openai",
-                "model": "gpt-4",
-                "temperature": 0.5,
-                "max_tokens": 2000,
+        system_config = SystemConfig.model_validate(
+            {
+                "llm": {
+                    "provider": "openai",
+                    "model": "gpt-4",
+                    "temperature": 0.5,
+                    "max_tokens": 2000,
+                }
             }
-        }
+        )
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             manager = LLMManager.from_system_config(system_config)

@@ -7,6 +7,7 @@ import yaml
 
 from ..models import (
     APIConfig,
+    EmbeddingConfig,
     EvaluationData,
     LLMConfig,
     LoggingConfig,
@@ -107,6 +108,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         metrics_metadata = config_data.get("metrics_metadata", {})
         return SystemConfig(
             llm=LLMConfig(**config_data.get("llm", {})),
+            embedding=EmbeddingConfig(**config_data.get("embedding", {})),
             api=APIConfig(**config_data.get("api", {})),
             output=OutputConfig(**config_data.get("output", {})),
             logging=LoggingConfig(**config_data.get("logging", {})),

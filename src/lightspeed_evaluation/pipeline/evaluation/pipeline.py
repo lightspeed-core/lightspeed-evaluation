@@ -4,7 +4,6 @@ import logging
 from typing import Optional
 
 from ...core.api import APIClient
-from ...core.llm.manager import LLMManager
 from ...core.models import EvaluationData, EvaluationResult
 from ...core.output.data_persistence import save_evaluation_data
 from ...core.system import ConfigLoader, DataValidator
@@ -49,14 +48,11 @@ class EvaluationPipeline:
             )
         self.data_validator = DataValidator(api_enabled=self.config.api.enabled)
 
-        # LLM Manager
-        llm_manager = LLMManager.from_llm_config(self.config.llm)
-
         # Create pipeline components
         api_client = self._create_api_client()
         api_amender = APIDataAmender(api_client)
         error_handler = EvaluationErrorHandler()
-        metrics_evaluator = MetricsEvaluator(llm_manager, self.config_loader)
+        metrics_evaluator = MetricsEvaluator(self.config_loader)
         # Group components for easier access
         self.components = {
             "api_client": api_client,
