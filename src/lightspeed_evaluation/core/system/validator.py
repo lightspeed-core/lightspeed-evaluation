@@ -143,13 +143,15 @@ class DataValidator:
         """Validate that specified metrics are available/supported."""
         conversation_id = data.conversation_group_id
 
-        # Validate turn metrics
-        if data.turn_metrics:
-            for metric in data.turn_metrics:
-                if metric not in TURN_LEVEL_METRICS:
-                    self.validation_errors.append(
-                        f"Conversation {conversation_id}: Unknown turn metric '{metric}'"
-                    )
+        # Validate per-turn metrics
+        for turn_data in data.turns:
+            if turn_data.turn_metrics:
+                for metric in turn_data.turn_metrics:
+                    if metric not in TURN_LEVEL_METRICS:
+                        self.validation_errors.append(
+                            f"Conversation {conversation_id}, Turn {turn_data.turn_id}: "
+                            f"Unknown turn metric '{metric}'"
+                        )
 
         # Validate conversation metrics
         if data.conversation_metrics:
@@ -180,10 +182,10 @@ class DataValidator:
         # Check each turn against metric requirements
         for turn_data in data.turns:
             # Skip validation if no turn metrics specified
-            if not data.turn_metrics:
+            if not turn_data.turn_metrics:
                 continue
 
-            for metric in data.turn_metrics:
+            for metric in turn_data.turn_metrics:
                 if metric not in METRIC_REQUIREMENTS:
                     continue  # Unknown metrics are handled separately
 

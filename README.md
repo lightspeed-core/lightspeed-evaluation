@@ -115,16 +115,18 @@ api:
   no_tools: null                       # Whether to bypass tools (optional)
   system_prompt: null                  # Custom system prompt (optional)
 
-# Metrics Configuration with thresholds
+# Metrics Configuration with thresholds and defaults
 metrics_metadata:
   turn_level:
-    "ragas:faithfulness":
-      threshold: 0.8
-      description: "How faithful the response is to the provided context"
-    
     "ragas:response_relevancy":
       threshold: 0.8
       description: "How relevant the response is to the question"
+      default: true   # Used by default when turn_metrics is null
+
+    "ragas:faithfulness":
+      threshold: 0.8
+      description: "How faithful the response is to the provided context"
+      default: false  # Only used when explicitly specified
       
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls (regex for arguments)"
@@ -160,16 +162,6 @@ visualization:
 - conversation_group_id: "test_conversation"
   description: "Sample evaluation"
   
-  # Turn-level metrics to evaluate
-  turn_metrics:
-    - "ragas:faithfulness"
-    - "custom:answer_correctness"
-  
-  # Metric-specific configuration
-  turn_metrics_metadata:
-    "ragas:faithfulness": 
-      threshold: 0.8
-  
   # Conversation-level metrics   
   conversation_metrics:
     - "deepeval:conversation_completeness"
@@ -186,8 +178,23 @@ visualization:
         - OpenShift Virtualization is an extension of the OpenShift ...
       attachments: []                   # Attachments (Optional)
       expected_response: OpenShift Virtualization is an extension of the OpenShift Container Platform that allows running virtual machines alongside containers
+      
+      # Per-turn metrics (overrides system defaults)
+      turn_metrics:
+        - "ragas:faithfulness"
+        - "custom:answer_correctness"
+      
+      # Per-turn metric configuration
+      turn_metrics_metadata:
+        "ragas:faithfulness": 
+          threshold: 0.9  # Override system default
+      # turn_metrics: null (omitted) → Use system defaults (metrics with default=true)
+      
+    - turn_id: id2
+      query: Skip this turn evaluation
+      turn_metrics: []                  # Skip evaluation for this turn
 
-    - turn_id: id2  
+    - turn_id: id3
       query: How do I create a virtual machine in OpenShift Virtualization?
       response: null                    # Populated by API if enabled, otherwise provide
       contexts:
@@ -223,10 +230,20 @@ visualization:
 | `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
 | `expected_tool_calls` | list[list[dict]] | 📋       | Expected tool call sequences         | ❌                    |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
+| `turn_metrics`        | list[string]     | ❌       | Turn-specific metrics to evaluate    | ❌                    |
+| `turn_metrics_metadata` | dict           | ❌       | Turn-specific metric configuration   | ❌                    |
 
 Note: Context will be collected automatically in the future.
 
 > 📋 **Required based on metrics**: Some fields are required only when using specific metrics
+
+#### Metrics override behavior
+
+| Override Value | Behavior |
+|---------------------|----------|
+| `null` (or omitted) | Use system defaults (metrics with `default: true`) |
+| `[]` (empty list)   | Skip evaluation for this turn |
+| `["metric1", ...]`  | Use specified metrics only |
 
 Examples
 > - `expected_response`: Required for `custom:answer_correctness`

@@ -3,14 +3,6 @@
 - conversation_group_id: "conv_group_1"
   description: "conversation group description"
 
-  turn_metrics:
-    - "ragas:faithfulness"
-    - "ragas:response_relevancy"
-    - "ragas:context_precision_without_reference"
-
-  turn_metrics_metadata:
-    "ragas:faithfulness":
-      threshold: 0.99
   conversation_metrics: []
   conversation_metrics_metadata: {}
 
@@ -23,15 +15,17 @@
         - "Context 2"
       expected_response: "Expected Response"
 
+      turn_metrics:
+        - "ragas:faithfulness"
+        - "ragas:response_relevancy"
+        - "ragas:context_precision_without_reference"
+
+      turn_metrics_metadata:
+        "ragas:faithfulness":
+          threshold: 0.99
+
 - conversation_group_id: "conv_group_2"
   description: "conversation group description"
-
-  turn_metrics:
-    - "ragas:context_recall"
-    - "ragas:context_relevance"
-    - "ragas:context_precision_with_reference"
-
-  turn_metrics_metadata: {}
   conversation_metrics: []
   conversation_metrics_metadata: {}
 
@@ -43,13 +37,13 @@
         - "Context 1"
       expected_response: "Expected Response"
 
+      turn_metrics:
+        - "ragas:context_recall"
+        - "ragas:context_relevance"
+        - "ragas:context_precision_with_reference"
+
 - conversation_group_id: "conv_group_3"
   description: "conversation group description"
-
-  turn_metrics:
-    - "custom:answer_correctness"
-
-  turn_metrics_metadata: {}
 
   conversation_metrics:
     - "deepeval:conversation_completeness"
@@ -60,14 +54,10 @@
   turns:
     - turn_id: "1"
       query: "User Query 1"
-      response: "API Response 1"
-      contexts:
-        - "Context"
-      expected_response: "Expected Response 1"
+
+      turn_metrics: []  # Skip eval for this turn
 
     - turn_id: "2"
       query: "User Query 2"
       response: "API Response 2"
-      contexts:
-        - "Context"
-      expected_response: "Expected Response 2"
+      # turn_metrics: null (omitted) → Use system defaults (metrics with default=true)

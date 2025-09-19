@@ -31,22 +31,20 @@ metrics_metadata:
   # Turn-level metrics metadata
   turn_level:
     # Ragas Response Evaluation metrics
-    "ragas:faithfulness":
-      threshold: 0.8
-      description: "How faithful the response is to the provided context"
-
     "ragas:response_relevancy":
       threshold: 0.8
       description: "How relevant the response is to the question"
+      default: true  # This metric is applied by default when no turn_metrics specified
+
+    "ragas:faithfulness":
+      threshold: 0.8
+      description: "How faithful the response is to the provided context"
+      default: false  # By default the value is false
 
     # Ragas Context/Retrieval Evaluation metrics
     "ragas:context_recall":
       threshold: 0.8
       description: "Did we fetch every fact the answer needs?"
-
-    "ragas:context_relevance":
-      threshold: 0.7
-      description: "Is what we retrieved actually relevant to user query?"
 
     "ragas:context_precision_with_reference":
       threshold: 0.7
@@ -55,6 +53,10 @@ metrics_metadata:
     "ragas:context_precision_without_reference":
       threshold: 0.7
       description: "How precise the retrieved context is (without reference)"
+
+    "ragas:context_relevance":
+      threshold: 0.7
+      description: "Is what we retrieved actually relevant to user query?"
 
     # Custom metrics
     "custom:answer_correctness":
@@ -70,6 +72,7 @@ metrics_metadata:
     "deepeval:conversation_completeness":
       threshold: 0.8
       description: "How completely the conversation addresses user intentions"
+      default: false
 
     "deepeval:conversation_relevancy":
       threshold: 0.7
