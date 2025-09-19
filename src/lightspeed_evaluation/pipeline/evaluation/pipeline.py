@@ -30,12 +30,10 @@ class EvaluationPipeline:
     def __init__(self, config_loader: ConfigLoader, output_dir: Optional[str] = None):
         """Initialize evaluation pipeline with config and create components."""
         self.config_loader = config_loader
-        self.config = config_loader.system_config
-        if not self.config:
+        if not config_loader.system_config:
             raise ValueError("SystemConfig must be loaded before initializing pipeline")
-        self.results: list[EvaluationResult] = []
         self.original_data_path: Optional[str] = None
-        self.output_dir = output_dir or self.config.output.output_dir
+        self.output_dir = output_dir or config_loader.system_config.output.output_dir
 
         # Initialize components
         self._initialize_components()
@@ -44,14 +42,15 @@ class EvaluationPipeline:
     def _initialize_components(self) -> None:
         """Initialize all required components."""
         # Data validator
-        if self.config is None:
+        config = self.config_loader.system_config
+        if config is None:
             raise ValueError(
                 "SystemConfig must be loaded before initializing components"
             )
-        self.data_validator = DataValidator(api_enabled=self.config.api.enabled)
+        self.data_validator = DataValidator(api_enabled=config.api.enabled)
 
         # LLM Manager
-        llm_manager = LLMManager.from_llm_config(self.config.llm)
+        llm_manager = LLMManager.from_llm_config(config.llm)
 
         # Create pipeline components
         api_client = self._create_api_client()
@@ -76,12 +75,13 @@ class EvaluationPipeline:
 
     def _create_api_client(self) -> Optional[APIClient]:
         """Create API client if enabled."""
-        if self.config is None:
+        config = self.config_loader.system_config
+        if config is None:
             raise ValueError("SystemConfig must be loaded before creating API client")
-        if not self.config.api.enabled:
+        if not config.api.enabled:
             return None
 
-        api_config = self.config.api
+        api_config = config.api
         logger.info("Setting up API client: %s", api_config.api_base)
 
         client = APIClient(
@@ -119,7 +119,7 @@ class EvaluationPipeline:
         """
         self.original_data_path = original_data_path
         logger.info("Starting evaluation")
-        self.results = []
+        results: list[EvaluationResult] = []
 
         # Step 1: Validate data
         logger.info("Validating data")
@@ -130,17 +130,18 @@ class EvaluationPipeline:
         logger.info("Processing conversations")
         for conv_data in evaluation_data:
             conv_results = self.conversation_processor.process_conversation(conv_data)
-            self.results.extend(conv_results)
+            results.extend(conv_results)
 
         # Step 3: Save updated data if API was used
-        if self.config is None:
+        config = self.config_loader.system_config
+        if config is None:
             raise ValueError("SystemConfig must be loaded")
-        if self.config.api.enabled:
+        if config.api.enabled:
             logger.info("Saving updated evaluation data")
             self._save_updated_data(evaluation_data)
 
-        logger.info("Evaluation complete: %d results generated", len(self.results))
-        return self.results
+        logger.info("Evaluation complete: %d results generated", len(results))
+        return results
 
     def _save_updated_data(self, evaluation_data: list[EvaluationData]) -> None:
         """Save updated evaluation data with API amendments."""
