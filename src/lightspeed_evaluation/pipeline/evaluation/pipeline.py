@@ -54,7 +54,7 @@ class EvaluationPipeline:
         llm_manager = LLMManager.from_llm_config(config.llm)
 
         # Metric manager
-        metric_manager = MetricManager(self.config)
+        metric_manager = MetricManager(config)
 
         # Create pipeline components
         self.api_client = self._create_api_client()

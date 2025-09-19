@@ -136,7 +136,7 @@ class MetricsEvaluator:
         """Determine evaluation status based on score and threshold."""
         if threshold is None:
             threshold = 0.5  # This will also handle binary metrics
-        return "PASS" if score >= threshold else "FAIL"
+        return "PASS" if score >= float(threshold) else "FAIL"
 
     def get_supported_frameworks(self) -> list[str]:
         """Get list of supported evaluation frameworks."""

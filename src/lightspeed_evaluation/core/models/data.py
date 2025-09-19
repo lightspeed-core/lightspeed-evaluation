@@ -10,6 +10,27 @@ from ..constants import SUPPORTED_RESULT_STATUSES
 logger = logging.getLogger(__name__)
 
 
+def _validate_and_deduplicate_metrics(
+    metrics: list[str], metric_type: str = "metric"
+) -> list[str]:
+    """Validate format and deduplicate metrics while preserving order."""
+    # Validate format first
+    for metric in metrics:
+        if not metric or ":" not in metric:
+            raise ValueError(
+                f'{metric_type} "{metric}" must be in format "framework:metric_name"'
+            )
+
+    # Deduplicate while preserving order
+    seen = set()
+    deduplicated = []
+    for metric in metrics:
+        if metric not in seen:
+            deduplicated.append(metric)
+            seen.add(metric)
+    return deduplicated
+
+
 class TurnData(BaseModel):
     """Individual turn data within a conversation."""
 
@@ -54,13 +75,9 @@ class TurnData(BaseModel):
     @field_validator("turn_metrics")
     @classmethod
     def validate_turn_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
-        """Validate turn-specific metrics are properly formatted."""
+        """Validate and deduplicate turn-specific metrics."""
         if v is not None:
-            for metric in v:
-                if not metric or ":" not in metric:
-                    raise ValueError(
-                        f'Turn metric "{metric}" must be in format "framework:metric_name"'
-                    )
+            v = _validate_and_deduplicate_metrics(v, "Turn metric")
         return v
 
     @field_validator("expected_tool_calls", mode="before")
@@ -143,13 +160,9 @@ class EvaluationData(BaseModel):
     def validate_conversation_metrics(
         cls, v: Optional[list[str]]
     ) -> Optional[list[str]]:
-        """Validate conversation metrics are properly formatted."""
+        """Validate and deduplicate conversation metrics."""
         if v is not None:
-            for metric in v:
-                if not metric or ":" not in metric:
-                    raise ValueError(
-                        f'Conversation metric "{metric}" must be in format "framework:metric_name"'
-                    )
+            v = _validate_and_deduplicate_metrics(v, "Conversation metric")
         return v
 
 
