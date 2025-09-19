@@ -56,7 +56,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Step 3: Run evaluation with pre-loaded data
         print("\n⚙️ Initializing Evaluation Pipeline...")
-        pipeline = EvaluationPipeline(loader)
+        pipeline = EvaluationPipeline(loader, output_dir)
 
         print("\n🔄 Running Evaluation...")
         try:
