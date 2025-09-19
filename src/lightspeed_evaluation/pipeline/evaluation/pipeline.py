@@ -27,7 +27,7 @@ class EvaluationPipeline:
     - Save updated data
     """
 
-    def __init__(self, config_loader: ConfigLoader):
+    def __init__(self, config_loader: ConfigLoader, output_dir: Optional[str] = None):
         """Initialize evaluation pipeline with config and create components."""
         self.config_loader = config_loader
         self.config = config_loader.system_config
@@ -35,6 +35,7 @@ class EvaluationPipeline:
             raise ValueError("SystemConfig must be loaded before initializing pipeline")
         self.results: list[EvaluationResult] = []
         self.original_data_path: Optional[str] = None
+        self.output_dir = output_dir or self.config.output.output_dir
 
         # Initialize components
         self._initialize_components()
@@ -149,7 +150,7 @@ class EvaluationPipeline:
 
         try:
             updated_file = save_evaluation_data(
-                evaluation_data, self.original_data_path
+                evaluation_data, self.original_data_path, self.output_dir
             )
             if updated_file:
                 logger.info("Updated data saved: %s", updated_file)
