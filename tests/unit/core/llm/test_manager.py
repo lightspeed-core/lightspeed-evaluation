@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import pytest
 from lightspeed_evaluation.core.llm.manager import (
-    EmbeddingManager,
     LLMError,
     LLMManager,
 )
@@ -111,16 +110,6 @@ class TestLLMManager:
                     "temperature": 0.5,
                     "max_tokens": 2000,
                 },
-                "embedding": {
-                    "provider": "huggingface",
-                    "model": "testmodel",
-                    "provider_kwargs": {
-                        "key": "value",
-                        "dict_key": {
-                            "sub_dict_key": "sub_dict_value",
-                        },
-                    },
-                },
             }
         )
 
@@ -131,17 +120,6 @@ class TestLLMManager:
             assert manager.config.model == "gpt-4"
             assert manager.config.temperature == 0.5
             assert manager.config.max_tokens == 2000
-
-            em = EmbeddingManager.from_system_config(system_config)
-            em_config = em.config
-            assert em_config.provider == "huggingface"
-            assert em_config.model == "testmodel"
-            assert em_config.provider_kwargs == {
-                "key": "value",
-                "dict_key": {
-                    "sub_dict_key": "sub_dict_value",
-                },
-            }
 
     def test_provider_case_insensitive(self):
         """Test that provider names are handled case-insensitively."""

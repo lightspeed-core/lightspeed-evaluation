@@ -3,13 +3,8 @@
 from typing import Any, Optional
 
 import litellm
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_openai import OpenAIEmbeddings
-from ragas.embeddings import LangchainEmbeddingsWrapper
 from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
 from ragas.metrics import answer_relevancy, faithfulness
-
-from ..llm.manager import EmbeddingManager
 
 
 class RagasCustomLLM(BaseRagasLLM):
@@ -114,27 +109,3 @@ class RagasLLMManager:
             "model_name": self.model_name,
             "temperature": self.litellm_params.get("temperature", 0.0),
         }
-
-
-class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
-    """Ragas Embedding Manager, modifies global ragas settings."""
-
-    def __init__(self, embedding_manager: EmbeddingManager):
-        """Init RagasEmbeddingManager."""
-        config = embedding_manager.config
-        self.config = config
-
-        embedding_class = {
-            "openai": OpenAIEmbeddings,
-            "huggingface": HuggingFaceEmbeddings,
-        }.get(config.provider)
-        if not embedding_class:
-            raise RuntimeError(f"Unknown embedding provider {config.provider}")
-
-        kwargs = config.provider_kwargs
-        if kwargs is None:
-            kwargs = {}
-
-        self.embeddings = LangchainEmbeddingsWrapper(
-            embedding_class(model=config.model, **kwargs)
-        )

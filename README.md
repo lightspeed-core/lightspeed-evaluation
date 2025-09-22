@@ -154,6 +154,32 @@ visualization:
     - "status_breakdown"      # Pie chart for pass/fail/error breakdown
 ```
 
+#### Non OpenAI configuration example
+```yaml
+# Judge-LLM Google Gemini
+llm:
+  provider: "gemini"
+  model: "gemini-1.5-pro"    
+  temperature: 0.0  
+  max_tokens: 512  
+  timeout: 120        
+  num_retries: 3
+
+# Judge-LLM HuggingFace embeddings
+# provider: "huggingface" or "openai"
+# model: model name
+# provider_kwargs: additional arguments,
+#   for examples see https://docs.ragas.io/en/stable/references/embeddings/#ragas.embeddings.HuggingfaceEmbeddings
+embedding:
+  provider: "huggingface"
+  model: "sentence-transformers/all-mpnet-base-v2"
+  provider_kwargs:
+    # cache_folder: <path_for_downloaded_model>
+    model_kwargs:
+      device: "cpu"
+...
+```
+
 ### Evaluation Data Structure (`config/evaluation_data.yaml`)
 
 ```yaml

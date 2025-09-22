@@ -4,7 +4,8 @@ import logging
 import time
 from typing import Optional
 
-from ...core.llm.manager import EmbeddingManager, LLMManager
+from ...core.embedding.manager import EmbeddingManager
+from ...core.llm.manager import LLMManager
 from ...core.metrics.custom import CustomMetrics
 from ...core.metrics.deepeval import DeepEvalMetrics
 from ...core.metrics.ragas import RagasMetrics

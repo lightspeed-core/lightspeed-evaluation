@@ -72,17 +72,27 @@ class EmbeddingConfig(BaseModel):
     provider: str = Field(
         default=DEFAULT_EMBEDDING_PROVIDER,
         min_length=1,
-        description="Provider name, e.g., huggingface, openai, google",
+        description="Provider name, e.g., huggingface, openai",
     )
     model: str = Field(
         default=DEFAULT_EMBEDDING_MODEL,
         min_length=1,
         description="Embedding model identifier",
     )
-    provider_kwargs: Optional[dict] = Field(
+    provider_kwargs: Optional[dict[str, Any]] = Field(
         default=None,
         description="Embedding provider arguments, e.g. model_kwargs: device:cpu",
     )
+
+    @field_validator("provider")
+    @classmethod
+    def _validate_provider(cls, v: str) -> str:
+        allowed = {"openai", "huggingface"}
+        if v not in allowed:
+            raise ValueError(
+                f"Unsupported embedding provider '{v}'. Allowed: {sorted(allowed)}"
+            )
+        return v
 
 
 class APIConfig(BaseModel):

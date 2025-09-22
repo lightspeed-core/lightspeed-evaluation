@@ -14,8 +14,10 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
-from ..llm.manager import EmbeddingManager, LLMManager
-from ..llm.ragas import RagasEmbeddingManager, RagasLLMManager
+from ..embedding.manager import EmbeddingManager
+from ..embedding.ragas import RagasEmbeddingManager
+from ..llm.manager import LLMManager
+from ..llm.ragas import RagasLLMManager
 from ..models import EvaluationScope, TurnData
 
 
