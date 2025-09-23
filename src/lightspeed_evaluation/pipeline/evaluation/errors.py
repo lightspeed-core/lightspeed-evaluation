@@ -15,9 +15,19 @@ class EvaluationErrorHandler:
         self.results: list[EvaluationResult] = []
 
     def mark_all_metrics_as_error(
-        self, conv_data: EvaluationData, error_reason: str
+        self,
+        conv_data: EvaluationData,
+        error_reason: str,
+        resolved_turn_metrics: list[list[str]],
+        resolved_conversation_metrics: list[str],
     ) -> list[EvaluationResult]:
         """Mark all turn and conversation metrics as ERROR when there is an error.
+
+        Args:
+            conv_data: Conversation data
+            error_reason: Reason for error
+            resolved_turn_metrics: Pre-resolved turn metrics
+            resolved_conversation_metrics: Pre-resolved conversation metrics
 
         Returns:
             list[EvaluationResult]: ERROR results for all metrics
@@ -30,39 +40,37 @@ class EvaluationErrorHandler:
         error_results = []
 
         # Mark all turn-level metrics as ERROR
-        if conv_data.turn_metrics:
-            for turn_data in conv_data.turns:
-                for metric_identifier in conv_data.turn_metrics:
-                    error_result = EvaluationResult(
-                        conversation_group_id=conv_data.conversation_group_id,
-                        turn_id=turn_data.turn_id,
-                        metric_identifier=metric_identifier,
-                        result="ERROR",
-                        score=None,
-                        threshold=None,
-                        reason=error_reason,
-                        query=turn_data.query,
-                        response="",
-                        execution_time=0.0,
-                    )
-                    error_results.append(error_result)
-
-        # Mark all conversation-level metrics as ERROR
-        if conv_data.conversation_metrics:
-            for metric_identifier in conv_data.conversation_metrics:
+        for turn_data, turn_metrics in zip(conv_data.turns, resolved_turn_metrics):
+            for metric_identifier in turn_metrics:
                 error_result = EvaluationResult(
                     conversation_group_id=conv_data.conversation_group_id,
-                    turn_id=None,  # Conversation-level metric
+                    turn_id=turn_data.turn_id,
                     metric_identifier=metric_identifier,
                     result="ERROR",
                     score=None,
                     threshold=None,
                     reason=error_reason,
-                    query="",
+                    query=turn_data.query,
                     response="",
                     execution_time=0.0,
                 )
                 error_results.append(error_result)
+
+        # Mark all conversation-level metrics as ERROR
+        for metric_identifier in resolved_conversation_metrics:
+            error_result = EvaluationResult(
+                conversation_group_id=conv_data.conversation_group_id,
+                turn_id=None,  # Conversation-level metric
+                metric_identifier=metric_identifier,
+                result="ERROR",
+                score=None,
+                threshold=None,
+                reason=error_reason,
+                query="",
+                response="",
+                execution_time=0.0,
+            )
+            error_results.append(error_result)
 
         # Store results internally for summary tracking
         self.results.extend(error_results)

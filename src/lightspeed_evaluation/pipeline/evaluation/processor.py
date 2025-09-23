@@ -1,7 +1,9 @@
 """Conversation processing module - handles conversation and turn processing."""
 
 import logging
+from dataclasses import dataclass
 
+from ...core.metrics.manager import MetricLevel, MetricManager
 from ...core.models import EvaluationData, EvaluationRequest, EvaluationResult, TurnData
 from ...core.system import ConfigLoader
 from .amender import APIDataAmender
@@ -11,22 +13,30 @@ from .evaluator import MetricsEvaluator
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ProcessorComponents:
+    """Components required for conversation processing."""
+
+    metrics_evaluator: MetricsEvaluator
+    api_amender: APIDataAmender
+    error_handler: EvaluationErrorHandler
+    metric_manager: MetricManager
+
+
 class ConversationProcessor:
     """Processes individual conversations - handles both turn and conversation metrics."""
 
-    def __init__(
-        self,
-        config_loader: ConfigLoader,
-        metrics_evaluator: MetricsEvaluator,
-        api_amender: APIDataAmender,
-        error_handler: EvaluationErrorHandler,
-    ):
-        """Initialize with required components."""
+    def __init__(self, config_loader: ConfigLoader, components: ProcessorComponents):
+        """Initialize with config loader and components."""
         self.config_loader = config_loader
         self.config = config_loader.system_config
-        self.metrics_evaluator = metrics_evaluator
-        self.api_amender = api_amender
-        self.error_handler = error_handler
+        self.components = components
+
+        # Keep direct references for easier access
+        self.metrics_evaluator = components.metrics_evaluator
+        self.api_amender = components.api_amender
+        self.error_handler = components.error_handler
+        self.metric_manager = components.metric_manager
 
     def process_conversation(self, conv_data: EvaluationData) -> list[EvaluationResult]:
         """Process single conversation - handle turn and conversation level metrics.
@@ -37,9 +47,24 @@ class ConversationProcessor:
         logger.info("Evaluating conversation: %s", conv_data.conversation_group_id)
         results: list[EvaluationResult] = []
 
+        resolved_turn_metrics = [
+            self.metric_manager.resolve_metrics(
+                turn_data.turn_metrics, MetricLevel.TURN
+            )
+            for turn_data in conv_data.turns
+        ]
+        resolved_conversation_metrics = self.metric_manager.resolve_metrics(
+            conv_data.conversation_metrics, MetricLevel.CONVERSATION
+        )
+
         # Skip if no metrics specified at any level
-        if not conv_data.turn_metrics and not conv_data.conversation_metrics:
-            logger.debug("No metrics specified, skipping")
+        has_turn_metrics = any(bool(metrics) for metrics in resolved_turn_metrics)
+        has_conversation_metrics = bool(resolved_conversation_metrics)
+
+        if not has_turn_metrics and not has_conversation_metrics:
+            logger.debug(
+                "No metrics to evaluate (no defaults or explicit metrics), skipping"
+            )
             return results
 
         # Amend with API data if enabled
@@ -54,34 +79,48 @@ class ConversationProcessor:
         if api_error_occurred:
             logger.error("API error detected - marking all metrics as ERROR")
             error_results = self.error_handler.mark_all_metrics_as_error(
-                conv_data, "API error during data amendment"
+                conv_data,
+                "API error during data amendment",
+                resolved_turn_metrics=resolved_turn_metrics,
+                resolved_conversation_metrics=resolved_conversation_metrics,
             )
             return error_results
 
-        # Process turn-level metrics
-        if conv_data.turn_metrics:
-            logger.debug("Processing turn-level metrics: %s", conv_data.turn_metrics)
-            for turn_idx, turn_data in enumerate(conv_data.turns):
-                turn_results = self._evaluate_turn(conv_data, turn_idx, turn_data)
+        # Process turn-level metrics for each turn
+        for turn_idx, (turn_data, turn_metrics) in enumerate(
+            zip(conv_data.turns, resolved_turn_metrics)
+        ):
+            if turn_metrics:
+                logger.debug("Processing turn %d metrics: %s", turn_idx, turn_metrics)
+                turn_results = self._evaluate_turn(
+                    conv_data, turn_idx, turn_data, turn_metrics
+                )
                 results.extend(turn_results)
 
         # Process conversation-level metrics
-        if conv_data.conversation_metrics:
+        if resolved_conversation_metrics:
             logger.debug(
                 "Processing conversation-level metrics: %s",
-                conv_data.conversation_metrics,
+                resolved_conversation_metrics,
             )
-            conv_results = self._evaluate_conversation(conv_data)
+            conv_results = self._evaluate_conversation(
+                conv_data, resolved_conversation_metrics
+            )
             results.extend(conv_results)
 
         return results
 
     def _evaluate_turn(
-        self, conv_data: EvaluationData, turn_idx: int, turn_data: TurnData
+        self,
+        conv_data: EvaluationData,
+        turn_idx: int,
+        turn_data: TurnData,
+        turn_metrics: list[str],
     ) -> list[EvaluationResult]:
         """Evaluate single turn with specified turn metrics."""
         results = []
-        for metric_identifier in conv_data.turn_metrics or []:
+
+        for metric_identifier in turn_metrics:
             request = EvaluationRequest.for_turn(
                 conv_data, metric_identifier, turn_idx, turn_data
             )
@@ -91,11 +130,12 @@ class ConversationProcessor:
         return results
 
     def _evaluate_conversation(
-        self, conv_data: EvaluationData
+        self, conv_data: EvaluationData, conversation_metrics: list[str]
     ) -> list[EvaluationResult]:
         """Evaluate conversation-level metrics."""
         results = []
-        for metric_identifier in conv_data.conversation_metrics or []:
+
+        for metric_identifier in conversation_metrics:
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
             result = self.metrics_evaluator.evaluate_metric(request)
             if result:
@@ -104,9 +144,4 @@ class ConversationProcessor:
 
     def get_metrics_summary(self, conv_data: EvaluationData) -> dict[str, int]:
         """Get summary of metrics to be evaluated for a conversation."""
-        summary = {
-            "turn_metrics": len(conv_data.turn_metrics or []),
-            "conversation_metrics": len(conv_data.conversation_metrics or []),
-            "total_turns": len(conv_data.turns),
-        }
-        return summary
+        return self.metric_manager.count_metrics_for_conversation(conv_data)

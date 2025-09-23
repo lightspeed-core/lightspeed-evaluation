@@ -69,10 +69,12 @@ def sample_turn_data():
 @pytest.fixture
 def sample_evaluation_data(sample_turn_data):
     """Provide sample EvaluationData for testing."""
+    # Add turn_metrics to the turn data
+    sample_turn_data.turn_metrics = ["ragas:faithfulness", "ragas:response_relevancy"]
+
     return EvaluationData(
         conversation_group_id="test_conversation",
         description="Test conversation for evaluation",
-        turn_metrics=["ragas:faithfulness", "ragas:response_relevancy"],
         conversation_metrics=["deepeval:conversation_completeness"],
         turns=[sample_turn_data],
     )
@@ -122,15 +124,21 @@ def temp_config_files():
             "turn_level": {
                 "ragas:faithfulness": {
                     "threshold": 0.8,
-                    "type": "turn",
-                    "framework": "ragas",
-                }
+                    "description": "How faithful the response is to the provided context",
+                    "default": False,
+                },
+                "ragas:response_relevancy": {
+                    "threshold": 0.8,
+                },
+                "custom:answer_correctness": {
+                    "threshold": 0.7,
+                },
             },
             "conversation_level": {
                 "deepeval:conversation_completeness": {
                     "threshold": 0.7,
-                    "type": "conversation",
-                    "framework": "deepeval",
+                    "description": "How completely the conversation addresses user intentions",
+                    "default": False,
                 }
             },
         },
@@ -147,9 +155,7 @@ def temp_config_files():
         {
             "conversation_group_id": "test_conv_1",
             "description": "Test conversation 1",
-            "turn_metrics": ["ragas:faithfulness", "ragas:response_relevancy"],
             "conversation_metrics": [],
-            "turn_metrics_metadata": {},
             "conversation_metrics_metadata": {},
             "turns": [
                 {
@@ -158,15 +164,15 @@ def temp_config_files():
                     "response": "Machine learning is a subset of AI.",
                     "contexts": ["Machine learning is a method of data analysis."],
                     "expected_response": "Machine learning is a subset of artificial intelligence.",
+                    "turn_metrics": ["ragas:faithfulness", "ragas:response_relevancy"],
+                    "turn_metrics_metadata": {},
                 }
             ],
         },
         {
             "conversation_group_id": "test_conv_2",
             "description": "Test conversation 2",
-            "turn_metrics": ["custom:answer_correctness"],
             "conversation_metrics": ["deepeval:conversation_completeness"],
-            "turn_metrics_metadata": {},
             "conversation_metrics_metadata": {},
             "turns": [
                 {
@@ -175,6 +181,8 @@ def temp_config_files():
                     "response": "Neural networks are computing systems inspired by biological neural networks.",
                     "contexts": ["Neural networks consist of interconnected nodes."],
                     "expected_response": "Neural networks are computational models inspired by the human brain.",
+                    "turn_metrics": ["custom:answer_correctness"],
+                    "turn_metrics_metadata": {},
                 },
                 {
                     "turn_id": "2",
@@ -184,6 +192,8 @@ def temp_config_files():
                         "Applications include computer vision and natural language processing."
                     ],
                     "expected_response": "Applications include computer vision, NLP, and pattern recognition.",
+                    "turn_metrics": None,
+                    "turn_metrics_metadata": {},
                 },
             ],
         },

@@ -72,20 +72,24 @@ class TestEvaluationData:
 
     def test_valid_evaluation_data_creation(self):
         """Test creating valid EvaluationData instance."""
-        turn = TurnData(turn_id="1", query="Test query", response="Test response")
+        turn = TurnData(
+            turn_id="1",
+            query="Test query",
+            response="Test response",
+            turn_metrics=["ragas:faithfulness"],
+        )
         eval_data = EvaluationData(
             conversation_group_id="test_conv",
             description="Test conversation",
-            turn_metrics=["ragas:faithfulness"],
             conversation_metrics=["deepeval:completeness"],
             turns=[turn],
         )
 
         assert eval_data.conversation_group_id == "test_conv"
         assert eval_data.description == "Test conversation"
-        assert eval_data.turn_metrics == ["ragas:faithfulness"]
         assert eval_data.conversation_metrics == ["deepeval:completeness"]
         assert len(eval_data.turns) == 1
+        assert eval_data.turns[0].turn_metrics == ["ragas:faithfulness"]
 
     def test_evaluation_data_with_minimal_fields(self):
         """Test EvaluationData with only required fields."""
@@ -94,9 +98,9 @@ class TestEvaluationData:
 
         assert eval_data.conversation_group_id == "test_conv"
         assert eval_data.description is None
-        assert eval_data.turn_metrics is None
         assert eval_data.conversation_metrics is None
         assert len(eval_data.turns) == 1
+        assert eval_data.turns[0].turn_metrics is None
 
     def test_evaluation_data_invalid_empty_conversation_id(self):
         """Test validation error for empty conversation_group_id."""
@@ -108,29 +112,33 @@ class TestEvaluationData:
 
     def test_evaluation_data_invalid_metric_format_missing_colon(self):
         """Test validation error for metric without colon."""
-        turn = TurnData(turn_id="1", query="Test query", response="Test response")
         with pytest.raises(
             ValidationError, match='must be in format "framework:metric_name"'
         ):
-            EvaluationData(
-                conversation_group_id="test_conv",
+            TurnData(
+                turn_id="1",
+                query="Test query",
+                response="Test response",
                 turn_metrics=["invalid_metric"],
-                turns=[turn],
             )
 
     def test_evaluation_data_with_metadata(self):
         """Test EvaluationData with metadata fields."""
-        turn = TurnData(turn_id="1", query="Test query", response="Test response")
+        turn = TurnData(
+            turn_id="1",
+            query="Test query",
+            response="Test response",
+            turn_metrics=["ragas:faithfulness"],
+            turn_metrics_metadata={"ragas:faithfulness": {"threshold": 0.8}},
+        )
         eval_data = EvaluationData(
             conversation_group_id="test_conv",
-            turn_metrics=["ragas:faithfulness"],
             conversation_metrics=["deepeval:completeness"],
-            turn_metrics_metadata={"ragas:faithfulness": {"threshold": 0.8}},
             conversation_metrics_metadata={"deepeval:completeness": {"threshold": 0.9}},
             turns=[turn],
         )
 
-        assert eval_data.turn_metrics_metadata == {
+        assert eval_data.turns[0].turn_metrics_metadata == {
             "ragas:faithfulness": {"threshold": 0.8}
         }
         assert eval_data.conversation_metrics_metadata == {

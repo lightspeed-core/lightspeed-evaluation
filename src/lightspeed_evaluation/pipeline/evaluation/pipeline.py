@@ -4,13 +4,14 @@ import logging
 from typing import Optional
 
 from ...core.api import APIClient
+from ...core.metrics.manager import MetricManager
 from ...core.models import EvaluationData, EvaluationResult
 from ...core.output.data_persistence import save_evaluation_data
 from ...core.system import ConfigLoader, DataValidator
 from .amender import APIDataAmender
 from .errors import EvaluationErrorHandler
 from .evaluator import MetricsEvaluator
-from .processor import ConversationProcessor
+from .processor import ConversationProcessor, ProcessorComponents
 
 logger = logging.getLogger(__name__)
 
@@ -48,25 +49,27 @@ class EvaluationPipeline:
             )
         self.data_validator = DataValidator(api_enabled=config.api.enabled)
 
+        # Metric manager
+        metric_manager = MetricManager(config)
+
         # Create pipeline components
-        api_client = self._create_api_client()
-        api_amender = APIDataAmender(api_client)
+        self.api_client = self._create_api_client()
+        api_amender = APIDataAmender(self.api_client)
         error_handler = EvaluationErrorHandler()
-        metrics_evaluator = MetricsEvaluator(self.config_loader)
-        # Group components for easier access
-        self.components = {
-            "api_client": api_client,
-            "api_amender": api_amender,
-            "error_handler": error_handler,
-            "metrics_evaluator": metrics_evaluator,
-        }
+        metrics_evaluator = MetricsEvaluator(self.config_loader, metric_manager)
+
+        # Create processor components
+        processor_components = ProcessorComponents(
+            metrics_evaluator=metrics_evaluator,
+            api_amender=api_amender,
+            error_handler=error_handler,
+            metric_manager=metric_manager,
+        )
 
         # Conversation processor
         self.conversation_processor = ConversationProcessor(
             self.config_loader,
-            self.components["metrics_evaluator"],
-            self.components["api_amender"],
-            self.components["error_handler"],
+            processor_components,
         )
 
     def _create_api_client(self) -> Optional[APIClient]:
@@ -161,6 +164,5 @@ class EvaluationPipeline:
 
     def close(self) -> None:
         """Clean up resources."""
-        api_client = self.components.get("api_client")
-        if api_client:
-            api_client.close()
+        if self.api_client:
+            self.api_client.close()
