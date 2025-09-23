@@ -209,7 +209,7 @@ visualization:
 - **Dynamic responses**: `response` and `tool_calls` fields populated by API
 - **Conversation context**: Conversation context is maintained across turns
 - **Authentication**: Use `API_KEY` environment variable
-- **Data persistence**: Writes `response`/`tool_calls` back to the original evaluation data so it can be reused with API disabled
+- **Data persistence**: Saves amended `response`/`tool_calls` data to output directory so it can be used with API disabled
 
 #### With API Disabled (`api.enabled: false`)
 - **Static data mode**: Use pre-filled `response` and `tool_calls` data

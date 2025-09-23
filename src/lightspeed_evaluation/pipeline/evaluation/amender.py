@@ -40,7 +40,7 @@ class APIDataAmender:
                 )
                 conversation_id = api_response.conversation_id  # Track for next turns
 
-                # UPDATE ORIGINAL YAML DATA: This modifies the loaded TurnData object in-place
+                # AMEND EVALUATION DATA: This modifies the loaded TurnData object in-place
                 # Update response from API
                 turn_data.response = api_response.response
                 turn_data.conversation_id = api_response.conversation_id
