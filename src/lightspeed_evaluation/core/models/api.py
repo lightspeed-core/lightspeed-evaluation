@@ -5,6 +5,18 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class RAGChunk(BaseModel):
+    """RAG chunk data from lightspeed-stack API."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(..., description="RAG chunk content")
+    source: str = Field(..., description="Source of the RAG chunk")
+    score: Optional[float] = Field(
+        default=None, description="Relevance score of the chunk"
+    )
+
+
 class AttachmentData(BaseModel):
     """Individual attachment structure for API."""
 
@@ -88,9 +100,17 @@ class APIResponse(BaseModel):
         if not conversation_id:
             raise ValueError("conversation_id is required in API response")
 
+        # Extract contexts from RAG chunks
+        raw_rag_chunks = raw_data.get("rag_chunks", [])
+        contexts = []
+        if raw_rag_chunks:
+            for chunk_data in raw_rag_chunks:
+                if isinstance(chunk_data, dict) and "content" in chunk_data:
+                    contexts.append(chunk_data["content"])
+
         return cls(
             response=raw_data["response"].strip(),
             conversation_id=conversation_id,
             tool_calls=tool_call_sequences,
-            contexts=raw_data.get("contexts", []),  # Contexts from API output
+            contexts=contexts,
         )
