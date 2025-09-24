@@ -24,7 +24,7 @@ class EvaluationPipeline:
     - Validate data
     - Orchestrate evaluation flow
     - Collect results
-    - Save updated data
+    - Save amended data
     """
 
     def __init__(self, config_loader: ConfigLoader, output_dir: Optional[str] = None):
@@ -131,36 +131,37 @@ class EvaluationPipeline:
             conv_results = self.conversation_processor.process_conversation(conv_data)
             results.extend(conv_results)
 
-        # Step 3: Save updated data if API was used
+        # Step 3: Save amended data if API was used
         config = self.config_loader.system_config
         if config is None:
             raise ValueError("SystemConfig must be loaded")
         if config.api.enabled:
-            logger.info("Saving updated evaluation data")
-            self._save_updated_data(evaluation_data)
+            logger.info("Saving amended evaluation data")
+            self._save_amended_data(evaluation_data)
 
         logger.info("Evaluation complete: %d results generated", len(results))
         return results
 
-    def _save_updated_data(self, evaluation_data: list[EvaluationData]) -> None:
-        """Save updated evaluation data with API amendments."""
+    def _save_amended_data(self, evaluation_data: list[EvaluationData]) -> None:
+        """Save amended evaluation data with API amendments to output directory."""
         if not self.original_data_path:
-            logger.warning("No original data path available, cannot save updated data")
+            logger.warning("No original data path available, cannot save amended data")
             return
 
         try:
-            updated_file = save_evaluation_data(
+            amended_file = save_evaluation_data(
                 evaluation_data, self.original_data_path, self.output_dir
             )
-            if updated_file:
-                logger.info("Updated data saved: %s", updated_file)
+            if amended_file:
+                logger.info("Amended data saved: %s", amended_file)
                 logger.info(
                     "To use amended data without new API calls, "
-                    "disable the API call using system config"
+                    "disable the API call using system config & "
+                    "replace the original evaluation data file with the amended file"
                 )
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Don't fail the evaluation if saving fails
-            logger.warning("Failed to save updated data: %s", e)
+            logger.warning("Failed to save amended data: %s", e)
 
     def close(self) -> None:
         """Clean up resources."""
