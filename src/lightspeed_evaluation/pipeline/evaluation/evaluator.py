@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Optional
 
+from ...core.embedding.manager import EmbeddingManager
 from ...core.llm.manager import LLMManager
 from ...core.metrics.custom import CustomMetrics
 from ...core.metrics.deepeval import DeepEvalMetrics
@@ -20,16 +21,20 @@ class MetricsEvaluator:
 
     def __init__(
         self,
-        llm_manager: LLMManager,
         config_loader: ConfigLoader,
         metric_manager: MetricManager,
     ) -> None:
         """Initialize with LLM manager, config, and metric manager."""
         self.config_loader = config_loader
+        if config_loader.system_config is None:
+            raise RuntimeError("Uninitialized system_config")
         self.config = config_loader.system_config
 
+        llm_manager = LLMManager.from_system_config(self.config)
+        embedding_manager = EmbeddingManager.from_system_config(self.config)
+
         # Initialize metric handlers
-        self.ragas_metrics = RagasMetrics(llm_manager)
+        self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
         self.deepeval_metrics = DeepEvalMetrics(llm_manager)
         self.custom_metrics = CustomMetrics(llm_manager)
 

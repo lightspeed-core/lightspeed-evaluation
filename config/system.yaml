@@ -9,6 +9,13 @@ llm:
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
 
+# Default embedding configuration:
+# embedding:
+#   provider: "openai"
+#   model: "text-embedding-3-small"
+#   provider_kwargs: {}
+
+
 # API Configuration
 # To get real time data. Currently it supports lightspeed-stack API.
 # But can be easily integrated with other APIs with minimal change.

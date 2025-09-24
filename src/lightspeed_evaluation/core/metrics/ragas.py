@@ -14,25 +14,31 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
+from ..embedding.manager import EmbeddingManager
+from ..embedding.ragas import RagasEmbeddingManager
 from ..llm.manager import LLMManager
 from ..llm.ragas import RagasLLMManager
 from ..models import EvaluationScope, TurnData
 
 
 # Decide if Dataset will be used or not ?
-class RagasMetrics:
+class RagasMetrics:  # pylint: disable=too-few-public-methods
     """Handles Ragas metrics evaluation using LLM Manager."""
 
-    def __init__(self, llm_manager: LLMManager):
+    def __init__(self, llm_manager: LLMManager, embedding_manager: EmbeddingManager):
         """Initialize with LLM Manager.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
+            embedding_manager: Pre-configured EmbeddingManager with validated parameters
         """
         # Create Ragas LLM Manager for metric configuration
+        # Note, it's not actually used, it modifies
+        # global ragas.metrics settings during instance init
         self.llm_manager = RagasLLMManager(
             llm_manager.get_model_name(), llm_manager.get_litellm_params()
         )
+        self.embedding_manager = RagasEmbeddingManager(embedding_manager)
 
         self.supported_metrics = {
             # Response evaluation metrics
@@ -62,9 +68,10 @@ class RagasMetrics:
         ]
         return query, response or "", contexts
 
-    def _evaluate_metric(
+    def _evaluate_metric(  # pylint: disable=too-many-positional-arguments,too-many-arguments
         self,
         metric_class: Any,
+        metric_kwargs: dict[str, Any] | None,
         dataset_dict: dict[str, Any],
         result_key: str,
         metric_name: str,
@@ -73,7 +80,9 @@ class RagasMetrics:
         dataset = Dataset.from_dict(dataset_dict)
 
         # Configure metric with LLM
-        metric_instance = metric_class(llm=self.llm_manager.get_llm())
+        if metric_kwargs is None:
+            metric_kwargs = {}
+        metric_instance = metric_class(llm=self.llm_manager.get_llm(), **metric_kwargs)
 
         result = evaluate(dataset, metrics=[metric_instance])
         df = result.to_pandas()
@@ -138,7 +147,11 @@ class RagasMetrics:
         dataset_dict = {"question": [query], "answer": [response]}
 
         return self._evaluate_metric(
-            ResponseRelevancy, dataset_dict, "answer_relevancy", "response relevancy"
+            ResponseRelevancy,
+            {"embeddings": self.embedding_manager.embeddings},
+            dataset_dict,
+            "answer_relevancy",
+            "response relevancy",
         )
 
     def _evaluate_faithfulness(
@@ -161,7 +174,7 @@ class RagasMetrics:
         }
 
         return self._evaluate_metric(
-            Faithfulness, dataset_dict, "faithfulness", "faithfulness"
+            Faithfulness, {}, dataset_dict, "faithfulness", "faithfulness"
         )
 
     def _evaluate_context_precision_without_reference(
@@ -185,6 +198,7 @@ class RagasMetrics:
 
         return self._evaluate_metric(
             LLMContextPrecisionWithoutReference,
+            {},
             dataset_dict,
             "llm_context_precision_without_reference",
             "context precision without reference",
@@ -215,6 +229,7 @@ class RagasMetrics:
 
         return self._evaluate_metric(
             LLMContextPrecisionWithReference,
+            {},
             dataset_dict,
             "llm_context_precision_with_reference",
             "context precision with reference",
@@ -244,7 +259,7 @@ class RagasMetrics:
         }
 
         return self._evaluate_metric(
-            LLMContextRecall, dataset_dict, "context_recall", "LLM context recall"
+            LLMContextRecall, {}, dataset_dict, "context_recall", "LLM context recall"
         )
 
     def _evaluate_context_relevance(
@@ -263,11 +278,9 @@ class RagasMetrics:
         dataset_dict = {"question": [query], "contexts": [contexts]}
 
         return self._evaluate_metric(
-            ContextRelevance, dataset_dict, "nv_context_relevance", "context relevance"
+            ContextRelevance,
+            {},
+            dataset_dict,
+            "nv_context_relevance",
+            "context relevance",
         )
-
-    @classmethod
-    def from_system_config(cls, system_config: dict[str, Any]) -> "RagasMetrics":
-        """Create RagasMetrics from system configuration."""
-        llm_manager = LLMManager.from_system_config(system_config)
-        return cls(llm_manager)
