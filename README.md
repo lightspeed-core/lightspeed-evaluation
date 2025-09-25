@@ -68,26 +68,26 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
 ## 📊 Supported Metrics
 
 ### Turn-Level (Single Query)
-- **Ragas**
+- **Ragas** -- [docs](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/) on Ragas website
   - Response Evaluation
-    - `faithfulness`
-    - `response_relevancy`
+    - [`faithfulness`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/)
+    - [`response_relevancy`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/answer_relevance/)
   - Context Evaluation
-    - `context_recall`
-    - `context_relevance`
-    - `context_precision_without_reference`
-    - `context_precision_with_reference`
+    - [`context_recall`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/)
+    - [`context_relevance`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/nvidia_metrics/#context-relevance)
+    - [`context_precision_without_reference`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-without-reference)
+    - [`context_precision_with_reference`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-with-reference)
 - **Custom**
   - Response Evaluation
-    - `answer_correctness`
+    - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom.py)
   - Tool Evaluation
-    - `tool_eval` - Validates tool calls and arguments with regex pattern matching
+    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
 
 ### Conversation-Level (Multi-turn)
-- **DeepEval**
-  - `conversation_completeness`
-  - `conversation_relevancy`
-  - `knowledge_retention`
+- **DeepEval** -- [docs](https://deepeval.com/docs/metrics-introduction) on DeepEval website
+  - [`conversation_completeness`](https://deepeval.com/docs/metrics-conversation-completeness)
+  - [`conversation_relevancy`](https://deepeval.com/docs/metrics-turn-relevancy)
+  - [`knowledge_retention`](https://deepeval.com/docs/metrics-knowledge-retention)
 
 ## ⚙️ Configuration
 
