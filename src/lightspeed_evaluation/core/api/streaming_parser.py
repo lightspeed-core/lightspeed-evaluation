@@ -16,7 +16,6 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
     conversation_id = ""
     final_response = ""
     tool_calls: list[dict[str, Any]] = []
-    contexts: list[str] = []
 
     for line in response.iter_lines():
         line = line.strip()
@@ -58,7 +57,6 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
         "response": final_response,
         "tool_calls": tool_sequences,
         "conversation_id": conversation_id,
-        "contexts": contexts,
     }
 
 
