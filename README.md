@@ -35,6 +35,9 @@ uv sync
 # Set required environment variable(s) for Judge-LLM
 export OPENAI_API_KEY="your-key"
 
+# Optional: For script-based evaluations requiring Kubernetes access
+export KUBECONFIG="/path/to/your/kubeconfig"
+
 # Run evaluation
 lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --output-dir <OUTPUT_DIR>
 ```
@@ -286,6 +289,28 @@ Examples
           kind: pod
           name: openshift-light*    # Regex patterns supported for flexible matching
   ```
+
+#### Script-Based Evaluations
+
+The framework supports script-based evaluations.
+**Note: Scripts only execute when API is enabled** - they're designed to test with actual environment changes.
+
+- **Setup scripts**: Run before conversation evaluation (e.g., create failed deployment for troubleshoot query)
+- **Cleanup scripts**: Run after conversation evaluation (e.g., cleanup failed deployment)  
+- **Verify scripts**: Run per turn for `script:action_eval` metric (e.g., validate if a pod has been created or not)
+
+```yaml
+# Example: evaluation_data.yaml
+- conversation_group_id: infrastructure_test
+  setup_script: ./scripts/setup_cluster.sh
+  cleanup_script: ./scripts/cleanup_cluster.sh
+  turns:
+    - turn_id: turn_id
+      query: Create a new cluster
+      verify_script: ./scripts/verify_cluster.sh
+      turn_metrics:
+        - script:action_eval
+```
 
 ## 🔑 Authentication & Environment
 
