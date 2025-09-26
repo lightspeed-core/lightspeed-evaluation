@@ -41,8 +41,9 @@ class ScriptRunner:
             # Setup environment
             env = self.get_environment()
 
-            # Make script executable
-            script_path.chmod(0o755)
+            # Make script executable if it is not executable
+            if not os.access(str(script_path.resolve()), os.X_OK):
+                script_path.chmod(0o755)
 
             # Run script
             logger.debug("Running script: %s", script_path)
