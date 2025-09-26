@@ -1,6 +1,8 @@
 """Data validation of input data before evaluation."""
 
-from typing import Optional
+import os
+from pathlib import Path
+from typing import Optional, Union
 
 import yaml
 from pydantic import ValidationError
@@ -118,6 +120,10 @@ class DataValidator:
         if not self.validate_evaluation_data(evaluation_data):
             raise DataValidationError("Evaluation data validation failed")
 
+        # Validate scripts only if API is enabled
+        if self.api_enabled:
+            self._validate_scripts(evaluation_data)
+
         self.evaluation_data = evaluation_data
         print(f"📋 Evaluation data loaded: {len(evaluation_data)} conversations")
 
@@ -193,6 +199,10 @@ class DataValidator:
                 if metric not in METRIC_REQUIREMENTS:
                     continue  # Unknown metrics are handled separately
 
+                # Skip script metric validation if API is disabled
+                if metric.startswith("script:") and not self.api_enabled:
+                    continue
+
                 requirements = METRIC_REQUIREMENTS[metric]
                 required_fields = requirements["required_fields"]
                 description = requirements["description"]
@@ -228,3 +238,59 @@ class DataValidator:
                         break  # Only report once per metric per turn
 
         return errors
+
+    def _validate_scripts(self, evaluation_data: list[EvaluationData]) -> None:
+        """Validate all script paths when API is enabled."""
+        for data in evaluation_data:
+            # Validate conversation-level scripts
+            data.setup_script = self._validate_single_script(
+                data.setup_script, "Setup", data.conversation_group_id
+            )
+            data.cleanup_script = self._validate_single_script(
+                data.cleanup_script, "Cleanup", data.conversation_group_id
+            )
+
+            # Validate turn-level scripts
+            for turn in data.turns:
+                turn.verify_script = self._validate_single_script(
+                    turn.verify_script,
+                    "Verify",
+                    f"{data.conversation_group_id}, Turn {turn.turn_id}",
+                )
+
+    def _validate_single_script(
+        self,
+        script_file: Optional[Union[str, Path]],
+        script_type: str,
+        context: str,
+    ) -> Optional[Path]:
+        """Validate a single script file and return the validated Path object."""
+        if script_file is None:
+            return None
+
+        if isinstance(script_file, str):
+            script_file = Path(script_file)
+
+        script_file = script_file.resolve()
+
+        # Validate existence and file type
+        if not script_file.exists():
+            raise DataValidationError(
+                f"Conversation {context}: {script_type} script not found: {script_file}"
+            )
+
+        if not script_file.is_file():
+            raise DataValidationError(
+                f"Conversation {context}: {script_type} script path is not a file: {script_file}"
+            )
+
+        # Check if script is executable or can be made executable
+        if not os.access(script_file, os.X_OK):
+            try:
+                script_file.chmod(0o755)
+            except (OSError, PermissionError) as exc:
+                raise DataValidationError(
+                    f"Conversation {context}: {script_type} script is not executable: {script_file}"
+                ) from exc
+
+        return script_file

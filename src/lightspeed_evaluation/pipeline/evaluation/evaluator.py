@@ -41,7 +41,9 @@ class MetricsEvaluator:
         self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
         self.deepeval_metrics = DeepEvalMetrics(llm_manager)
         self.custom_metrics = CustomMetrics(llm_manager)
-        self.script_eval_metrics = ScriptEvalMetrics(script_manager)
+        self.script_eval_metrics = ScriptEvalMetrics(
+            script_manager, config_loader.system_config.api.enabled
+        )
 
         # Metric routing map
         self.handlers = {

@@ -169,8 +169,13 @@ class ConversationProcessor:
         if not setup_script:
             return None
 
+        # Skip script execution if API is disabled
+        if self.config and not self.config.api.enabled:
+            logger.debug("Skipping setup script (API disabled): %s", setup_script)
+            return None
+
         try:
-            logger.info("Running setup script: %s", setup_script)
+            logger.debug("Running setup script: %s", setup_script)
             success = self.components.script_manager.run_script(setup_script)
             if not success:
                 error_msg = f"Setup script returned non-zero exit code: {setup_script}"
@@ -191,7 +196,12 @@ class ConversationProcessor:
         if not cleanup_script:
             return
 
-        logger.info("Running cleanup script: %s", cleanup_script)
+        # Skip script execution if API is disabled
+        if self.config and not self.config.api.enabled:
+            logger.debug("Skipping cleanup script (API disabled): %s", cleanup_script)
+            return
+
+        logger.debug("Running cleanup script: %s", cleanup_script)
         try:
             success = self.components.script_manager.run_script(cleanup_script)
             if success:
