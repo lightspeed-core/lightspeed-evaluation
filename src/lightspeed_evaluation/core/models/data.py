@@ -1,9 +1,11 @@
 """Core data models for evaluation framework."""
 
 import logging
-from typing import Any, Optional
+import os
+from pathlib import Path
+from typing import Any, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from ..constants import SUPPORTED_RESULT_STATUSES
 
@@ -29,6 +31,36 @@ def _validate_and_deduplicate_metrics(
             deduplicated.append(metric)
             seen.add(metric)
     return deduplicated
+
+
+def _validate_script_path(
+    script_file: Optional[Union[str, Path]], script_name: str
+) -> Optional[Path]:
+    """Validate script file path and return Path object if valid."""
+    if script_file is None:
+        return None
+
+    if isinstance(script_file, str):
+        script_file = Path(script_file)
+
+    script_file = script_file.resolve()
+
+    if not script_file.exists():
+        raise ValueError(f"{script_name} script not found: {script_file}")
+
+    if not script_file.is_file():
+        raise ValueError(f"{script_name} script path is not a file: {script_file}")
+
+    # Check if script is executable or can be made executable
+    if not os.access(script_file, os.X_OK):
+        try:
+            script_file.chmod(0o755)
+        except (OSError, PermissionError) as exc:
+            raise ValueError(
+                f"{script_name} script is not executable: {script_file}"
+            ) from exc
+
+    return script_file
 
 
 class TurnData(BaseModel):
@@ -72,6 +104,11 @@ class TurnData(BaseModel):
         description="Turn-specific metric configuration (overrides system defaults)",
     )
 
+    # Script execution support
+    verify_script: Optional[Union[str, Path]] = Field(
+        default=None, description="Path to verify script for script-based evaluation"
+    )
+
     @field_validator("turn_metrics")
     @classmethod
     def validate_turn_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
@@ -79,6 +116,12 @@ class TurnData(BaseModel):
         if v is not None:
             v = _validate_and_deduplicate_metrics(v, "Turn metric")
         return v
+
+    @field_validator("verify_script")
+    @classmethod
+    def validate_verify_script(cls, v: Optional[Union[str, Path]]) -> Optional[Path]:
+        """Validate verify script path."""
+        return _validate_script_path(v, "Verify")
 
     @field_validator("expected_tool_calls", mode="before")
     @classmethod
@@ -155,6 +198,16 @@ class EvaluationData(BaseModel):
         ..., min_length=1, description="Conversation turns - must have at least one"
     )
 
+    # Script execution support
+    setup_script: Optional[Union[str, Path]] = Field(
+        default=None,
+        description="Path to setup script to run before conversation starts",
+    )
+    cleanup_script: Optional[Union[str, Path]] = Field(
+        default=None,
+        description="Path to cleanup script to run after conversation ends",
+    )
+
     @field_validator("conversation_metrics")
     @classmethod
     def validate_conversation_metrics(
@@ -164,6 +217,18 @@ class EvaluationData(BaseModel):
         if v is not None:
             v = _validate_and_deduplicate_metrics(v, "Conversation metric")
         return v
+
+    @field_validator("setup_script", "cleanup_script")
+    @classmethod
+    def validate_scripts(
+        cls, v: Optional[Union[str, Path]], info: ValidationInfo
+    ) -> Optional[Path]:
+        """Validate setup and cleanup script paths."""
+        field_name = info.field_name
+        if field_name is None:
+            raise ValueError("Field name is required for script validation")
+        script_type = field_name.replace("_script", "").title()
+        return _validate_script_path(v, script_type)
 
 
 class EvaluationResult(BaseModel):
