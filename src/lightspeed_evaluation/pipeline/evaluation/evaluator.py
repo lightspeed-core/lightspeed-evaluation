@@ -27,7 +27,7 @@ class MetricsEvaluator:
         metric_manager: MetricManager,
         script_manager: ScriptExecutionManager,
     ) -> None:
-        """Initialize with LLM manager."""
+        """Initialize Metric Evaluator."""
         self.config_loader = config_loader
         if config_loader.system_config is None:
             raise RuntimeError("Uninitialized system_config")
