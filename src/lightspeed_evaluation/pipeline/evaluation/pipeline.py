@@ -7,6 +7,7 @@ from ...core.api import APIClient
 from ...core.metrics.manager import MetricManager
 from ...core.models import EvaluationData, EvaluationResult
 from ...core.output.data_persistence import save_evaluation_data
+from ...core.script import ScriptExecutionManager
 from ...core.system import ConfigLoader, DataValidator
 from .amender import APIDataAmender
 from .errors import EvaluationErrorHandler
@@ -56,7 +57,14 @@ class EvaluationPipeline:
         self.api_client = self._create_api_client()
         api_amender = APIDataAmender(self.api_client)
         error_handler = EvaluationErrorHandler()
-        metrics_evaluator = MetricsEvaluator(self.config_loader, metric_manager)
+
+        # Create script execution manager
+        script_manager = ScriptExecutionManager()
+
+        # Create metrics evaluator with script manager
+        metrics_evaluator = MetricsEvaluator(
+            self.config_loader, metric_manager, script_manager
+        )
 
         # Create processor components
         processor_components = ProcessorComponents(
@@ -64,6 +72,7 @@ class EvaluationPipeline:
             api_amender=api_amender,
             error_handler=error_handler,
             metric_manager=metric_manager,
+            script_manager=script_manager,
         )
 
         # Conversation processor
