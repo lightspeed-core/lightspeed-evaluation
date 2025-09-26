@@ -10,7 +10,9 @@ from ...core.metrics.custom import CustomMetrics
 from ...core.metrics.deepeval import DeepEvalMetrics
 from ...core.metrics.manager import MetricLevel, MetricManager
 from ...core.metrics.ragas import RagasMetrics
+from ...core.metrics.script_eval import ScriptEvalMetrics
 from ...core.models import EvaluationRequest, EvaluationResult, EvaluationScope
+from ...core.script import ScriptExecutionManager
 from ...core.system import ConfigLoader
 
 logger = logging.getLogger(__name__)
@@ -23,26 +25,30 @@ class MetricsEvaluator:
         self,
         config_loader: ConfigLoader,
         metric_manager: MetricManager,
+        script_manager: ScriptExecutionManager,
     ) -> None:
-        """Initialize with LLM manager, config, and metric manager."""
+        """Initialize with LLM manager."""
         self.config_loader = config_loader
         if config_loader.system_config is None:
             raise RuntimeError("Uninitialized system_config")
-        self.config = config_loader.system_config
 
-        llm_manager = LLMManager.from_system_config(self.config)
-        embedding_manager = EmbeddingManager.from_system_config(self.config)
+        llm_manager = LLMManager.from_system_config(config_loader.system_config)
+        embedding_manager = EmbeddingManager.from_system_config(
+            config_loader.system_config
+        )
 
         # Initialize metric handlers
         self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
         self.deepeval_metrics = DeepEvalMetrics(llm_manager)
         self.custom_metrics = CustomMetrics(llm_manager)
+        self.script_eval_metrics = ScriptEvalMetrics(script_manager)
 
         # Metric routing map
         self.handlers = {
             "ragas": self.ragas_metrics,
             "deepeval": self.deepeval_metrics,
             "custom": self.custom_metrics,
+            "script": self.script_eval_metrics,
         }
 
         self.metric_manager = metric_manager

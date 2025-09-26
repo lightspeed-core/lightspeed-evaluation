@@ -46,6 +46,10 @@ METRIC_REQUIREMENTS = {
             "with 'tool_name' and 'arguments'"
         ),
     },
+    "script:action_eval": {
+        "required_fields": ["verify_script"],
+        "description": "requires 'verify_script' field",
+    },
 }
 
 
