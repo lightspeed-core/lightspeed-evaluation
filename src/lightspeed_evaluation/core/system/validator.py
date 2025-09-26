@@ -271,7 +271,15 @@ class DataValidator:
         if isinstance(script_file, str):
             script_file = Path(script_file)
 
-        script_file = script_file.resolve()
+        # Expand user home directory shortcuts
+        script_file = script_file.expanduser()
+
+        # Resolve relative paths against the YAML file directory, not CWD
+        if not script_file.is_absolute() and self.original_data_path:
+            yaml_dir = Path(self.original_data_path).parent
+            script_file = (yaml_dir / script_file).resolve()
+        else:
+            script_file = script_file.resolve()
 
         # Validate existence and file type
         if not script_file.exists():

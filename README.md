@@ -8,9 +8,10 @@ A comprehensive framework for evaluating GenAI applications.
 
 - **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations
 - **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations
-- **Evaluation types**: Response, Context & Tool Call evaluation
+- **Evaluation types**: Response, Context, Tool Call, Overall Conversation evaluation & Script-based evaluation
 - **LLM Provider Flexibility**: OpenAI, Anthropic, Watsonx, Azure, Gemini, Ollama via LiteLLM
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
+- **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Flexible Configuration**: Configurable environment & metric metadata
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
 - **Early Validation**: Catch configuration errors before expensive LLM calls
@@ -34,6 +35,9 @@ uv sync
 ```bash
 # Set required environment variable(s) for Judge-LLM
 export OPENAI_API_KEY="your-key"
+
+# Optional: For script-based evaluations requiring Kubernetes access
+export KUBECONFIG="/path/to/your/kubeconfig"
 
 # Run evaluation
 lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --output-dir <OUTPUT_DIR>
@@ -82,6 +86,9 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
     - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom.py)
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
+- **Script-based**
+  - Action Evaluation
+    - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script_eval.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
 
 ### Conversation-Level (Multi-turn)
 - **DeepEval** -- [docs](https://deepeval.com/docs/metrics-introduction) on DeepEval website
@@ -188,6 +195,10 @@ embedding:
 - conversation_group_id: "test_conversation"
   description: "Sample evaluation"
   
+  # Optional: Environment setup/cleanup scripts, when API is enabled
+  setup_script: "scripts/setup_env.sh"      # Run before conversation
+  cleanup_script: "scripts/cleanup_env.sh"  # Run after conversation
+  
   # Conversation-level metrics   
   conversation_metrics:
     - "deepeval:conversation_completeness"
@@ -221,11 +232,10 @@ embedding:
       turn_metrics: []                  # Skip evaluation for this turn
 
     - turn_id: id3
-      query: How do I create a virtual machine in OpenShift Virtualization?
-      response: null                    # Populated by API if enabled, otherwise provide
-      contexts:
-        - OpenShift web console provides ...
-      expected_response: You can create a virtual machine using the OpenShift ...
+      query: Create a namespace called test-ns
+      verify_script: "scripts/verify_namespace.sh"  # Script-based verification
+      turn_metrics:
+        - "script:action_eval"          # Script-based evaluation (if API is enabled)
 ```
 
 ### API Modes
@@ -244,6 +254,18 @@ embedding:
 
 ### Data Structure Details
 
+#### Conversation Data Fields
+
+| Field                           | Type           | Required | Description                                                          |
+|---------------------------------|----------------|----------|----------------------------------------------------------------------|
+| `conversation_group_id`         | string         | ✅       | Unique identifier for conversation                                   |
+| `description`                   | string         | ❌       | Optional description                                                 |
+| `setup_script`                  | string         | ❌       | Path to setup script (Optional, used when API is enabled)            |
+| `cleanup_script`                | string         | ❌       | Path to cleanup script (Optional, used when API is enabled)          |
+| `conversation_metrics`          | list[string]   | ❌       | Conversation-level metrics (Optional, if override is required)       |
+| `conversation_metrics_metadata` | dict           | ❌       | Conversation-level metric config (Optional, if override is required) |
+| `turns`                         | list[TurnData] | ✅       | List of conversation turns           |
+
 #### Turn Data Fields
 
 | Field                 | Type             | Required | Description                          | API Populated         |
@@ -251,17 +273,22 @@ embedding:
 | `turn_id`             | string           | ✅       | Unique identifier for the turn       | ❌                    |
 | `query`               | string           | ✅       | The question/prompt to evaluate      | ❌                    |
 | `response`            | string           | 📋       | Actual response from system          | ✅ (if API enabled)   |
-| `contexts`            | list[string]     | ❌       | Context information for evaluation   | ❌                    |
+| `contexts`            | list[string]     | 📋       | Context information for evaluation   | ✅ (if API enabled)   |
 | `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
 | `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
 | `expected_tool_calls` | list[list[dict]] | 📋       | Expected tool call sequences         | ❌                    |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
+| `verify_script`       | string           | 📋       | Path to verification script          | ❌                    |
 | `turn_metrics`        | list[string]     | ❌       | Turn-specific metrics to evaluate    | ❌                    |
 | `turn_metrics_metadata` | dict           | ❌       | Turn-specific metric configuration   | ❌                    |
 
-Note: Context will be collected automatically in the future.
-
 > 📋 **Required based on metrics**: Some fields are required only when using specific metrics
+
+Examples
+> - `expected_response`: Required for `custom:answer_correctness`
+> - `expected_tool_calls`: Required for `custom:tool_eval`
+> - `verify_script`: Required for `script:action_eval` (used when API is enabled)
+> - `response`: Required for most metrics (auto-populated if API enabled)
 
 #### Metrics override behavior
 
@@ -270,11 +297,6 @@ Note: Context will be collected automatically in the future.
 | `null` (or omitted) | Use system defaults (metrics with `default: true`) |
 | `[]` (empty list)   | Skip evaluation for this turn |
 | `["metric1", ...]`  | Use specified metrics only |
-
-Examples
-> - `expected_response`: Required for `custom:answer_correctness`
-> - `expected_tool_calls`: Required for `custom:tool_eval`
-> - `response`: Required for most metrics (auto-populated if API enabled)
 
 #### Tool Call Structure
 
@@ -286,6 +308,36 @@ Examples
           kind: pod
           name: openshift-light*    # Regex patterns supported for flexible matching
   ```
+
+#### Script-Based Evaluations
+
+The framework supports script-based evaluations.
+**Note: Scripts only execute when API is enabled** - they're designed to test with actual environment changes.
+
+- **Setup scripts**: Run before conversation evaluation (e.g., create failed deployment for troubleshoot query)
+- **Cleanup scripts**: Run after conversation evaluation (e.g., cleanup failed deployment)  
+- **Verify scripts**: Run per turn for `script:action_eval` metric (e.g., validate if a pod has been created or not)
+
+```yaml
+# Example: evaluation_data.yaml
+- conversation_group_id: infrastructure_test
+  setup_script: ./scripts/setup_cluster.sh
+  cleanup_script: ./scripts/cleanup_cluster.sh
+  turns:
+    - turn_id: turn_id
+      query: Create a new cluster
+      verify_script: ./scripts/verify_cluster.sh
+      turn_metrics:
+        - script:action_eval
+```
+
+**Script Path Resolution**
+
+Script paths in evaluation data can be specified in multiple ways:
+
+- **Relative Paths**: Resolved relative to the evaluation data YAML file location, not the current working directory
+- **Absolute Paths**: Used as-is
+- **Home Directory Paths**: Expands to user's home directory
 
 ## 🔑 Authentication & Environment
 
