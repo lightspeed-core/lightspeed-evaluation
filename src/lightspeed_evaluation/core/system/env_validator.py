@@ -44,6 +44,16 @@ def validate_gemini_env() -> None:
             "is required for Gemini provider"
         )
 
+
+def validate_vertex_env() -> None:
+    """Validate Google Vertex AI environment variables."""
+    if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        raise LLMError(
+            "GOOGLE_APPLICATION_CREDENTIALS environment variable "
+            "is required for Vertex AI provider"
+        )
+
+
 def validate_ollama_env() -> None:
     """Validate Ollama environment variables."""
     # Ollama typically runs locally, but may need OLLAMA_HOST for remote instances
@@ -67,6 +77,7 @@ def validate_provider_env(provider: str) -> None:
         "watsonx": validate_watsonx_env,
         "anthropic": validate_anthropic_env,
         "gemini": validate_gemini_env,
+        "vertex": validate_vertex_env,
         "ollama": validate_ollama_env,
     }
 

@@ -35,6 +35,7 @@ class LLMManager:
             "watsonx": self._handle_watsonx_provider,
             "anthropic": self._handle_anthropic_provider,
             "gemini": self._handle_gemini_provider,
+            "vertex": self._handle_vertex_provider,
             "ollama": self._handle_ollama_provider,
         }
 
@@ -70,6 +71,11 @@ class LLMManager:
         """Handle Gemini provider setup."""
         validate_provider_env("gemini")
         return f"gemini/{self.config.model}"
+
+    def _handle_vertex_provider(self) -> str:
+        """Handle Vertex AI provider setup."""
+        validate_provider_env("vertex")
+        return self.config.model
 
     def _handle_ollama_provider(self) -> str:
         """Handle Ollama provider setup."""
