@@ -4,10 +4,8 @@ import os
 from unittest.mock import patch
 
 import pytest
-from lightspeed_evaluation.core.llm.manager import (
-    LLMError,
-    LLMManager,
-)
+from lightspeed_evaluation.core.llm import LLMError
+from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.models import LLMConfig, SystemConfig
 
 
