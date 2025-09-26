@@ -74,6 +74,14 @@ class JudgeModelManager:
 
             self.model_name = f"watsonx/{self.judge_model}"
 
+        elif provider == "vertex":
+            if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                raise JudgeModelError(
+                    "GOOGLE_APPLICATION_CREDENTIALS environment variable is "
+                    "required for Vertex AI provider"
+                )
+            self.model_name = self.judge_model
+
         else:
             # Generic provider - try as-is
             logger.warning("Using generic provider format for %s", provider)
