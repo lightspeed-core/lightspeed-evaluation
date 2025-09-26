@@ -4,58 +4,7 @@ import os
 from typing import Any
 
 from ..models import LLMConfig, SystemConfig
-
-
-class LLMError(Exception):
-    """LLM configuration error."""
-
-
-def validate_openai_env() -> None:
-    """Validate OpenAI environment variables."""
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise LLMError(
-            "OPENAI_API_KEY environment variable is required for OpenAI provider"
-        )
-
-
-def validate_azure_env() -> None:
-    """Validate Azure OpenAI environment variables."""
-    required = ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"]
-    if not all(os.environ.get(var) for var in required):
-        raise LLMError(f"Azure provider requires environment variables: {required}")
-
-
-def validate_watsonx_env() -> None:
-    """Validate Watsonx environment variables."""
-    required = ["WATSONX_API_KEY", "WATSONX_API_BASE", "WATSONX_PROJECT_ID"]
-    if not all(os.environ.get(var) for var in required):
-        raise LLMError(f"Watsonx provider requires environment variables: {required}")
-
-
-def validate_anthropic_env() -> None:
-    """Validate Anthropic environment variables."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise LLMError(
-            "ANTHROPIC_API_KEY environment variable is required for Anthropic provider"
-        )
-
-
-def validate_gemini_env() -> None:
-    """Validate Google Gemini environment variables."""
-    # Gemini can use either GOOGLE_API_KEY or GEMINI_API_KEY
-    if not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
-        raise LLMError(
-            "GOOGLE_API_KEY or GEMINI_API_KEY environment variable "
-            "is required for Gemini provider"
-        )
-
-
-def validate_ollama_env() -> None:
-    """Validate Ollama environment variables."""
-    # Ollama typically runs locally, but may need OLLAMA_HOST for remote instances
-    # No required env vars for basic local setup, but warn if OLLAMA_HOST is not set
-    if not os.environ.get("OLLAMA_HOST"):
-        print("ℹ️ OLLAMA_HOST not set, using default localhost:11434")
+from ..system.env_validator import validate_provider_env
 
 
 class LLMManager:
@@ -86,6 +35,7 @@ class LLMManager:
             "watsonx": self._handle_watsonx_provider,
             "anthropic": self._handle_anthropic_provider,
             "gemini": self._handle_gemini_provider,
+            "vertex": self._handle_vertex_provider,
             "ollama": self._handle_ollama_provider,
         }
 
@@ -98,33 +48,38 @@ class LLMManager:
 
     def _handle_openai_provider(self) -> str:
         """Handle OpenAI provider setup."""
-        validate_openai_env()
+        validate_provider_env("openai")
         return self.config.model
 
     def _handle_azure_provider(self) -> str:
         """Handle Azure provider setup."""
-        validate_azure_env()
+        validate_provider_env("azure")
         deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME") or self.config.model
         return f"azure/{deployment}"
 
     def _handle_watsonx_provider(self) -> str:
         """Handle WatsonX provider setup."""
-        validate_watsonx_env()
+        validate_provider_env("watsonx")
         return f"watsonx/{self.config.model}"
 
     def _handle_anthropic_provider(self) -> str:
         """Handle Anthropic provider setup."""
-        validate_anthropic_env()
+        validate_provider_env("anthropic")
         return f"anthropic/{self.config.model}"
 
     def _handle_gemini_provider(self) -> str:
         """Handle Gemini provider setup."""
-        validate_gemini_env()
+        validate_provider_env("gemini")
         return f"gemini/{self.config.model}"
+
+    def _handle_vertex_provider(self) -> str:
+        """Handle Vertex AI provider setup."""
+        validate_provider_env("vertex")
+        return self.config.model
 
     def _handle_ollama_provider(self) -> str:
         """Handle Ollama provider setup."""
-        validate_ollama_env()
+        validate_provider_env("ollama")
         return f"ollama/{self.config.model}"
 
     def get_model_name(self) -> str:
