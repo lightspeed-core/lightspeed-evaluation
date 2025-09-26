@@ -135,8 +135,12 @@ class APIClient:
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
                         formatted_tool = {
-                            "tool_name": tool_call.get("name", ""),
-                            "arguments": tool_call.get("args", {}),
+                            "tool_name": tool_call.get("tool_name")
+                            or tool_call.get("name")  # Current OLS
+                            or "",
+                            "arguments": tool_call.get("arguments")
+                            or tool_call.get("args")  # Current OLS
+                            or {},
                         }
                         formatted_tool_calls.append([formatted_tool])
 
