@@ -23,3 +23,19 @@ class MetricError(EvaluationError):
 
 class LLMError(EvaluationError):
     """Exception for LLM-related errors."""
+
+
+class ScriptExecutionError(EvaluationError):
+    """Exception raised when script execution fails."""
+
+    def __init__(self, message: str, script_path: str = "", return_code: int = -1):
+        """Initialize script execution error.
+
+        Args:
+            message: Error message
+            script_path: Path to the script that failed
+            return_code: Return code from script execution
+        """
+        super().__init__(message)
+        self.script_path = script_path
+        self.return_code = return_code
