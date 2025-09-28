@@ -54,6 +54,44 @@
     - turn_id: turn_id2  # Default evaluation
       query: User Query 2
 
+- conversation_group_id: tool_eval_example
+  description: Example of tool call evaluation with direct and regex matching
+
+  turns:
+    - turn_id: turn_id1
+      query: Get all pods in the default namespace
+      tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: default
+      expected_tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: default
+      turn_metrics:
+        - custom:tool_eval
+
+    - turn_id: turn_id2
+      query: Get all pods in the openshift-lightspeed namespace 
+      tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: openshift-lightspeed
+      expected_tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: openshift-light.*  # Regex pattern for flexible matching
+      turn_metrics:
+        - custom:tool_eval
+
 - conversation_group_id: script_eval_example
   description: Example of script-based evaluation for namespace testing
   setup_script: sample_scripts/setup.sh
