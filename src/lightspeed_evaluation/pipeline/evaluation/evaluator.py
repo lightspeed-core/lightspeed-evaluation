@@ -41,9 +41,7 @@ class MetricsEvaluator:
         self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
         self.deepeval_metrics = DeepEvalMetrics(llm_manager)
         self.custom_metrics = CustomMetrics(llm_manager)
-        self.script_eval_metrics = ScriptEvalMetrics(
-            script_manager, config_loader.system_config.api.enabled
-        )
+        self.script_eval_metrics = ScriptEvalMetrics(script_manager)
 
         # Metric routing map
         self.handlers = {
@@ -72,6 +70,15 @@ class MetricsEvaluator:
 
             # Parse framework and metric
             framework, metric_name = request.metric_identifier.split(":", 1)
+
+            # Skip script metrics if API is disabled
+            if (
+                framework == "script"
+                and self.config_loader.system_config is not None
+                and not self.config_loader.system_config.api.enabled
+            ):
+                # Don't generate result for script metrics when API disabled
+                return None
 
             # Route to appropriate handler
             if framework not in self.handlers:

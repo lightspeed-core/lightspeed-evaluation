@@ -13,12 +13,9 @@ logger = logging.getLogger(__name__)
 class ScriptEvalMetrics:  # pylint: disable=too-few-public-methods
     """Script-based evaluation metrics."""
 
-    def __init__(
-        self, script_manager: ScriptExecutionManager, api_enabled: bool = True
-    ):
+    def __init__(self, script_manager: ScriptExecutionManager):
         """Initialize Script Evaluation."""
         self.script_manager = script_manager
-        self.api_enabled = api_enabled
 
     def evaluate(
         self, metric_name: str, _: Any, evaluation_scope: EvaluationScope
@@ -43,11 +40,6 @@ class ScriptEvalMetrics:  # pylint: disable=too-few-public-methods
         """Evaluate verify script."""
         if not script_path:
             return None, "No verify script provided"
-
-        # Skip script execution if API is disabled
-        if not self.api_enabled:
-            logger.debug("Skipping verify script (API disabled): %s", script_path)
-            return None, f"Verify script skipped (API disabled): {script_path}"
 
         try:
             success = self.script_manager.run_script(script_path)
