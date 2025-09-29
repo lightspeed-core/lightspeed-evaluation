@@ -24,10 +24,16 @@ from .core.models import (
 
 # Output handling
 from .core.output import GraphGenerator, OutputHandler
+from .core.script import ScriptExecutionManager
 
 # System config
 from .core.system import ConfigLoader, DataValidator, SystemConfig
-from .core.system.exceptions import APIError, DataValidationError, EvaluationError
+from .core.system.exceptions import (
+    APIError,
+    DataValidationError,
+    EvaluationError,
+    ScriptExecutionError,
+)
 
 # Main pipeline
 from .pipeline.evaluation import EvaluationPipeline
@@ -49,6 +55,8 @@ __all__ = [
     "APIClient",
     "OutputHandler",
     "GraphGenerator",
+    "ScriptExecutionManager",
+    "ScriptExecutionError",
     "APIError",
     "DataValidationError",
     "EvaluationError",

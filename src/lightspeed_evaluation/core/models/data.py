@@ -1,7 +1,8 @@
 """Core data models for evaluation framework."""
 
 import logging
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -70,6 +71,11 @@ class TurnData(BaseModel):
     turn_metrics_metadata: Optional[dict[str, dict[str, Any]]] = Field(
         default=None,
         description="Turn-specific metric configuration (overrides system defaults)",
+    )
+
+    # Script execution support
+    verify_script: Optional[Union[str, Path]] = Field(
+        default=None, description="Path to verify script for script-based evaluation"
     )
 
     @field_validator("turn_metrics")
@@ -153,6 +159,16 @@ class EvaluationData(BaseModel):
     # Conversation turns
     turns: list[TurnData] = Field(
         ..., min_length=1, description="Conversation turns - must have at least one"
+    )
+
+    # Script execution support
+    setup_script: Optional[Union[str, Path]] = Field(
+        default=None,
+        description="Path to setup script to run before conversation starts",
+    )
+    cleanup_script: Optional[Union[str, Path]] = Field(
+        default=None,
+        description="Path to cleanup script to run after conversation ends",
     )
 
     @field_validator("conversation_metrics")

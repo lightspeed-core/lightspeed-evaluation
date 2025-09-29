@@ -73,6 +73,10 @@ metrics_metadata:
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls"
 
+    # Script-based metrics
+    "script:action_eval":
+      description: "Script-based evaluation for infrastructure/environment validation"
+
   # Conversation-level metrics metadata
   conversation_level:
     # DeepEval metrics
