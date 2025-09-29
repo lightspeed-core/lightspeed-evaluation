@@ -1,7 +1,7 @@
 """Embedding Manager - Generic embedding configuration, validation, and parameter provider."""
 
-from ..llm import validate_openai_env
 from ..models import EmbeddingConfig, SystemConfig
+from ..system.env_validator import validate_provider_env
 
 
 class EmbeddingError(Exception):
@@ -22,22 +22,14 @@ class EmbeddingManager:  # pylint: disable=too-few-public-methods
 
     def _validate_config(self) -> None:
         """Validate config and env variables."""
-
-        def empty_check() -> None:
+        if self.config.provider == "openai":
+            validate_provider_env("openai")
+        elif self.config.provider == "huggingface":
             pass
-
-        env_validator = {
-            "openai": validate_openai_env,
-            # "google": _validate_gemini_env, # Google embeddings are not supported at the moment
-            "huggingface": empty_check,
-        }.get(self.config.provider)
-
-        if env_validator is None:
+        else:
             raise EmbeddingError(
                 f"Unsupported embedding provider {self.config.provider}"
             )
-
-        env_validator()
 
     @classmethod
     def from_system_config(cls, system_config: SystemConfig) -> "EmbeddingManager":
