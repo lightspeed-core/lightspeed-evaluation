@@ -2,7 +2,7 @@
 
 # LLM Configuration
 llm:
-  provider: "openai"          # LLM Provider (openai, watsonx, azure, gemini etc..)
+  provider: "openai"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
   model: "gpt-4o-mini"        # Model name for the provider
   temperature: 0.0            # Generation temperature
   max_tokens: 512             # Maximum tokens in response

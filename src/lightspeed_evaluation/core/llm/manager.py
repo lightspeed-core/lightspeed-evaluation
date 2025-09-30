@@ -30,6 +30,7 @@ class LLMManager:
 
         # Provider-specific validation and model name construction
         provider_handlers = {
+            "hosted_vllm": self._handle_hosted_vllm_provider,
             "openai": self._handle_openai_provider,
             "azure": self._handle_azure_provider,
             "watsonx": self._handle_watsonx_provider,
@@ -45,6 +46,11 @@ class LLMManager:
         # Generic provider - try as-is with warning
         print(f"⚠️ Using generic provider format for {provider}")
         return f"{provider}/{self.config.model}"
+
+    def _handle_hosted_vllm_provider(self) -> str:
+        """Handle hosted vLLM provider setup."""
+        validate_provider_env("hosted_vllm")
+        return f"hosted_vllm/{self.config.model}"
 
     def _handle_openai_provider(self) -> str:
         """Handle OpenAI provider setup."""

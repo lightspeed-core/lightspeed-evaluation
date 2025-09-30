@@ -5,6 +5,15 @@ import os
 from .exceptions import LLMError
 
 
+def validate_hosted_vllm_env() -> None:
+    """Validate hosted vLLM environment variables."""
+    required = ["HOSTED_VLLM_API_KEY", "HOSTED_VLLM_API_BASE"]
+    if not all(os.environ.get(var) for var in required):
+        raise LLMError(
+            f"Hosted vLLM provider requires environment variables: {required}"
+        )
+
+
 def validate_openai_env() -> None:
     """Validate OpenAI environment variables."""
     if not os.environ.get("OPENAI_API_KEY"):
@@ -72,6 +81,7 @@ def validate_provider_env(provider: str) -> None:
         LLMError: If required environment variables are missing
     """
     validators = {
+        "hosted_vllm": validate_hosted_vllm_env,
         "openai": validate_openai_env,
         "azure": validate_azure_env,
         "watsonx": validate_watsonx_env,
