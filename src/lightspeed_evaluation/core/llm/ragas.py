@@ -2,6 +2,7 @@
 
 from typing import Any, Optional
 
+import httpx
 import litellm
 from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
 from ragas.metrics import answer_relevancy, faithfulness
@@ -15,6 +16,15 @@ class RagasCustomLLM(BaseRagasLLM):
         super().__init__()
         self.model_name = model_name
         self.litellm_params = litellm_params
+
+        if self.model_name.startswith("hosted_vllm"):
+            # Currently verify=False. Certificate will be implemented later.
+            verify = False
+            timeout = litellm_params.get("timeout", 300)
+            # Set globally
+            litellm.ssl_verify = verify
+            litellm.client_session = httpx.Client(verify=verify, timeout=timeout)
+
         print(f"✅ Ragas Custom LLM: {self.model_name}")
 
     def generate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
