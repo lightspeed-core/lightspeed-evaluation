@@ -9,7 +9,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations
 - **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations
 - **Evaluation types**: Response, Context, Tool Call, Overall Conversation evaluation & Script-based evaluation
-- **LLM Provider Flexibility**: OpenAI, Anthropic, Watsonx, Azure, Gemini, Ollama via LiteLLM
+- **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Flexible Configuration**: Configurable environment & metric metadata
@@ -345,15 +345,19 @@ Script paths in evaluation data can be specified in multiple ways:
 
 #### For LLM Evaluation (Always Required)
 ```bash
-# OpenAI
+# Hosted vLLM (provider: hosted_vllm)
+export HOSTED_VLLM_API_KEY="your-key"
+export HOSTED_VLLM_API_BASE="https://your-vllm-endpoint/v1"
+
+# OpenAI (provider: openai)
 export OPENAI_API_KEY="your-openai-key"
 
-# IBM Watsonx
+# IBM Watsonx (provider: watsonx)
 export WATSONX_API_KEY="your-key"
 export WATSONX_API_BASE="https://us-south.ml.cloud.ibm.com"
 export WATSONX_PROJECT_ID="your-project-id"
 
-# Gemini
+# Gemini (provider: gemini)
 export GEMINI_API_KEY="your-key"
 ```
 
