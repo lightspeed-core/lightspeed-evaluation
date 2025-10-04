@@ -6,10 +6,10 @@ from typing import Optional
 
 from ...core.embedding.manager import EmbeddingManager
 from ...core.llm.manager import LLMManager
-from ...core.metrics.custom import CustomMetrics
-from ...core.metrics.deepeval import DeepEvalMetrics
+from ...core.metrics.custom_metrics import CustomMetrics
+from ...core.metrics.deepeval_metrics import DeepEvalMetrics
 from ...core.metrics.manager import MetricLevel, MetricManager
-from ...core.metrics.ragas import RagasMetrics
+from ...core.metrics.ragas_metrics import RagasMetrics
 from ...core.metrics.script_eval import ScriptEvalMetrics
 from ...core.models import EvaluationRequest, EvaluationResult, EvaluationScope
 from ...core.script import ScriptExecutionManager

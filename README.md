@@ -83,9 +83,9 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
     - [`context_precision_with_reference`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-with-reference)
 - **Custom**
   - Response Evaluation
-    - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom.py)
+    - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom_metrics.py)
   - Tool Evaluation
-    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
+    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom_metrics.py) - Validates tool calls and arguments with regex pattern matching
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script_eval.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)

@@ -17,7 +17,7 @@ from ragas.metrics import (
 from ..embedding.manager import EmbeddingManager
 from ..embedding.ragas import RagasEmbeddingManager
 from ..llm.manager import LLMManager
-from ..llm.ragas import RagasLLMManager
+from ..llm.ragas_llm import RagasLLMManager
 from ..models import EvaluationScope, TurnData
 
 
