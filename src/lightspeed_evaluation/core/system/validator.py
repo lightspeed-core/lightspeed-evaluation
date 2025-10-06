@@ -7,9 +7,12 @@ from typing import Optional, Union
 import yaml
 from pydantic import ValidationError
 
-from ..models import EvaluationData
-from .exceptions import DataValidationError
-from .loader import CONVERSATION_LEVEL_METRICS, TURN_LEVEL_METRICS
+from lightspeed_evaluation.core.models import EvaluationData
+from lightspeed_evaluation.core.system.exceptions import DataValidationError
+from lightspeed_evaluation.core.system.loader import (
+    CONVERSATION_LEVEL_METRICS,
+    TURN_LEVEL_METRICS,
+)
 
 # Metric requirements mapping
 METRIC_REQUIREMENTS = {

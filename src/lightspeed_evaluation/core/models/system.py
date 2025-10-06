@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..constants import (
+from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
     DEFAULT_API_TIMEOUT,
     DEFAULT_BASE_FILENAME,

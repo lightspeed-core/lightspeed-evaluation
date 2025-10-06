@@ -1,7 +1,7 @@
 """Script execution module for evaluation framework."""
 
-from ..system.exceptions import ScriptExecutionError
-from .manager import ScriptExecutionManager
+from lightspeed_evaluation.core.script.manager import ScriptExecutionManager
+from lightspeed_evaluation.core.system.exceptions import ScriptExecutionError
 
 __all__ = [
     "ScriptExecutionManager",

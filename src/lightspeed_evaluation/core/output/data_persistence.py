@@ -6,8 +6,8 @@ from typing import Optional
 
 import yaml
 
-from ..constants import DEFAULT_OUTPUT_DIR
-from ..models import EvaluationData
+from lightspeed_evaluation.core.constants import DEFAULT_OUTPUT_DIR
+from lightspeed_evaluation.core.models import EvaluationData
 
 
 # Use caching

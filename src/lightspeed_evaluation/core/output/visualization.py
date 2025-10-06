@@ -10,9 +10,15 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.colors import BASE_COLORS
 
-from ..constants import DEFAULT_OUTPUT_DIR, SUPPORTED_GRAPH_TYPES
-from ..models import EvaluationResult
-from .statistics import calculate_basic_stats, calculate_detailed_stats
+from lightspeed_evaluation.core.constants import (
+    DEFAULT_OUTPUT_DIR,
+    SUPPORTED_GRAPH_TYPES,
+)
+from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.output.statistics import (
+    calculate_basic_stats,
+    calculate_detailed_stats,
+)
 
 CHART_COLORS = {
     "PASS": "#28a745",  # Green

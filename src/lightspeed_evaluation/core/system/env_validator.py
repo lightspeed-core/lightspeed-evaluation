@@ -2,7 +2,7 @@
 
 import os
 
-from .exceptions import LLMError
+from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
 def validate_hosted_vllm_env() -> None:

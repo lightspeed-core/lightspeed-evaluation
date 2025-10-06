@@ -3,16 +3,19 @@
 import logging
 from typing import Optional
 
-from ...core.api import APIClient
-from ...core.metrics.manager import MetricManager
-from ...core.models import EvaluationData, EvaluationResult
-from ...core.output.data_persistence import save_evaluation_data
-from ...core.script import ScriptExecutionManager
-from ...core.system import ConfigLoader, DataValidator
-from .amender import APIDataAmender
-from .errors import EvaluationErrorHandler
-from .evaluator import MetricsEvaluator
-from .processor import ConversationProcessor, ProcessorComponents
+from lightspeed_evaluation.core.api import APIClient
+from lightspeed_evaluation.core.metrics.manager import MetricManager
+from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
+from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
+from lightspeed_evaluation.core.script import ScriptExecutionManager
+from lightspeed_evaluation.core.system import ConfigLoader, DataValidator
+from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
+from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
+from lightspeed_evaluation.pipeline.evaluation.processor import (
+    ConversationProcessor,
+    ProcessorComponents,
+)
 
 logger = logging.getLogger(__name__)
 

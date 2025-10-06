@@ -1,6 +1,6 @@
 """Pipeline for evaluation framework."""
 
-from .evaluation import EvaluationPipeline
+from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
 __all__ = [
     "EvaluationPipeline",

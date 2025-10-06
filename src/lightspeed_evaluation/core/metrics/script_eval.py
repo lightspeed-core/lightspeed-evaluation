@@ -4,8 +4,11 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from ..models import EvaluationScope
-from ..script import ScriptExecutionError, ScriptExecutionManager
+from lightspeed_evaluation.core.models import EvaluationScope
+from lightspeed_evaluation.core.script import (
+    ScriptExecutionError,
+    ScriptExecutionManager,
+)
 
 logger = logging.getLogger(__name__)
 

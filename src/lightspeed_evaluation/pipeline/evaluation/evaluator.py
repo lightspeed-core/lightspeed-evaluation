@@ -4,16 +4,20 @@ import logging
 import time
 from typing import Optional
 
-from ...core.embedding.manager import EmbeddingManager
-from ...core.llm.manager import LLMManager
-from ...core.metrics.custom import CustomMetrics
-from ...core.metrics.deepeval import DeepEvalMetrics
-from ...core.metrics.manager import MetricLevel, MetricManager
-from ...core.metrics.ragas import RagasMetrics
-from ...core.metrics.script_eval import ScriptEvalMetrics
-from ...core.models import EvaluationRequest, EvaluationResult, EvaluationScope
-from ...core.script import ScriptExecutionManager
-from ...core.system import ConfigLoader
+from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
+from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.metrics.custom import CustomMetrics
+from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
+from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
+from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
+from lightspeed_evaluation.core.metrics.script_eval import ScriptEvalMetrics
+from lightspeed_evaluation.core.models import (
+    EvaluationRequest,
+    EvaluationResult,
+    EvaluationScope,
+)
+from lightspeed_evaluation.core.script import ScriptExecutionManager
+from lightspeed_evaluation.core.system import ConfigLoader
 
 logger = logging.getLogger(__name__)
 

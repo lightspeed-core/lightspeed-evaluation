@@ -1,5 +1,5 @@
 """API client module for actual data generation."""
 
-from .client import APIClient
+from lightspeed_evaluation.core.api.client import APIClient
 
 __all__ = ["APIClient"]

@@ -9,9 +9,9 @@ Main components:
 __version__ = "0.1.0"
 
 # Core components
-from .core.api import APIClient
-from .core.llm import LLMManager
-from .core.models import (
+from lightspeed_evaluation.core.api import APIClient
+from lightspeed_evaluation.core.llm import LLMManager
+from lightspeed_evaluation.core.models import (
     APIConfig,
     EvaluationData,
     EvaluationResult,
@@ -23,12 +23,12 @@ from .core.models import (
 )
 
 # Output handling
-from .core.output import GraphGenerator, OutputHandler
-from .core.script import ScriptExecutionManager
+from lightspeed_evaluation.core.output import GraphGenerator, OutputHandler
+from lightspeed_evaluation.core.script import ScriptExecutionManager
 
 # System config
-from .core.system import ConfigLoader, DataValidator, SystemConfig
-from .core.system.exceptions import (
+from lightspeed_evaluation.core.system import ConfigLoader, DataValidator, SystemConfig
+from lightspeed_evaluation.core.system.exceptions import (
     APIError,
     DataValidationError,
     EvaluationError,
@@ -36,7 +36,7 @@ from .core.system.exceptions import (
 )
 
 # Main pipeline
-from .pipeline.evaluation import EvaluationPipeline
+from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
 __all__ = [
     "EvaluationPipeline",

@@ -1,7 +1,7 @@
 """Output handling - Reports and visualization."""
 
-from .data_persistence import save_evaluation_data
-from .generator import OutputHandler
-from .visualization import GraphGenerator
+from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
+from lightspeed_evaluation.core.output.generator import OutputHandler
+from lightspeed_evaluation.core.output.visualization import GraphGenerator
 
 __all__ = ["OutputHandler", "GraphGenerator", "save_evaluation_data"]

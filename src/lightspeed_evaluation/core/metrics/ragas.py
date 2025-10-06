@@ -14,11 +14,11 @@ from ragas.metrics import (
     ResponseRelevancy,
 )
 
-from ..embedding.manager import EmbeddingManager
-from ..embedding.ragas import RagasEmbeddingManager
-from ..llm.manager import LLMManager
-from ..llm.ragas import RagasLLMManager
-from ..models import EvaluationScope, TurnData
+from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
+from lightspeed_evaluation.core.embedding.ragas import RagasEmbeddingManager
+from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
+from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 
 
 # Decide if Dataset will be used or not ?

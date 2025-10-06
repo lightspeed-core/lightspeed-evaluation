@@ -3,8 +3,8 @@
 import os
 from typing import Any
 
-from ..models import LLMConfig, SystemConfig
-from ..system.env_validator import validate_provider_env
+from lightspeed_evaluation.core.models import LLMConfig, SystemConfig
+from lightspeed_evaluation.core.system.env_validator import validate_provider_env
 
 
 class LLMManager:

@@ -4,7 +4,7 @@ import logging
 import os
 from typing import Any
 
-from ..models import LoggingConfig
+from lightspeed_evaluation.core.models import LoggingConfig
 
 
 def setup_environment_variables(config_data: dict[str, Any]) -> None:

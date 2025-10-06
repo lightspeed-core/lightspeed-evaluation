@@ -4,13 +4,21 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from ...core.metrics.manager import MetricLevel, MetricManager
-from ...core.models import EvaluationData, EvaluationRequest, EvaluationResult, TurnData
-from ...core.script import ScriptExecutionError, ScriptExecutionManager
-from ...core.system import ConfigLoader
-from .amender import APIDataAmender
-from .errors import EvaluationErrorHandler
-from .evaluator import MetricsEvaluator
+from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
+from lightspeed_evaluation.core.models import (
+    EvaluationData,
+    EvaluationRequest,
+    EvaluationResult,
+    TurnData,
+)
+from lightspeed_evaluation.core.script import (
+    ScriptExecutionError,
+    ScriptExecutionManager,
+)
+from lightspeed_evaluation.core.system import ConfigLoader
+from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
+from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 
 logger = logging.getLogger(__name__)
 

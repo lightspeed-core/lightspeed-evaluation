@@ -6,15 +6,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from ..constants import (
+from lightspeed_evaluation.core.constants import (
     DEFAULT_OUTPUT_DIR,
     SUPPORTED_CSV_COLUMNS,
     SUPPORTED_GRAPH_TYPES,
     SUPPORTED_OUTPUT_TYPES,
 )
-from ..models import EvaluationResult
-from .statistics import calculate_basic_stats, calculate_detailed_stats
-from .visualization import GraphGenerator
+from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.output.statistics import (
+    calculate_basic_stats,
+    calculate_detailed_stats,
+)
+from lightspeed_evaluation.core.output.visualization import GraphGenerator
 
 
 class OutputHandler:
