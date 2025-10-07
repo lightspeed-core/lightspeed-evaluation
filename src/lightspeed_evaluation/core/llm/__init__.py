@@ -1,5 +1,6 @@
 """LLM management for Evaluation Framework."""
 
+from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
@@ -11,6 +12,7 @@ __all__ = [
     "LLMConfig",
     "LLMError",
     "LLMManager",
+    "BaseCustomLLM",
     "DeepEvalLLMManager",
     "RagasLLMManager",
     "validate_provider_env",
