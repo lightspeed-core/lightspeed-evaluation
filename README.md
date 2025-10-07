@@ -44,6 +44,7 @@ lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --out
 ```
 
 ### Usage Scenarios
+Please make any necessary modifications to system.yaml and evaluation_data.yaml. The evaluation_data.yaml file includes sample data for guidance.
 
 #### 1. API-Enabled Real-time data collection
 ```bash
