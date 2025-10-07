@@ -2,7 +2,7 @@
 
 import logging
 
-from ...core.models import EvaluationData, EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
 
 logger = logging.getLogger(__name__)
 

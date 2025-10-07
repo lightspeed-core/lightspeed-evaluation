@@ -3,9 +3,9 @@
 import logging
 from typing import Any, Optional
 
-from ...core.api import APIClient
-from ...core.models import EvaluationData
-from ...core.system.exceptions import APIError
+from lightspeed_evaluation.core.api import APIClient
+from lightspeed_evaluation.core.models import EvaluationData
+from lightspeed_evaluation.core.system.exceptions import APIError
 
 logger = logging.getLogger(__name__)
 

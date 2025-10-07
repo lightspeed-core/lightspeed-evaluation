@@ -10,9 +10,9 @@ from deepeval.metrics import (
 from deepeval.test_case import ConversationalTestCase
 from deepeval.test_case import Turn as DeepEvalTurn
 
-from ..llm.deepeval import DeepEvalLLMManager
-from ..llm.manager import LLMManager
-from ..models import EvaluationScope, TurnData
+from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
+from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 
 
 class DeepEvalMetrics:  # pylint: disable=too-few-public-methods

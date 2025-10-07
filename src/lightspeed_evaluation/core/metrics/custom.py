@@ -6,9 +6,9 @@ from typing import Any, Optional
 import litellm
 from pydantic import BaseModel, Field
 
-from ..llm.manager import LLMManager
-from ..models import EvaluationScope, TurnData
-from .tool_eval import evaluate_tool_calls
+from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.metrics.tool_eval import evaluate_tool_calls
+from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 
 
 class EvaluationPromptParams(BaseModel):

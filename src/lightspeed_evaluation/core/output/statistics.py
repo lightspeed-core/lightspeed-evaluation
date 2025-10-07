@@ -3,7 +3,7 @@
 import statistics
 from typing import Any
 
-from ..models import EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationResult
 
 
 def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:

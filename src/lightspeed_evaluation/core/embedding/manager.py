@@ -1,7 +1,7 @@
 """Embedding Manager - Generic embedding configuration, validation, and parameter provider."""
 
-from ..models import EmbeddingConfig, SystemConfig
-from ..system.env_validator import validate_provider_env
+from lightspeed_evaluation.core.models import EmbeddingConfig, SystemConfig
+from lightspeed_evaluation.core.system.env_validator import validate_provider_env
 
 
 class EmbeddingError(Exception):

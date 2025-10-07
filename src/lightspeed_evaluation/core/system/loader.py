@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 import yaml
 
-from ..models import (
+from lightspeed_evaluation.core.models import (
     APIConfig,
     EmbeddingConfig,
     EvaluationData,
@@ -15,7 +15,10 @@ from ..models import (
     SystemConfig,
     VisualizationConfig,
 )
-from .setup import setup_environment_variables, setup_logging
+from lightspeed_evaluation.core.system.setup import (
+    setup_environment_variables,
+    setup_logging,
+)
 
 # Global metric mapping sets (populated dynamically from system config)
 TURN_LEVEL_METRICS: set[str] = set()

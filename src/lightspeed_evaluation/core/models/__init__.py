@@ -1,14 +1,18 @@
 """Data models for the evaluation framework."""
 
-from .api import APIRequest, APIResponse, AttachmentData
-from .data import (
+from lightspeed_evaluation.core.models.api import (
+    APIRequest,
+    APIResponse,
+    AttachmentData,
+)
+from lightspeed_evaluation.core.models.data import (
     EvaluationData,
     EvaluationRequest,
     EvaluationResult,
     EvaluationScope,
     TurnData,
 )
-from .system import (
+from lightspeed_evaluation.core.models.system import (
     APIConfig,
     EmbeddingConfig,
     LLMConfig,

@@ -6,7 +6,7 @@ from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..constants import SUPPORTED_RESULT_STATUSES
+from lightspeed_evaluation.core.constants import SUPPORTED_RESULT_STATUSES
 
 logger = logging.getLogger(__name__)
 

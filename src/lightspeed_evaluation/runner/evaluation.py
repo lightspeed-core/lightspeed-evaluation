@@ -6,7 +6,7 @@ import traceback
 from typing import Optional
 
 # Import only lightweight modules at top level
-from ..core.system import ConfigLoader
+from lightspeed_evaluation.core.system import ConfigLoader
 
 
 def run_evaluation(  # pylint: disable=too-many-locals
@@ -35,10 +35,10 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Step 1: Import heavy modules once environment & logging is set
         print("\n📋 Loading Heavy Modules...")
-        from ..core.output import OutputHandler
-        from ..core.output.statistics import calculate_basic_stats
-        from ..core.system import DataValidator
-        from ..pipeline.evaluation import EvaluationPipeline
+        from lightspeed_evaluation.core.output import OutputHandler
+        from lightspeed_evaluation.core.output.statistics import calculate_basic_stats
+        from lightspeed_evaluation.core.system import DataValidator
+        from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
         # pylint: enable=import-outside-toplevel
 

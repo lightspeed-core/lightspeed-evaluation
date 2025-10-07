@@ -1,11 +1,11 @@
 """LLM management for Evaluation Framework."""
 
-from ..models import LLMConfig
-from ..system.env_validator import validate_provider_env
-from ..system.exceptions import LLMError
-from .deepeval import DeepEvalLLMManager
-from .manager import LLMManager
-from .ragas import RagasLLMManager
+from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
+from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
+from lightspeed_evaluation.core.models import LLMConfig
+from lightspeed_evaluation.core.system.env_validator import validate_provider_env
+from lightspeed_evaluation.core.system.exceptions import LLMError
 
 __all__ = [
     "LLMConfig",

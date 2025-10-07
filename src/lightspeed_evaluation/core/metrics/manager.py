@@ -3,8 +3,8 @@
 from enum import Enum
 from typing import Any, Optional
 
-from ..models.data import EvaluationData, TurnData
-from ..models.system import SystemConfig
+from lightspeed_evaluation.core.models.data import EvaluationData, TurnData
+from lightspeed_evaluation.core.models.system import SystemConfig
 
 
 class MetricLevel(Enum):

@@ -7,14 +7,14 @@ from typing import Any, Optional
 
 import httpx
 
-from ..constants import (
+from lightspeed_evaluation.core.api.streaming_parser import parse_streaming_response
+from lightspeed_evaluation.core.constants import (
     DEFAULT_API_TIMEOUT,
     DEFAULT_ENDPOINT_TYPE,
     SUPPORTED_ENDPOINT_TYPES,
 )
-from ..models import APIRequest, APIResponse
-from ..system.exceptions import APIError
-from .streaming_parser import parse_streaming_response
+from lightspeed_evaluation.core.models import APIRequest, APIResponse
+from lightspeed_evaluation.core.system.exceptions import APIError
 
 logger = logging.getLogger(__name__)
 

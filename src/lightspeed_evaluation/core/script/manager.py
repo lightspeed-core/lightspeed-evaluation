@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
-from ..system.exceptions import ScriptExecutionError
+from lightspeed_evaluation.core.system.exceptions import ScriptExecutionError
 
 logger = logging.getLogger(__name__)
 

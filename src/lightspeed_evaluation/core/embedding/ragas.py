@@ -4,7 +4,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from ragas.embeddings import LangchainEmbeddingsWrapper
 
-from ..embedding.manager import EmbeddingManager
+from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
 
 
 class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods

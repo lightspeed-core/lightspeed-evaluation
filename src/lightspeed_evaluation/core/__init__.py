@@ -1,8 +1,13 @@
 """Core functionality - Components for evaluation."""
 
-from .llm import LLMManager
-from .models import EvaluationData, EvaluationResult, LLMConfig, TurnData
-from .system import ConfigLoader, DataValidator, SystemConfig
+from lightspeed_evaluation.core.llm import LLMManager
+from lightspeed_evaluation.core.models import (
+    EvaluationData,
+    EvaluationResult,
+    LLMConfig,
+    TurnData,
+)
+from lightspeed_evaluation.core.system import ConfigLoader, DataValidator, SystemConfig
 
 __all__ = [
     # Configuration & data
