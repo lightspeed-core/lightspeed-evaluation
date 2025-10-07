@@ -8,7 +8,7 @@
   turns:
     - turn_id: turn_id1
       query: User query
-      attachments: []
+      attachments: null
       response: API response
       tool_calls: null
       contexts:
