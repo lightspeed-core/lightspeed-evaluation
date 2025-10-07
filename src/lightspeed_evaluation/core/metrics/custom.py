@@ -28,7 +28,7 @@ class EvaluationPromptParams(BaseModel):
 
 
 class CustomMetrics:  # pylint: disable=too-few-public-methods
-    """Handles custom metrics using LLMManager for direct LiteLLM calls."""
+    """Handles custom metrics using LLMManager for direct LLM calls."""
 
     def __init__(self, llm_manager: LLMManager):
         """Initialize with LLM Manager.
@@ -37,7 +37,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             llm_manager: Pre-configured LLMManager with validated parameters
         """
         self.llm = BaseCustomLLM(
-            llm_manager.get_model_name(), llm_manager.get_litellm_params()
+            llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
 
         self.supported_metrics = {

@@ -36,7 +36,7 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         # Note, it's not actually used, it modifies
         # global ragas.metrics settings during instance init
         self.llm_manager = RagasLLMManager(
-            llm_manager.get_model_name(), llm_manager.get_litellm_params()
+            llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
         self.embedding_manager = RagasEmbeddingManager(embedding_manager)
 

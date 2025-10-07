@@ -66,8 +66,8 @@ class TestLLMManager:
             manager = LLMManager(config)
             assert manager.get_model_name() == "gpt-4"
 
-    def test_get_litellm_params(self):
-        """Test get_litellm_params method."""
+    def test_get_llm_params(self):
+        """Test get_llm_params method."""
         config = LLMConfig(
             provider="openai",
             model="gpt-4",
@@ -79,7 +79,7 @@ class TestLLMManager:
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             manager = LLMManager(config)
-            params = manager.get_litellm_params()
+            params = manager.get_llm_params()
 
             expected = {
                 "model": "gpt-4",
