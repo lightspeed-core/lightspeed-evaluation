@@ -5,8 +5,8 @@ from typing import Any, Optional
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
-from lightspeed_evaluation.core.metrics.prompts import ANSWER_CORRECTNESS_PROMPT
-from lightspeed_evaluation.core.metrics.tool_eval import evaluate_tool_calls
+from lightspeed_evaluation.core.metrics.custom.prompts import ANSWER_CORRECTNESS_PROMPT
+from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_calls
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
