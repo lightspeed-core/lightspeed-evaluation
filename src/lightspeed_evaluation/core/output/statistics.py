@@ -3,7 +3,35 @@
 import statistics
 from typing import Any
 
+import numpy as np
+import pandas as pd
+
 from lightspeed_evaluation.core.models import EvaluationResult
+
+
+def bootstrap_intervals(
+    s: pd.Series, confidence: int = 95, bootstrap_steps: int = 100000
+) -> tuple[np.floating, np.floating, np.floating]:
+    """Compute confidence interval using bootstraping, return low, mean, high."""
+    if not 0 <= confidence <= 100:
+        raise ValueError("Invalid confidence, must be between 0 and 100")
+
+    sample_n = len(s)
+    sample_mean = np.mean(s)
+
+    confidence_rev = 100 - confidence
+
+    rates = np.array(
+        [np.mean(s.sample(n=sample_n, replace=True)) for _ in range(bootstrap_steps)]
+    )
+
+    # Median (not mean) is correct here
+    mean_boot_strap = np.median(rates)
+    low = np.percentile(rates - sample_mean, (confidence_rev / 2.0))
+    high = np.percentile(rates - sample_mean, 100 - (confidence_rev / 2.0))
+
+    # high represent lower bound, low represents upper bound
+    return sample_mean - high, mean_boot_strap, sample_mean - low
 
 
 def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
@@ -106,7 +134,10 @@ def _finalize_metric_stats(stats: dict[str, Any]) -> None:
     # Calculate statistical measures for scores
     if stats["scores"]:
         scores = stats["scores"]
-        stats["score_statistics"] = {
+        scores_series = pd.Series(scores)
+
+        # Calculate basic statistics
+        score_stats = {
             "mean": statistics.mean(scores),
             "median": statistics.median(scores),
             "std": statistics.stdev(scores) if len(scores) > 1 else 0.0,
@@ -114,6 +145,24 @@ def _finalize_metric_stats(stats: dict[str, Any]) -> None:
             "max": max(scores),
             "count": len(scores),
         }
+
+        # Calculate confidence intervals using bootstrap
+        if len(scores) > 1:  # Need at least 2 samples for meaningful bootstrap
+            try:
+                ci_low, ci_mean, ci_high = bootstrap_intervals(scores_series)
+                score_stats["confidence_interval"] = {
+                    "low": float(ci_low),
+                    "mean": float(ci_mean),
+                    "high": float(ci_high),
+                    "confidence_level": 95,  # Default confidence level
+                }
+            except (ValueError, RuntimeError):
+                # If bootstrap fails, set confidence interval to None
+                score_stats["confidence_interval"] = None
+        else:
+            score_stats["confidence_interval"] = None
+
+        stats["score_statistics"] = score_stats
     else:
         stats["score_statistics"] = {
             "mean": 0.0,
@@ -122,6 +171,7 @@ def _finalize_metric_stats(stats: dict[str, Any]) -> None:
             "min": 0.0,
             "max": 0.0,
             "count": 0,
+            "confidence_interval": None,
         }
 
 
@@ -132,7 +182,22 @@ def _finalize_conversation_stats(stats: dict[str, Any]) -> None:
         stats["pass_rate"] = stats["pass"] / total * 100
         stats["fail_rate"] = stats["fail"] / total * 100
         stats["error_rate"] = stats["error"] / total * 100
+
+        # Calculate confidence intervals for conversation rates
+        if total > 1:  # Need at least 2 samples for meaningful bootstrap
+            try:
+                # Create binary series for each outcome type
+                # Note: We need to reconstruct the original results for this conversation
+                # Since we don't have access to the original results here,
+                # we'll skip CI for conversations. This could be enhanced by
+                # passing the original results to this function
+                stats["confidence_intervals"] = None
+            except (ValueError, RuntimeError):
+                stats["confidence_intervals"] = None
+        else:
+            stats["confidence_intervals"] = None
     else:
         stats["pass_rate"] = 0.0
         stats["fail_rate"] = 0.0
         stats["error_rate"] = 0.0
+        stats["confidence_intervals"] = None

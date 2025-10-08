@@ -1,9 +1,11 @@
 """Unit tests for core.output.statistics module."""
 
 import pytest
+import pandas as pd
 
 from lightspeed_evaluation.core.models import EvaluationResult, EvaluationScope
 from lightspeed_evaluation.core.output.statistics import (
+    bootstrap_intervals,
     calculate_basic_stats,
     calculate_detailed_stats,
 )
@@ -33,6 +35,70 @@ class TestEvaluationScope:
 
         assert scope.turn_idx is None
         assert scope.is_conversation is True
+
+
+class TestBootstrapIntervals:
+    """Unit tests for bootstrap_intervals function."""
+
+    def test_bootstrap_intervals_valid_confidence(self):
+        """Test bootstrap_intervals with valid confidence levels."""
+        data = pd.Series([0.8, 0.9, 0.7, 0.85, 0.75])
+
+        # Test default 95% confidence
+        low, mean, high = bootstrap_intervals(data)
+        assert low <= mean <= high
+        assert isinstance(low, float)
+        assert isinstance(mean, float)
+        assert isinstance(high, float)
+
+        # Test 90% confidence (should be narrower)
+        low_90, mean_90, high_90 = bootstrap_intervals(data, confidence=90)
+        assert low_90 <= mean_90 <= high_90
+        ci_95_width = high - low
+        ci_90_width = high_90 - low_90
+        assert ci_90_width < ci_95_width
+
+    def test_bootstrap_intervals_invalid_confidence(self):
+        """Test bootstrap_intervals with invalid confidence levels."""
+        data = pd.Series([0.8, 0.9, 0.7])
+
+        # Test negative confidence
+        with pytest.raises(
+            ValueError, match="Invalid confidence, must be between 0 and 100"
+        ):
+            bootstrap_intervals(data, confidence=-5)
+
+        # Test confidence > 100
+        with pytest.raises(
+            ValueError, match="Invalid confidence, must be between 0 and 100"
+        ):
+            bootstrap_intervals(data, confidence=150)
+
+    def test_bootstrap_intervals_edge_cases(self):
+        """Test bootstrap_intervals with edge cases."""
+        # Test with single value
+        single_value = pd.Series([0.5])
+        low, mean, high = bootstrap_intervals(single_value)
+        assert low == mean == high == 0.5
+
+        # Test with all same values
+        same_values = pd.Series([0.8, 0.8, 0.8, 0.8, 0.8])
+        low, mean, high = bootstrap_intervals(same_values)
+        assert abs(low - 0.8) < 0.001
+        assert abs(mean - 0.8) < 0.001
+        assert abs(high - 0.8) < 0.001
+
+    def test_bootstrap_intervals_confidence_levels(self):
+        """Test bootstrap_intervals with different confidence levels."""
+        data = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+
+        # Test 0% confidence (should be very narrow)
+        low_0, mean_0, high_0 = bootstrap_intervals(data, confidence=0)
+        assert low_0 <= mean_0 <= high_0
+
+        # Test 100% confidence (should be very wide)
+        low_100, mean_100, high_100 = bootstrap_intervals(data, confidence=100)
+        assert low_100 <= mean_100 <= high_100
 
 
 class TestCalculateBasicStats:
