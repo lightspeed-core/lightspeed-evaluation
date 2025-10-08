@@ -3,12 +3,13 @@
 import re
 from typing import Any, Optional
 
-import litellm
 from pydantic import BaseModel, Field
 
+from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.tool_eval import evaluate_tool_calls
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
+from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
 class EvaluationPromptParams(BaseModel):
@@ -27,7 +28,7 @@ class EvaluationPromptParams(BaseModel):
 
 
 class CustomMetrics:  # pylint: disable=too-few-public-methods
-    """Handles custom metrics using LLMManager for direct LiteLLM calls."""
+    """Handles custom metrics using LLMManager for direct LLM calls."""
 
     def __init__(self, llm_manager: LLMManager):
         """Initialize with LLM Manager.
@@ -35,15 +36,16 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
         """
-        self.model_name = llm_manager.get_model_name()
-        self.litellm_params = llm_manager.get_litellm_params()
+        self.llm = BaseCustomLLM(
+            llm_manager.get_model_name(), llm_manager.get_llm_params()
+        )
 
         self.supported_metrics = {
             "answer_correctness": self._evaluate_answer_correctness,
             "tool_eval": self._evaluate_tool_calls,
         }
 
-        print(f"✅ Custom Metrics initialized: {self.model_name}")
+        print(f"✅ Custom Metrics initialized: {self.llm.model_name}")
 
     def evaluate(
         self,
@@ -62,31 +64,12 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         except (ValueError, AttributeError, KeyError) as e:
             return None, f"Custom {metric_name} evaluation failed: {str(e)}"
 
-    def _call_llm(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        """Make a LiteLLM call with the configured parameters."""
-        # Prepare messages
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-        try:
-            response = litellm.completion(
-                model=self.model_name,
-                messages=messages,
-                temperature=self.litellm_params.get("temperature", 0.0),
-                max_tokens=self.litellm_params.get("max_tokens"),
-                timeout=self.litellm_params.get("timeout"),
-                num_retries=self.litellm_params.get("num_retries", 3),
-            )
-
-            content = response.choices[0].message.content  # type: ignore
-            if content is None:
-                raise RuntimeError("LLM returned empty response")
-            return content.strip()
-
-        except Exception as e:
-            raise RuntimeError(f"LiteLLM call failed: {str(e)}") from e
+    def _call_llm(self, prompt: str) -> str:
+        """Make an LLM call with the configured parameters."""
+        result = self.llm.call(prompt, return_single=True)
+        if isinstance(result, list):
+            return result[0] if result else ""
+        return result
 
     def _parse_score_response(self, response: str) -> tuple[Optional[float], str]:
         r"""Parse LLM response to extract score and reason.
@@ -232,16 +215,19 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         prompt += "- Absence of contradictory information"
 
         # Make LLM call and parse response
-        llm_response = self._call_llm(prompt)
-        score, reason = self._parse_score_response(llm_response)
+        try:
+            llm_response = self._call_llm(prompt)
+            score, reason = self._parse_score_response(llm_response)
 
-        if score is None:
-            return (
-                None,
-                f"Could not parse score from LLM response: {llm_response[:100]}...",
-            )
+            if score is None:
+                return (
+                    None,
+                    f"Could not parse score from LLM response: {llm_response[:100]}...",
+                )
 
-        return score, f"Custom answer correctness: {score:.2f} - {reason}"
+            return score, f"Custom answer correctness: {score:.2f} - {reason}"
+        except LLMError as e:
+            return None, f"Answer correctness evaluation failed: {str(e)}"
 
     def _evaluate_tool_calls(
         self,

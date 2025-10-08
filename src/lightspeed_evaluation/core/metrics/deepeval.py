@@ -26,7 +26,7 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
         """
         # Create LLM Manager for DeepEval metrics
         self.llm_manager = DeepEvalLLMManager(
-            llm_manager.get_model_name(), llm_manager.get_litellm_params()
+            llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
 
         self.supported_metrics = {

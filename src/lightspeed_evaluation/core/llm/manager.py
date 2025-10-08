@@ -13,7 +13,7 @@ class LLMManager:
     Responsibilities:
     - Environment validation for multiple providers
     - Model name construction
-    - Provides LiteLLM parameters for consumption by framework-specific managers
+    - Provides LLM parameters for consumption by framework-specific managers
     """
 
     def __init__(self, config: LLMConfig):
@@ -25,7 +25,7 @@ class LLMManager:
         )
 
     def _construct_model_name_and_validate(self) -> str:
-        """Construct model name for LiteLLM and validate required environment variables."""
+        """Construct model name and validate required environment variables."""
         provider = self.config.provider.lower()
 
         # Provider-specific validation and model name construction
@@ -89,11 +89,11 @@ class LLMManager:
         return f"ollama/{self.config.model}"
 
     def get_model_name(self) -> str:
-        """Get the constructed LiteLLM model name."""
+        """Get the constructed model name."""
         return self.model_name
 
-    def get_litellm_params(self) -> dict[str, Any]:
-        """Get parameters for LiteLLM completion calls."""
+    def get_llm_params(self) -> dict[str, Any]:
+        """Get parameters for LLM completion calls."""
         return {
             "model": self.model_name,
             "temperature": self.config.temperature,

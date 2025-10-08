@@ -1,20 +1,21 @@
-"""Ragas LLM Manager - Ragas-specific LLM wrapper that takes LiteLLM parameters."""
+"""Ragas LLM Manager - Ragas-specific LLM wrapper."""
 
 from typing import Any, Optional
 
-import litellm
 from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
 from ragas.metrics import answer_relevancy, faithfulness
 
+from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
+from lightspeed_evaluation.core.system.exceptions import LLMError
 
-class RagasCustomLLM(BaseRagasLLM):
-    """Custom LLM for Ragas using LiteLLM parameters."""
 
-    def __init__(self, model_name: str, litellm_params: dict[str, Any]):
-        """Initialize Ragas custom LLM with model name and LiteLLM parameters."""
-        super().__init__()
-        self.model_name = model_name
-        self.litellm_params = litellm_params
+class RagasCustomLLM(BaseRagasLLM, BaseCustomLLM):
+    """Custom LLM for Ragas."""
+
+    def __init__(self, model_name: str, llm_params: dict[str, Any]):
+        """Initialize Ragas custom LLM with model name and LLM parameters."""
+        BaseRagasLLM.__init__(self)
+        BaseCustomLLM.__init__(self, model_name, llm_params)
         print(f"✅ Ragas Custom LLM: {self.model_name}")
 
     def generate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -25,34 +26,30 @@ class RagasCustomLLM(BaseRagasLLM):
         stop: Optional[list[str]] = None,
         callbacks: Optional[Any] = None,
     ) -> LLMResult:
-        """Generate text using LiteLLM with provided parameters."""
+        """Generate text using LLM with provided parameters."""
         prompt_text = str(prompt)
 
         # Use temperature from params unless explicitly overridden
         temp = (
             temperature
             if temperature != 1e-08
-            else self.litellm_params.get("temperature", 0.0)
+            else self.llm_params.get("temperature", 0.0)
         )
 
         try:
-            response = litellm.completion(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt_text}],
-                n=n,
-                temperature=temp,
-                max_tokens=self.litellm_params.get("max_tokens"),
-                timeout=self.litellm_params.get("timeout"),
-                num_retries=self.litellm_params.get("num_retries"),
+            # Use inherited BaseCustomLLM functionality
+            call_kwargs = {}
+            if stop is not None:
+                call_kwargs["stop"] = stop
+
+            responses = self.call(
+                prompt_text, n=n, temperature=temp, return_single=False, **call_kwargs
             )
 
             # Convert to Ragas format
             generations = []
-            for choice in response.choices:  # type: ignore
-                content = choice.message.content  # type: ignore
-                if content is None:
-                    content = ""
-                gen = Generation(text=content.strip())
+            for response_text in responses:
+                gen = Generation(text=response_text)
                 generations.append(gen)
 
             result = LLMResult(generations=[generations])
@@ -60,7 +57,7 @@ class RagasCustomLLM(BaseRagasLLM):
 
         except Exception as e:
             print(f"❌ Ragas LLM failed: {e}")
-            raise RuntimeError(f"Ragas LLM evaluation failed: {str(e)}") from e
+            raise LLMError(f"Ragas LLM evaluation failed: {str(e)}") from e
 
     async def agenerate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -87,11 +84,11 @@ class RagasLLMManager:
     This manager focuses solely on Ragas-specific LLM integration.
     """
 
-    def __init__(self, model_name: str, litellm_params: dict[str, Any]):
+    def __init__(self, model_name: str, llm_params: dict[str, Any]):
         """Initialize with LLM parameters from LLMManager."""
         self.model_name = model_name
-        self.litellm_params = litellm_params
-        self.custom_llm = RagasCustomLLM(model_name, litellm_params)
+        self.llm_params = llm_params
+        self.custom_llm = RagasCustomLLM(model_name, llm_params)
 
         # Configure Ragas metrics to use our custom LLM
         answer_relevancy.llm = self.custom_llm
@@ -107,5 +104,5 @@ class RagasLLMManager:
         """Get information about the configured model."""
         return {
             "model_name": self.model_name,
-            "temperature": self.litellm_params.get("temperature", 0.0),
+            "temperature": self.llm_params.get("temperature", 0.0),
         }
