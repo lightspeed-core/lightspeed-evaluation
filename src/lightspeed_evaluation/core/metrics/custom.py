@@ -3,28 +3,12 @@
 import re
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
-
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.metrics.prompts import ANSWER_CORRECTNESS_PROMPT
 from lightspeed_evaluation.core.metrics.tool_eval import evaluate_tool_calls
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
-
-
-class EvaluationPromptParams(BaseModel):
-    """Parameters for evaluation prompt creation."""
-
-    metric_name: str = Field(..., description="Name of the metric being evaluated")
-    query: str = Field(..., description="The user query")
-    response: str = Field(..., description="The model response")
-    expected_response: Optional[str] = Field(
-        None, description="Expected response if available"
-    )
-    contexts: Optional[list] = Field(
-        None, description="Context information if available"
-    )
-    scale: str = Field("0.0 to 1.0", description="Scale for scoring")
 
 
 class CustomMetrics:  # pylint: disable=too-few-public-methods
@@ -143,41 +127,6 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
 
         return None
 
-    def _create_evaluation_prompt(self, params: EvaluationPromptParams) -> str:
-        """Create a standardized evaluation prompt for custom metrics."""
-        prompt_parts = [
-            f"Evaluate the {params.metric_name} of the given response "
-            f"on a scale of {params.scale}.",
-            "",
-            f"Question: {params.query}",
-            f"Response: {params.response}",
-        ]
-
-        if params.expected_response:
-            prompt_parts.append(f"Expected Response: {params.expected_response}")
-
-        if params.contexts:
-            prompt_parts.append("Context:")
-            for i, ctx in enumerate(params.contexts, 1):
-                if isinstance(ctx, dict):
-                    content = ctx.get("content", str(ctx))
-                else:
-                    content = str(ctx)
-                prompt_parts.append(f"{i}. {content}")
-
-        prompt_parts.extend(
-            [
-                "",
-                f"Rate the {params.metric_name} and provide your reasoning.",
-                "",
-                "Format your response as:",
-                f"Score: [your score on {params.scale}]",
-                "Reason: [your detailed explanation]",
-            ]
-        )
-
-        return "\n".join(prompt_parts)
-
     def _evaluate_answer_correctness(
         self,
         _conv_data: Any,
@@ -196,23 +145,11 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         response = turn_data.response
         expected_response = turn_data.expected_response
 
-        # Create evaluation prompt
-        params = EvaluationPromptParams(
-            metric_name="answer correctness",
+        prompt = ANSWER_CORRECTNESS_PROMPT.format(
             query=query,
             response=response or "",
-            expected_response=expected_response,
-            contexts=turn_data.contexts if turn_data.contexts else None,
-            scale="0.0 to 1.0",
+            expected_response=expected_response or "",
         )
-        prompt = self._create_evaluation_prompt(params)
-
-        # Add specific instructions for answer correctness
-        prompt += "\n\nConsider:\n"
-        prompt += "- Factual accuracy compared to expected answer\n"
-        prompt += "- Completeness of information\n"
-        prompt += "- Alignment with expected response\n"
-        prompt += "- Absence of contradictory information"
 
         # Make LLM call and parse response
         try:
