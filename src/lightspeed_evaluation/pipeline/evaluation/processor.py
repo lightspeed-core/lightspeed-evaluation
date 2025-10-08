@@ -91,19 +91,19 @@ class ConversationProcessor:
             # Step 2: Amend with API data if enabled
             if self.config is None:
                 raise ValueError("SystemConfig must be loaded")
-            api_error_occurred = False
+            api_error_message = None
             if self.config.api.enabled:
                 logger.debug("Amending data via API")
-                api_error_occurred = (
-                    self.components.api_amender.amend_conversation_data(conv_data)
+                api_error_message = self.components.api_amender.amend_conversation_data(
+                    conv_data
                 )
 
             # If API error occurred, mark all metrics as ERROR and skip evaluation
-            if api_error_occurred:
+            if api_error_message:
                 logger.error("API error detected - marking all metrics as ERROR")
                 error_results = self.components.error_handler.mark_all_metrics_as_error(
                     conv_data,
-                    "API error during data amendment",
+                    api_error_message,
                     resolved_turn_metrics=resolved_turn_metrics,
                     resolved_conversation_metrics=resolved_conversation_metrics,
                 )

@@ -17,14 +17,14 @@ class APIDataAmender:
         """Initialize with API client."""
         self.api_client = api_client
 
-    def amend_conversation_data(self, conv_data: EvaluationData) -> bool:
+    def amend_conversation_data(self, conv_data: EvaluationData) -> Optional[str]:
         """Amend conversation data with API responses.
 
         Returns:
-            bool: True if any API error occurred, False if successful
+            Optional[str]: Error message if any API error occurred, None if successful
         """
         if not self.api_client:
-            return False
+            return None
 
         # Track conversation_id across turns
         conversation_id: Optional[str] = None
@@ -60,13 +60,15 @@ class APIDataAmender:
                 logger.debug("Data amended for turn %s", turn_data.turn_id)
 
             except APIError as e:
-                logger.error("API Error for turn %s: %s", turn_data.turn_id, e)
-                return True  # Indicate API error occurred
+                error_msg = f"API Error for turn {turn_data.turn_id}: {e}"
+                logger.error(error_msg)
+                return error_msg
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.error("Unexpected error for turn %s: %s", turn_data.turn_id, e)
-                return True  # Indicate error occurred
+                error_msg = f"Unexpected error for turn {turn_data.turn_id}: {e}"
+                logger.error(error_msg)
+                return error_msg
 
-        return False  # No errors occurred
+        return None  # No errors occurred
 
     def get_amendment_summary(self, conv_data: EvaluationData) -> dict[str, Any]:
         """Get summary of what would be amended for a conversation."""
