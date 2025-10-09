@@ -2,8 +2,8 @@
 
 # LLM as a judge configuration
 llm:
-  provider: "openai"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
-  model: "gpt-4o-mini"        # Model name for the provider
+  provider: "gemini"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+  model: "gemini-2.5-flash"        # Model name for the provider
   temperature: 0.0            # Generation temperature
   max_tokens: 512             # Maximum tokens in response
   timeout: 300                # Request timeout in seconds
@@ -11,29 +11,28 @@ llm:
   cache_dir: ".caches/llm_cache"      # Directory with LLM cache
   cache_enabled: true         # Is LLM cache enabled?
 
-# Default embedding (for LLM as a judge) configuration:
+# Default embedding configuration:
 embedding:
-  provider: "openai"
-  model: "text-embedding-3-small"
+  provider: "huggingface"
+  model: "sentence-transformers/all-MiniLM-L6-v2"
   provider_kwargs: {}
   cache_dir: ".caches/embedding_cache"
   cache_enabled: true
-
 
 # API Configuration
 # To get real time data. Currently it supports lightspeed-stack API.
 # But can be easily integrated with other APIs with minimal change.
 api:
   enabled: true                        # Enable API calls instead of using pre-filled data
-  api_base: http://localhost:8080      # Base API URL
-  endpoint_type: streaming             # Use "streaming" or "query" endpoint
+  api_base: http://localhost:8000      # Base API URL
+  endpoint_type: query                 # Use "streaming" or "query" endpoint
   timeout: 300                         # API request timeout in seconds
 
   # API input configuration
-  provider: "openai"                   # LLM provider for queries
-  model: "gpt-4o-mini"                 # Model to use for queries
-  no_tools: null                       # Whether to bypass tools and MCP servers (optional)
-  system_prompt: null                  # System prompt (default None)
+#  provider: "openai"                   # LLM provider for queries
+#  model: "qwen2.5:7b-instruct"                 # Model to use for queries
+#  no_tools: null                       # Whether to bypass tools and MCP servers (optional)
+#  system_prompt: null                  # System prompt (default None)
 
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
@@ -82,6 +81,14 @@ metrics_metadata:
 
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls"
+
+    "custom:multiple_choice_exact":
+      threshold: 1.0
+      description: "MMLU-style multiple choice exact match with flexible letter extraction"
+
+    "custom:multiple_choice_strict":
+      threshold: 1.0
+      description: "MMLU-style multiple choice strict match (single letter only)"
 
     # Script-based metrics
     "script:action_eval":

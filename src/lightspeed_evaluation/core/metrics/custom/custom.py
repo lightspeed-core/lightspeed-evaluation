@@ -26,11 +26,14 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         self.llm = BaseCustomLLM(
             llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
+        self.mmlu_metrics = MMLUMetrics()
 
         self.supported_metrics = {
             "answer_correctness": self._evaluate_answer_correctness,
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
+            "multiple_choice_exact": self._evaluate_mmlu_exact,
+            "multiple_choice_strict": self._evaluate_mmlu_strict,
         }
 
         print(f"✅ Custom Metrics initialized: {self.llm.model_name}")
@@ -241,3 +244,4 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             return score, reason
         except LLMError as e:
             return None, f"Intent evaluation failed: {str(e)}"
+

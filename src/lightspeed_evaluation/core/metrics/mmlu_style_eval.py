@@ -114,8 +114,8 @@ class MMLUMetrics:  # pylint: disable=too-few-public-methods
         self.strict_match = MultipleChoiceStrictMatch()
 
         self.supported_metrics = {
-            "mmlu_exact_match": self._evaluate_exact_match,
-            "mmlu_strict_match": self._evaluate_strict_match,
+            "multiple_choice_exact": self._evaluate_exact_match,
+            "multiple_choice_strict": self._evaluate_strict_match,
         }
 
     def evaluate(
