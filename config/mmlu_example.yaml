@@ -1,0 +1,48 @@
+- conversation_group_id: rh199_9.0_ch01
+  description: Vim editor and file management
+  turns:
+  - turn_id: 849c1899-e729-4387-b5e4-7b87f4bfadc9
+    query: 'What is the difference between the `vim-minimal` and `vim-enhanced` packages in Red Hat Enterprise Linux, and what features do they provide for editing text-based files?
+
+
+      A) `vim-enhanced` provides a more comprehensive set of features, an online help system, and a tutorial program, while `vim-minimal` offers a lightweight installation with core features and the basic `vi` command.
+
+      B) `vim-enhanced` and `vim-minimal` provide the same set of features with slight variations in the online help system and tutorial program.
+
+      C) `vim-minimal` provides a more comprehensive set of features, an online help system, and a tutorial program, while `vim-enhanced` offers a lightweight installation with core features and the basic `vi` command.
+
+      D) `vim-enhanced` provides a lightweight installation with core features and the basic `vi` command, while `vim-minimal` offers a more comprehensive set of features with additional plugins.'
+    expected_response: A
+    response: null
+    turn_metrics:
+    - custom:multiple_choice_exact
+  - turn_id: 4320ff94-bf75-4dfc-b7d9-38f704ccf47d
+    query: 'How can you open a file for editing using the `vi` and `vim` commands in Red Hat Enterprise Linux?
+
+
+      A) vi --help or vim --help
+
+      B) vi -r filename or vim -r filename
+
+      C) vi filename or vim filename
+
+      D) vi -w filename or vim -w filename'
+    expected_response: C
+    response: null
+    turn_metrics:
+    - custom:multiple_choice_exact
+  - turn_id: 68ddb5b7-c16c-4de2-afb6-a736c548fd52
+    query: 'What are the different modes of operation in the Vim editor, and how can you move between them?
+
+
+      A) Vim has command mode, insert mode, visual mode, and extended command mode. You can move between them using ''i'' to enter insert mode from command mode, ''Esc'' to return to command mode from insert mode or visual mode, and '':'' to enter extended command mode from command mode.
+
+      B) Vim has command mode, insert mode, select mode, and extended command mode. You can move between them using ''i'' to enter select mode from command mode, ''Esc'' to return to command mode from insert mode or visual mode, and '':'' to enter extended command mode from command mode.
+
+      C) Vim has edit mode, insert mode, visual mode, and extended command mode. You can move between them using ''e'' to enter edit mode from command mode, ''Esc'' to return to command mode from insert mode or visual mode, and '':'' to enter extended command mode from command mode.
+
+      D) Vim has command mode, insert mode, visual mode, and search mode. You can move between them using ''i'' to enter insert mode from command mode, ''Esc'' to return to command mode from insert mode or visual mode, and ''/'' to enter search mode from command mode.'
+    expected_response: A
+    response: null
+    turn_metrics:
+    - custom:multiple_choice_exact
