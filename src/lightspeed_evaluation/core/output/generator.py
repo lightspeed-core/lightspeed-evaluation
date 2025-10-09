@@ -192,6 +192,7 @@ class OutputHandler:
 
         summary = {
             "timestamp": datetime.now().isoformat(),
+            "run_name": self.run_name,
             "total_evaluations": len(results),
             "summary_stats": {
                 "overall": basic_stats,
@@ -238,6 +239,8 @@ class OutputHandler:
             f.write("=" * 50 + "\n\n")
 
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            if self.run_name:
+                f.write(f"Run Name: {self.run_name}\n")
             f.write(f"Total Evaluations: {len(results)}\n\n")
 
             # Overall statistics
