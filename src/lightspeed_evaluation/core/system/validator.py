@@ -83,8 +83,15 @@ class DataValidator:
         self.api_enabled = api_enabled
         self.original_data_path: Optional[str] = None
 
-    def load_evaluation_data(self, data_path: str) -> list[EvaluationData]:
-        """Load and validate evaluation data from YAML file."""
+    def load_evaluation_data(
+        self, data_path: str, run_name_override: Optional[str] = None
+    ) -> list[EvaluationData]:
+        """Load and validate evaluation data from YAML file.
+
+        Args:
+            data_path: Path to evaluation data YAML file
+            run_name_override: Optional run name to override YAML/filename default
+        """
         self.original_data_path = data_path
 
         try:
@@ -109,9 +116,13 @@ class DataValidator:
         evaluation_data = []
         for i, data_dict in enumerate(raw_data):
             try:
-                # Set default run_name from YAML filename if not provided
-                if "run_name" not in data_dict or data_dict["run_name"] is None:
-                    yaml_filename = Path(data_path).stem  # Get filename without extension
+                # Set run_name with priority: CLI override > YAML value > filename
+                if run_name_override is not None:
+                    # CLI override takes highest priority
+                    data_dict["run_name"] = sanitize_run_name(run_name_override)
+                elif "run_name" not in data_dict or data_dict["run_name"] is None:
+                    # Default to YAML filename if not provided
+                    yaml_filename = Path(data_path).stem
                     data_dict["run_name"] = sanitize_run_name(yaml_filename)
 
                 eval_data = EvaluationData(**data_dict)

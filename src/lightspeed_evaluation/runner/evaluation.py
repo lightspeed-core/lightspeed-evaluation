@@ -6,11 +6,15 @@ import traceback
 from typing import Optional
 
 # Import only lightweight modules at top level
+from lightspeed_evaluation.core.constants import MAX_RUN_NAME_LENGTH
 from lightspeed_evaluation.core.system import ConfigLoader
 
 
 def run_evaluation(  # pylint: disable=too-many-locals
-    system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
+    system_config_path: str,
+    evaluation_data_path: str,
+    output_dir: Optional[str] = None,
+    run_name: Optional[str] = None,
 ) -> Optional[dict[str, int]]:
     """Run the complete evaluation pipeline using EvaluationPipeline.
 
@@ -18,6 +22,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         system_config_path: Path to system.yaml
         evaluation_data_path: Path to evaluation_data.yaml
         output_dir: Optional override for output directory
+        run_name: Optional name for evaluation run (overrides YAML/filename default)
 
     Returns:
         dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR
@@ -49,7 +54,9 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Step 2: Load and validate evaluation data
         data_validator = DataValidator(api_enabled=system_config.api.enabled)
-        evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
+        evaluation_data = data_validator.load_evaluation_data(
+            evaluation_data_path, run_name_override=run_name
+        )
 
         print(f"✅ System config: {llm_config.provider}/{llm_config.model}")
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
@@ -118,10 +125,16 @@ def main() -> int:
         help="Path to evaluation data file (default: config/evaluation_data.yaml)",
     )
     parser.add_argument("--output-dir", help="Override output directory (optional)")
+    parser.add_argument(
+        "--run-name",
+        help=f"Name for this evaluation run (overrides YAML value, max {MAX_RUN_NAME_LENGTH} chars)",
+    )
 
     args = parser.parse_args()
 
-    summary = run_evaluation(args.system_config, args.eval_data, args.output_dir)
+    summary = run_evaluation(
+        args.system_config, args.eval_data, args.output_dir, args.run_name
+    )
 
     return 0 if summary is not None else 1
 
