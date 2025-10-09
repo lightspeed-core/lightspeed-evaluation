@@ -40,7 +40,7 @@ class TurnData(BaseModel):
     turn_id: str = Field(..., min_length=1, description="Turn ID (alphanumeric)")
     query: str = Field(..., min_length=1, description="Query")
     attachments: Optional[list[str]] = Field(
-        default=None, min_length=1, description="Attachments"
+        default=None, min_length=0, description="Attachments"
     )
     response: Optional[str] = Field(
         default=None,

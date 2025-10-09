@@ -63,10 +63,6 @@ class APIDataAmender:
                 error_msg = f"API Error for turn {turn_data.turn_id}: {e}"
                 logger.error(error_msg)
                 return error_msg
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                error_msg = f"Unexpected error for turn {turn_data.turn_id}: {e}"
-                logger.error(error_msg)
-                return error_msg
 
         return None  # No errors occurred
 

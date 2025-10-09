@@ -6,11 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
+    DEFAULT_API_CACHE_DIR,
     DEFAULT_API_TIMEOUT,
     DEFAULT_BASE_FILENAME,
+    DEFAULT_EMBEDDING_CACHE_DIR,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_EMBEDDING_PROVIDER,
     DEFAULT_ENDPOINT_TYPE,
+    DEFAULT_LLM_CACHE_DIR,
     DEFAULT_LLM_MAX_TOKENS,
     DEFAULT_LLM_MODEL,
     DEFAULT_LLM_PROVIDER,
@@ -62,6 +65,14 @@ class LLMConfig(BaseModel):
         ge=0,
         description="Retry attempts for failed requests",
     )
+    cache_dir: str = Field(
+        default=DEFAULT_LLM_CACHE_DIR,
+        min_length=1,
+        description="Location of cached 'LLM as a judge' queries",
+    )
+    cache_enabled: bool = Field(
+        default=True, description="Is caching of 'LLM as a judge' queries enabled?"
+    )
 
 
 class EmbeddingConfig(BaseModel):
@@ -82,6 +93,14 @@ class EmbeddingConfig(BaseModel):
     provider_kwargs: Optional[dict[str, Any]] = Field(
         default=None,
         description="Embedding provider arguments, e.g. model_kwargs: device:cpu",
+    )
+    cache_dir: str = Field(
+        default=DEFAULT_EMBEDDING_CACHE_DIR,
+        min_length=1,
+        description="Location of cached embedding queries",
+    )
+    cache_enabled: bool = Field(
+        default=True, description="Is caching of embedding queries enabled?"
     )
 
     @field_validator("provider")
@@ -118,6 +137,14 @@ class APIConfig(BaseModel):
     )
     system_prompt: Optional[str] = Field(
         default=None, description="System prompt for API calls"
+    )
+    cache_dir: str = Field(
+        default=DEFAULT_API_CACHE_DIR,
+        min_length=1,
+        description="Location of cached lightspeed-stack queries",
+    )
+    cache_enabled: bool = Field(
+        default=True, description="Is caching of lightspeed-stack queries enabled?"
     )
 
     @field_validator("endpoint_type")

@@ -3,7 +3,10 @@
 import math
 from typing import Any, Optional
 
+import litellm
 from datasets import Dataset
+from litellm.caching.caching import Cache
+from litellm.types.caching import LiteLLMCacheType
 from ragas import evaluate
 from ragas.metrics import (
     ContextRelevance,
@@ -33,11 +36,16 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
             embedding_manager: Pre-configured EmbeddingManager with validated parameters
         """
         # Create Ragas LLM Manager for metric configuration
+        if llm_manager.get_config().cache_enabled and litellm.cache is None:
+            cache_dir = llm_manager.get_config().cache_dir
+            # Modifying global litellm cache as there is no clear way how to do it per model
+            # We can't use Ragas's Cacher here, because we use litellm here and that conflicts with
+            # litellm cache from DeepEval code
+            litellm.cache = Cache(type=LiteLLMCacheType.DISK, disk_cache_dir=cache_dir)
+
         # Note, it's not actually used, it modifies
         # global ragas.metrics settings during instance init
-        self.llm_manager = RagasLLMManager(
-            llm_manager.get_model_name(), llm_manager.get_llm_params()
-        )
+        self.llm_manager = RagasLLMManager(llm_manager)
         self.embedding_manager = RagasEmbeddingManager(embedding_manager)
 
         self.supported_metrics = {

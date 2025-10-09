@@ -2,6 +2,7 @@
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
+from ragas.cache import DiskCacheBackend
 from ragas.embeddings import LangchainEmbeddingsWrapper
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
@@ -26,6 +27,9 @@ class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
         if kwargs is None:
             kwargs = {}
 
+        cacher = None
+        if config.cache_enabled:
+            cacher = DiskCacheBackend(cache_dir=config.cache_dir)
         self.embeddings = LangchainEmbeddingsWrapper(
-            embedding_class(model=config.model, **kwargs)
+            embedding_class(model=config.model, **kwargs), cache=cacher
         )

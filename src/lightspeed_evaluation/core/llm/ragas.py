@@ -6,16 +6,19 @@ from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
 from ragas.metrics import answer_relevancy, faithfulness
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
+from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
 class RagasCustomLLM(BaseRagasLLM, BaseCustomLLM):
     """Custom LLM for Ragas."""
 
-    def __init__(self, model_name: str, llm_params: dict[str, Any]):
+    def __init__(self, llm_manager: LLMManager):
         """Initialize Ragas custom LLM with model name and LLM parameters."""
         BaseRagasLLM.__init__(self)
-        BaseCustomLLM.__init__(self, model_name, llm_params)
+        BaseCustomLLM.__init__(
+            self, llm_manager.get_model_name(), llm_manager.get_llm_params()
+        )
         print(f"✅ Ragas Custom LLM: {self.model_name}")
 
     def generate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -84,11 +87,11 @@ class RagasLLMManager:
     This manager focuses solely on Ragas-specific LLM integration.
     """
 
-    def __init__(self, model_name: str, llm_params: dict[str, Any]):
+    def __init__(self, llm_manager: LLMManager):
         """Initialize with LLM parameters from LLMManager."""
-        self.model_name = model_name
-        self.llm_params = llm_params
-        self.custom_llm = RagasCustomLLM(model_name, llm_params)
+        self.model_name = (llm_manager.get_model_name(),)
+        self.llm_params = llm_manager.get_llm_params()
+        self.custom_llm = RagasCustomLLM(llm_manager)
 
         # Configure Ragas metrics to use our custom LLM
         answer_relevancy.llm = self.custom_llm

@@ -1,7 +1,10 @@
 """Evaluation Pipeline - Main evaluation orchestrator."""
 
+import asyncio
 import logging
 from typing import Optional
+
+import litellm
 
 from lightspeed_evaluation.core.api import APIClient
 from lightspeed_evaluation.core.metrics.manager import MetricManager
@@ -95,17 +98,7 @@ class EvaluationPipeline:
         api_config = config.api
         logger.info("Setting up API client: %s", api_config.api_base)
 
-        client = APIClient(
-            api_base=api_config.api_base,
-            config={
-                "provider": api_config.provider,
-                "model": api_config.model,
-                "no_tools": api_config.no_tools,
-                "system_prompt": api_config.system_prompt,
-            },
-            endpoint_type=api_config.endpoint_type,
-            timeout=api_config.timeout,
-        )
+        client = APIClient(config.api)
 
         logger.info("API client initialized for %s endpoint", api_config.endpoint_type)
         return client
@@ -179,3 +172,7 @@ class EvaluationPipeline:
         """Clean up resources."""
         if self.api_client:
             self.api_client.close()
+
+        if litellm.cache is not None:
+            asyncio.run(litellm.cache.disconnect())  # type: ignore
+            litellm.cache = None
