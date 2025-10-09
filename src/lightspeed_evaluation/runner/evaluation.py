@@ -73,10 +73,15 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Step 4: Generate reports and calculate stats
         print("\n📊 Generating Reports...")
+        # Extract run_name from first conversation (all should have same run_name)
+        run_name_for_output = (
+            evaluation_data[0].run_name if evaluation_data else None
+        )
         output_handler = OutputHandler(
             output_dir=output_dir or output_config.output_dir,
             base_filename=output_config.base_filename,
             system_config=system_config,
+            run_name=run_name_for_output,
         )
 
         # Generate reports based on configuration

@@ -28,11 +28,20 @@ class OutputHandler:
         output_dir: str = DEFAULT_OUTPUT_DIR,
         base_filename: str = "evaluation",
         system_config: Optional[Any] = None,
+        run_name: Optional[str] = None,
     ) -> None:
-        """Initialize Output handler."""
+        """Initialize Output handler.
+
+        Args:
+            output_dir: Directory for output files
+            base_filename: Base name for output files
+            system_config: System configuration
+            run_name: Optional run name to prepend to filenames
+        """
         self.output_dir = Path(output_dir)
         self.base_filename = base_filename
         self.system_config = system_config
+        self.run_name = run_name
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"✅ Output handler initialized: {self.output_dir}")
@@ -41,7 +50,10 @@ class OutputHandler:
         """Generate all output reports based on configuration."""
         # Prepare timestamped base filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_filename = f"{self.base_filename}_{timestamp}"
+        if self.run_name:
+            base_filename = f"{self.run_name}_{self.base_filename}_{timestamp}"
+        else:
+            base_filename = f"{self.base_filename}_{timestamp}"
 
         # Get enabled outputs from system config
         enabled_outputs = (
