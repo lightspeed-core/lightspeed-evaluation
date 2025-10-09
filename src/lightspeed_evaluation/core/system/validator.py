@@ -13,6 +13,7 @@ from lightspeed_evaluation.core.system.loader import (
     CONVERSATION_LEVEL_METRICS,
     TURN_LEVEL_METRICS,
 )
+from lightspeed_evaluation.core.utils import sanitize_run_name
 
 # Metric requirements mapping
 METRIC_REQUIREMENTS = {
@@ -108,6 +109,11 @@ class DataValidator:
         evaluation_data = []
         for i, data_dict in enumerate(raw_data):
             try:
+                # Set default run_name from YAML filename if not provided
+                if "run_name" not in data_dict or data_dict["run_name"] is None:
+                    yaml_filename = Path(data_path).stem  # Get filename without extension
+                    data_dict["run_name"] = sanitize_run_name(yaml_filename)
+
                 eval_data = EvaluationData(**data_dict)
                 evaluation_data.append(eval_data)
             except ValidationError as e:
