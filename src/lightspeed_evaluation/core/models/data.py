@@ -6,7 +6,10 @@ from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from lightspeed_evaluation.core.constants import SUPPORTED_RESULT_STATUSES
+from lightspeed_evaluation.core.constants import (
+    MAX_RUN_NAME_LENGTH,
+    SUPPORTED_RESULT_STATUSES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +150,11 @@ class EvaluationData(BaseModel):
         default=None,
         min_length=1,
         description="Optional description of the conversation group",
+    )
+    run_name: Optional[str] = Field(
+        default=None,
+        max_length=MAX_RUN_NAME_LENGTH,
+        description=f"Optional name for this evaluation run (max {MAX_RUN_NAME_LENGTH} chars)",
     )
 
     # Conversation-level metrics
