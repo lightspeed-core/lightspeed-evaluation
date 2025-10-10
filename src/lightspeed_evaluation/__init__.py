@@ -6,7 +6,7 @@ Main components:
 - Core modules organized by functionality (config, llm, metrics, output)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Core components
 from lightspeed_evaluation.core.api import APIClient
