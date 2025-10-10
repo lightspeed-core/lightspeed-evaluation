@@ -1,6 +1,6 @@
 [project]
 name = "lsc-agent-eval"
-version = "0.1.0"
+version = "0.2.0"
 description = "Agent evaluation package for lightspeed-core systems"
 authors = []
 requires-python = ">=3.11,<3.13"
