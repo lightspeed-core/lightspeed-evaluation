@@ -5,7 +5,10 @@ from typing import Any, Optional
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
-from lightspeed_evaluation.core.metrics.custom.prompts import ANSWER_CORRECTNESS_PROMPT
+from lightspeed_evaluation.core.metrics.custom.prompts import (
+    ANSWER_CORRECTNESS_PROMPT,
+    INTENT_EVALUATION_PROMPT,
+)
 from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_calls
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
@@ -26,6 +29,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
 
         self.supported_metrics = {
             "answer_correctness": self._evaluate_answer_correctness,
+            "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
         }
 
@@ -195,3 +199,45 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         score = 1.0 if success else 0.0
 
         return score, details
+
+    def _evaluate_intent(
+        self,
+        _conv_data: Any,
+        _turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Evaluate intent alignment using custom prompt."""
+        if is_conversation:
+            return None, "Intent evaluation is a turn-level metric"
+
+        if turn_data is None:
+            return None, "TurnData is required for intent evaluation"
+
+        if not turn_data.expected_intent:
+            return None, "No expected intent provided for intent evaluation"
+
+        query = turn_data.query
+        response = turn_data.response
+        expected_intent = turn_data.expected_intent
+
+        prompt = INTENT_EVALUATION_PROMPT.format(
+            query=query,
+            response=response,
+            expected_intent=expected_intent,
+        )
+
+        # Make LLM call and parse response
+        try:
+            llm_response = self._call_llm(prompt)
+            score, reason = self._parse_score_response(llm_response)
+
+            if score is None:
+                return (
+                    None,
+                    f"Could not parse score from LLM response: {llm_response[:100]}...",
+                )
+
+            return score, reason
+        except LLMError as e:
+            return None, f"Intent evaluation failed: {str(e)}"

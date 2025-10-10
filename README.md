@@ -85,6 +85,7 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
 - **Custom**
   - Response Evaluation
     - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom.py)
+    - [`intent_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Evaluates whether the response demonstrates the expected intent or purpose
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
 - **Script-based**
@@ -135,6 +136,10 @@ metrics_metadata:
       threshold: 0.8
       description: "How faithful the response is to the provided context"
       default: false  # Only used when explicitly specified
+      
+    "custom:intent_eval":
+      threshold: 1  # Binary evaluation (0 or 1)
+      description: "Intent alignment evaluation using custom LLM evaluation"
       
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls (regex for arguments)"
@@ -216,11 +221,13 @@ embedding:
         - OpenShift Virtualization is an extension of the OpenShift ...
       attachments: []                   # Attachments (Optional)
       expected_response: OpenShift Virtualization is an extension of the OpenShift Container Platform that allows running virtual machines alongside containers
+      expected_intent: "explain a concept"  # Expected intent for intent evaluation
       
       # Per-turn metrics (overrides system defaults)
       turn_metrics:
         - "ragas:faithfulness"
         - "custom:answer_correctness"
+        - "custom:intent_eval"
       
       # Per-turn metric configuration
       turn_metrics_metadata:
@@ -277,6 +284,7 @@ embedding:
 | `contexts`            | list[string]     | 📋       | Context information for evaluation   | ✅ (if API enabled)   |
 | `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
 | `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
+| `expected_intent`     | string           | 📋       | Expected intent for intent evaluation| ❌                    |
 | `expected_tool_calls` | list[list[dict]] | 📋       | Expected tool call sequences         | ❌                    |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
 | `verify_script`       | string           | 📋       | Path to verification script          | ❌                    |
@@ -287,6 +295,7 @@ embedding:
 
 Examples
 > - `expected_response`: Required for `custom:answer_correctness`
+> - `expected_intent`: Required for `custom:intent_eval`
 > - `expected_tool_calls`: Required for `custom:tool_eval`
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)

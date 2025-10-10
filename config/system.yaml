@@ -76,6 +76,10 @@ metrics_metadata:
       threshold: 0.75
       description: "Correctness vs expected answer using custom LLM evaluation"
 
+    "custom:intent_eval":
+      threshold: 1  # boolean eval (either 0 or 1)
+      description: "Intent alignment evaluation using custom LLM evaluation"
+
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls"
 
