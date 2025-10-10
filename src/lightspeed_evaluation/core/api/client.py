@@ -247,9 +247,18 @@ class APIClient:
     def _get_cache_key(self, request: APIRequest) -> str:
         """Get cache key for the query."""
         # Note, python hash is initialized randomly so can't be used here
-        return hashlib.sha256(
-            str(tuple(request.__dict__.values())).encode()
-        ).hexdigest()
+        request_dict = request.dict()
+        keys_to_hash = [
+            "query",
+            "provider",
+            "model",
+            "no_tools",
+            "system_prompt",
+            "attachments",
+        ]
+        str_request = ",".join([str(request_dict[k]) for k in keys_to_hash])
+
+        return hashlib.sha256(str_request.encode()).hexdigest()
 
     def _add_response_to_cache(
         self, request: APIRequest, response: APIResponse

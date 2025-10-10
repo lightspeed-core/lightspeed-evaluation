@@ -4,7 +4,7 @@ DEFAULT_API_BASE = "http://localhost:8080"
 DEFAULT_API_TIMEOUT = 300
 DEFAULT_ENDPOINT_TYPE = "streaming"
 SUPPORTED_ENDPOINT_TYPES = ["streaming", "query"]
-DEFAULT_API_CACHE_DIR = "ls_stack_cache"
+DEFAULT_API_CACHE_DIR = ".caches/api_cache"
 
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
