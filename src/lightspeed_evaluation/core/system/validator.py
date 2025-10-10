@@ -44,6 +44,10 @@ METRIC_REQUIREMENTS = {
         "required_fields": ["response", "expected_response"],
         "description": "requires 'response' and 'expected_response' fields",
     },
+    "custom:intent_eval": {
+        "required_fields": ["response", "expected_intent"],
+        "description": "requires 'response' and 'expected_intent' fields",
+    },
     "custom:tool_eval": {
         "required_fields": ["tool_calls", "expected_tool_calls"],
         "description": (
