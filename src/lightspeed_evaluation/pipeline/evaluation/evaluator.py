@@ -10,7 +10,7 @@ from lightspeed_evaluation.core.metrics.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
 from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
-from lightspeed_evaluation.core.metrics.script_eval import ScriptEvalMetrics
+from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
 from lightspeed_evaluation.core.models import (
     EvaluationRequest,
     EvaluationResult,
