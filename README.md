@@ -89,7 +89,7 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
 - **Script-based**
   - Action Evaluation
-    - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script_eval.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
+    - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
 
 ### Conversation-Level (Multi-turn)
 - **DeepEval** -- [docs](https://deepeval.com/docs/metrics-introduction) on DeepEval website
