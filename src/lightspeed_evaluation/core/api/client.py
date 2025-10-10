@@ -1,19 +1,19 @@
 """API client for actual data generation."""
 
+import hashlib
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Optional, cast
 
 import httpx
+from diskcache import Cache
 
 from lightspeed_evaluation.core.api.streaming_parser import parse_streaming_response
 from lightspeed_evaluation.core.constants import (
-    DEFAULT_API_TIMEOUT,
-    DEFAULT_ENDPOINT_TYPE,
     SUPPORTED_ENDPOINT_TYPES,
 )
-from lightspeed_evaluation.core.models import APIRequest, APIResponse
+from lightspeed_evaluation.core.models import APIConfig, APIRequest, APIResponse
 from lightspeed_evaluation.core.system.exceptions import APIError
 
 logger = logging.getLogger(__name__)
@@ -24,20 +24,20 @@ class APIClient:
 
     def __init__(
         self,
-        api_base: str,
-        *,
-        config: Optional[dict[str, Any]] = None,
-        endpoint_type: str = DEFAULT_ENDPOINT_TYPE,
-        timeout: int = DEFAULT_API_TIMEOUT,
+        config: APIConfig,
     ):
         """Initialize the client with configuration."""
-        self.api_base = api_base
-        self.endpoint_type = endpoint_type
-        self.timeout = timeout
-
-        self.llm_config = config or {}
+        self.config = config
+        self.api_base = config.api_base
+        self.endpoint_type = config.endpoint_type
+        self.timeout = config.timeout
 
         self.client: Optional[httpx.Client] = None
+
+        cache = None
+        if config.cache_enabled:
+            cache = Cache(config.cache_dir)
+        self.cache = cache
 
         self._validate_endpoint_type()
         self._setup_client()
@@ -88,10 +88,21 @@ class APIClient:
             raise APIError("API client not initialized")
 
         api_request = self._prepare_request(query, conversation_id, attachments)
+        if self.config.cache_enabled:
+            cached_response = self._get_cached_response(api_request)
+            if cached_response is not None:
+                logger.debug("Returning cached response for query: '%s'", query)
+                return cached_response
 
         if self.endpoint_type == "streaming":
-            return self._streaming_query(api_request)
-        return self._standard_query(api_request)
+            response = self._streaming_query(api_request)
+        else:
+            response = self._standard_query(api_request)
+
+        if self.config.cache_enabled:
+            self._add_response_to_cache(api_request, response)
+
+        return response
 
     def _prepare_request(
         self,
@@ -102,11 +113,11 @@ class APIClient:
         """Prepare API request with common parameters."""
         return APIRequest.create(
             query=query,
-            provider=self.llm_config["provider"],
-            model=self.llm_config["model"],
-            no_tools=self.llm_config["no_tools"],
+            provider=self.config.provider,
+            model=self.config.model,
+            no_tools=self.config.no_tools,
             conversation_id=conversation_id,
-            system_prompt=self.llm_config["system_prompt"],
+            system_prompt=self.config.system_prompt,
             attachments=attachments,
         )
 
@@ -232,6 +243,38 @@ class APIClient:
     def _handle_unexpected_error(self, e: Exception, operation: str) -> APIError:
         """Handle unexpected errors."""
         return APIError(f"Unexpected error in {operation}: {e}")
+
+    def _get_cache_key(self, request: APIRequest) -> str:
+        """Get cache key for the query."""
+        # Note, python hash is initialized randomly so can't be used here
+        request_dict = request.dict()
+        keys_to_hash = [
+            "query",
+            "provider",
+            "model",
+            "no_tools",
+            "system_prompt",
+            "attachments",
+        ]
+        str_request = ",".join([str(request_dict[k]) for k in keys_to_hash])
+
+        return hashlib.sha256(str_request.encode()).hexdigest()
+
+    def _add_response_to_cache(
+        self, request: APIRequest, response: APIResponse
+    ) -> None:
+        """Add answer to disk cache."""
+        if self.cache is None:
+            raise RuntimeError("cache is None, but used")
+        key = self._get_cache_key(request)
+        self.cache[key] = response
+
+    def _get_cached_response(self, request: APIRequest) -> APIResponse | None:
+        """Get answer from the disk cache."""
+        if self.cache is None:
+            raise RuntimeError("cache is None, but used")
+        key = self._get_cache_key(request)
+        return cast(APIResponse | None, self.cache.get(key))
 
     def close(self) -> None:
         """Close API client."""

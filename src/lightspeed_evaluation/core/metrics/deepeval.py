@@ -2,6 +2,7 @@
 
 from typing import Any, Optional
 
+import litellm
 from deepeval.metrics import (
     ConversationCompletenessMetric,
     KnowledgeRetentionMetric,
@@ -9,6 +10,8 @@ from deepeval.metrics import (
 )
 from deepeval.test_case import ConversationalTestCase
 from deepeval.test_case import Turn as DeepEvalTurn
+from litellm.caching.caching import Cache
+from litellm.types.caching import LiteLLMCacheType
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 from lightspeed_evaluation.core.llm.manager import LLMManager
@@ -24,6 +27,12 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
         """
+        if llm_manager.get_config().cache_enabled and litellm.cache is None:
+            cache_dir = llm_manager.get_config().cache_dir
+            # Modifying global litellm cache as there is no clear way how to do it per model
+            # Checking if the litellm.cache as there is potential conflict with Ragas code
+            litellm.cache = Cache(type=LiteLLMCacheType.DISK, disk_cache_dir=cache_dir)
+
         # Create LLM Manager for DeepEval metrics
         self.llm_manager = DeepEvalLLMManager(
             llm_manager.get_model_name(), llm_manager.get_llm_params()

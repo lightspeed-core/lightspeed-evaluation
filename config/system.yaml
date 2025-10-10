@@ -1,6 +1,6 @@
 # LightSpeed Evaluation Framework Configuration
 
-# LLM Configuration
+# LLM as a judge configuration
 llm:
   provider: "openai"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
   model: "gpt-4o-mini"        # Model name for the provider
@@ -8,12 +8,16 @@ llm:
   max_tokens: 512             # Maximum tokens in response
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
+  cache_dir: ".caches/llm_cache"      # Directory with LLM cache
+  cache_enabled: true         # Is LLM cache enabled?
 
-# Default embedding configuration:
-# embedding:
-#   provider: "openai"
-#   model: "text-embedding-3-small"
-#   provider_kwargs: {}
+# Default embedding (for LLM as a judge) configuration:
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+  provider_kwargs: {}
+  cache_dir: ".caches/embedding_cache"
+  cache_enabled: true
 
 
 # API Configuration
@@ -31,6 +35,8 @@ api:
   no_tools: null                       # Whether to bypass tools and MCP servers (optional)
   system_prompt: null                  # System prompt (default None)
 
+  cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
+  cache_enabled: true                  # Is lightspeed-stack cache enabled?
   # Authentication via API_KEY environment variable only for MCP server
 
 # Default metrics metadata

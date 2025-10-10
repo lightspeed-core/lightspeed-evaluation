@@ -4,15 +4,18 @@ DEFAULT_API_BASE = "http://localhost:8080"
 DEFAULT_API_TIMEOUT = 300
 DEFAULT_ENDPOINT_TYPE = "streaming"
 SUPPORTED_ENDPOINT_TYPES = ["streaming", "query"]
+DEFAULT_API_CACHE_DIR = ".caches/api_cache"
 
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
 DEFAULT_LLM_TEMPERATURE = 0.0
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_RETRIES = 3
+DEFAULT_LLM_CACHE_DIR = ".caches/llm_cache"
 
 DEFAULT_EMBEDDING_PROVIDER = "openai"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_EMBEDDING_CACHE_DIR = ".caches/embedding_cache"
 
 DEFAULT_OUTPUT_DIR = "./eval_output"
 DEFAULT_BASE_FILENAME = "evaluation"
