@@ -1,7 +1,7 @@
 """Tests for agent evaluation data models."""
 
 from pathlib import Path
-from unittest.mock import mock_open, patch
+from pytest_mock import MockerFixture
 
 import pytest
 from pydantic import ValidationError
@@ -161,11 +161,12 @@ class TestEvaluationDataConfig:
         assert config.eval_verify_script is None
         assert config.description is None
 
-    @patch("builtins.open", mock_open())
-    @patch("pathlib.Path.is_file", return_value=True)
-    @patch("pathlib.Path.exists", return_value=True)
-    def test_evaluation_data_config_script(self, mock_exists, mock_is_file):
+    def test_evaluation_data_config_script(self, mocker: MockerFixture):
         """Test EvaluationDataConfig for script evaluation."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mock_exists = mocker.patch("pathlib.Path.exists", return_value=True)
+        mock_is_file = mocker.patch("pathlib.Path.is_file", return_value=True)
+
         config = EvaluationDataConfig(
             eval_id="script_test",
             eval_query="Deploy nginx pod",
@@ -218,13 +219,12 @@ class TestEvaluationDataConfig:
         assert config.expected_keywords is None
         assert config.eval_verify_script is None
 
-    @patch("builtins.open", mock_open())
-    @patch("pathlib.Path.is_file", return_value=True)
-    @patch("pathlib.Path.exists", return_value=True)
-    def test_evaluation_data_config_multiple_eval_types(
-        self, mock_exists, mock_is_file
-    ):
+    def test_evaluation_data_config_multiple_eval_types(self, mocker: MockerFixture):
         """Test EvaluationDataConfig with multiple eval types."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch("pathlib.Path.is_file", return_value=True)
+        mocker.patch("pathlib.Path.exists", return_value=True)
+
         config = EvaluationDataConfig(
             eval_id="multi_001",
             eval_query="create openshift-lightspeed namespace",
@@ -433,11 +433,12 @@ class TestConversationDataConfig:
         assert config.setup_script is None
         assert config.cleanup_script is None
 
-    @patch("builtins.open", mock_open())
-    @patch("pathlib.Path.is_file", return_value=True)
-    @patch("pathlib.Path.exists", return_value=True)
-    def test_conversation_config_with_scripts(self, mock_exists, mock_is_file):
+    def test_conversation_config_with_scripts(self, mocker: MockerFixture):
         """Test Conversation data config with setup and cleanup scripts."""
+        mocker.patch("builtins.open", mocker.mock_open())
+        mocker.patch("pathlib.Path.is_file", return_value=True)
+        mocker.patch("pathlib.Path.exists", return_value=True)
+
         config = ConversationDataConfig(
             conversation_group="test_conv_scripts",
             description="Test conversation with scripts",

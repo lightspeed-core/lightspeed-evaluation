@@ -1,6 +1,6 @@
 """Tests for tool call evaluation utilities."""
 
-from unittest.mock import patch
+from pytest_mock import MockerFixture
 
 from lsc_agent_eval.core.agent_goal_eval.tool_call_eval import compare_tool_calls
 
@@ -67,7 +67,7 @@ class TestToolCallEvaluator:
 
         assert not compare_tool_calls(expected, actual)
 
-    def test_wrong_argument_value(self):
+    def test_wrong_argument_value(self, mocker: MockerFixture):
         """Test wrong argument value fails."""
         expected = [
             [
@@ -86,18 +86,18 @@ class TestToolCallEvaluator:
             ]
         ]
 
-        with patch(
+        mock_logger = mocker.patch(
             "lsc_agent_eval.core.agent_goal_eval.tool_call_eval.logger"
-        ) as mock_logger:
-            assert not compare_tool_calls(expected, actual)
+        )
+        assert not compare_tool_calls(expected, actual)
 
-            # Check that the specific argument mismatch was logged
-            mock_logger.debug.assert_any_call(
-                "Argument value mismatch for '%s': pattern '%s' not found in '%s'",
-                "image",
-                "nginx",
-                "apache",
-            )
+        # Check that the specific argument mismatch was logged
+        mock_logger.debug.assert_any_call(
+            "Argument value mismatch for '%s': pattern '%s' not found in '%s'",
+            "image",
+            "nginx",
+            "apache",
+        )
 
     def test_missing_argument(self):
         """Test missing argument fails."""

@@ -1,6 +1,6 @@
 """Tests for streaming response parser utilities."""
 
-from unittest.mock import Mock
+from pytest_mock import MockerFixture
 
 import pytest
 
@@ -13,9 +13,9 @@ from lsc_agent_eval.core.utils.streaming_parser import (
 class TestStreamingResponseParser:
     """Test cases for streaming parser functions."""
 
-    def test_basic_streaming_response(self):
+    def test_basic_streaming_response(self, mocker: MockerFixture):
         """Test basic streaming response parsing."""
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.iter_lines.return_value = [
             'data: {"event": "start", "data": {"conversation_id": "conv-123"}}',
             'data: {"event": "turn_complete", "data": {"token": "Hello world"}}',
@@ -27,9 +27,9 @@ class TestStreamingResponseParser:
         assert result["conversation_id"] == "conv-123"
         assert result["tool_calls"] == []
 
-    def test_streaming_with_tool_calls(self):
+    def test_streaming_with_tool_calls(self, mocker: MockerFixture):
         """Test streaming response with tool calls extraction."""
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.iter_lines.return_value = [
             'data: {"event": "start", "data": {"conversation_id": "conv-tools"}}',
             'data: {"event": "tool_call", "data": {"token": {"tool_name": "create_pod", "arguments": {"name": "test"}}}}',
@@ -44,10 +44,10 @@ class TestStreamingResponseParser:
         assert result["tool_calls"][0][0]["tool_name"] == "create_pod"
         assert result["tool_calls"][0][0]["arguments"] == {"name": "test"}
 
-    def test_error_conditions(self):
+    def test_error_conditions(self, mocker: MockerFixture):
         """Test error conditions - missing required data."""
         # Missing final response
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.iter_lines.return_value = [
             'data: {"event": "start", "data": {"conversation_id": "conv-error"}}',
         ]
@@ -63,9 +63,9 @@ class TestStreamingResponseParser:
         with pytest.raises(ValueError, match="No Conversation ID found"):
             parse_streaming_response(mock_response)
 
-    def test_error_event_handling(self):
+    def test_error_event_handling(self, mocker: MockerFixture):
         """Test error event handling in streaming response."""
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.iter_lines.return_value = [
             'data: {"event": "start", "data": {"conversation_id": "conv-error"}}',
             'data: {"event": "error", "data": {"id": 1, "token": "Unable to connect to LLama Stack backend: Connection timed out"}}',
@@ -96,9 +96,9 @@ class TestStreamingResponseParser:
         # Invalid format - missing arguments field
         assert _parse_tool_call({"tool_name": "list_versions"}) is None
 
-    def test_malformed_data_handling(self):
+    def test_malformed_data_handling(self, mocker: MockerFixture):
         """Test handling of malformed data and edge cases."""
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.iter_lines.return_value = [
             'data: {"event": "start", "data": {"conversation_id": "conv-malformed"}}',
             'data: {"invalid json": malformed}',  # Should be ignored

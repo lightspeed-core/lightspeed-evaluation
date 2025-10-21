@@ -3,7 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import mock_open, patch
+from pytest_mock import MockerFixture
 
 import pandas as pd
 import pytest
@@ -71,13 +71,12 @@ class TestResultsManager:
         assert manager.results == []
         assert manager.results_stats.total_evaluations == 0
 
-    @patch("pathlib.Path.mkdir")
-    @patch("pandas.DataFrame.to_csv")
-    @patch("builtins.open", new_callable=mock_open)
-    def test_save_results_success(
-        self, mock_file_open, mock_to_csv, mock_mkdir, sample_results
-    ):
+    def test_save_results_success(self, mocker: MockerFixture, sample_results):
         """Test successful results saving."""
+        mock_mkdir = mocker.patch("pathlib.Path.mkdir")
+        mock_to_csv = mocker.patch("pandas.DataFrame.to_csv")
+        mock_file_open = mocker.patch("builtins.open", new_callable=mocker.mock_open)
+
         manager = ResultsManager(sample_results)
 
         manager.save_results("test_results/")
@@ -91,18 +90,20 @@ class TestResultsManager:
         # Verify JSON saving
         mock_file_open.assert_called()
 
-    @patch("pathlib.Path.mkdir")
-    @patch("pandas.DataFrame.to_csv", side_effect=Exception("CSV error"))
-    def test_save_results_csv_error(self, mock_to_csv, mock_mkdir, sample_results):
+    def test_save_results_csv_error(self, mocker: MockerFixture, sample_results):
         """Test results saving with CSV error."""
+        mocker.patch("pathlib.Path.mkdir")
+        mocker.patch("pandas.DataFrame.to_csv", side_effect=Exception("CSV error"))
+
         manager = ResultsManager(sample_results)
 
         with pytest.raises(AgentEvaluationError, match="Failed to save results"):
             manager.save_results("test_results/")
 
-    @patch("pathlib.Path.mkdir", side_effect=OSError("Permission denied"))
-    def test_save_results_mkdir_error(self, mock_mkdir, sample_results):
+    def test_save_results_mkdir_error(self, mocker: MockerFixture, sample_results):
         """Test results saving with directory creation error."""
+        mocker.patch("pathlib.Path.mkdir", side_effect=OSError("Permission denied"))
+
         manager = ResultsManager(sample_results)
 
         with pytest.raises(AgentEvaluationError, match="Failed to save results"):
@@ -244,28 +245,24 @@ class TestResultsManager:
         assert isinstance(stats_dict["by_conversation"], dict)
         assert isinstance(stats_dict["by_eval_type"], dict)
 
-    def test_filename_generation_format(self, sample_results):
+    def test_filename_generation_format(self, mocker: MockerFixture, sample_results):
         """Test that filename generation follows expected format."""
         manager = ResultsManager(sample_results)
 
-        with patch(
+        mock_datetime = mocker.patch(
             "lsc_agent_eval.core.agent_goal_eval.results.datetime"
-        ) as mock_datetime:
-            mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
+        )
+        mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
 
-            with (
-                patch.object(manager, "_save_csv_results"),
-                patch.object(manager, "_save_json_summary"),
-                patch("pathlib.Path.mkdir"),
-            ):
+        mocker.patch.object(manager, "_save_csv_results")
+        mocker.patch.object(manager, "_save_json_summary")
+        mocker.patch("pathlib.Path.mkdir")
 
-                manager.save_results("test_results/")
+        manager.save_results("test_results/")
 
-                # Verify the filename format is called correctly
-                mock_datetime.now.assert_called_once()
-                mock_datetime.now.return_value.strftime.assert_called_once_with(
-                    "%Y%m%d_%H%M%S"
-                )
+        # Verify the filename format is called correctly
+        mock_datetime.now.assert_called_once()
+        mock_datetime.now.return_value.strftime.assert_called_once_with("%Y%m%d_%H%M%S")
 
     def test_integration_with_real_files(self, sample_results):
         """Integration test with real temporary files."""

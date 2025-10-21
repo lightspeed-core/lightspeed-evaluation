@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from unittest.mock import Mock, patch
+from pytest_mock import MockerFixture
 
 import pytest
 
@@ -21,9 +21,9 @@ class TestEvaluationRunner:
     """Test EvaluationRunner."""
 
     @pytest.fixture
-    def mock_agent_client(self):
+    def mock_agent_client(self, mocker: MockerFixture):
         """Mock agent client."""
-        mock_client = Mock(spec=AgentHttpClient)
+        mock_client = mocker.Mock(spec=AgentHttpClient)
 
         # Mock agent API: return conversation_id from input or generate one
         def mock_agent_response(api_input, **kwargs):
@@ -40,16 +40,16 @@ class TestEvaluationRunner:
         return mock_client
 
     @pytest.fixture
-    def mock_script_runner(self):
+    def mock_script_runner(self, mocker: MockerFixture):
         """Mock script runner."""
-        mock_runner = Mock(spec=ScriptRunner)
+        mock_runner = mocker.Mock(spec=ScriptRunner)
         mock_runner.run_script.return_value = True
         return mock_runner
 
     @pytest.fixture
-    def mock_judge_manager(self):
+    def mock_judge_manager(self, mocker: MockerFixture):
         """Mock judge manager."""
-        mock_judge = Mock(spec=JudgeModelManager)
+        mock_judge = mocker.Mock(spec=JudgeModelManager)
         mock_judge.evaluate_response.return_value = "1"
         return mock_judge
 
@@ -435,15 +435,17 @@ class TestEvaluationRunner:
         result = runner.run_evaluation(config, "openai", "gpt-4", "conv-id-123")
         assert result[0].result == "PASS"
 
-    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_tool_eval_success(
         self,
-        mock_compare_tool_calls,
+        mocker: MockerFixture,
         mock_agent_client,
         mock_script_runner,
         mock_judge_manager,
     ):
         """Test tool evaluation with success."""
+        mock_compare_tool_calls = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls"
+        )
         mock_compare_tool_calls.return_value = True
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, **kwargs: {
@@ -476,15 +478,17 @@ class TestEvaluationRunner:
             [[{"tool_name": "list_versions", "arguments": {}}]],
         )
 
-    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_tool_eval_failure(
         self,
-        mock_compare_tool_calls,
+        mocker: MockerFixture,
         mock_agent_client,
         mock_script_runner,
         mock_judge_manager,
     ):
         """Test tool evaluation with failure."""
+        mock_compare_tool_calls = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls"
+        )
         mock_compare_tool_calls.return_value = False
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, **kwargs: {
@@ -684,19 +688,20 @@ class TestEvaluationRunner:
             }
         )
 
-    @patch("pathlib.Path.exists", return_value=True)
-    @patch("pathlib.Path.is_file", return_value=True)
-    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_multiple_eval_types_all_pass(
         self,
-        mock_compare_tool_calls,
-        mock_is_file,
-        mock_exists,
+        mocker: MockerFixture,
         mock_agent_client,
         mock_script_runner,
         mock_judge_manager,
     ):
         """Test evaluation with multiple eval types where all pass."""
+        mocker.patch("pathlib.Path.exists", return_value=True)
+        mocker.patch("pathlib.Path.is_file", return_value=True)
+        mock_compare_tool_calls = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls"
+        )
+
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, timeout=300: {
                 "response": "Successfully created openshift-lightspeed namespace",
@@ -758,19 +763,20 @@ class TestEvaluationRunner:
         assert all(r.query == "create openshift-lightspeed namespace" for r in results)
         assert all(r.conversation_id == "conv-123" for r in results)
 
-    @patch("pathlib.Path.exists", return_value=True)
-    @patch("pathlib.Path.is_file", return_value=True)
-    @patch("lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls")
     def test_multiple_eval_types_mixed_results(
         self,
-        mock_compare_tool_calls,
-        mock_is_file,
-        mock_exists,
+        mocker: MockerFixture,
         mock_agent_client,
         mock_script_runner,
         mock_judge_manager,
     ):
         """Test evaluation with multiple eval types having mixed results."""
+        mocker.patch("pathlib.Path.exists", return_value=True)
+        mocker.patch("pathlib.Path.is_file", return_value=True)
+        mock_compare_tool_calls = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.evaluator.compare_tool_calls"
+        )
+
         # Mock mixed results
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, timeout=300: {
@@ -821,17 +827,17 @@ class TestEvaluationRunner:
         assert all(r.query == "create openshift-lightspeed namespace" for r in results)
         assert all(r.conversation_id == "conv-456" for r in results)
 
-    @patch("pathlib.Path.exists", return_value=True)
-    @patch("pathlib.Path.is_file", return_value=True)
     def test_multiple_eval_types_with_error(
         self,
-        mock_is_file,
-        mock_exists,
+        mocker: MockerFixture,
         mock_agent_client,
         mock_script_runner,
         mock_judge_manager,
     ):
         """Test evaluation with multiple eval types where some have errors."""
+        mocker.patch("pathlib.Path.exists", return_value=True)
+        mocker.patch("pathlib.Path.is_file", return_value=True)
+
         mock_agent_client.streaming_query_agent.side_effect = (
             lambda api_input, timeout=300: {
                 "response": "Sorry, I can't create openshift-lightspeed namespace",
