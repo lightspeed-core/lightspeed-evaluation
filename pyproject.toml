@@ -70,6 +70,10 @@ warn_required_dynamic_aliases = true
 [tool.pylint.MASTER]
 load-plugins = ["pylint_pydantic"]
 
+[tool.ruff]
+[tool.ruff.lint.flake8-tidy-imports]
+banned-api = { "unittest" = { msg = "use pytest instead of unittest" }, "unittest.mock" = { msg = "use pytest-mock instead of unittest.mock" } }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
