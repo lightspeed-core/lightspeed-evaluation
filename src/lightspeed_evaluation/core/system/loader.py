@@ -7,6 +7,7 @@ import yaml
 
 from lightspeed_evaluation.core.models import (
     APIConfig,
+    CoreConfig,
     EmbeddingConfig,
     EvaluationData,
     LLMConfig,
@@ -110,6 +111,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         """Create SystemConfig object from validated configuration data."""
         metrics_metadata = config_data.get("metrics_metadata", {})
         return SystemConfig(
+            core=CoreConfig(**config_data.get("core", {})),
             llm=LLMConfig(**config_data.get("llm", {})),
             embedding=EmbeddingConfig(**config_data.get("embedding") or {}),
             api=APIConfig(**config_data.get("api", {})),

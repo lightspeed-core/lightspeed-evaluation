@@ -1,14 +1,20 @@
 """Evaluation Pipeline - Main evaluation orchestrator."""
 
 import asyncio
+import concurrent.futures
 import logging
 from typing import Optional
 
 import litellm
+import tqdm
 
 from lightspeed_evaluation.core.api import APIClient
 from lightspeed_evaluation.core.metrics.manager import MetricManager
-from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
+from lightspeed_evaluation.core.models import (
+    EvaluationData,
+    EvaluationResult,
+    SystemConfig,
+)
 from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
 from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.core.system import ConfigLoader, DataValidator
@@ -39,6 +45,8 @@ class EvaluationPipeline:
         self.config_loader = config_loader
         if not config_loader.system_config:
             raise ValueError("SystemConfig must be loaded before initializing pipeline")
+
+        self.system_config: SystemConfig = config_loader.system_config
         self.original_data_path: Optional[str] = None
         self.output_dir = output_dir or config_loader.system_config.output.output_dir
 
@@ -132,9 +140,7 @@ class EvaluationPipeline:
 
         # Step 2: Process each conversation
         logger.info("Processing conversations")
-        for conv_data in evaluation_data:
-            conv_results = self.conversation_processor.process_conversation(conv_data)
-            results.extend(conv_results)
+        results = self._process_eval_data(evaluation_data)
 
         # Step 3: Save amended data if API was used
         config = self.config_loader.system_config
@@ -146,6 +152,24 @@ class EvaluationPipeline:
 
         logger.info("Evaluation complete: %d results generated", len(results))
         return results
+
+    def _process_eval_data(
+        self, evaluation_data: list[EvaluationData]
+    ) -> list[EvaluationResult]:
+        """Process the conversations from the evaluation_data."""
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.system_config.core.max_threads
+        ) as executor:
+            futures = (
+                executor.submit(self.conversation_processor.process_conversation, c)
+                for c in evaluation_data
+            )
+            res = []
+            for future in tqdm.tqdm(
+                concurrent.futures.as_completed(futures), total=len(evaluation_data)
+            ):
+                res.extend(future.result())
+            return res
 
     def _save_amended_data(self, evaluation_data: list[EvaluationData]) -> None:
         """Save amended evaluation data with API amendments to output directory."""
@@ -174,5 +198,10 @@ class EvaluationPipeline:
             self.api_client.close()
 
         if litellm.cache is not None:
-            asyncio.run(litellm.cache.disconnect())  # type: ignore
+            try:
+                loop = asyncio.get_running_loop()
+                loop.run_until_complete(litellm.cache.disconnect())  # type: ignore
+            except RuntimeError:
+                #  Event loop is closed already
+                pass
             litellm.cache = None
