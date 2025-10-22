@@ -253,7 +253,7 @@ class VisualizationConfig(BaseModel):
 
 
 class CoreConfig(BaseModel):
-    """Visualization configuration for graphs and charts."""
+    """Core evaluation configuration (e.g., concurrency limits)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -262,7 +262,6 @@ class CoreConfig(BaseModel):
         description="Maximum threads for multithreading eval",
         gt=0,
     )
-
 
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
