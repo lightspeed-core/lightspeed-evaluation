@@ -198,10 +198,5 @@ class EvaluationPipeline:
             self.api_client.close()
 
         if litellm.cache is not None:
-            try:
-                loop = asyncio.get_running_loop()
-                loop.run_until_complete(litellm.cache.disconnect())  # type: ignore
-            except RuntimeError:
-                #  Event loop is closed already
-                pass
+            asyncio.run(litellm.cache.disconnect())  # type: ignore
             litellm.cache = None
