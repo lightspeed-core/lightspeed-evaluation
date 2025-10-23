@@ -1,6 +1,6 @@
 """Tests for agent goal evaluation orchestrator."""
 
-from unittest.mock import MagicMock, Mock, patch
+from pytest_mock import MockerFixture
 
 import pytest
 
@@ -18,9 +18,9 @@ class TestAgentGoalEval:
     """Test AgentGoalEval orchestrator."""
 
     @pytest.fixture
-    def mock_args(self):
+    def mock_args(self, mocker: MockerFixture):
         """Mock evaluation arguments."""
-        args = Mock()
+        args = mocker.Mock()
         args.eval_data_yaml = "test_data.yaml"
         args.agent_endpoint = "http://localhost:8080"
         args.agent_auth_token_file = None
@@ -77,23 +77,28 @@ class TestAgentGoalEval:
             ),
         ]
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     def test_init_with_judge_manager(
         self,
-        mock_script_runner,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
+        mocker: MockerFixture,
         mock_args,
     ):
         """Test initialization with judge manager."""
+        mock_config_manager = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mock_agent_client = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mock_judge_manager = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mock_evaluation_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mock_script_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"
+        )
+
         AgentGoalEval(mock_args)
 
         # Verify all components were initialized
@@ -107,21 +112,25 @@ class TestAgentGoalEval:
             mock_judge_manager.return_value,
         )
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     def test_init_without_judge_manager(
         self,
-        mock_script_runner,
-        mock_evaluation_runner,
-        mock_agent_client,
-        mock_config_manager,
+        mocker: MockerFixture,
         mock_args,
     ):
         """Test initialization without judge manager."""
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mock_agent_client = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mock_evaluation_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mock_script_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"
+        )
+
         mock_args.judge_provider = None
         mock_args.judge_model = None
 
@@ -135,23 +144,28 @@ class TestAgentGoalEval:
             None,
         )
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
     def test_init_with_kubeconfig(
         self,
-        mock_script_runner,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
+        mocker: MockerFixture,
         mock_args,
     ):
         """Test initialization with kubeconfig."""
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mock_agent_client = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mock_judge_manager = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mock_evaluation_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mock_script_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"
+        )
+
         mock_args.kubeconfig = "~/kubeconfig"
 
         AgentGoalEval(mock_args)
@@ -163,27 +177,31 @@ class TestAgentGoalEval:
             mock_judge_manager.return_value,
         )
 
-    @patch(
-        "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-    )
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
-    @patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager")
     def test_run_evaluation_success(
         self,
-        mock_results_manager,
-        mock_script_runner,
-        mock_evaluation_runner,
-        mock_judge_manager,
-        mock_agent_client,
-        mock_config_manager,
+        mocker: MockerFixture,
         mock_args,
         sample_conversation,
         sample_results,
     ):
         """Test successful evaluation execution."""
+        mock_config_manager = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mock_evaluation_runner = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mocker.patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
+        mock_results_manager = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ResultsManager"
+        )
+
         # Setup mocks
         mock_config_manager.return_value.get_conversations.return_value = [
             sample_conversation
@@ -195,7 +213,7 @@ class TestAgentGoalEval:
         ]
 
         # Mock results manager
-        mock_results_mgr_instance = MagicMock()
+        mock_results_mgr_instance = mocker.MagicMock()
         mock_results_manager.return_value = mock_results_mgr_instance
         mock_stats = EvaluationStats.from_results(sample_results)
         mock_results_mgr_instance.get_results_stats.return_value = mock_stats
@@ -203,8 +221,8 @@ class TestAgentGoalEval:
         evaluator = AgentGoalEval(mock_args)
 
         # Capture print output
-        with patch("builtins.print") as mock_print:
-            evaluator.run_evaluation()
+        mock_print = mocker.patch("builtins.print")
+        evaluator.run_evaluation()
 
         # Verify evaluations were run
         assert mock_evaluation_runner.return_value.run_evaluation.call_count == 2
@@ -217,110 +235,104 @@ class TestAgentGoalEval:
         # Verify summary was printed
         mock_print.assert_called()
 
-    def test_get_result_summary_success(self, mock_args):
+    def test_get_result_summary_success(self, mocker: MockerFixture, mock_args):
         """Test result summary with available results."""
-        with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
-        ):
-            evaluator = AgentGoalEval(mock_args)
-            evaluator.result_summary = {"TOTAL": 5, "PASS": 3, "FAIL": 1, "ERROR": 1}
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mocker.patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
 
-            result = evaluator.get_result_summary()
+        evaluator = AgentGoalEval(mock_args)
+        evaluator.result_summary = {"TOTAL": 5, "PASS": 3, "FAIL": 1, "ERROR": 1}
 
-            assert result == {"TOTAL": 5, "PASS": 3, "FAIL": 1, "ERROR": 1}
+        result = evaluator.get_result_summary()
 
-    def test_get_result_summary_no_results(self, mock_args):
+        assert result == {"TOTAL": 5, "PASS": 3, "FAIL": 1, "ERROR": 1}
+
+    def test_get_result_summary_no_results(self, mocker: MockerFixture, mock_args):
         """Test result summary with no available results."""
-        with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
-        ):
-            evaluator = AgentGoalEval(mock_args)
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mocker.patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
 
-            with pytest.raises(AgentEvaluationError, match="No results available"):
-                evaluator.get_result_summary()
+        evaluator = AgentGoalEval(mock_args)
 
-    def test_cleanup_with_client(self, mock_args):
+        with pytest.raises(AgentEvaluationError, match="No results available"):
+            evaluator.get_result_summary()
+
+    def test_cleanup_with_client(self, mocker: MockerFixture, mock_args):
         """Test cleanup method with client."""
-        with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
-            ) as mock_client_class,
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
-        ):
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mock_client_class = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mocker.patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
 
-            mock_client = Mock()
-            mock_client_class.return_value = mock_client
+        mock_client = mocker.Mock()
+        mock_client_class.return_value = mock_client
 
-            evaluator = AgentGoalEval(mock_args)
-            evaluator._cleanup()
+        evaluator = AgentGoalEval(mock_args)
+        evaluator._cleanup()
 
-            # Verify client was closed
-            mock_client.close.assert_called_once()
+        # Verify client was closed
+        mock_client.close.assert_called_once()
 
-    def test_cleanup_exception(self, mock_args):
+    def test_cleanup_exception(self, mocker: MockerFixture, mock_args):
         """Test cleanup method with exception."""
-        with (
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
-            ) as mock_client_class,
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
-            ),
-            patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
-            ),
-            patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner"),
-        ):
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentGoalEvalDataManager"
+        )
+        mock_client_class = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.AgentHttpClient"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.JudgeModelManager"
+        )
+        mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.EvaluationRunner"
+        )
+        mocker.patch("lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.ScriptRunner")
 
-            mock_client = Mock()
-            mock_client.close.side_effect = OSError("Cleanup error")
-            mock_client_class.return_value = mock_client
+        mock_client = mocker.Mock()
+        mock_client.close.side_effect = OSError("Cleanup error")
+        mock_client_class.return_value = mock_client
 
-            evaluator = AgentGoalEval(mock_args)
+        evaluator = AgentGoalEval(mock_args)
 
-            with patch(
-                "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger"
-            ) as mock_logger:
-                evaluator._cleanup()
+        mock_logger = mocker.patch(
+            "lsc_agent_eval.core.agent_goal_eval.agent_goal_eval.logger"
+        )
+        evaluator._cleanup()
 
-            # Verify warning was logged
-            mock_logger.warning.assert_called()
-            args, kwargs = mock_logger.warning.call_args
-            assert args[0] == "Error during cleanup: %s"
-            assert str(args[1]) == "Cleanup error"
+        # Verify warning was logged
+        mock_logger.warning.assert_called()
+        args, kwargs = mock_logger.warning.call_args
+        assert args[0] == "Error during cleanup: %s"
+        assert str(args[1]) == "Cleanup error"

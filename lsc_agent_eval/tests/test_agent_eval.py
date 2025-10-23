@@ -1,7 +1,7 @@
 """Tests for agent evaluation CLI."""
 
 import sys
-from unittest.mock import Mock, patch
+from pytest_mock import MockerFixture
 
 import pytest
 
@@ -128,17 +128,18 @@ class TestArgsParser:
 class TestMain:
     """Test main function."""
 
-    @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
-    @patch("lsc_agent_eval.agent_eval._args_parser")
-    @patch("lsc_agent_eval.agent_eval.logging.basicConfig")
-    def test_main_success(
-        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
-    ):
+    def test_main_success(self, mocker: MockerFixture):
         """Test successful main execution."""
         # Setup mocks
-        mock_args = Mock()
+        mock_logging_config = mocker.patch(
+            "lsc_agent_eval.agent_eval.logging.basicConfig"
+        )
+        mock_args_parser = mocker.patch("lsc_agent_eval.agent_eval._args_parser")
+        mock_agent_goal_eval = mocker.patch("lsc_agent_eval.agent_eval.AgentGoalEval")
+
+        mock_args = mocker.Mock()
         mock_args_parser.return_value = mock_args
-        mock_evaluator = Mock()
+        mock_evaluator = mocker.Mock()
         mock_agent_goal_eval.return_value = mock_evaluator
 
         # Run main
@@ -150,17 +151,18 @@ class TestMain:
         mock_evaluator.run_evaluation.assert_called_once()
         mock_logging_config.assert_called_once()
 
-    @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
-    @patch("lsc_agent_eval.agent_eval._args_parser")
-    @patch("lsc_agent_eval.agent_eval.logging.basicConfig")
-    def test_main_logging_configuration(
-        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
-    ):
+    def test_main_logging_configuration(self, mocker: MockerFixture):
         """Test main logging configuration."""
         # Setup mocks
-        mock_args = Mock()
+        mock_logging_config = mocker.patch(
+            "lsc_agent_eval.agent_eval.logging.basicConfig"
+        )
+        mock_args_parser = mocker.patch("lsc_agent_eval.agent_eval._args_parser")
+        mock_agent_goal_eval = mocker.patch("lsc_agent_eval.agent_eval.AgentGoalEval")
+
+        mock_args = mocker.Mock()
         mock_args_parser.return_value = mock_args
-        mock_evaluator = Mock()
+        mock_evaluator = mocker.Mock()
         mock_agent_goal_eval.return_value = mock_evaluator
 
         # Run main
@@ -174,17 +176,16 @@ class TestMain:
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
 
-    @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
-    @patch("lsc_agent_eval.agent_eval._args_parser")
-    @patch("lsc_agent_eval.agent_eval.logging.basicConfig")
-    def test_main_evaluator_initialization(
-        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
-    ):
+    def test_main_evaluator_initialization(self, mocker: MockerFixture):
         """Test main evaluator initialization."""
         # Setup mocks
-        mock_args = Mock()
+        mocker.patch("lsc_agent_eval.agent_eval.logging.basicConfig")
+        mock_args_parser = mocker.patch("lsc_agent_eval.agent_eval._args_parser")
+        mock_agent_goal_eval = mocker.patch("lsc_agent_eval.agent_eval.AgentGoalEval")
+
+        mock_args = mocker.Mock()
         mock_args_parser.return_value = mock_args
-        mock_evaluator = Mock()
+        mock_evaluator = mocker.Mock()
         mock_agent_goal_eval.return_value = mock_evaluator
 
         # Run main
@@ -193,17 +194,16 @@ class TestMain:
         # Verify evaluator was initialized with parsed args
         mock_agent_goal_eval.assert_called_once_with(mock_args)
 
-    @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
-    @patch("lsc_agent_eval.agent_eval._args_parser")
-    @patch("lsc_agent_eval.agent_eval.logging.basicConfig")
-    def test_main_evaluator_execution(
-        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
-    ):
+    def test_main_evaluator_execution(self, mocker: MockerFixture):
         """Test main evaluator execution."""
         # Setup mocks
-        mock_args = Mock()
+        mocker.patch("lsc_agent_eval.agent_eval.logging.basicConfig")
+        mock_args_parser = mocker.patch("lsc_agent_eval.agent_eval._args_parser")
+        mock_agent_goal_eval = mocker.patch("lsc_agent_eval.agent_eval.AgentGoalEval")
+
+        mock_args = mocker.Mock()
         mock_args_parser.return_value = mock_args
-        mock_evaluator = Mock()
+        mock_evaluator = mocker.Mock()
         mock_agent_goal_eval.return_value = mock_evaluator
 
         # Run main
@@ -212,29 +212,28 @@ class TestMain:
         # Verify evaluator execution was called
         mock_evaluator.run_evaluation.assert_called_once()
 
-    @patch("lsc_agent_eval.agent_eval.AgentGoalEval")
-    @patch("lsc_agent_eval.agent_eval._args_parser")
-    @patch("lsc_agent_eval.agent_eval.logging.basicConfig")
-    @patch(
-        "sys.argv",
-        [
-            "agent_eval",
-            "--eval_data_yaml",
-            "test.yaml",
-            "--agent_provider",
-            "openai",
-            "--agent_model",
-            "gpt-4",
-        ],
-    )
-    def test_main_with_real_argv(
-        self, mock_logging_config, mock_args_parser, mock_agent_goal_eval
-    ):
+    def test_main_with_real_argv(self, mocker: MockerFixture):
         """Test main with real sys.argv."""
         # Setup mocks
-        mock_args = Mock()
+        mocker.patch("lsc_agent_eval.agent_eval.logging.basicConfig")
+        mock_args_parser = mocker.patch("lsc_agent_eval.agent_eval._args_parser")
+        mock_agent_goal_eval = mocker.patch("lsc_agent_eval.agent_eval.AgentGoalEval")
+        mocker.patch(
+            "sys.argv",
+            [
+                "agent_eval",
+                "--eval_data_yaml",
+                "test.yaml",
+                "--agent_provider",
+                "openai",
+                "--agent_model",
+                "gpt-4",
+            ],
+        )
+
+        mock_args = mocker.Mock()
         mock_args_parser.return_value = mock_args
-        mock_evaluator = Mock()
+        mock_evaluator = mocker.Mock()
         mock_agent_goal_eval.return_value = mock_evaluator
 
         # Run main

@@ -3,7 +3,7 @@
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from pytest_mock import MockerFixture
 
 import pytest
 import yaml
@@ -81,9 +81,9 @@ def sample_evaluation_data(sample_turn_data):
 
 
 @pytest.fixture
-def mock_llm_manager():
+def mock_llm_manager(mocker: MockerFixture):
     """Provide a mock LLM manager."""
-    manager = MagicMock(spec=LLMManager)
+    manager = mocker.MagicMock(spec=LLMManager)
     manager.get_model_name.return_value = "gpt-4o-mini"
     manager.get_litellm_params.return_value = {
         "model": "gpt-4o-mini",
