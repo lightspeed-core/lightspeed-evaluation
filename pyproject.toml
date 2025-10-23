@@ -19,7 +19,6 @@ dependencies = [
     "matplotlib>=3.5.0",
     "seaborn>=0.11.0",
     "numpy>=1.23.0",
-    "torch==2.7.0",
     # Agent evaluation dependencies (for future integration)
     "httpx>=0.27.2",
     "tqdm>=4.67.1",

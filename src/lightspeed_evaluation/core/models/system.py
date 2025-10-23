@@ -252,12 +252,27 @@ class VisualizationConfig(BaseModel):
         return v
 
 
+class CoreConfig(BaseModel):
+    """Core evaluation configuration (e.g., concurrency limits)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_threads: Optional[int] = Field(
+        default=None,
+        description="Maximum threads for multithreading eval",
+        gt=0,
+    )
+
+
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
 
     model_config = ConfigDict(extra="forbid")
 
     # Individual configuration models
+    core: CoreConfig = Field(
+        default_factory=CoreConfig, description="Core eval configuration"
+    )
     llm: LLMConfig = Field(default_factory=LLMConfig, description="LLM configuration")
     embedding: EmbeddingConfig = Field(
         default_factory=EmbeddingConfig, description="Embeddings configuration"

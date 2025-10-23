@@ -10,7 +10,7 @@ from lightspeed_evaluation.core.models import EvaluationResult
 
 
 def bootstrap_intervals(
-    s: pd.Series, confidence: int = 95, bootstrap_steps: int = 100000
+    s: pd.Series, confidence: int = 95, bootstrap_steps: int = 10000
 ) -> tuple[np.floating, np.floating, np.floating]:
     """Compute confidence interval using bootstraping, return low, mean, high."""
     if not 0 <= confidence <= 100:

@@ -1,9 +1,8 @@
 """Unit tests for core.config.models module."""
 
 import pytest
-from pydantic import ValidationError
-
 from lightspeed_evaluation.core.models import (
+    CoreConfig,
     EvaluationData,
     EvaluationResult,
     LLMConfig,
@@ -11,6 +10,7 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
+from pydantic import ValidationError
 
 
 class TestTurnData:
@@ -185,6 +185,7 @@ class TestSystemConfig:
     def test_valid_system_config_creation(self):
         """Test creating valid SystemConfig instance."""
         config = SystemConfig(
+            core=CoreConfig(max_threads=42),
             llm=LLMConfig(
                 provider="anthropic", model="claude-3-sonnet", temperature=0.5
             ),
@@ -196,6 +197,7 @@ class TestSystemConfig:
         assert config.llm.temperature == 0.5
         assert config.output.output_dir == "./custom_output"
         assert config.output.enabled_outputs == ["json"]
+        assert config.core.max_threads == 42
 
     def test_system_config_with_defaults(self):
         """Test SystemConfig with default values."""
@@ -206,6 +208,7 @@ class TestSystemConfig:
         assert config.llm.temperature == 0.0
         assert config.output.output_dir == "./eval_output"
         assert "csv" in config.output.enabled_outputs
+        assert config.core.max_threads is None
 
     def test_system_config_logging_defaults(self):
         """Test SystemConfig logging configuration defaults."""

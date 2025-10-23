@@ -92,7 +92,7 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
             metric_kwargs = {}
         metric_instance = metric_class(llm=self.llm_manager.get_llm(), **metric_kwargs)
 
-        result = evaluate(dataset, metrics=[metric_instance])
+        result = evaluate(dataset, metrics=[metric_instance], show_progress=False)
         df = result.to_pandas()
         score = df[result_key].iloc[0]
         return score, f"Ragas {metric_name}: {score:.2f}"

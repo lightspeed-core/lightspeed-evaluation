@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1109,7 +1109,6 @@ dependencies = [
     { name = "seaborn" },
     { name = "sentence-transformers" },
     { name = "tenacity" },
-    { name = "torch" },
     { name = "tqdm" },
 ]
 
@@ -1144,7 +1143,6 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.11.0" },
     { name = "sentence-transformers", specifier = ">=5.1.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
-    { name = "torch", specifier = "==2.7.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
