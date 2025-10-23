@@ -263,6 +263,7 @@ class CoreConfig(BaseModel):
         gt=0,
     )
 
+
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
 
