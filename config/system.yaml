@@ -1,5 +1,9 @@
 # LightSpeed Evaluation Framework Configuration
 
+# Core evaluation parameters
+core:
+  max_threads: 50             # Maximum number of threads, set to null for Python default. 50 is OK for bigger datasets
+
 # LLM as a judge configuration
 llm:
   provider: "openai"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
@@ -20,7 +24,7 @@ embedding:
   cache_enabled: true
 
 
-# API Configuration
+# Lightspeed-stack API Configuration
 # To get real time data. Currently it supports lightspeed-stack API.
 # But can be easily integrated with other APIs with minimal change.
 api:

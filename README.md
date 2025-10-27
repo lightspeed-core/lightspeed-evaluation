@@ -103,6 +103,12 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
 ### System Config (`config/system.yaml`)
 
 ```yaml
+# Core evaluation parameters
+core:
+  # Maximum number of threads, set to null for Python default.
+  # 50 is OK on a typical laptop. Check your Judge-LLM service for max requests per minute
+  max_threads: 50
+
 # Judge-LLM Configuration
 llm:
   provider: openai            # openai, watsonx, azure, gemini etc.
@@ -112,7 +118,7 @@ llm:
   timeout: 300                # Request timeout in seconds
   num_retries: 3              # Retry attempts
 
-# API Configuration for Real-time Data Generation
+# Lightspeed API Configuration for Real-time Data Generation
 api:
   enabled: true                        # Enable/disable API calls
   api_base: http://localhost:8080      # Base API URL
@@ -180,7 +186,7 @@ llm:
   timeout: 120        
   num_retries: 3
 
-# Judge-LLM HuggingFace embeddings
+# Embeddings for Judge-LLM
 # provider: "huggingface" or "openai"
 # model: model name
 # provider_kwargs: additional arguments,

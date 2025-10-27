@@ -14,6 +14,7 @@ from lightspeed_evaluation.core.models.data import (
 )
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
+    CoreConfig,
     EmbeddingConfig,
     LLMConfig,
     LoggingConfig,
@@ -30,6 +31,7 @@ __all__ = [
     "EvaluationResult",
     "EvaluationScope",
     # System config models
+    "CoreConfig",
     "LLMConfig",
     "EmbeddingConfig",
     "APIConfig",
