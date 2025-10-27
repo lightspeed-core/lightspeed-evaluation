@@ -1,0 +1,35 @@
+# Multi-Evaluation Configuration
+# Configure evaluation targets and settings for automated evaluation runs
+# Define evaluation groups with their respective configurations below
+
+# Providers section: Define LLM providers and their models for evaluation
+providers:
+  # OpenAI Provider
+  openai:
+    models:
+      - "gpt-4o-mini"
+      # - "gpt-4-turbo"  # Commented out for faster testing
+
+  # Watsonx Provider (example - uncomment to use)
+  # watsonx:
+  #   models:
+  #     - "ibm/granite-13b-chat-v2"
+  #     - "meta-llama/llama-3-70b-instruct"
+
+  # Gemini Provider (example - uncomment to use)
+  # gemini:
+  #   models:
+  #     - "gemini-1.5-pro"
+  #     - "gemini-1.5-flash"
+
+  # Hosted VLLM Provider (example - uncomment to use)
+  # hosted_vllm:
+  #   models:
+  #     - "meta-llama/Meta-Llama-3-8B-Instruct"
+
+# Global settings (optional)
+settings:
+  # Output directory structure: {output_base}/{provider}/{model}/
+  output_base: "./eval_output"
+
+
