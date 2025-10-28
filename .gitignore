@@ -173,8 +173,8 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Cache for LLM responses
-llm_cache/
+# Cache folder for evaluation
+.caches/
 
 # Evaluation output folder
 eval_output*/
