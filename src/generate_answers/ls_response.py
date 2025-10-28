@@ -16,7 +16,11 @@ class LSClient:  # pylint: disable=too-few-public-methods
     """LightSpeed client."""
 
     def __init__(
-        self, ls_url: str, provider: str, model: str, cache_dir: str = "./llm_cache"
+        self,
+        ls_url: str,
+        provider: str,
+        model: str,
+        cache_dir: str = ".caches/llm_cache",
     ):
         """Init LightSpeed."""
         self.url = ls_url
