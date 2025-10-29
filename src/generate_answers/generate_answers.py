@@ -114,7 +114,7 @@ Generate answers from LLMs by connection to LightSpeed core service.
 @click.option(
     "-l",
     "--llm-cache-dir",
-    default="./llm_cache",
+    default=".caches/llm_cache",
     type=click.Path(),
     help="Directory with cached responses from LLMs. Cache key is model+provider+question",
 )

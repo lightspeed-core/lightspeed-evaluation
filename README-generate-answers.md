@@ -72,7 +72,7 @@ Options:
                               ./eval_output/generated_qna.json]
   -l, --llm-cache-dir PATH    Directory with cached responses from LLMs. Cache
                               key is model+provider+question  [default:
-                              ./llm_cache]
+                              .caches/llm_cache]
   -f, --force-overwrite       Overwrite the output file if it exists
   -v, --verbose               Increase the logging level to DEBUG
   -h, --help                  Show this message and exit.
