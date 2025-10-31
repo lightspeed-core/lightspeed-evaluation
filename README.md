@@ -291,7 +291,7 @@ embedding:
 | `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
 | `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
 | `expected_intent`     | string           | 📋       | Expected intent for intent evaluation| ❌                    |
-| `expected_tool_calls` | list[list[dict]] | 📋       | Expected tool call sequences         | ❌                    |
+| `expected_tool_calls` | list[list[list[dict]]] | 📋 | Expected tool call sequences (multiple alternative sets) | ❌ |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
 | `verify_script`       | string           | 📋       | Path to verification script          | ❌                    |
 | `turn_metrics`        | list[string]     | ❌       | Turn-specific metrics to evaluate    | ❌                    |
@@ -302,7 +302,7 @@ embedding:
 Examples
 > - `expected_response`: Required for `custom:answer_correctness`
 > - `expected_intent`: Required for `custom:intent_eval`
-> - `expected_tool_calls`: Required for `custom:tool_eval`
+> - `expected_tool_calls`: Required for `custom:tool_eval` (multiple alternative sets format)
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)
 
@@ -314,15 +314,37 @@ Examples
 | `[]` (empty list)   | Skip evaluation for this turn |
 | `["metric1", ...]`  | Use specified metrics only |
 
+#### Tool Evaluation
+
+The `custom:tool_eval` metric supports flexible matching with multiple alternative patterns:
+
+- **Format**: `[[[tool_calls, ...]], [[tool_calls]], ...]` (list of list of list)
+- **Matching**: Tries each alternative until one matches
+- **Use Cases**: Optional tools, multiple approaches, default arguments, skip scenarios
+- **Empty Sets**: `[]` represents "no tools" and must come after primary alternatives
+
 #### Tool Call Structure
 
   ```yaml
+  # Multiple alternative sets format: [[[tool_calls, ...]], [[tool_calls]], ...]
   expected_tool_calls:
-    -
-      - tool_name: oc_get           # Tool name
-        arguments:                  # Tool arguments
-          kind: pod
-          name: openshift-light*    # Regex patterns supported for flexible matching
+    - # Alternative 1: Primary approach
+      - # Sequence 1
+        - tool_name: oc_get
+          arguments:
+            kind: pod
+            name: openshift-light*    # Regex patterns supported
+      - # Sequence 2 (if multiple parallel tool calls needed)
+        - tool_name: oc_describe
+          arguments:
+            kind: pod
+    - # Alternative 2: Different approach
+      - # Sequence 1
+        - tool_name: kubectl_get
+          arguments:
+            resource: pods
+    - # Alternative 3: Skip scenario (optional)
+      []  # When model has information from previous conversation
   ```
 
 #### Script-Based Evaluations
