@@ -8,26 +8,26 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_tool_calls(
-    expected: list[list[dict[str, Any]]], actual: list[list[dict[str, Any]]]
+    expected: list[list[list[dict[str, Any]]]],
+    actual: list[list[dict[str, Any]]],
 ) -> tuple[bool, str]:
     """Evaluate tool calls using the custom:tool_eval metric.
 
     Args:
-        expected: Expected tool calls structure (list[list[dict[str, Any]]])
-        actual: Actual tool calls from API response (list[list[dict[str, Any]]])
+        expected: Expected tool calls structure (with alternatives)
+        actual: Actual tool calls from API response
 
     Returns:
         tuple: (success: bool, details: str)
     """
     try:
-        success = compare_tool_calls(expected, actual)
+        # Try each set until one matches
+        for i, expected_set in enumerate(expected):
+            if compare_tool_calls(expected_set, actual):
+                return _create_success_message(i, expected_set)
 
-        if success:
-            details = "Tool calls match expected structure and arguments"
-        else:
-            details = "Tool calls do not match expected structure or arguments"
-
-        return success, details
+        # If all sets fail, return failure status & message
+        return _create_failure_message(expected, actual)
 
     except (AttributeError, TypeError, ValueError) as e:
         logger.error("Error during tool evaluation: %s", e)
@@ -141,6 +141,40 @@ def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) ->
         return False
 
     return True
+
+
+def _create_success_message(
+    index: int, expected_set: list[list[dict[str, Any]]]
+) -> tuple[bool, str]:
+    """Create success message based on match type."""
+    pattern_type = "Primary pattern" if index == 0 else f"Alternative {index + 1}"
+
+    # Determine message based on what matched
+    if len(expected_set) == 0:
+        # Empty alternative matched - index 0 can never be empty due to constraints
+        message = "No tool calls made (valid alternate skip scenario)"
+    else:
+        message = "Tool calls match expected structure and arguments"
+
+    return True, f"{pattern_type} matched: {message}"
+
+
+def _create_failure_message(
+    expected: list[list[list[dict[str, Any]]]], actual: list[list[dict[str, Any]]]
+) -> tuple[bool, str]:
+    """Create failure message with helpful context."""
+    # If we reach here, none of the alternatives matched
+
+    if len(actual) == 0:
+        return (
+            False,
+            "No actual tool calls made and this is not set as an expected alternative",
+        )
+
+    return (
+        False,
+        f"Tool calls made but didn't match any of the {len(expected)} expected pattern(s)",
+    )
 
 
 def format_tool_calls_for_logging(tool_calls: list[list[dict[str, Any]]]) -> str:
