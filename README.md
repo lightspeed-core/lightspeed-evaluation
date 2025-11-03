@@ -410,10 +410,6 @@ make check-types
 uv run pytest tests --cov=src
 ```
 
-## Agent Evaluation
-For a detailed walkthrough of the new agent-evaluation framework, refer
-[lsc_agent_eval/README.md](lsc_agent_eval/README.md)
-
 ## Generate answers (optional - for creating test data)
 For generating answers (optional) refer [README-generate-answers](README-generate-answers.md)
 
