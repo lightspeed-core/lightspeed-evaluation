@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Multi-Provider Evaluation Runner with Statistical Analysis.
 
-This script runs evaluations across multiple providers and models sequentially,
+This script runs evaluations across multiple providers and models in parallel,
 modifying the system configuration for each combination, and then performs
 comprehensive statistical analysis to determine the best model.
+
+The parallel execution uses multiprocessing to run evaluations concurrently,
+improving overall runtime while maintaining result accuracy and avoiding
+data conflicts.
 """
 
 import argparse
@@ -11,9 +15,12 @@ import copy
 import json
 import re
 import logging
+import multiprocessing
+import os
 import sys
 import tempfile
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -30,14 +37,168 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _run_evaluation_worker(
+    provider_name: str,
+    provider_id: str,
+    model: str,
+    system_config_path: str,
+    eval_data_path: str,
+    output_base: str,
+) -> dict[str, Any]:
+    """Worker function for parallel evaluation execution.
+
+    This function is designed to be called by ProcessPoolExecutor and runs
+    a single evaluation in a separate process.
+
+    Args:
+        provider_name: Human-readable provider name
+        provider_id: Provider identifier
+        model: Model name
+        system_config_path: Path to system.yaml
+        eval_data_path: Path to evaluation_data.yaml
+        output_base: Base output directory path
+
+    Returns:
+        Dictionary containing evaluation results and metadata
+    """
+    # Re-configure logging for this worker process
+    logging.basicConfig(
+        level=logging.INFO,
+        format=f"%(asctime)s - [Worker-{os.getpid()}] - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,  # Override existing configuration
+    )
+    worker_logger = logging.getLogger(__name__)
+
+    start_time = datetime.now()
+    temp_config_path: Optional[Path] = None
+
+    # Sanitize names for filesystem
+    safe_provider = re.sub(r"[^A-Za-z0-9_.-]+", "_", provider_id).strip("._")
+    safe_model_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("._")
+
+    # Create output directory with path traversal protection
+    base = Path(output_base).resolve()
+    output_dir = (base / safe_provider / safe_model_name).resolve()
+    if not output_dir.is_relative_to(base):
+        raise ValueError(f"Unsafe provider/model path: {provider_id}/{model}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = {
+        "provider_name": provider_name,
+        "provider_id": provider_id,
+        "model": model,
+        "output_dir": str(output_dir),
+        "start_time": start_time.isoformat(),
+        "success": False,
+        "error": None,
+    }
+
+    try:
+        worker_logger.info(f"Starting evaluation: {provider_id}/{model}")
+
+        # Load and modify system config
+        with open(system_config_path, "r", encoding="utf-8") as f:
+            system_config = yaml.safe_load(f)
+
+        # Deep copy and modify for this provider-model
+        modified_config = copy.deepcopy(system_config)
+        if "api" in modified_config and modified_config["api"].get("enabled", False):
+            modified_config["api"]["provider"] = provider_id
+            modified_config["api"]["model"] = model
+
+        # Create temporary config file
+        temp_file = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".yaml",
+            prefix=f"system_{safe_provider}_{safe_model_name}_",
+            delete=False,
+            encoding="utf-8",
+        )
+        temp_config_path = Path(temp_file.name)
+
+        try:
+            yaml.dump(
+                modified_config, temp_file, default_flow_style=False, sort_keys=False
+            )
+            temp_file.flush()
+        finally:
+            temp_file.close()
+
+        # Run evaluation
+        summary = run_evaluation(
+            system_config_path=str(temp_config_path),
+            evaluation_data_path=eval_data_path,
+            output_dir=str(output_dir),
+        )
+
+        # Check result
+        if summary is not None:
+            if all(k in summary for k in ("PASS", "FAIL", "ERROR")):
+                result["success"] = True
+                result["summary"] = summary
+                worker_logger.info(
+                    f"✓ Completed: {provider_id}/{model} - "
+                    f"Pass: {summary['PASS']}, Fail: {summary['FAIL']}, Error: {summary['ERROR']}"
+                )
+            else:
+                result["error"] = f"Invalid summary structure: {summary}"
+                worker_logger.error(
+                    f"✗ Failed: {provider_id}/{model} - {result['error']}"
+                )
+        else:
+            result["error"] = "Evaluation returned None (failed)"
+            worker_logger.error(f"✗ Failed: {provider_id}/{model} - {result['error']}")
+
+    except Exception as e:  # pylint: disable=broad-except
+        result["error"] = f"Exception: {str(e)}"
+        worker_logger.error(f"✗ Exception in {provider_id}/{model}: {e}")
+        worker_logger.debug(traceback.format_exc())
+
+    finally:
+        # Clean up temporary config file
+        if temp_config_path and temp_config_path.exists():
+            try:
+                temp_config_path.unlink()
+            except OSError:
+                worker_logger.warning(
+                    f"Failed to delete temp config: {temp_config_path}"
+                )
+
+    # Record end time and duration
+    end_time = datetime.now()
+    result["end_time"] = end_time.isoformat()
+    result["duration_seconds"] = (end_time - start_time).total_seconds()
+
+    return result
+
+
 class MultiProviderEvaluationRunner:
-    """Runner for executing evaluations across multiple providers and models."""
+    """Runner for executing evaluations across multiple providers and models.
+
+    This runner supports parallel execution of evaluations using multiprocessing,
+    allowing multiple model evaluations to run concurrently. The degree of
+    parallelization is controlled by the max_workers parameter, which can be set
+    via the constructor, command-line argument, or configuration file.
+
+    Key Features:
+        - Parallel execution using ProcessPoolExecutor
+        - Independent evaluation processes with isolated output directories
+        - Progress tracking with real-time status updates
+        - Resource optimization via configurable worker count
+        - Maintains statistical accuracy and comparison integrity
+
+    Execution Modes:
+        - Parallel: max_workers > 1 (default: CPU count - 1)
+        - Sequential: max_workers = 1 (useful for debugging or resource constraints)
+    """
 
     def __init__(
         self,
         providers_config_path: str,
         system_config_path: str,
         eval_data_path: str,
+        max_workers: Optional[int] = None,
     ):
         """Initialize the multi-provider evaluation runner.
 
@@ -45,6 +206,9 @@ class MultiProviderEvaluationRunner:
             providers_config_path: Path to multi_eval_config.yaml
             system_config_path: Path to system.yaml
             eval_data_path: Path to evaluation_data.yaml
+            max_workers: Maximum number of parallel workers. If None, defaults to
+                        the value in settings or CPU count - 1. Setting to 1 forces
+                        sequential execution.
         """
         self.providers_config_path = Path(providers_config_path)
         self.system_config_path = Path(system_config_path)
@@ -62,6 +226,47 @@ class MultiProviderEvaluationRunner:
         self.output_base = Path(
             self.settings.get("output_base", "./eval_output_multi_provider")
         )
+
+        # Configure parallel execution
+        # Priority: constructor arg > settings > default (CPU count - 1)
+        if max_workers is not None:
+            self.max_workers = max_workers
+        elif "max_workers" in self.settings:
+            self.max_workers = self.settings["max_workers"]
+        else:
+            # Default: leave one CPU free for system responsiveness
+            cpu_count = multiprocessing.cpu_count()
+            self.max_workers = max(1, cpu_count - 1)
+
+        # Validate and coerce max_workers to integer
+        if not isinstance(self.max_workers, int):
+            try:
+                self.max_workers = int(self.max_workers)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"max_workers must be an integer, got {self.max_workers!r}"
+                ) from exc
+
+        # Ensure at least 1 worker
+        self.max_workers = max(1, self.max_workers)
+
+        logger.info(
+            f"Configured for parallel execution with {self.max_workers} workers"
+        )
+
+        # Warn about potential resource contention with high thread counts
+        core_config = self.system_config.get("core", {})
+        max_threads = core_config.get("max_threads")
+        if max_threads and self.max_workers > 1:
+            total_threads = self.max_workers * max_threads
+            cpu_count = multiprocessing.cpu_count()
+            if total_threads > cpu_count * 2:
+                logger.warning(
+                    f"High resource usage detected: {self.max_workers} workers × "
+                    f"{max_threads} threads = {total_threads} concurrent threads "
+                    f"on {cpu_count} CPUs. Consider reducing max_workers or "
+                    f"core.max_threads in system.yaml to avoid resource contention."
+                )
 
         # Create output base directory
         self.output_base.mkdir(parents=True, exist_ok=True)
@@ -310,7 +515,11 @@ class MultiProviderEvaluationRunner:
         return result
 
     def run_evaluations(self) -> list[dict[str, Any]]:
-        """Run evaluations for all provider-model combinations sequentially.
+        """Run evaluations for all provider-model combinations in parallel.
+
+        Evaluations are executed concurrently using multiprocessing, with the number
+        of parallel workers configured via max_workers. Each evaluation runs in a
+        separate process with its own output directory, preventing data conflicts.
 
         Returns:
             List of result dictionaries for each evaluation
@@ -323,22 +532,96 @@ class MultiProviderEvaluationRunner:
             logger.error(msg)
             raise ValueError(msg)
 
+        total_evaluations = len(configs)
         logger.info(
-            f"Running evaluations for {len(configs)} provider-model combinations"
+            f"Running evaluations for {total_evaluations} provider-model combinations"
         )
         logger.info(f"Output base directory: {self.output_base}")
+        logger.info(f"Parallel execution: {self.max_workers} workers")
         logger.info("=" * 80)
 
-        # Run evaluations sequentially
-        for config in configs:
-            result = self._run_single_evaluation(
-                config["provider_name"],
-                config["provider_id"],
-                config["model"],
-            )
-            self.results.append(result)
+        # Use parallel execution if max_workers > 1, otherwise run sequentially
+        if self.max_workers == 1:
+            logger.info("Running in sequential mode (max_workers=1)")
+            for config in configs:
+                result = self._run_single_evaluation(
+                    config["provider_name"],
+                    config["provider_id"],
+                    config["model"],
+                )
+                self.results.append(result)
+        else:
+            # Run in parallel using ProcessPoolExecutor
+            logger.info(f"Running in parallel mode with {self.max_workers} workers")
+            self._run_parallel_evaluations(configs)
+
+        logger.info("=" * 80)
+        logger.info(f"All evaluations completed. Total: {len(self.results)}")
 
         return self.results
+
+    def _run_parallel_evaluations(self, configs: list[dict[str, Any]]) -> None:
+        """Run evaluations in parallel using ProcessPoolExecutor.
+
+        Args:
+            configs: List of provider-model configurations
+        """
+        total_evaluations = len(configs)
+        completed = 0
+
+        # Create a ProcessPoolExecutor
+        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
+            # Submit all evaluation tasks
+            future_to_config = {}
+            for config in configs:
+                future = executor.submit(
+                    _run_evaluation_worker,
+                    config["provider_name"],
+                    config["provider_id"],
+                    config["model"],
+                    str(self.system_config_path),
+                    str(self.eval_data_path),
+                    str(self.output_base),
+                )
+                future_to_config[future] = config
+
+            # Process completed evaluations as they finish
+            for future in as_completed(future_to_config):
+                config = future_to_config[future]
+                model_key = f"{config['provider_id']}/{config['model']}"
+
+                try:
+                    result = future.result()
+                    self.results.append(result)
+                    completed += 1
+
+                    # Log progress
+                    status = "✓" if result["success"] else "✗"
+                    duration = result.get("duration_seconds", 0)
+                    logger.info(
+                        f"[{completed}/{total_evaluations}] {status} {model_key} "
+                        f"completed in {duration:.1f}s"
+                    )
+
+                except Exception as e:  # pylint: disable=broad-except
+                    # Handle worker process failures
+                    completed += 1
+                    error_result = {
+                        "provider_name": config["provider_name"],
+                        "provider_id": config["provider_id"],
+                        "model": config["model"],
+                        "output_dir": "",
+                        "start_time": datetime.now().isoformat(),
+                        "end_time": datetime.now().isoformat(),
+                        "duration_seconds": 0,
+                        "success": False,
+                        "error": f"Worker process failed: {str(e)}",
+                    }
+                    self.results.append(error_result)
+                    logger.error(
+                        f"[{completed}/{total_evaluations}] ✗ {model_key} "
+                        f"failed: {e}"
+                    )
 
     def generate_summary(self) -> dict[str, Any]:
         """Generate a summary of all evaluation runs.
@@ -909,7 +1192,7 @@ class MultiProviderEvaluationRunner:
 def main() -> int:
     """Main entry point for the script."""
     parser = argparse.ArgumentParser(
-        description="Run evaluations across multiple providers and models",
+        description="Run evaluations across multiple providers and models in parallel",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -921,6 +1204,16 @@ Examples:
       --providers-config config/multi_eval_config.yaml \\
       --system-config config/system.yaml \\
       --eval-data config/evaluation_data.yaml
+  
+  # Run with custom number of parallel workers
+  python3 run_multi_provider_eval.py \\
+      --providers-config config/multi_eval_config.yaml \\
+      --max-workers 4
+  
+  # Run sequentially (no parallelization)
+  python3 run_multi_provider_eval.py \\
+      --providers-config config/multi_eval_config.yaml \\
+      --max-workers 1
   
   # Run with verbose output
   python3 run_multi_provider_eval.py \\
@@ -945,6 +1238,16 @@ Examples:
         help="Path to evaluation data file (default: config/evaluation_data.yaml)",
     )
     parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=None,
+        help=(
+            "Maximum number of parallel workers (default: CPU count - 1). "
+            "Set to 1 for sequential execution. Can also be configured in "
+            "multi_eval_config.yaml settings."
+        ),
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -963,6 +1266,7 @@ Examples:
             providers_config_path=args.providers_config,
             system_config_path=args.system_config,
             eval_data_path=args.eval_data,
+            max_workers=args.max_workers,
         )
 
         # Run evaluations

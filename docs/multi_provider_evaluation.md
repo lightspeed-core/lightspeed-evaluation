@@ -6,10 +6,12 @@ The Multi-Provider Evaluation Runner automates evaluations across multiple LLM p
 
 **Key Features:**
 - Evaluate multiple providers (OpenAI, Watsonx, Gemini, vLLM) and models automatically
-- Sequential execution with per-provider/model result isolation
+- **Parallel execution** for faster evaluation with configurable worker count
+- Per-provider/model result isolation with independent output directories
 - Robust error handling - individual failures don't stop the run
 - Security: Path traversal protection and input sanitization
-- Comprehensive summary with success/failure statistics
+- Comprehensive summary with success/failure statistics and statistical comparison
+- Real-time progress tracking with completion status
 
 ## Simple Example: Comparing 2 OpenAI Models
 
@@ -167,15 +169,26 @@ rankings:
 ## Quick Start
 
 ```bash
-# Basic usage
+# Basic usage (parallel execution with default workers)
 python3 script/run_multi_provider_eval.py \
     --providers-config config/multi_eval_config.yaml
+
+# With custom number of parallel workers
+python3 script/run_multi_provider_eval.py \
+    --providers-config config/multi_eval_config.yaml \
+    --max-workers 4
+
+# Sequential execution (no parallelization)
+python3 script/run_multi_provider_eval.py \
+    --providers-config config/multi_eval_config.yaml \
+    --max-workers 1
 
 # With all options
 python3 script/run_multi_provider_eval.py \
     --providers-config config/multi_eval_config.yaml \
     --system-config config/system.yaml \
     --eval-data config/evaluation_data.yaml \
+    --max-workers 4 \
     --verbose
 ```
 
@@ -210,6 +223,7 @@ providers:
 # Global settings
 settings:
   output_base: "./eval_output"
+  max_workers: 4  # Optional: Number of parallel workers (default: CPU count - 1)
 ```
 
 ### 2. System Configuration (`system.yaml`)
@@ -227,6 +241,7 @@ Standard evaluation data file - remains constant across all evaluations.
 | `--providers-config` | `config/multi_eval_config.yaml` | Path to multi-evaluation configuration |
 | `--system-config` | `config/system.yaml` | Path to system configuration |
 | `--eval-data` | `config/evaluation_data.yaml` | Path to evaluation data |
+| `--max-workers` | CPU count - 1 | Number of parallel workers (1 = sequential) |
 | `-v, --verbose` | `False` | Enable debug logging |
 
 ## Output Structure
@@ -251,13 +266,171 @@ eval_output/
 ## How It Works
 
 1. **Initialization:** Validates configuration files and creates output directory
-2. **Sequential Evaluation:** For each provider/model combination:
-   - Creates temporary system config with updated provider/model
-   - Runs standard LightSpeed evaluation
-   - Saves results to `{output_base}/{provider}/{model}/`
+2. **Parallel Evaluation:** Launches multiple worker processes (configurable) that run concurrently:
+   - Each worker creates temporary system config with updated provider/model
+   - Runs standard LightSpeed evaluation in isolated process
+   - Saves results to `{output_base}/{provider}/{model}/` (no file conflicts)
    - Cleans up temporary files
-3. **Summary:** Generates consolidated summary with statistics
-4. **Exit:** Returns 0 if all successful, 1 if any failed
+   - Progress tracked and logged in real-time
+3. **Result Synchronization:** Collects results as evaluations complete
+4. **Statistical Analysis:** Performs comprehensive model comparison and ranking
+5. **Summary:** Generates consolidated summary with best model recommendation
+6. **Exit:** Returns 0 if all successful, 1 if any failed
+
+## Parallel Execution
+
+The multi-provider evaluation runner supports parallel execution using multiprocessing, significantly reducing overall runtime when evaluating multiple models.
+
+### Benefits
+
+- **Faster Execution:** Multiple models evaluated concurrently instead of sequentially
+- **Independent Processes:** Each evaluation runs in isolated process with own memory space
+- **No Data Conflicts:** Separate output directories prevent file system race conditions
+- **Resource Optimization:** Configurable worker count to match system capabilities
+- **Progress Tracking:** Real-time status updates as evaluations complete
+
+### Configuration Options
+
+Configure the number of parallel workers in three ways (priority order):
+
+1. **Command-Line Argument** (highest priority):
+   ```bash
+   python3 script/run_multi_provider_eval.py \
+       --providers-config config/multi_eval_config.yaml \
+       --max-workers 4
+   ```
+
+2. **Configuration File** (`multi_eval_config.yaml`):
+   ```yaml
+   settings:
+     output_base: "./eval_output"
+     max_workers: 4  # Integer value (strings like "4" are automatically converted)
+   ```
+
+3. **Default:** CPU count - 1 (leaves one CPU free for system responsiveness)
+
+**Note:** The `max_workers` value is automatically validated and coerced to an integer. String values from YAML (e.g., `"4"`) are converted automatically. Invalid values raise a clear error message.
+
+
+### Resource Management with Multi-Threading
+
+**IMPORTANT:** Each evaluation process uses multi-threading internally (configured via `core.max_threads` in `system.yaml`). When running parallel evaluations, you need to consider the interaction between:
+
+- **`max_workers`**: Number of parallel evaluation processes
+- **`core.max_threads`**: Number of threads per evaluation process
+
+**Total Concurrent Threads = max_workers × core.max_threads**
+
+#### Example Resource Calculation
+
+```yaml
+# config/multi_eval_config.yaml
+settings:
+  max_workers: 4
+
+# config/system.yaml
+core:
+  max_threads: 50
+```
+
+**Total threads:** 4 workers × 50 threads = **200 concurrent threads**
+
+On an 8-CPU machine, this could cause significant resource contention!
+
+#### Recommended Configurations
+
+| Dataset Size | CPU Count | max_workers | core.max_threads | Total Threads | Rationale |
+|--------------|-----------|-------------|------------------|---------------|-----------|
+| Small (<100 turns) | 8 | 4 | 10 | 40 | Balanced for quick completion |
+| Medium (100-1000 turns) | 8 | 2 | 20 | 40 | More threads per process for throughput |
+| Large (1000+ turns) | 8 | 2 | 25 | 50 | Optimize per-process throughput |
+| Very Large (10k+ turns) | 16 | 4 | 20 | 80 | High parallelism on powerful machine |
+| API Rate Limits | any | 2 | 10 | 20 | Reduce concurrent API calls |
+
+#### Tuning Guidelines
+
+**Rule of Thumb:** Keep total threads ≤ 2× CPU count
+
+```python
+# Target: Total threads ≈ CPU count × 1.5 to 2
+max_workers × core.max_threads ≤ CPU_count × 2
+```
+
+**For Large Datasets (1000+ conversations):**
+1. **Prioritize `core.max_threads`** - More important for processing many conversations within each evaluation
+2. **Reduce `max_workers`** - Fewer parallel evaluations, but each completes faster
+3. **Example:** `max_workers=2`, `core.max_threads=30` on 8-CPU machine
+
+**For Many Small Evaluations:**
+1. **Prioritize `max_workers`** - More parallel evaluations
+2. **Reduce `core.max_threads`** - Each evaluation has fewer conversations
+3. **Example:** `max_workers=6`, `core.max_threads=5` on 8-CPU machine
+
+**For API Rate Limit Constraints:**
+1. **Reduce both** - Limit concurrent API requests
+2. **Example:** `max_workers=2`, `core.max_threads=5` = 10 concurrent API calls
+
+#### Automatic Warning
+
+The runner will automatically warn you if resource usage is high:
+
+```
+WARNING - High resource usage detected: 4 workers × 50 threads = 200 concurrent threads 
+on 8 CPUs. Consider reducing max_workers or core.max_threads in system.yaml to avoid 
+resource contention.
+```
+
+#### Testing with Large Datasets
+
+When testing with thousands of conversations:
+
+```bash
+# Example: 5000 conversations, 8-CPU machine
+# Configure for balanced performance
+
+# 1. Update system.yaml
+core:
+  max_threads: 25 
+
+# 2. Run with moderate parallelism
+python3 script/run_multi_provider_eval.py \
+    --providers-config config/multi_eval_config.yaml \
+    --max-workers 2  # 2 × 25 = 50 total threads
+
+# Monitor system resources:
+# - CPU usage should stay < 90%
+# - Memory usage should be stable
+# - API rate limits should not be hit
+```
+
+### Implementation Details
+
+**Process Isolation:**
+
+Each evaluation runs in a separate process with:
+- Independent Python interpreter
+- Isolated memory space
+- Separate file handles
+- Own temporary configuration files
+- Dedicated output directory
+- Independent thread pool (configured by `core.max_threads`)
+
+**Thread Safety:**
+
+No shared state between evaluations ensures:
+- No race conditions
+- No file conflicts
+- No memory corruption
+- Clean error isolation
+- Each process manages its own thread pool
+
+**Error Handling:**
+
+Individual worker failures don't affect other evaluations:
+- Failed evaluations logged with status
+- Successful evaluations continue
+- Complete summary shows all results
+- Exit code reflects overall success/failure
 
 ## Security Features
 

@@ -114,6 +114,178 @@ class TestMultiProviderEvaluationRunnerInit:
                 eval_data_path=str(temp_config_files["eval_data"]),
             )
 
+    def test_max_workers_from_constructor(self, temp_config_files):
+        """Test max_workers configured via constructor argument."""
+        runner = MultiProviderEvaluationRunner(
+            providers_config_path=str(temp_config_files["providers_config"]),
+            system_config_path=str(temp_config_files["system_config"]),
+            eval_data_path=str(temp_config_files["eval_data"]),
+            max_workers=4,
+        )
+        assert runner.max_workers == 4
+
+    def test_max_workers_from_config_file(self, temp_config_files, tmp_path):
+        """Test max_workers configured via config file."""
+        # Create config with max_workers setting
+        config_with_workers = {
+            "providers": {
+                "openai": {"models": ["gpt-4o-mini"]},
+            },
+            "settings": {
+                "output_base": str(tmp_path / "output"),
+                "max_workers": 6,
+            },
+        }
+        config_path = tmp_path / "config_with_workers.yaml"
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config_with_workers, f)
+
+        runner = MultiProviderEvaluationRunner(
+            providers_config_path=str(config_path),
+            system_config_path=str(temp_config_files["system_config"]),
+            eval_data_path=str(temp_config_files["eval_data"]),
+        )
+        assert runner.max_workers == 6
+
+    def test_max_workers_string_coercion(self, temp_config_files, tmp_path):
+        """Test max_workers string value from YAML is coerced to int."""
+        # Create config with string max_workers
+        config_with_string = {
+            "providers": {
+                "openai": {"models": ["gpt-4o-mini"]},
+            },
+            "settings": {
+                "output_base": str(tmp_path / "output"),
+                "max_workers": "4",  # String value
+            },
+        }
+        config_path = tmp_path / "config_string.yaml"
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config_with_string, f)
+
+        runner = MultiProviderEvaluationRunner(
+            providers_config_path=str(config_path),
+            system_config_path=str(temp_config_files["system_config"]),
+            eval_data_path=str(temp_config_files["eval_data"]),
+        )
+        assert runner.max_workers == 4
+        assert isinstance(runner.max_workers, int)
+
+    def test_max_workers_invalid_value(self, temp_config_files, tmp_path):
+        """Test max_workers with invalid value raises clear error."""
+        # Create config with invalid max_workers
+        config_invalid = {
+            "providers": {
+                "openai": {"models": ["gpt-4o-mini"]},
+            },
+            "settings": {
+                "output_base": str(tmp_path / "output"),
+                "max_workers": "invalid",
+            },
+        }
+        config_path = tmp_path / "config_invalid.yaml"
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config_invalid, f)
+
+        with pytest.raises(ValueError, match="max_workers must be an integer"):
+            MultiProviderEvaluationRunner(
+                providers_config_path=str(config_path),
+                system_config_path=str(temp_config_files["system_config"]),
+                eval_data_path=str(temp_config_files["eval_data"]),
+            )
+
+    def test_max_workers_minimum_value(self, temp_config_files):
+        """Test max_workers is enforced to be at least 1."""
+        runner = MultiProviderEvaluationRunner(
+            providers_config_path=str(temp_config_files["providers_config"]),
+            system_config_path=str(temp_config_files["system_config"]),
+            eval_data_path=str(temp_config_files["eval_data"]),
+            max_workers=0,  # Invalid value
+        )
+        assert runner.max_workers == 1  # Should be clamped to 1
+
+        runner2 = MultiProviderEvaluationRunner(
+            providers_config_path=str(temp_config_files["providers_config"]),
+            system_config_path=str(temp_config_files["system_config"]),
+            eval_data_path=str(temp_config_files["eval_data"]),
+            max_workers=-5,  # Invalid value
+        )
+        assert runner2.max_workers == 1  # Should be clamped to 1
+
+    def test_resource_warning_high_thread_count(
+        self, temp_config_files, tmp_path, caplog
+    ):
+        """Test warning is logged when total threads is very high."""
+        import logging
+
+        # Create system config with high max_threads
+        system_config = {
+            "core": {"max_threads": 100},
+            "llm": {"provider": "openai", "model": "gpt-4o-mini"},
+            "api": {"enabled": False},
+            "output": {"output_dir": "./eval_output"},
+        }
+        system_path = tmp_path / "system_high_threads.yaml"
+        with open(system_path, "w", encoding="utf-8") as f:
+            yaml.dump(system_config, f)
+
+        with caplog.at_level(logging.WARNING):
+            runner = MultiProviderEvaluationRunner(
+                providers_config_path=str(temp_config_files["providers_config"]),
+                system_config_path=str(system_path),
+                eval_data_path=str(temp_config_files["eval_data"]),
+                max_workers=4,  # 4 × 100 = 400 threads (should trigger warning)
+            )
+
+        # Check warning was logged
+        assert any(
+            "High resource usage detected" in record.message
+            for record in caplog.records
+        )
+        assert any(
+            "400 concurrent threads" in record.message for record in caplog.records
+        )
+        assert runner.max_workers == 4
+
+    def test_no_resource_warning_reasonable_config(
+        self, temp_config_files, tmp_path, caplog
+    ):
+        """Test no warning with reasonable thread count."""
+        import logging
+        import multiprocessing
+
+        # Calculate safe thread count based on actual CPU count
+        cpu_count = multiprocessing.cpu_count()
+        # Use values that keep total threads <= cpu_count * 2
+        max_workers = 2
+        max_threads = max(1, cpu_count // max_workers)  # Ensure total <= cpu_count * 2
+
+        # Create system config with reasonable max_threads
+        system_config = {
+            "core": {"max_threads": max_threads},
+            "llm": {"provider": "openai", "model": "gpt-4o-mini"},
+            "api": {"enabled": False},
+            "output": {"output_dir": "./eval_output"},
+        }
+        system_path = tmp_path / "system_reasonable.yaml"
+        with open(system_path, "w", encoding="utf-8") as f:
+            yaml.dump(system_config, f)
+
+        with caplog.at_level(logging.WARNING):
+            runner = MultiProviderEvaluationRunner(
+                providers_config_path=str(temp_config_files["providers_config"]),
+                system_config_path=str(system_path),
+                eval_data_path=str(temp_config_files["eval_data"]),
+                max_workers=max_workers,
+            )
+
+        # Check no warning was logged
+        assert not any(
+            "High resource usage detected" in record.message
+            for record in caplog.records
+        ), f"Expected no warning with {max_workers} workers × {max_threads} threads = {max_workers * max_threads} on {cpu_count} CPUs"
+        assert runner.max_workers == max_workers
+
 
 class TestLoadYAML:
     """Tests for _load_yaml method."""
@@ -436,6 +608,9 @@ class TestRunEvaluations:
 
     def test_run_evaluations_sequential(self, runner):
         """Test sequential evaluation execution."""
+        # Force sequential mode
+        runner.max_workers = 1
+
         with patch.object(
             runner,
             "_run_single_evaluation",
