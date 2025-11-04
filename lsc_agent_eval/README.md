@@ -2,6 +2,8 @@
 
 A framework for evaluating AI agent performance.
 
+**This evaluation tool is currently not maintained and is scheduled for deprecation once all features are migrated and teams have transitioned to the new [evaluation tool](../README.md).**
+
 ## Features
 
 - **Agent Goal Evaluation**: Evaluate whether an agent successfully achieves specified goals
