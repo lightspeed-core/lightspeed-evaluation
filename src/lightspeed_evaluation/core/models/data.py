@@ -324,6 +324,9 @@ class EvaluationData(BaseModel):
         ..., min_length=1, description="Conversation turns - must have at least one"
     )
 
+    # True when the data fails the validation of metrics requirements/availability
+    _invalid_data: bool = False
+
     # Script execution support
     setup_script: Optional[Union[str, Path]] = Field(
         default=None,
@@ -333,6 +336,14 @@ class EvaluationData(BaseModel):
         default=None,
         description="Path to cleanup script to run after conversation ends",
     )
+
+    def mark_data_invalid(self) -> None:
+        """Mark the data as invalid."""
+        self._invalid_data = True
+
+    def is_data_valid(self) -> bool:
+        """Did the data passed the validation checks?"""
+        return not self._invalid_data
 
     @field_validator("conversation_metrics")
     @classmethod

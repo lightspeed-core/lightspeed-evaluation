@@ -79,12 +79,15 @@ def format_pydantic_error(error: ValidationError) -> str:
 class DataValidator:
     """Data validator for evaluation data."""
 
-    def __init__(self, api_enabled: bool = False) -> None:
+    def __init__(
+        self, api_enabled: bool = False, fail_on_invalid_data: bool = True
+    ) -> None:
         """Initialize validator."""
         self.validation_errors: list[str] = []
         self.evaluation_data: Optional[list[EvaluationData]] = None
         self.api_enabled = api_enabled
         self.original_data_path: Optional[str] = None
+        self.fail_on_invalid_data = fail_on_invalid_data
 
     def load_evaluation_data(self, data_path: str) -> list[EvaluationData]:
         """Load and validate evaluation data from YAML file."""
@@ -152,7 +155,12 @@ class DataValidator:
             print("❌ Validation Errors:")
             for error in self.validation_errors:
                 print(f"  • {error}")
-            return False
+
+            if self.fail_on_invalid_data:
+                return False
+
+            print("❌ Validation Errors!, ignoring as instructed")
+            return True
 
         validation_msg = "✅ All data validation passed"
         if self.api_enabled:
@@ -169,6 +177,7 @@ class DataValidator:
             if turn_data.turn_metrics:
                 for metric in turn_data.turn_metrics:
                     if metric not in TURN_LEVEL_METRICS:
+                        data.mark_data_invalid()
                         self.validation_errors.append(
                             f"Conversation {conversation_id}, Turn {turn_data.turn_id}: "
                             f"Unknown turn metric '{metric}'"
@@ -178,6 +187,7 @@ class DataValidator:
         if data.conversation_metrics:
             for metric in data.conversation_metrics:
                 if metric not in CONVERSATION_LEVEL_METRICS:
+                    data.mark_data_invalid()
                     self.validation_errors.append(
                         f"Conversation {conversation_id}: Unknown conversation metric '{metric}'"
                     )
@@ -187,6 +197,12 @@ class DataValidator:
         conversation_group_id = data.conversation_group_id
 
         field_errors = self._check_metric_requirements(data, self.api_enabled)
+
+        # No errors
+        if not field_errors:
+            return
+
+        data.mark_data_invalid()
 
         # Add conversation group ID prefix to errors
         for error in field_errors:
