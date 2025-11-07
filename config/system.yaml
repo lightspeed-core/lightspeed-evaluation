@@ -42,6 +42,14 @@ api:
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
   # Authentication via API_KEY environment variable only for MCP server
+  
+# GEval Configuration
+# Configurable custom metrics using DeepEval's GEval framework
+geval:
+  enabled: true                                    # Enable GEval metrics evaluation
+  registry_path: "config/registry/geval_metrics.yaml"  # Path to GEval metrics registry
+  default_turn_metrics: []                         # Optional: auto-apply turn-level GEval metrics
+  default_conversation_metrics: []                 # Optional: auto-apply conversation-level GEval metrics
 
 # Default metrics metadata
 metrics_metadata:
