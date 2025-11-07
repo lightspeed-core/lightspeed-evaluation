@@ -75,8 +75,10 @@ class GEvalHandler:
             return
 
         # Determine registry path
+        possible_paths = []
         if registry_path:
             path = Path(registry_path)
+            possible_paths = [path]
         else:
             # Look for config/registry/geval_metrics.yaml relative to project root
             # Try multiple locations
