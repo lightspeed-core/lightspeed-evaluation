@@ -1,6 +1,7 @@
 """Configuration loading for evaluation framework."""
 
 import logging
+from pathlib import Path
 from typing import Any, Optional
 
 import yaml
@@ -15,6 +16,7 @@ from lightspeed_evaluation.core.models import (
     OutputConfig,
     SystemConfig,
     VisualizationConfig,
+    GEvalConfig,
 )
 from lightspeed_evaluation.core.system.setup import (
     setup_environment_variables,
@@ -24,6 +26,62 @@ from lightspeed_evaluation.core.system.setup import (
 # Global metric mapping sets (populated dynamically from system config)
 TURN_LEVEL_METRICS: set[str] = set()
 CONVERSATION_LEVEL_METRICS: set[str] = set()
+
+
+def _load_geval_metrics(registry_path: str) -> None:
+    """Load GEval metrics from registry file and add them to available metrics.
+
+    Args:
+        registry_path: Path to the GEval metrics registry YAML file
+    """
+    logger = logging.getLogger(__name__)
+
+    # Resolve registry path
+    path = Path(registry_path)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+
+    # Check if file exists
+    if not path.exists():
+        logger.warning(
+            f"GEval registry file not found at {path}. "
+            f"GEval metrics will not be available for validation."
+        )
+        return
+
+    # Load registry file
+    try:
+        with open(path, encoding="utf-8") as f:
+            registry = yaml.safe_load(f)
+
+        if not registry:
+            logger.warning(f"GEval registry file {path} is empty")
+            return
+
+        if not isinstance(registry, dict):
+            logger.warning(
+                f"GEval registry file {path} has invalid format (expected dict)"
+            )
+            return
+
+        # Add GEval metrics to available metrics
+        # Note: The registry may contain both turn-level and conversation-level metrics
+        # We need to determine which is which based on common naming patterns or
+        # add them all to both sets (metrics are validated based on context during use)
+
+        for metric_name in registry.keys():
+            # Add with geval: prefix to both turn and conversation level metrics
+            # The actual validation of which level is appropriate happens during evaluation
+            metric_identifier = f"geval:{metric_name}"
+
+            # Add to both sets - the actual usage context determines applicability
+            TURN_LEVEL_METRICS.add(metric_identifier)
+            CONVERSATION_LEVEL_METRICS.add(metric_identifier)
+
+        logger.debug(f"Loaded {len(registry)} GEval metrics from {path}")
+
+    except Exception as e:
+        logger.error(f"Failed to load GEval registry from {path}: {e}")
 
 
 def populate_metric_mappings(system_config: "SystemConfig") -> None:
@@ -46,6 +104,10 @@ def populate_metric_mappings(system_config: "SystemConfig") -> None:
     conversation_level = metrics_metadata.get("conversation_level", {})
     for metric_name in conversation_level.keys():
         CONVERSATION_LEVEL_METRICS.add(metric_name)
+
+    # Load GEval metrics from registry if enabled
+    if system_config.geval.enabled:
+        _load_geval_metrics(system_config.geval.registry_path)
 
 
 def validate_metrics(
@@ -118,6 +180,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
             output=OutputConfig(**config_data.get("output", {})),
             logging=LoggingConfig(**config_data.get("logging", {})),
             visualization=VisualizationConfig(**config_data.get("visualization", {})),
+            geval=GEvalConfig(**config_data.get("geval", {})),
             default_turn_metrics_metadata=metrics_metadata.get("turn_level", {}),
             default_conversation_metrics_metadata=metrics_metadata.get(
                 "conversation_level", {}
