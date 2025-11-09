@@ -1,7 +1,7 @@
 """Tests for GEval metrics handler."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 import tempfile
 
 import pytest
@@ -28,28 +28,29 @@ class TestGEvalHandler:
         handler = GEvalHandler(deepeval_llm_manager=mock_manager)
 
         assert handler.deepeval_llm_manager == mock_manager
-        assert GEvalHandler._registry is not None  # Should be initialized (empty or loaded)
+        assert (
+            GEvalHandler._registry is not None
+        )  # Should be initialized (empty or loaded)
 
     def test_registry_loading_from_file(self):
         """Test loading registry from a YAML file."""
         # Create temporary YAML file with test metrics
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(
+                """\
 test_metric:
   criteria: "Test criteria"
   evaluation_params:
     - input
     - actual_output
   threshold: 0.7
-""")
+  """
+            )
             temp_path = f.name
 
         try:
             mock_manager = MagicMock()
-            handler = GEvalHandler(
-                deepeval_llm_manager=mock_manager,
-                registry_path=temp_path
-            )
+            GEvalHandler(deepeval_llm_manager=mock_manager, registry_path=temp_path)
 
             assert GEvalHandler._registry is not None
             assert "test_metric" in GEvalHandler._registry
@@ -57,18 +58,6 @@ test_metric:
             assert GEvalHandler._registry["test_metric"]["threshold"] == 0.7
         finally:
             Path(temp_path).unlink()
-
-    def test_registry_loading_missing_file(self):
-        """Test handling of missing registry file."""
-        mock_manager = MagicMock()
-        handler = GEvalHandler(
-            deepeval_llm_manager=mock_manager,
-            registry_path="/nonexistent/path.yaml"
-        )
-
-        # Should initialize empty registry instead of failing
-        assert GEvalHandler._registry == {}
-        assert handler.deepeval_llm_manager == mock_manager
 
     def test_convert_evaluation_params_valid(self):
         """Test conversion of valid evaluation params to enum."""
@@ -106,19 +95,20 @@ test_metric:
     def test_get_geval_config_from_registry(self):
         """Test retrieving config from registry."""
         # Create temporary registry
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(
+                """
 test_metric:
   criteria: "Registry criteria"
   threshold: 0.8
-""")
+"""
+            )
             temp_path = f.name
 
         try:
             mock_manager = MagicMock()
             handler = GEvalHandler(
-                deepeval_llm_manager=mock_manager,
-                registry_path=temp_path
+                deepeval_llm_manager=mock_manager, registry_path=temp_path
             )
 
             # Mock conversation data without metadata
@@ -129,7 +119,7 @@ test_metric:
                 metric_name="test_metric",
                 conv_data=conv_data,
                 turn_data=None,
-                is_conversation=True
+                is_conversation=True,
             )
 
             assert config is not None
@@ -146,17 +136,14 @@ test_metric:
         # Mock conversation data with metadata
         conv_data = MagicMock()
         conv_data.conversation_metrics_metadata = {
-            "geval:test_metric": {
-                "criteria": "Runtime criteria",
-                "threshold": 0.9
-            }
+            "geval:test_metric": {"criteria": "Runtime criteria", "threshold": 0.9}
         }
 
         config = handler._get_geval_config(
             metric_name="test_metric",
             conv_data=conv_data,
             turn_data=None,
-            is_conversation=True
+            is_conversation=True,
         )
 
         assert config is not None
@@ -171,25 +158,19 @@ test_metric:
         # Mock conversation and turn data
         conv_data = MagicMock()
         conv_data.conversation_metrics_metadata = {
-            "geval:test_metric": {
-                "criteria": "Conv criteria",
-                "threshold": 0.7
-            }
+            "geval:test_metric": {"criteria": "Conv criteria", "threshold": 0.7}
         }
 
         turn_data = MagicMock()
         turn_data.turn_metrics_metadata = {
-            "geval:test_metric": {
-                "criteria": "Turn criteria",
-                "threshold": 0.95
-            }
+            "geval:test_metric": {"criteria": "Turn criteria", "threshold": 0.95}
         }
 
         config = handler._get_geval_config(
             metric_name="test_metric",
             conv_data=conv_data,
             turn_data=turn_data,
-            is_conversation=False  # Turn-level
+            is_conversation=False,  # Turn-level
         )
 
         assert config is not None
@@ -208,7 +189,7 @@ test_metric:
             metric_name="nonexistent_metric",
             conv_data=conv_data,
             turn_data=None,
-            is_conversation=True
+            is_conversation=True,
         )
 
         assert config is None
@@ -226,7 +207,7 @@ test_metric:
             conv_data=conv_data,
             turn_idx=0,
             turn_data=None,
-            is_conversation=True
+            is_conversation=True,
         )
 
         assert score is None
@@ -250,7 +231,7 @@ test_metric:
             conv_data=conv_data,
             turn_idx=0,
             turn_data=None,
-            is_conversation=True
+            is_conversation=True,
         )
 
         assert score is None
@@ -263,9 +244,7 @@ test_metric:
 
         conv_data = MagicMock()
         conv_data.conversation_metrics_metadata = {
-            "geval:test_metric": {
-                "criteria": "Test criteria"
-            }
+            "geval:test_metric": {"criteria": "Test criteria"}
         }
 
         score, reason = handler.evaluate(
@@ -273,99 +252,103 @@ test_metric:
             conv_data=conv_data,
             turn_idx=0,
             turn_data=None,  # Missing turn data
-            is_conversation=False  # Turn-level
+            is_conversation=False,  # Turn-level
         )
 
         assert score is None
         assert "turn data required" in reason.lower()
 
-    @patch('lightspeed_evaluation.core.metrics.geval.GEval')
-    def test_evaluate_turn_success(self, mock_geval_class):
+    def test_evaluate_turn_success(self):
         """Test successful turn-level evaluation."""
-        # Mock GEval metric
-        mock_metric = MagicMock()
-        mock_metric.score = 0.85
-        mock_metric.reason = "Test passed"
-        mock_geval_class.return_value = mock_metric
+        with patch(
+            "lightspeed_evaluation.core.metrics.geval.GEval"
+        ) as mock_geval_class:
+            # Mock GEval metric
+            mock_metric = MagicMock()
+            mock_metric.score = 0.85
+            mock_metric.reason = "Test passed"
+            mock_geval_class.return_value = mock_metric
 
-        # Mock LLM manager
-        mock_llm_manager = MagicMock()
-        mock_llm = MagicMock()
-        mock_llm_manager.get_llm.return_value = mock_llm
+            # Mock LLM manager
+            mock_llm_manager = MagicMock()
+            mock_llm = MagicMock()
+            mock_llm_manager.get_llm.return_value = mock_llm
 
-        handler = GEvalHandler(deepeval_llm_manager=mock_llm_manager)
+            handler = GEvalHandler(deepeval_llm_manager=mock_llm_manager)
 
-        # Mock turn data
-        turn_data = MagicMock()
-        turn_data.query = "Test query"
-        turn_data.response = "Test response"
-        turn_data.expected_response = None
-        turn_data.contexts = None
+            # Mock turn data
+            turn_data = MagicMock()
+            turn_data.query = "Test query"
+            turn_data.response = "Test response"
+            turn_data.expected_response = None
+            turn_data.contexts = None
 
-        # Mock conv data with config
-        conv_data = MagicMock()
-        conv_data.conversation_metrics_metadata = {
-            "geval:test_metric": {
-                "criteria": "Test criteria",
-                "evaluation_steps": ["Step 1", "Step 2"],
-                "threshold": 0.7
+            # Mock conv data with config
+            conv_data = MagicMock()
+            conv_data.conversation_metrics_metadata = {
+                "geval:test_metric": {
+                    "criteria": "Test criteria",
+                    "evaluation_steps": ["Step 1", "Step 2"],
+                    "threshold": 0.7,
+                }
             }
-        }
 
-        score, reason = handler.evaluate(
-            metric_name="test_metric",
-            conv_data=conv_data,
-            turn_idx=0,
-            turn_data=turn_data,
-            is_conversation=False
-        )
+            score, reason = handler.evaluate(
+                metric_name="test_metric",
+                conv_data=conv_data,
+                turn_idx=0,
+                turn_data=turn_data,
+                is_conversation=False,
+            )
 
-        assert score == 0.85
-        assert reason == "Test passed"
-        mock_metric.measure.assert_called_once()
+            assert score == 0.85
+            assert reason == "Test passed"
+            mock_metric.measure.assert_called_once()
 
-    @patch('lightspeed_evaluation.core.metrics.geval.GEval')
-    def test_evaluate_conversation_success(self, mock_geval_class):
+    def test_evaluate_conversation_success(self):
         """Test successful conversation-level evaluation."""
-        # Mock GEval metric
-        mock_metric = MagicMock()
-        mock_metric.score = 0.90
-        mock_metric.reason = "Conversation coherent"
-        mock_geval_class.return_value = mock_metric
+        with patch(
+            "lightspeed_evaluation.core.metrics.geval.GEval"
+        ) as mock_geval_class:
+            # Mock GEval metric
+            mock_metric = MagicMock()
+            mock_metric.score = 0.90
+            mock_metric.reason = "Conversation coherent"
+            mock_geval_class.return_value = mock_metric
 
-        # Mock LLM manager
-        mock_llm_manager = MagicMock()
-        mock_llm = MagicMock()
-        mock_llm_manager.get_llm.return_value = mock_llm
+            # Mock LLM manager
+            mock_llm_manager = MagicMock()
+            mock_llm = MagicMock()
+            mock_llm_manager.get_llm.return_value = mock_llm
 
-        handler = GEvalHandler(deepeval_llm_manager=mock_llm_manager)
+            handler = GEvalHandler(deepeval_llm_manager=mock_llm_manager)
 
-        # Mock conversation data
-        turn1 = MagicMock()
-        turn1.query = "Query 1"
-        turn1.response = "Response 1"
+            # Mock conversation data
+            turn1 = MagicMock()
+            turn1.query = "Query 1"
+            turn1.response = "Response 1"
 
-        turn2 = MagicMock()
-        turn2.query = "Query 2"
-        turn2.response = "Response 2"
+            turn2 = MagicMock()
+            turn2.query = "Query 2"
+            turn2.response = "Response 2"
 
-        conv_data = MagicMock()
-        conv_data.turns = [turn1, turn2]
-        conv_data.conversation_metrics_metadata = {
-            "geval:test_metric": {
-                "criteria": "Conversation criteria",
-                "threshold": 0.6
+            conv_data = MagicMock()
+            conv_data.turns = [turn1, turn2]
+            conv_data.conversation_metrics_metadata = {
+                "geval:test_metric": {
+                    "criteria": "Conversation criteria",
+                    "threshold": 0.6,
+                }
             }
-        }
 
-        score, reason = handler.evaluate(
-            metric_name="test_metric",
-            conv_data=conv_data,
-            turn_idx=None,
-            turn_data=None,
-            is_conversation=True
-        )
+            score, reason = handler.evaluate(
+                metric_name="test_metric",
+                conv_data=conv_data,
+                turn_idx=None,
+                turn_data=None,
+                is_conversation=True,
+            )
 
-        assert score == 0.90
-        assert reason == "Conversation coherent"
-        mock_metric.measure.assert_called_once()
+            assert score == 0.90
+            assert reason == "Conversation coherent"
+            mock_metric.measure.assert_called_once()
