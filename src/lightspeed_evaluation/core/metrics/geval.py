@@ -6,7 +6,7 @@ GEval allows runtime-defined evaluation metrics through YAML configuration.
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from deepeval.metrics import GEval
@@ -73,50 +73,62 @@ class GEvalHandler:  # pylint: disable=R0903
         if GEvalHandler._registry is not None:
             return
 
-        # Determine registry path
-        possible_paths = []
-        if registry_path:
-            path = Path(registry_path)
-            possible_paths = [path]
+        # Ensure variables are always bound for static analysis -
+        path: Optional[Path] = None
+        possible_paths: list[Path] = []
+
+        # Normalize user-specified path vs. auto-discovery
+        if registry_path is not None:
+            try:
+                path = Path(registry_path)
+            except TypeError:
+                # Bad type passed in; treat as no path provided
+                path = None
+            if path is not None:
+                possible_paths = [path]
         else:
-            # Look for config/registry/geval_metrics.yaml relative to project root
-            # Try multiple locations
+            package_root = Path(__file__).resolve().parents[3]
             possible_paths = [
                 Path.cwd() / "config" / "registry" / "geval_metrics.yaml",
-                Path(__file__).parent.parent.parent.parent
-                / "config"
-                / "registry"
-                / "geval_metrics.yaml",
+                package_root / "config" / "registry" / "geval_metrics.yaml",
             ]
-            path = None
-            for p in possible_paths:
-                if p.exists():
-                    path = p
+
+        # If no explicit file exists yet, search candidates
+        if path is None or not path.exists():
+            for candidate in possible_paths:
+                if candidate.exists():
+                    path = candidate
                     break
+
         # Handle missing or invalid registry
         if path is None or not path.exists():
+            GEvalHandler._registry = {}
+            GEvalHandler._registry_path = None
             logger.warning(
-                "GEval metric registry not found at expected locations. "
-                "Tried: %s. Will fall back to runtime metadata only.",
+                "GEval metric registry not found at expected locations. Tried: %s. "
+                "Will fall back to runtime metadata only.",
                 [str(p) for p in possible_paths],
             )
-            GEvalHandler._registry = {}
             return
 
         # Load registry file
         try:
-            with open(path, encoding="utf-8") as f:
-                GEvalHandler._registry = (
-                    yaml.safe_load(f) or {}
-                )  # Default to empty dict if file is empty
+            with path.open(encoding="utf-8") as f:
+                loaded = yaml.safe_load(f) or {}
+                # Guard against non-dict YAML (e.g., list/null)
+                if not isinstance(loaded, dict):
+                    logger.warning(
+                        "GEval registry file %s did not contain a mapping; using empty registry.",
+                        path,
+                    )
+                    loaded = {}
+                GEvalHandler._registry = loaded
                 GEvalHandler._registry_path = path
-                num_metrics = (
-                    len(GEvalHandler._registry) if GEvalHandler._registry else 0
-                )
-                logger.info("Loaded %d GEval metrics from %s", num_metrics, path)
-        except Exception as e:  # pylint: disable=W0718
+                logger.info("Loaded %d GEval metrics from %s", len(loaded), path)
+        except Exception as e:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             logger.error("Failed to load GEval registry from %s: %s", path, e)
             GEvalHandler._registry = {}
+            GEvalHandler._registry_path = None
 
     def evaluate(  # pylint: disable=R0913,R0917
         self,
