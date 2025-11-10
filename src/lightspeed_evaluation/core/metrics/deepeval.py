@@ -123,7 +123,7 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
         return self.geval_handler.evaluate(
             metric_name=metric_name,
             conv_data=conv_data,
-            turn_idx=scope.turn_idx,
+            _turn_idx=scope.turn_idx,
             turn_data=scope.turn_data,
             is_conversation=scope.is_conversation,
         )

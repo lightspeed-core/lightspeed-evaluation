@@ -17,7 +17,7 @@ from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 logger = logging.getLogger(__name__)
 
 
-class GEvalHandler:
+class GEvalHandler:  # pylint: disable=R0903
     """Handler for configurable GEval metrics.
 
     This class integrates with the lightspeed-evaluation framework
@@ -49,8 +49,7 @@ class GEvalHandler:
         self._load_registry(registry_path)
 
     def _load_registry(self, registry_path: str | None = None) -> None:
-        """
-        Load the GEval metric registry from a YAML configuration file.
+        """Load the GEval metric registry from a YAML configuration file.
 
         This method initializes the class-level `_registry`.
         It supports both user-specified and auto-discovered paths, searching common
@@ -97,16 +96,16 @@ class GEvalHandler:
         # Handle missing or invalid registry
         if path is None or not path.exists():
             logger.warning(
-                f"GEval metric registry not found at expected locations. "
-                f"Tried: {[str(p) for p in possible_paths]}. "
-                f"Will fall back to runtime metadata only."
+                "GEval metric registry not found at expected locations. "
+                "Tried: %s. Will fall back to runtime metadata only.",
+                [str(p) for p in possible_paths],
             )
             GEvalHandler._registry = {}
             return
 
         # Load registry file
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 GEvalHandler._registry = (
                     yaml.safe_load(f) or {}
                 )  # Default to empty dict if file is empty
@@ -114,21 +113,20 @@ class GEvalHandler:
                 num_metrics = (
                     len(GEvalHandler._registry) if GEvalHandler._registry else 0
                 )
-                logger.info(f"Loaded {num_metrics} GEval metrics from {path}")
-        except Exception as e:
-            logger.error(f"Failed to load GEval registry from {path}: {e}")
+                logger.info("Loaded %d GEval metrics from %s", num_metrics, path)
+        except Exception as e:  # pylint: disable=W0718
+            logger.error("Failed to load GEval registry from %s: %s", path, e)
             GEvalHandler._registry = {}
 
-    def evaluate(
+    def evaluate(  # pylint: disable=R0913,R0917
         self,
         metric_name: str,
         conv_data: Any,
-        turn_idx: int | None,  # noqa: ARG002
+        _turn_idx: int | None,
         turn_data: Any | None,
         is_conversation: bool,
     ) -> tuple[float | None, str]:
-        """
-        Evaluate using GEval with runtime configuration.
+        """Evaluate using GEval with runtime configuration.
 
         This method is the central entry point for running GEval evaluations.
         It retrieves the appropriate metric configuration (from registry or runtime
@@ -189,28 +187,27 @@ class GEvalHandler:
             return self._evaluate_conversation(
                 conv_data, criteria, evaluation_params, evaluation_steps, threshold
             )
-        else:
-            return self._evaluate_turn(
-                turn_data, criteria, evaluation_params, evaluation_steps, threshold
-            )
+        return self._evaluate_turn(
+            turn_data, criteria, evaluation_params, evaluation_steps, threshold
+        )
 
     def _convert_evaluation_params(
         self, params: list[str]
     ) -> list[LLMTestCaseParams] | None:
-        """
-        Convert a list of string parameter names into `LLMTestCaseParams` enum values.
+        """Convert a list of string parameter names into `LLMTestCaseParams` enum values.
 
         This helper ensures that the evaluation parameters passed into GEval are properly
-        typed as `LLMTestCaseParams` (used by DeepEval's test-case schema). If any parameter is not a
-        valid enum member, the function treats the entire parameter list as "custom" and returns `None`.
-        This allows GEval to automatically infer the required fields at runtime rather than forcing
-        strict schema compliance.
+        typed as `LLMTestCaseParams` (used by DeepEval's test-case schema). If any
+        parameter is not a valid enum member, the function treats the entire parameter
+        list as "custom" and returns `None`. This allows GEval to automatically infer
+        the required fields at runtime rather than forcing strict schema compliance.
 
         Args:
             params (list[str]):
                 A list of string identifiers (e.g., ["input", "actual_output"]).
                 These typically come from a YAML or runtime configuration and
                 may not always match enum names exactly.
+
         Returns:
             List of LLMTestCaseParams enum values, or None if params are custom strings
         """
@@ -230,16 +227,17 @@ class GEvalHandler:
             except (KeyError, AttributeError):
                 # Not a valid enum - these are custom params, skip them
                 logger.debug(
-                    f"Skipping custom evaluation_param '{param}' - "
-                    f"not a valid LLMTestCaseParams enum. "
-                    f"GEval will auto-detect required fields."
+                    "Skipping custom evaluation_param '%s' - "
+                    "not a valid LLMTestCaseParams enum. "
+                    "GEval will auto-detect required fields.",
+                    param,
                 )
                 return None
 
         # Return the successfully converted list, or None if it ended up empty
         return converted if converted else None
 
-    def _evaluate_turn(
+    def _evaluate_turn(  # pylint: disable=R0913,R0917
         self,
         turn_data: Any,
         criteria: str,
@@ -247,8 +245,7 @@ class GEvalHandler:
         evaluation_steps: list[str] | None,
         threshold: float,
     ) -> tuple[float | None, str]:
-        """
-            Evaluate a single turn using GEval.
+        """Evaluate a single turn using GEval.
 
             Args:
             turn_data (Any):
@@ -331,19 +328,21 @@ class GEvalHandler:
                 else "No reason provided"
             )
             return score, reason
-        except Exception as e:
+        except Exception as e:  # pylint: disable=W0718
             logger.error(
-                f"GEval turn-level evaluation failed: {type(e).__name__}: {str(e)}"
+                "GEval turn-level evaluation failed: %s: %s", type(e).__name__, str(e)
             )
             logger.debug(
-                f"Test case input: {test_case.input[:100] if test_case.input else 'None'}..."
+                "Test case input: %s...",
+                test_case.input[:100] if test_case.input else "None",
             )
             logger.debug(
-                f"Test case output: {test_case.actual_output[:100] if test_case.actual_output else 'None'}..."
+                "Test case output: %s...",
+                test_case.actual_output[:100] if test_case.actual_output else "None",
             )
             return None, f"GEval evaluation error: {str(e)}"
 
-    def _evaluate_conversation(
+    def _evaluate_conversation(  # pylint: disable=R0913,R0917,R0914
         self,
         conv_data: Any,
         criteria: str,
@@ -351,8 +350,7 @@ class GEvalHandler:
         evaluation_steps: list[str] | None,
         threshold: float,
     ) -> tuple[float | None, str]:
-        """
-        Evaluate a conversation using GEval.
+        """Evaluate a conversation using GEval.
 
         This method aggregates all conversation turns into a single LLMTestCase
         and evaluates the conversation against the provided criteria.
@@ -424,13 +422,16 @@ class GEvalHandler:
                 else "No reason provided"
             )
             return score, reason
-        except Exception as e:
+        except Exception as e:  # pylint: disable=W0718
             logger.error(
-                f"GEval conversation-level evaluation failed: {type(e).__name__}: {str(e)}"
+                "GEval conversation-level evaluation failed: %s: %s",
+                type(e).__name__,
+                str(e),
             )
-            logger.debug(f"Conversation turns: {len(conv_data.turns)}")
+            logger.debug("Conversation turns: %d", len(conv_data.turns))
             logger.debug(
-                f"Test case input preview: {test_case.input[:200] if test_case.input else 'None'}..."
+                "Test case input preview: %s...",
+                test_case.input[:200] if test_case.input else "None",
             )
             return None, f"GEval evaluation error: {str(e)}"
 
@@ -474,7 +475,7 @@ class GEvalHandler:
             and turn_data.turn_metrics_metadata
             and metric_key in turn_data.turn_metrics_metadata
         ):
-            logger.debug(f"Using runtime metadata for metric '{metric_name}'")
+            logger.debug("Using runtime metadata for metric '%s'", metric_name)
             return turn_data.turn_metrics_metadata[metric_key]
 
         # Conversation-level metadata override
@@ -484,18 +485,28 @@ class GEvalHandler:
             and conv_data.conversation_metrics_metadata
             and metric_key in conv_data.conversation_metrics_metadata
         ):
-            logger.debug(f"Using runtime metadata for metric '{metric_name}'")
+            logger.debug("Using runtime metadata for metric '%s'", metric_name)
             return conv_data.conversation_metrics_metadata[metric_key]
 
         # Registry definition
         # Fallback to shared YAML registry if no runtime metadata is found
-        if GEvalHandler._registry and metric_name in GEvalHandler._registry:
-            logger.debug(f"Using registry definition for metric '{metric_name}'")
-            return GEvalHandler._registry[metric_name]
+        if (
+            GEvalHandler._registry
+            and metric_name in GEvalHandler._registry  # pylint: disable=E1135
+        ):  # pylint: disable=E1135
+            logger.debug("Using registry definition for metric '%s'", metric_name)
+            return GEvalHandler._registry[metric_name]  # pylint: disable=E1136
 
         # Config not found anywhere
+        available_metrics = (
+            list(GEvalHandler._registry.keys())  # pylint: disable=E1136
+            if GEvalHandler._registry
+            else []
+        )
         logger.warning(
-            f"Metric '{metric_name}' not found in runtime metadata or registry. "
-            f"Available registry metrics: {list(GEvalHandler._registry.keys()) if GEvalHandler._registry else []}"
+            "Metric '%s' not found in runtime metadata or registry. "
+            "Available registry metrics: %s",
+            metric_name,
+            available_metrics,
         )
         return None
