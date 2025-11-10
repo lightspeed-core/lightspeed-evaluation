@@ -44,8 +44,9 @@ def _load_geval_metrics(registry_path: str) -> None:
     # Check if file exists
     if not path.exists():
         logger.warning(
-            f"GEval registry file not found at {path}. "
-            f"GEval metrics will not be available for validation."
+            "GEval registry file not found at %s. "
+            "GEval metrics will not be available for validation.",
+            path,
         )
         return
 
@@ -55,12 +56,12 @@ def _load_geval_metrics(registry_path: str) -> None:
             registry = yaml.safe_load(f)
 
         if not registry:
-            logger.warning(f"GEval registry file {path} is empty")
+            logger.warning("GEval registry file %s is empty", path)
             return
 
         if not isinstance(registry, dict):
             logger.warning(
-                f"GEval registry file {path} has invalid format (expected dict)"
+                "GEval registry file %s has invalid format (expected dict)", path
             )
             return
 
@@ -78,10 +79,10 @@ def _load_geval_metrics(registry_path: str) -> None:
             TURN_LEVEL_METRICS.add(metric_identifier)
             CONVERSATION_LEVEL_METRICS.add(metric_identifier)
 
-        logger.debug(f"Loaded {len(registry)} GEval metrics from {path}")
+        logger.debug("Loaded %d GEval metrics from %s", len(registry), path)
 
-    except Exception as e:
-        logger.error(f"Failed to load GEval registry from {path}: {e}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to load GEval registry from %s: %s", path, e)
 
 
 def populate_metric_mappings(system_config: "SystemConfig") -> None:

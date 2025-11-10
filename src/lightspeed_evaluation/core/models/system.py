@@ -274,16 +274,22 @@ class GEvalConfig(BaseModel):
         description="Enable GEval metrics evaluation",
     )
     registry_path: str = Field(
-        default="config/geval_metrics.yaml",
+        default="config/registry/geval_metrics.yaml",
         description="Path to GEval metrics registry YAML file",
     )
     default_turn_metrics: list[str] = Field(
         default_factory=list,
-        description="Default turn-level GEval metrics to auto-apply (e.g., ['geval:technical_accuracy'])",
+        description=(
+            "Default turn-level GEval metrics to auto-apply "
+            "(e.g., ['geval:technical_accuracy'])"
+        ),
     )
     default_conversation_metrics: list[str] = Field(
         default_factory=list,
-        description="Default conversation-level GEval metrics to auto-apply (e.g., ['geval:conversation_coherence'])",
+        description=(
+            "Default conversation-level GEval metrics to auto-apply "
+            "(e.g., ['geval:conversation_coherence'])"
+        ),
     )
 
 
