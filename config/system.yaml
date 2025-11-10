@@ -3,7 +3,7 @@
 # Core evaluation parameters
 core:
   max_threads: 50             # Maximum number of threads, set to null for Python default. 50 is OK for bigger datasets
-  fail_on_invalid_data: false # If False don't fail on invalid conversations (like missing context for some metrics)
+  fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
 
 # LLM as a judge configuration
 llm:
