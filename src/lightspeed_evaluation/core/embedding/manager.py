@@ -24,6 +24,8 @@ class EmbeddingManager:  # pylint: disable=too-few-public-methods
         """Validate config and env variables."""
         if self.config.provider == "openai":
             validate_provider_env("openai")
+        elif self.config.provider == "gemini":
+            validate_provider_env("gemini")
         elif self.config.provider == "huggingface":
             pass
         else:
