@@ -106,7 +106,7 @@ class EmbeddingConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def _validate_provider(cls, v: str) -> str:
-        allowed = {"openai", "huggingface"}
+        allowed = {"openai", "huggingface", "gemini"}
         if v not in allowed:
             raise ValueError(
                 f"Unsupported embedding provider '{v}'. Allowed: {sorted(allowed)}"

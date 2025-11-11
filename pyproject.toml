@@ -27,6 +27,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "tenacity>=9.1.2",
     "langchain[huggingface]>=0.3.27",
+    "langchain-google-genai>=2.0.0",
     "sentence-transformers>=5.1.0",
 ]
 

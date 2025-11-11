@@ -1,5 +1,6 @@
 """Ragas Embedding Manager - Ragas specific embedding wrapper."""
 
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from ragas.cache import DiskCacheBackend
@@ -19,6 +20,7 @@ class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
         embedding_class = {
             "openai": OpenAIEmbeddings,
             "huggingface": HuggingFaceEmbeddings,
+            "gemini": GoogleGenerativeAIEmbeddings,
         }.get(config.provider)
         if not embedding_class:
             raise RuntimeError(f"Unknown embedding provider {config.provider}")
