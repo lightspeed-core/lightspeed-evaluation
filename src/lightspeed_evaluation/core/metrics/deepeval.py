@@ -119,9 +119,13 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
                 return None, f"DeepEval {metric_name} evaluation failed: {str(e)}"
 
         # Otherwise, assume it's a GEval metric
-        # Note: metric_name should NOT have "geval:" prefix here
+        normalized_metric_name = (
+            metric_name.split(":", 1)[1]
+            if metric_name.startswith("geval:")
+            else metric_name
+        )
         return self.geval_handler.evaluate(
-            metric_name=metric_name,
+            metric_name=normalized_metric_name,
             conv_data=conv_data,
             _turn_idx=scope.turn_idx,
             turn_data=scope.turn_data,

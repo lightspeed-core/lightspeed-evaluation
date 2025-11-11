@@ -285,12 +285,6 @@ class GEvalHandler:  # pylint: disable=R0903
 
         # Convert evaluation_params to enum values if valid, otherwise use defaults
         converted_params = self._convert_evaluation_params(evaluation_params)
-        if not converted_params:
-            # If no valid params, use sensible defaults for turn evaluation
-            converted_params = [
-                LLMTestCaseParams.INPUT,
-                LLMTestCaseParams.ACTUAL_OUTPUT,
-            ]
 
         # Create GEval metric with runtime configuration
         metric_kwargs: dict[str, Any] = {
@@ -301,6 +295,18 @@ class GEvalHandler:  # pylint: disable=R0903
             "threshold": threshold,
             "top_logprobs": 5,
         }
+
+        # Only set evaluation_params if we have valid enum conversions
+        # or if no params were provided at all (then use defaults)
+        if converted_params is None:
+            if not evaluation_params:
+                metric_kwargs["evaluation_params"] = [
+                    LLMTestCaseParams.INPUT,
+                    LLMTestCaseParams.ACTUAL_OUTPUT,
+                ]
+            # else: leave unset so GEval can auto-detect from custom strings
+        else:
+            metric_kwargs["evaluation_params"] = converted_params
 
         # Add evaluation steps if provided
         if evaluation_steps:
@@ -320,12 +326,7 @@ class GEvalHandler:  # pylint: disable=R0903
             test_case_kwargs["expected_output"] = turn_data.expected_response
 
         if turn_data.contexts:
-            # Normalize contexts: handle both dict and string formats
-            normalized_contexts = [
-                ctx.get("content", str(ctx)) if isinstance(ctx, dict) else str(ctx)
-                for ctx in turn_data.contexts
-            ]
-            test_case_kwargs["context"] = normalized_contexts
+            test_case_kwargs["context"] = turn_data.contexts
 
         # Create test case for a single turn
         test_case = LLMTestCase(**test_case_kwargs)
@@ -385,12 +386,6 @@ class GEvalHandler:  # pylint: disable=R0903
         """
         # Convert evaluation_params to enum values if valid, otherwise use defaults
         converted_params = self._convert_evaluation_params(evaluation_params)
-        if not converted_params:
-            # If no valid params, use sensible defaults for conversation evaluation
-            converted_params = [
-                LLMTestCaseParams.INPUT,
-                LLMTestCaseParams.ACTUAL_OUTPUT,
-            ]
 
         # Configure the GEval metric for conversation-level evaluation
         metric_kwargs: dict[str, Any] = {
@@ -401,6 +396,15 @@ class GEvalHandler:  # pylint: disable=R0903
             "threshold": threshold,
             "top_logprobs": 5,  # Vertex/Gemini throws an error if over 20.
         }
+
+        if converted_params is None:
+            if not evaluation_params:
+                metric_kwargs["evaluation_params"] = [
+                    LLMTestCaseParams.INPUT,
+                    LLMTestCaseParams.ACTUAL_OUTPUT,
+                ]
+        else:
+            metric_kwargs["evaluation_params"] = converted_params
 
         # Add evaluation steps if provided
         if evaluation_steps:
