@@ -36,7 +36,7 @@ def save_evaluation_data(
         # Save amended data to output directory
         with open(amended_data_path, "w", encoding="utf-8") as f:
             yaml.dump(
-                [conv_data.model_dump() for conv_data in evaluation_data],
+                [conv_data.model_dump(mode="json") for conv_data in evaluation_data],
                 f,
                 default_flow_style=False,
                 sort_keys=False,
