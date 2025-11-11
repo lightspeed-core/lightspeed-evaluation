@@ -13,7 +13,8 @@ import pytest
 @pytest.fixture
 def script_path():
     """Return the path to the compare_evaluations.py script."""
-    return Path(__file__).parent.parent / "script" / "compare_evaluations.py"
+    # Test is in tests/script/, script is in project_root/script/
+    return Path(__file__).parent.parent.parent / "script" / "compare_evaluations.py"
 
 
 @pytest.fixture
@@ -177,7 +178,8 @@ class TestEvaluationComparisonMethods:
         # Import here to avoid module loading issues
         import sys
 
-        sys.path.append(str(Path(__file__).parent.parent))
+        # Add project root to path (tests/script/ -> tests/ -> project_root/)
+        sys.path.append(str(Path(__file__).parent.parent.parent))
         from script.compare_evaluations import EvaluationComparison
 
         return EvaluationComparison(alpha=0.05)
