@@ -264,35 +264,6 @@ class CoreConfig(BaseModel):
     )
 
 
-class GEvalConfig(BaseModel):
-    """GEval metrics configuration."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool = Field(
-        default=True,
-        description="Enable GEval metrics evaluation",
-    )
-    registry_path: str = Field(
-        default="config/registry/geval_metrics.yaml",
-        description="Path to GEval metrics registry YAML file",
-    )
-    default_turn_metrics: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Default turn-level GEval metrics to auto-apply "
-            "(e.g., ['geval:technical_accuracy'])"
-        ),
-    )
-    default_conversation_metrics: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Default conversation-level GEval metrics to auto-apply "
-            "(e.g., ['geval:conversation_coherence'])"
-        ),
-    )
-
-
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
 
@@ -315,11 +286,6 @@ class SystemConfig(BaseModel):
     )
     visualization: VisualizationConfig = Field(
         default_factory=VisualizationConfig, description="Visualization configuration"
-    )
-
-    geval: GEvalConfig = Field(
-        default_factory=GEvalConfig,
-        description="GEval metrics configuration",
     )
 
     # Default metrics metadata from system config

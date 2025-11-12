@@ -21,8 +21,9 @@ from litellm.types.caching import LiteLLMCacheType
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 from lightspeed_evaluation.core.llm.manager import LLMManager
-from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.metrics.geval import GEvalHandler
+from lightspeed_evaluation.core.metrics.manager import MetricManager
+from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +36,16 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
     both evaluation types for efficiency.
     """
 
-    def __init__(self, llm_manager: LLMManager, registry_path: str | None = None):
+    def __init__(
+        self,
+        llm_manager: LLMManager,
+        metric_manager: MetricManager,
+    ):
         """Initialize with LLM Manager.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
-            registry_path: Optional path to GEval metrics registry YAML
+            metric_manager: MetricManager for accessing metric metadata
         """
         # Setup cache if enabled (shared across all DeepEval operations)
         if llm_manager.get_config().cache_enabled and litellm.cache is None:
@@ -54,10 +59,10 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
 
-        # Initialize GEval handler with shared LLM manager
+        # Initialize GEval handler with shared LLM manager and metric manager
         self.geval_handler = GEvalHandler(
             deepeval_llm_manager=self.llm_manager,
-            registry_path=registry_path,
+            metric_manager=metric_manager,
         )
 
         # Standard DeepEval metrics routing

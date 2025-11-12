@@ -21,7 +21,6 @@ from lightspeed_evaluation.core.models.system import (
     OutputConfig,
     SystemConfig,
     VisualizationConfig,
-    GEvalConfig,
 )
 
 __all__ = [
@@ -40,7 +39,6 @@ __all__ = [
     "LoggingConfig",
     "SystemConfig",
     "VisualizationConfig",
-    "GEvalConfig",
     # API models
     "APIRequest",
     "APIResponse",

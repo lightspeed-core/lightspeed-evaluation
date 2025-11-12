@@ -5,14 +5,13 @@ GEval allows runtime-defined evaluation metrics through YAML configuration.
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-import yaml
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
+from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,113 +21,26 @@ class GEvalHandler:  # pylint: disable=R0903
 
     This class integrates with the lightspeed-evaluation framework
     to provide GEval evaluation with criteria defined either in:
-    1. A centralized metric registry (config/registry/geval_metrics.yaml)
-    2. Runtime YAML configuration (turn_metrics_metadata)
+    1. System-level default metadata (from system.yaml metrics_metadata)
+    2. Runtime YAML configuration (turn_metrics_metadata or conversation_metrics_metadata)
 
-    Priority: Runtime metadata overrides registry definitions.
+    Priority: Runtime metadata overrides system defaults.
     """
-
-    # Class-level registry cache (shared across instances)
-    _registry: dict[str, Any] | None = None
-    _registry_path: Path | None = None
 
     def __init__(
         self,
         deepeval_llm_manager: DeepEvalLLMManager,
-        registry_path: str | None = None,
+        metric_manager: MetricManager,
     ) -> None:
         """Initialize GEval handler.
 
         Args:
             deepeval_llm_manager: Shared DeepEvalLLMManager instance
-            registry_path: Optional path to metric registry YAML.
-                          If not provided, looks for config/registry/geval_metrics.yaml
-                          relative to project root.
+            metric_manager: MetricManager for accessing metric metadata
+            with proper priority hierarchy
         """
         self.deepeval_llm_manager = deepeval_llm_manager
-        self._load_registry(registry_path)
-
-    def _load_registry(self, registry_path: str | None = None) -> None:
-        """Load the GEval metric registry from a YAML configuration file.
-
-        This method initializes the class-level `_registry`.
-        It supports both user-specified and auto-discovered paths, searching common
-        locations relative to the current working directory and the package root.
-
-        If no valid registry file is found, it logs a warning and initializes an
-        empty registry (meaning GEval will rely solely on runtime metadata).
-
-        Args:
-            registry_path (str | None): Optional explicit path to a registry YAML file.
-
-        Behavior:
-            - If the registry has already been loaded, the function returns immediately.
-            - If `registry_path` is provided, it is used directly.
-            - Otherwise, common fallback paths are checked for existence.
-            - If a registry is found, it is parsed with `yaml.safe_load`.
-            - Any exceptions during file access or parsing are logged, and an empty
-            registry is used as a fallback.
-        """
-        # Only load once per class
-        if GEvalHandler._registry is not None:
-            return
-
-        # Ensure variables are always bound for static analysis -
-        path: Optional[Path] = None
-        possible_paths: list[Path] = []
-
-        # Normalize user-specified path vs. auto-discovery
-        if registry_path is not None:
-            try:
-                path = Path(registry_path)
-            except TypeError:
-                # Bad type passed in; treat as no path provided
-                path = None
-            if path is not None:
-                possible_paths = [path]
-        else:
-            package_root = Path(__file__).resolve().parents[3]
-            possible_paths = [
-                Path.cwd() / "config" / "registry" / "geval_metrics.yaml",
-                package_root / "config" / "registry" / "geval_metrics.yaml",
-            ]
-
-        # If no explicit file exists yet, search candidates
-        if path is None or not path.exists():
-            for candidate in possible_paths:
-                if candidate.exists():
-                    path = candidate
-                    break
-
-        # Handle missing or invalid registry
-        if path is None or not path.exists():
-            GEvalHandler._registry = {}
-            GEvalHandler._registry_path = None
-            logger.warning(
-                "GEval metric registry not found at expected locations. Tried: %s. "
-                "Will fall back to runtime metadata only.",
-                [str(p) for p in possible_paths],
-            )
-            return
-
-        # Load registry file
-        try:
-            with path.open(encoding="utf-8") as f:
-                loaded = yaml.safe_load(f) or {}
-                # Guard against non-dict YAML (e.g., list/null)
-                if not isinstance(loaded, dict):
-                    logger.warning(
-                        "GEval registry file %s did not contain a mapping; using empty registry.",
-                        path,
-                    )
-                    loaded = {}
-                GEvalHandler._registry = loaded
-                GEvalHandler._registry_path = path
-                logger.info("Loaded %d GEval metrics from %s", len(loaded), path)
-        except Exception as e:  # noqa: BLE001  # pylint: disable=broad-exception-caught
-            logger.error("Failed to load GEval registry from %s: %s", path, e)
-            GEvalHandler._registry = {}
-            GEvalHandler._registry_path = None
+        self.metric_manager = metric_manager
 
     def evaluate(  # pylint: disable=R0913,R0917
         self,
@@ -208,21 +120,30 @@ class GEvalHandler:  # pylint: disable=R0903
     ) -> list[LLMTestCaseParams] | None:
         """Convert a list of string parameter names into `LLMTestCaseParams` enum values.
 
-        This helper ensures that the evaluation parameters passed into GEval are properly
-        typed as `LLMTestCaseParams` (used by DeepEval's test-case schema). If any
-        parameter is not a valid enum member, the function treats the entire parameter
-        list as "custom" and returns `None`. This allows GEval to automatically infer
-        the required fields at runtime rather than forcing strict schema compliance.
+        This helper maps evaluation data field names (query, response, expected_response)
+        to DeepEval's internal `LLMTestCaseParams` enum values (INPUT, ACTUAL_OUTPUT,
+        EXPECTED_OUTPUT). This allows the configuration to use field names that match
+        the evaluation data structure, while internally using the names expected by
+        DeepEval.
 
         Args:
             params (list[str]):
-                A list of string identifiers (e.g., ["input", "actual_output"]).
-                These typically come from a YAML or runtime configuration and
-                may not always match enum names exactly.
+                A list of evaluation data field names (e.g., ["query", "response"]).
+                These come from the YAML configuration and match the field names
+                used in the evaluation data files.
 
         Returns:
             List of LLMTestCaseParams enum values, or None if params are custom strings
         """
+        # Mapping from evaluation data field names to DeepEval enum values
+        field_name_mapping = {
+            "query": LLMTestCaseParams.INPUT,
+            "response": LLMTestCaseParams.ACTUAL_OUTPUT,
+            "expected_response": LLMTestCaseParams.EXPECTED_OUTPUT,
+            "contexts": LLMTestCaseParams.CONTEXT,
+            "retrieval_context": LLMTestCaseParams.RETRIEVAL_CONTEXT,
+        }
+
         # Return early if no parameters were supplied
         if not params:
             return None
@@ -232,19 +153,24 @@ class GEvalHandler:  # pylint: disable=R0903
 
         # Attempt to convert each string into a valid enum value
         for param in params:
-            try:
-                # Try to match as enum value (e.g., "INPUT", "ACTUAL_OUTPUT")
-                enum_value = LLMTestCaseParams[param.upper().replace(" ", "_")]
-                converted.append(enum_value)
-            except (KeyError, AttributeError):
-                # Not a valid enum - these are custom params, skip them
-                logger.debug(
-                    "Skipping custom evaluation_param '%s' - "
-                    "not a valid LLMTestCaseParams enum. "
-                    "GEval will auto-detect required fields.",
-                    param,
-                )
-                return None
+            # First try direct mapping from data field names
+            if param in field_name_mapping:
+                converted.append(field_name_mapping[param])
+            else:
+                # Fall back to trying to match as enum value directly
+                # (e.g., "INPUT", "ACTUAL_OUTPUT") for backward compatibility
+                try:
+                    enum_value = LLMTestCaseParams[param.upper().replace(" ", "_")]
+                    converted.append(enum_value)
+                except (KeyError, AttributeError):
+                    # Not a valid enum - these are custom params, skip them
+                    logger.debug(
+                        "Skipping custom evaluation_param '%s' - "
+                        "not a valid field name or LLMTestCaseParams enum. "
+                        "GEval will auto-detect required fields.",
+                        param,
+                    )
+                    return None
 
         # Return the successfully converted list, or None if it ended up empty
         return converted if converted else None
@@ -267,8 +193,9 @@ class GEvalHandler:  # pylint: disable=R0903
                 Natural-language description of what the evaluation should judge.
                 Example: "Assess factual correctness and command validity."
             evaluation_params (list[str]):
-                A list of string parameters defining which fields to include
-                (e.g., ["input", "actual_output"]).
+                A list of evaluation data field names to include
+                (e.g., ["query", "response", "expected_response"]).
+                These match the field names in your evaluation data files.
             evaluation_steps (list[str] | None):
                 Optional step-by-step evaluation guidance for the model.
             threshold (float):
@@ -374,7 +301,9 @@ class GEvalHandler:  # pylint: disable=R0903
             criteria (str):
                 Description of the overall evaluation goal.
             evaluation_params (list[str]):
-                List of field names to include (same semantics as turn-level).
+                List of evaluation data field names to include
+                (e.g., ["query", "response"]).
+                These match the field names in your evaluation data files.
             evaluation_steps (list[str] | None):
                 Optional instructions guiding how the evaluation should proceed.
             threshold (float):
@@ -458,16 +387,16 @@ class GEvalHandler:  # pylint: disable=R0903
         turn_data: Any | None,
         is_conversation: bool,
     ) -> dict[str, Any] | None:
-        """Extract GEval configuration from metadata or registry.
+        """Extract GEval configuration from metadata using MetricManager.
 
-         The method checks multiple sources in priority order:
-            1. Turn-level metadata (runtime override)
-            2. Conversation-level metadata (runtime override)
-            3. Metric registry (shared, persistent YAML definitions)
+         The method uses MetricManager to check multiple sources in priority order:
+            1. Turn-level metadata (runtime override from evaluation YAML)
+            2. Conversation-level metadata (runtime override from evaluation YAML)
+            3. System default metadata (from system.yaml metrics_metadata)
 
          Args:
             metric_name (str):
-                Name of the metric to retrieve (e.g., "completeness").
+                Name of the metric to retrieve (e.g., "technical_accuracy").
             conv_data (Any):
                 The full conversation data object, which may contain
                 conversation-level metadata.
@@ -481,48 +410,24 @@ class GEvalHandler:  # pylint: disable=R0903
                 The GEval configuration dictionary if found, otherwise None.
         """
         metric_key = f"geval:{metric_name}"
+        level = MetricLevel.CONVERSATION if is_conversation else MetricLevel.TURN
 
-        # Turn level metadata override
-        # Used when individual turns define custom GEval settings
-        if (
-            not is_conversation
-            and turn_data
-            and hasattr(turn_data, "turn_metrics_metadata")
-            and turn_data.turn_metrics_metadata
-            and metric_key in turn_data.turn_metrics_metadata
-        ):
-            logger.debug("Using runtime metadata for metric '%s'", metric_name)
-            return turn_data.turn_metrics_metadata[metric_key]
-
-        # Conversation-level metadata override
-        # Used when the conversation defines shared GEval settings
-        if (
-            hasattr(conv_data, "conversation_metrics_metadata")
-            and conv_data.conversation_metrics_metadata
-            and metric_key in conv_data.conversation_metrics_metadata
-        ):
-            logger.debug("Using runtime metadata for metric '%s'", metric_name)
-            return conv_data.conversation_metrics_metadata[metric_key]
-
-        # Registry definition
-        # Fallback to shared YAML registry if no runtime metadata is found
-        if (
-            GEvalHandler._registry
-            and metric_name in GEvalHandler._registry  # pylint: disable=E1135
-        ):  # pylint: disable=E1135
-            logger.debug("Using registry definition for metric '%s'", metric_name)
-            return GEvalHandler._registry[metric_name]  # pylint: disable=E1136
-
-        # Config not found anywhere
-        available_metrics = (
-            list(GEvalHandler._registry.keys())  # pylint: disable=E1136
-            if GEvalHandler._registry
-            else []
+        # Use MetricManager to get metadata with proper priority hierarchy
+        metadata = self.metric_manager.get_metric_metadata(
+            metric_identifier=metric_key,
+            level=level,
+            conv_data=conv_data,
+            turn_data=turn_data,
         )
+
+        if metadata:
+            logger.debug(
+                "Found metadata for metric '%s' via MetricManager", metric_name
+            )
+            return metadata
+
         logger.warning(
-            "Metric '%s' not found in runtime metadata or registry. "
-            "Available registry metrics: %s",
-            metric_name,
-            available_metrics,
+            "Metric '%s' not found in runtime or system metadata.",
+            metric_key,
         )
         return None

@@ -6,8 +6,8 @@ core:
 
 # LLM as a judge configuration
 llm:
-  provider: "openai"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
-  model: "gpt-4o-mini"        # Model name for the provider
+  provider: vertex         # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+  model: gemini-2.0-flash        # Model name for the provider
   temperature: 0.0            # Generation temperature
   max_tokens: 512             # Maximum tokens in response
   timeout: 300                # Request timeout in seconds
@@ -28,7 +28,7 @@ embedding:
 # To get real time data. Currently it supports lightspeed-stack API.
 # But can be easily integrated with other APIs with minimal change.
 api:
-  enabled: true                        # Enable API calls instead of using pre-filled data
+  enabled: false                        # Enable API calls instead of using pre-filled data
   api_base: http://localhost:8080      # Base API URL
   endpoint_type: streaming             # Use "streaming" or "query" endpoint
   timeout: 300                         # API request timeout in seconds
@@ -42,14 +42,6 @@ api:
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
   # Authentication via API_KEY environment variable only for MCP server
-  
-# GEval Configuration
-# Configurable custom metrics using DeepEval's GEval framework
-geval:
-  enabled: true                                    # Enable GEval metrics evaluation
-  registry_path: "config/registry/geval_metrics.yaml"  # Path to GEval metrics registry
-  default_turn_metrics: []                         # Optional: auto-apply turn-level GEval metrics
-  default_conversation_metrics: []                 # Optional: auto-apply conversation-level GEval metrics
 
 # Default metrics metadata
 metrics_metadata:
@@ -99,6 +91,26 @@ metrics_metadata:
     "script:action_eval":
       description: "Script-based evaluation for infrastructure/environment validation"
 
+    # GEval turn-level metrics 
+    "geval:technical_accuracy":
+      criteria: |
+        Assess whether the response provides technically accurate information,
+        commands, code, syntax, and follows relevant industry or
+        domain-specific best practices. The response should
+        contain valid syntax and use appropriate functions, modules, or tools.
+      evaluation_params:
+        - query
+        - response
+        - expected_response
+      evaluation_steps:
+        - "Verify that the provided syntax (e.g., code, commands, configuration) is valid and follows the language/tool's formatting rules."
+        - "Check if the response uses appropriate modules, functions, libraries, or parameters for the given task."
+        - "Assess whether the solution aligns with relevant official documentation or established best practices for the specific domain."
+        - "Verify the response directly and accurately addresses the user's specific query or task."
+        - "Check for potential security issues, significant inefficiencies, or anti-patterns."
+      threshold: 0.7
+      description: "General technical accuracy of provided commands, code, or technical information"
+
   # Conversation-level metrics metadata
   conversation_level:
     # DeepEval metrics
@@ -114,6 +126,24 @@ metrics_metadata:
     "deepeval:knowledge_retention":
       threshold: 0.7
       description: "How well the model retains information from previous turns"
+
+    # GEval conversation-level metrics
+    "geval:conversation_coherence":
+      criteria: |
+        Evaluate whether the conversation maintains context and provides coherent
+        responses across multiple turns. The assistant should reference previous
+        exchanges and build upon earlier context.
+      evaluation_params:
+        - query
+        - response
+      evaluation_steps:
+        - "Check if the assistant remembers information from previous turns"
+        - "Verify responses build logically on previous context"
+        - "Assess whether the conversation flows naturally"
+        - "Check for contradictions with earlier statements"
+      threshold: 0.6
+      description: "Context maintenance and coherence across conversation turns"
+
 
 # Output Configuration
 output:

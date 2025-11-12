@@ -45,7 +45,7 @@ class MetricsEvaluator:
         self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
         self.deepeval_metrics = DeepEvalMetrics(
             llm_manager,
-            registry_path=config_loader.system_config.geval.registry_path,
+            metric_manager=metric_manager,
         )
         self.custom_metrics = CustomMetrics(llm_manager)
         self.script_eval_metrics = ScriptEvalMetrics(script_manager)
