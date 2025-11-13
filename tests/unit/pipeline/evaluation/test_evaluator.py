@@ -88,7 +88,7 @@ class TestMetricsEvaluator:
 
         assert evaluator.config_loader == config_loader
         assert evaluator.metric_manager == mock_metric_manager
-        assert len(evaluator.handlers) == 4  # ragas, deepeval, custom, script
+        assert len(evaluator.handlers) == 5  # ragas, deepeval, geval, custom, script
 
     def test_initialization_raises_error_without_config(
         self, mock_metric_manager, mock_script_manager

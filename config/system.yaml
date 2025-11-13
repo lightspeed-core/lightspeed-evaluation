@@ -6,8 +6,8 @@ core:
 
 # LLM as a judge configuration
 llm:
-  provider: vertex         # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
-  model: gemini-2.0-flash        # Model name for the provider
+  provider: "openai"      # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+  model: "gpt-4o-mini"        # Model name for the provider
   temperature: 0.0            # Generation temperature
   max_tokens: 512             # Maximum tokens in response
   timeout: 300                # Request timeout in seconds
@@ -28,7 +28,7 @@ embedding:
 # To get real time data. Currently it supports lightspeed-stack API.
 # But can be easily integrated with other APIs with minimal change.
 api:
-  enabled: false                        # Enable API calls instead of using pre-filled data
+  enabled: true                       # Enable API calls instead of using pre-filled data
   api_base: http://localhost:8080      # Base API URL
   endpoint_type: streaming             # Use "streaming" or "query" endpoint
   timeout: 300                         # API request timeout in seconds
