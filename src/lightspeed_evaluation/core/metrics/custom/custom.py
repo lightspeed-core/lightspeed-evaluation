@@ -188,9 +188,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             return None, "No expected tool calls provided for tool evaluation"
 
         # Get actual tool calls from turn data (will be populated by API)
-        actual_tool_calls = getattr(turn_data, "tool_calls", [])
-        if not actual_tool_calls:
-            return 0.0, "No actual tool calls found in response"
+        actual_tool_calls = getattr(turn_data, "tool_calls", []) or []
 
         # Use the tool evaluation logic
         success, details = evaluate_tool_calls(
