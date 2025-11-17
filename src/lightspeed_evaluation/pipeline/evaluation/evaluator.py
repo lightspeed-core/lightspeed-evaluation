@@ -1,16 +1,14 @@
-"""Metrics evaluation module - handles individual metric evaluation."""
+"""Metrics evaluation module - handles individual metric evaluation.
+
+Uses lazy loading to only import and instantiate metric frameworks when
+they are actually used during evaluation.
+"""
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
-from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
-from lightspeed_evaluation.core.llm.manager import LLMManager
-from lightspeed_evaluation.core.metrics.custom import CustomMetrics
-from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
-from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
-from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
 from lightspeed_evaluation.core.models import (
     EvaluationRequest,
     EvaluationResult,
@@ -23,7 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 class MetricsEvaluator:
-    """Handles individual metric evaluation with proper scoring and status determination."""
+    """Handles individual metric evaluation with proper scoring and status determination.
+
+    Metrics are lazy-loaded: framework-specific evaluators are only instantiated
+    when a metric from that framework is first evaluated.
+    """
 
     def __init__(
         self,
@@ -31,31 +33,77 @@ class MetricsEvaluator:
         metric_manager: MetricManager,
         script_manager: ScriptExecutionManager,
     ) -> None:
-        """Initialize Metric Evaluator."""
+        """Initialize Metric Evaluator with lazy loading support."""
         self.config_loader = config_loader
         if config_loader.system_config is None:
             raise RuntimeError("Uninitialized system_config")
 
-        llm_manager = LLMManager.from_system_config(config_loader.system_config)
-        embedding_manager = EmbeddingManager.from_system_config(
-            config_loader.system_config
-        )
-
-        # Initialize metric handlers
-        self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
-        self.deepeval_metrics = DeepEvalMetrics(llm_manager)
-        self.custom_metrics = CustomMetrics(llm_manager)
-        self.script_eval_metrics = ScriptEvalMetrics(script_manager)
-
-        # Metric routing map
-        self.handlers = {
-            "ragas": self.ragas_metrics,
-            "deepeval": self.deepeval_metrics,
-            "custom": self.custom_metrics,
-            "script": self.script_eval_metrics,
-        }
-
+        self.script_manager = script_manager
         self.metric_manager = metric_manager
+
+        # Lazy-loaded handlers - initialized on first use
+        self._handlers: dict[str, Any] = {}
+        self._llm_manager = None
+        self._embedding_manager = None
+
+    def _get_llm_manager(self) -> Any:
+        """Lazy initialization of LLM manager."""
+        # pylint: disable=import-outside-toplevel
+        if self._llm_manager is None:
+            # Import only when needed
+            from lightspeed_evaluation.core.llm.manager import LLMManager
+
+            self._llm_manager = LLMManager.from_system_config(
+                self.config_loader.system_config  # type: ignore
+            )
+        return self._llm_manager
+
+    def _get_embedding_manager(self) -> Any:
+        """Lazy initialization of embedding manager."""
+        # pylint: disable=import-outside-toplevel
+        if self._embedding_manager is None:
+            # Import only when needed
+            from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
+
+            self._embedding_manager = EmbeddingManager.from_system_config(
+                self.config_loader.system_config  # type: ignore
+            )
+        return self._embedding_manager
+
+    def _get_handler(self, framework: str) -> Any:
+        """Get or create handler for the specified framework.
+
+        Handlers are lazy-loaded: only instantiated when first requested.
+        """
+        # pylint: disable=import-outside-toplevel
+        if framework not in self._handlers:
+            if framework == "ragas":
+                # Import and instantiate only when needed
+                from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
+
+                logger.debug("Initializing RagasMetrics handler (lazy load)")
+                self._handlers["ragas"] = RagasMetrics(
+                    self._get_llm_manager(), self._get_embedding_manager()
+                )
+            elif framework == "deepeval":
+                from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
+
+                logger.debug("Initializing DeepEvalMetrics handler (lazy load)")
+                self._handlers["deepeval"] = DeepEvalMetrics(self._get_llm_manager())
+            elif framework == "custom":
+                from lightspeed_evaluation.core.metrics.custom import CustomMetrics
+
+                logger.debug("Initializing CustomMetrics handler (lazy load)")
+                self._handlers["custom"] = CustomMetrics(self._get_llm_manager())
+            elif framework == "script":
+                from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
+
+                logger.debug("Initializing ScriptEvalMetrics handler (lazy load)")
+                self._handlers["script"] = ScriptEvalMetrics(self.script_manager)
+            else:
+                raise ValueError(f"Unsupported framework: {framework}")
+
+        return self._handlers[framework]
 
     def evaluate_metric(self, request: EvaluationRequest) -> Optional[EvaluationResult]:
         """Evaluate a single metric and return result."""
@@ -84,12 +132,12 @@ class MetricsEvaluator:
                 # Don't generate result for script metrics when API disabled
                 return None
 
-            # Route to appropriate handler
-            if framework not in self.handlers:
+            # Get handler (lazy-loaded)
+            try:
+                handler = self._get_handler(framework)
+            except ValueError as e:
                 execution_time = time.time() - start_time
-                return self._create_error_result(
-                    request, f"Unsupported framework: {framework}", execution_time
-                )
+                return self._create_error_result(request, str(e), execution_time)
 
             # Create evaluation scope
             evaluation_scope = EvaluationScope(
@@ -99,7 +147,7 @@ class MetricsEvaluator:
             )
 
             # Evaluate metric
-            score, reason = self.handlers[framework].evaluate(  # type: ignore
+            score, reason = handler.evaluate(  # type: ignore
                 metric_name, request.conv_data, evaluation_scope
             )
 
@@ -164,4 +212,4 @@ class MetricsEvaluator:
 
     def get_supported_frameworks(self) -> list[str]:
         """Get list of supported evaluation frameworks."""
-        return list(self.handlers.keys())
+        return ["ragas", "deepeval", "custom", "script"]

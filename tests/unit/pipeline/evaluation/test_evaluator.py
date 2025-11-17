@@ -59,36 +59,63 @@ def mock_script_manager(mocker):
     return manager
 
 
+@pytest.fixture
+def mock_lazy_imports(mocker):
+    """Mock the lazy imports used by MetricsEvaluator._get_handler."""
+    # Mock LLM Manager
+    mock_llm_class = mocker.patch("lightspeed_evaluation.core.llm.manager.LLMManager")
+    mock_llm_instance = mocker.Mock()
+    mock_llm_class.from_system_config.return_value = mock_llm_instance
+
+    # Mock Embedding Manager
+    mock_embedding_class = mocker.patch(
+        "lightspeed_evaluation.core.embedding.manager.EmbeddingManager"
+    )
+    mock_embedding_instance = mocker.Mock()
+    mock_embedding_class.from_system_config.return_value = mock_embedding_instance
+
+    # Mock metric classes
+    mock_ragas_class = mocker.patch(
+        "lightspeed_evaluation.core.metrics.ragas.RagasMetrics"
+    )
+    mock_deepeval_class = mocker.patch(
+        "lightspeed_evaluation.core.metrics.deepeval.DeepEvalMetrics"
+    )
+    mock_custom_class = mocker.patch(
+        "lightspeed_evaluation.core.metrics.custom.CustomMetrics"
+    )
+    mock_script_class = mocker.patch(
+        "lightspeed_evaluation.core.metrics.script.ScriptEvalMetrics"
+    )
+
+    return {
+        "llm_manager": mock_llm_instance,
+        "embedding_manager": mock_embedding_instance,
+        "ragas_class": mock_ragas_class,
+        "deepeval_class": mock_deepeval_class,
+        "custom_class": mock_custom_class,
+        "script_class": mock_script_class,
+    }
+
+
 class TestMetricsEvaluator:
     """Unit tests for MetricsEvaluator."""
 
     def test_initialization(
         self, config_loader, mock_metric_manager, mock_script_manager, mocker
     ):
-        """Test evaluator initialization."""
-        # Mock the metric handlers
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
+        """Test evaluator initialization with lazy loading."""
+        # With lazy loading, handlers are empty until first use
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
         )
 
         assert evaluator.config_loader == config_loader
         assert evaluator.metric_manager == mock_metric_manager
-        assert len(evaluator.handlers) == 4  # ragas, deepeval, custom, script
+        # With lazy loading, handlers dict starts empty
+        assert len(evaluator._handlers) == 0
+        assert evaluator._llm_manager is None
+        assert evaluator._embedding_manager is None
 
     def test_initialization_raises_error_without_config(
         self, mock_metric_manager, mock_script_manager
@@ -101,30 +128,12 @@ class TestMetricsEvaluator:
             MetricsEvaluator(loader, mock_metric_manager, mock_script_manager)
 
     def test_evaluate_metric_turn_level_pass(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test evaluating turn-level metric that passes."""
-        # Mock the handlers
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.return_value = (0.85, "Good faithfulness")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
+        # Configure the mock ragas instance
+        mock_ragas_instance = mock_lazy_imports["ragas_class"].return_value
+        mock_ragas_instance.evaluate.return_value = (0.85, "Good faithfulness")
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -154,29 +163,12 @@ class TestMetricsEvaluator:
         assert result.metric_identifier == "ragas:faithfulness"
 
     def test_evaluate_metric_turn_level_fail(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test evaluating turn-level metric that fails."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.return_value = (0.3, "Low faithfulness score")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
+        # Configure the mock ragas instance
+        mock_ragas_instance = mock_lazy_imports["ragas_class"].return_value
+        mock_ragas_instance.evaluate.return_value = (0.3, "Low faithfulness score")
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -199,27 +191,12 @@ class TestMetricsEvaluator:
         assert result.threshold == 0.7
 
     def test_evaluate_metric_conversation_level(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test evaluating conversation-level metric."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-
-        mock_deepeval = mocker.Mock()
-        mock_deepeval.evaluate.return_value = (0.75, "Complete conversation")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics",
-            return_value=mock_deepeval,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
+        # Configure the mock deepeval instance
+        mock_deepeval_instance = mock_lazy_imports["deepeval_class"].return_value
+        mock_deepeval_instance.evaluate.return_value = (0.75, "Complete conversation")
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -240,24 +217,9 @@ class TestMetricsEvaluator:
         assert result.turn_id is None  # Conversation-level
 
     def test_evaluate_metric_unsupported_framework(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test evaluating metric with unsupported framework."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
         )
@@ -275,29 +237,12 @@ class TestMetricsEvaluator:
         assert "Unsupported framework" in result.reason
 
     def test_evaluate_metric_returns_none_score(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test handling when metric evaluation returns None score."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.return_value = (None, "Evaluation failed")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
+        # Configure the mock ragas instance
+        mock_ragas_instance = mock_lazy_imports["ragas_class"].return_value
+        mock_ragas_instance.evaluate.return_value = (None, "Evaluation failed")
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -318,29 +263,12 @@ class TestMetricsEvaluator:
         assert result.reason == "Evaluation failed"
 
     def test_evaluate_metric_exception_handling(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test exception handling during metric evaluation."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.side_effect = Exception("Unexpected error")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
+        # Configure the mock ragas instance
+        mock_ragas_instance = mock_lazy_imports["ragas_class"].return_value
+        mock_ragas_instance.evaluate.side_effect = Exception("Unexpected error")
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -361,25 +289,10 @@ class TestMetricsEvaluator:
         assert "Unexpected error" in result.reason
 
     def test_evaluate_metric_skip_script_when_api_disabled(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test script metrics are skipped when API is disabled."""
         config_loader.system_config.api.enabled = False
-
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -398,24 +311,9 @@ class TestMetricsEvaluator:
         assert result is None
 
     def test_determine_status_with_threshold(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test _determine_status method."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
         )
@@ -428,24 +326,9 @@ class TestMetricsEvaluator:
         assert evaluator._determine_status(0.6, 0.7) == "FAIL"
 
     def test_determine_status_without_threshold(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+        self, config_loader, mock_metric_manager, mock_script_manager, mock_lazy_imports
     ):
         """Test _determine_status uses default 0.5 when threshold is None."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
         )
