@@ -101,9 +101,7 @@ class ConversationProcessor:
             ):
                 # Step 2a: Amend with API data if enabled (per turn)
                 if self.config.api.enabled:
-                    logger.debug(
-                        "Processing turn %d: %s", turn_idx, turn_data.turn_id
-                    )
+                    logger.debug("Processing turn %d: %s", turn_idx, turn_data.turn_id)
                     api_error_message, conversation_id = (
                         self.components.api_amender.amend_single_turn(
                             turn_data, conversation_id
@@ -115,13 +113,15 @@ class ConversationProcessor:
                         turn_data.turn_id,
                     )
 
-                    # If API error occurred for this turn, mark its metrics as ERROR
+                    # If API error occurred, mark current turn + remaining + conversation as ERROR
                     if api_error_message:
                         logger.error(
-                            "API error for turn %d - marking turn metrics as ERROR",
+                            "API error for turn %d - marking current turn, "
+                            "remaining turns, and conversation as ERROR",
                             turn_idx,
                         )
-                        error_results = (
+                        # Mark current turn as ERROR
+                        current_turn_errors = (
                             self.components.error_handler.mark_turn_metrics_as_error(
                                 conv_data,
                                 turn_idx,
@@ -130,8 +130,26 @@ class ConversationProcessor:
                                 api_error_message,
                             )
                         )
-                        results.extend(error_results)
-                        continue  # Skip to next turn
+                        results.extend(current_turn_errors)
+
+                        # Mark remaining turns and conversation metrics as ERROR
+                        cascade_error_reason = (
+                            f"Cascade failure from turn {turn_idx + 1} API error: "
+                            f"{api_error_message}"
+                        )
+                        remaining_errors = (
+                            self.components.error_handler.mark_cascade_failure(
+                                conv_data,
+                                turn_idx,
+                                resolved_turn_metrics,
+                                resolved_conversation_metrics,
+                                cascade_error_reason,
+                            )
+                        )
+                        results.extend(remaining_errors)
+
+                        # Stop processing - API failure cascades to all remaining
+                        return results
 
                 # Step 2b: Process turn-level metrics for this turn
                 if turn_metrics:
