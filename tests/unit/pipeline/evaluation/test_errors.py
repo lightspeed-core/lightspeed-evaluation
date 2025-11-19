@@ -178,3 +178,47 @@ class TestEvaluationErrorHandler:
         assert summary["total_errors"] == 3
         assert summary["turn_errors"] == 2
         assert summary["conversation_errors"] == 1
+
+    def test_mark_turn_metrics_as_error(self):
+        """Test marking metrics for a single turn as error."""
+        handler = EvaluationErrorHandler()
+
+        turn_data = TurnData(
+            turn_id="turn1", query="Test query", response="Test response"
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+
+        turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
+        error_reason = "API Error: Connection timeout"
+
+        results = handler.mark_turn_metrics_as_error(
+            conv_data, 0, turn_data, turn_metrics, error_reason
+        )
+
+        # Should have 2 error results (one for each metric)
+        assert len(results) == 2
+
+        # Check first error result
+        assert results[0].conversation_group_id == "test_conv"
+        assert results[0].turn_id == "turn1"
+        assert results[0].metric_identifier == "ragas:faithfulness"
+        assert results[0].result == "ERROR"
+        assert results[0].score is None
+        assert results[0].threshold is None
+        assert results[0].reason == error_reason
+        assert results[0].query == "Test query"
+        assert results[0].response == ""
+        assert results[0].execution_time == 0.0
+
+        # Check second error result
+        assert results[1].conversation_group_id == "test_conv"
+        assert results[1].turn_id == "turn1"
+        assert results[1].metric_identifier == "custom:answer_correctness"
+        assert results[1].result == "ERROR"
+        assert results[1].reason == error_reason
+
+        # Verify results are stored internally
+        summary = handler.get_error_summary()
+        assert summary["total_errors"] == 2
+        assert summary["turn_errors"] == 2
+        assert summary["conversation_errors"] == 0

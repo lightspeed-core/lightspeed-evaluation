@@ -2,7 +2,7 @@
 
 import logging
 
-from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult, TurnData
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,54 @@ class EvaluationErrorHandler:
                 threshold=None,
                 reason=error_reason,
                 query="",
+                response="",
+                execution_time=0.0,
+            )
+            error_results.append(error_result)
+
+        # Store results internally for summary tracking
+        self.results.extend(error_results)
+        return error_results
+
+    def mark_turn_metrics_as_error(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        conv_data: EvaluationData,
+        turn_idx: int,
+        turn_data: TurnData,
+        turn_metrics: list[str],
+        error_reason: str,
+    ) -> list[EvaluationResult]:
+        """Mark all metrics for a single turn as ERROR.
+
+        Args:
+            conv_data: Conversation data
+            turn_idx: Index of the turn
+            turn_data: Turn data
+            turn_metrics: Metrics for this turn
+            error_reason: Reason for error
+
+        Returns:
+            list[EvaluationResult]: ERROR results for this turn's metrics
+        """
+        logger.warning(
+            "Marking turn %d metrics as ERROR for conversation %s: %s",
+            turn_idx,
+            conv_data.conversation_group_id,
+            error_reason,
+        )
+        error_results = []
+
+        # Mark all turn-level metrics as ERROR
+        for metric_identifier in turn_metrics:
+            error_result = EvaluationResult(
+                conversation_group_id=conv_data.conversation_group_id,
+                turn_id=turn_data.turn_id,
+                metric_identifier=metric_identifier,
+                result="ERROR",
+                score=None,
+                threshold=None,
+                reason=error_reason,
+                query=turn_data.query,
                 response="",
                 execution_time=0.0,
             )
