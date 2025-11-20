@@ -332,3 +332,136 @@ class TestTurnDataFormatDetection:
         assert expected is not None
         assert len(expected) == 1  # One alternative set
         assert len(expected[0]) == 2  # Two sequences in that set
+
+
+class TestTurnDataKeywordsValidation:
+    """Test cases for expected_keywords validation in TurnData."""
+
+    def test_valid_expected_keywords_single_group(self):
+        """Test valid expected_keywords with single group."""
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Test query",
+            expected_keywords=[["keyword1", "keyword2"]],
+        )
+
+        assert turn_data.expected_keywords == [["keyword1", "keyword2"]]
+
+    def test_valid_expected_keywords_multiple_groups(self):
+        """Test valid expected_keywords with multiple groups."""
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Test query",
+            expected_keywords=[
+                ["yes", "confirmed"],
+                ["monitoring", "namespace"],
+                ["success", "complete"],
+            ],
+        )
+
+        assert len(turn_data.expected_keywords) == 3
+        assert turn_data.expected_keywords[0] == ["yes", "confirmed"]
+        assert turn_data.expected_keywords[1] == ["monitoring", "namespace"]
+        assert turn_data.expected_keywords[2] == ["success", "complete"]
+
+    def test_valid_expected_keywords_none(self):
+        """Test that None is valid for expected_keywords."""
+        turn_data = TurnData(
+            turn_id="test_turn", query="Test query", expected_keywords=None
+        )
+
+        assert turn_data.expected_keywords is None
+
+    def test_invalid_expected_keywords_not_list(self):
+        """Test that non-list expected_keywords raises ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            TurnData(
+                turn_id="test_turn", query="Test query", expected_keywords="not_a_list"
+            )
+
+        assert "Input should be a valid list" in str(exc_info.value)
+
+    def test_invalid_expected_keywords_inner_not_list(self):
+        """Test that non-list inner elements raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            TurnData(
+                turn_id="test_turn",
+                query="Test query",
+                expected_keywords=["not_a_list", ["valid_list"]],
+            )
+
+        assert "Input should be a valid list" in str(exc_info.value)
+
+    def test_invalid_expected_keywords_empty_inner_list(self):
+        """Test that empty inner lists raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            TurnData(
+                turn_id="test_turn",
+                query="Test query",
+                expected_keywords=[[], ["valid_list"]],
+            )
+
+        assert "expected_keywords[0] cannot be empty" in str(exc_info.value)
+
+    def test_invalid_expected_keywords_non_string_element(self):
+        """Test that non-string elements in inner lists raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            TurnData(
+                turn_id="test_turn",
+                query="Test query",
+                expected_keywords=[["valid_string", 123]],
+            )
+
+        assert "Input should be a valid string" in str(exc_info.value)
+
+    def test_invalid_expected_keywords_empty_string_element(self):
+        """Test that empty string elements raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            TurnData(
+                turn_id="test_turn",
+                query="Test query",
+                expected_keywords=[["valid_string", ""]],
+            )
+
+        assert "expected_keywords[0][1] cannot be empty or whitespace" in str(
+            exc_info.value
+        )
+
+    def test_invalid_expected_keywords_whitespace_only_element(self):
+        """Test that whitespace-only string elements raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            TurnData(
+                turn_id="test_turn",
+                query="Test query",
+                expected_keywords=[["valid_string", "   "]],
+            )
+
+        assert "expected_keywords[0][1] cannot be empty or whitespace" in str(
+            exc_info.value
+        )
+
+    def test_complex_valid_expected_keywords(self):
+        """Test complex but valid expected_keywords structure."""
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Test query",
+            expected_keywords=[
+                ["yes", "confirmed", "affirmative"],
+                [
+                    "openshift-monitoring",
+                    "monitoring namespace",
+                ],
+                [
+                    "created successfully",
+                    "creation complete",
+                    "successfully created",
+                ],
+                ["pod", "container", "workload"],
+            ],
+        )
+
+        assert len(turn_data.expected_keywords) == 4
+        assert len(turn_data.expected_keywords[0]) == 3
+        assert len(turn_data.expected_keywords[1]) == 2
+        assert len(turn_data.expected_keywords[2]) == 3
+        assert len(turn_data.expected_keywords[3]) == 3

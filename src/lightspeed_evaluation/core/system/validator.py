@@ -40,6 +40,10 @@ METRIC_REQUIREMENTS = {
         "required_fields": ["response", "contexts"],
         "description": "requires 'response' and 'contexts' fields",
     },
+    "custom:keywords_eval": {
+        "required_fields": ["response", "expected_keywords"],
+        "description": "requires 'response' and 'expected_keywords' fields",
+    },
     "custom:answer_correctness": {
         "required_fields": ["response", "expected_response"],
         "description": "requires 'response' and 'expected_response' fields",

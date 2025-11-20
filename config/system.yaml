@@ -76,6 +76,9 @@ metrics_metadata:
       description: "Is what we retrieved actually relevant to user query?"
 
     # Custom metrics
+    "custom:keywords_eval":  # boolean eval (either 0 or 1)
+      description: "Keywords (ALL) matching evaluation with alternative sets"
+
     "custom:answer_correctness":
       threshold: 0.75
       description: "Correctness vs expected answer using custom LLM evaluation"
