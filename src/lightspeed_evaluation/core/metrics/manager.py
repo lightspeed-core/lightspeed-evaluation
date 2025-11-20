@@ -47,6 +47,40 @@ class MetricManager:
         # Use specified metrics as-is
         return metrics
 
+    def get_metric_metadata(
+        self,
+        metric_identifier: str,
+        level: MetricLevel,
+        conv_data: Optional[EvaluationData] = None,
+        turn_data: Optional[TurnData] = None,
+    ) -> Optional[dict[str, Any]]:
+        """Get full metric metadata with priority hierarchy.
+
+        This method returns the complete metadata dictionary for a metric,
+        including all fields (threshold, criteria, evaluation_steps, etc.).
+
+        Priority:
+        1. Level-specific metadata (turn-specific for turns, conversation-specific for convs)
+        2. System defaults
+
+        Args:
+            metric_identifier: The metric to get metadata for
+            level: Whether this is TURN or CONVERSATION level
+            conv_data: Conversation data for conversation-level metadata
+            turn_data: Turn data for turn-specific metadata
+
+        Returns:
+            Full metadata dictionary or None if not found
+        """
+        # Check level-specific metadata first
+        level_metadata = self._get_level_metadata(level, conv_data, turn_data)
+        if metric_identifier in level_metadata:
+            return level_metadata[metric_identifier]
+
+        # Fall back to system defaults
+        system_metadata = self._get_system_metadata(level)
+        return system_metadata.get(metric_identifier)
+
     def get_effective_threshold(
         self,
         metric_identifier: str,
@@ -69,15 +103,11 @@ class MetricManager:
         Returns:
             Effective threshold or None if not found
         """
-        # Check level-specific metadata first
-        level_metadata = self._get_level_metadata(level, conv_data, turn_data)
-        threshold = level_metadata.get(metric_identifier, {}).get("threshold")
-        if threshold is not None:
-            return threshold
-
-        # Fall back to system defaults
-        system_metadata = self._get_system_metadata(level)
-        return system_metadata.get(metric_identifier, {}).get("threshold")
+        # Use the unified metadata getter
+        metadata = self.get_metric_metadata(
+            metric_identifier, level, conv_data, turn_data
+        )
+        return metadata.get("threshold") if metadata else None
 
     def _get_level_metadata(
         self,

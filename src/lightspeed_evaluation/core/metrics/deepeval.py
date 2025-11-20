@@ -1,5 +1,11 @@
-"""DeepEval metrics evaluation using LLM Manager."""
+"""DeepEval metrics evaluation using LLM Manager.
 
+This module provides integration with DeepEval metrics including:
+1. Standard DeepEval metrics (conversation completeness, relevancy, knowledge retention)
+2. GEval integration for configurable custom evaluation criteria
+"""
+
+import logging
 from typing import Any, Optional
 
 import litellm
@@ -15,29 +21,51 @@ from litellm.types.caching import LiteLLMCacheType
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.metrics.geval import GEvalHandler
+from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
+
+logger = logging.getLogger(__name__)
 
 
 class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
-    """Handles DeepEval metrics evaluation using LLM Manager."""
+    """Handles DeepEval metrics evaluation using LLM Manager.
 
-    def __init__(self, llm_manager: LLMManager):
+    This class provides a unified interface for both standard DeepEval metrics
+    and GEval (configurable custom metrics). It shares LLM resources between
+    both evaluation types for efficiency.
+    """
+
+    def __init__(
+        self,
+        llm_manager: LLMManager,
+        metric_manager: MetricManager,
+    ):
         """Initialize with LLM Manager.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
+            metric_manager: MetricManager for accessing metric metadata
         """
+        # Setup cache if enabled (shared across all DeepEval operations)
         if llm_manager.get_config().cache_enabled and litellm.cache is None:
             cache_dir = llm_manager.get_config().cache_dir
             # Modifying global litellm cache as there is no clear way how to do it per model
             # Checking if the litellm.cache as there is potential conflict with Ragas code
             litellm.cache = Cache(type=LiteLLMCacheType.DISK, disk_cache_dir=cache_dir)
 
-        # Create LLM Manager for DeepEval metrics
+        # Create shared LLM Manager for all DeepEval metrics (standard + GEval)
         self.llm_manager = DeepEvalLLMManager(
             llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
 
+        # Initialize GEval handler with shared LLM manager and metric manager
+        self.geval_handler = GEvalHandler(
+            deepeval_llm_manager=self.llm_manager,
+            metric_manager=metric_manager,
+        )
+
+        # Standard DeepEval metrics routing
         self.supported_metrics = {
             "conversation_completeness": self._evaluate_conversation_completeness,
             "conversation_relevancy": self._evaluate_conversation_relevancy,
@@ -72,16 +100,42 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
         conv_data: Any,
         scope: EvaluationScope,
     ) -> tuple[Optional[float], str]:
-        """Evaluate a DeepEval metric."""
-        if metric_name not in self.supported_metrics:
-            return None, f"Unsupported DeepEval metric: {metric_name}"
+        """Evaluate a DeepEval metric (standard or GEval).
 
-        try:
-            return self.supported_metrics[metric_name](
-                conv_data, scope.turn_idx, scope.turn_data, scope.is_conversation
-            )
-        except (ValueError, AttributeError, KeyError) as e:
-            return None, f"DeepEval {metric_name} evaluation failed: {str(e)}"
+        This method routes evaluation to either:
+        - Standard DeepEval metrics (hardcoded implementations)
+        - GEval metrics (configuration-driven custom metrics)
+
+        Args:
+            metric_name: Name of metric (for GEval, this should NOT include "geval:" prefix)
+            conv_data: Conversation data object
+            scope: EvaluationScope containing turn info and conversation flag
+
+        Returns:
+            Tuple of (score, reason)
+        """
+        # Route to standard DeepEval metrics
+        if metric_name in self.supported_metrics:
+            try:
+                return self.supported_metrics[metric_name](
+                    conv_data, scope.turn_idx, scope.turn_data, scope.is_conversation
+                )
+            except (ValueError, AttributeError, KeyError) as e:
+                return None, f"DeepEval {metric_name} evaluation failed: {str(e)}"
+
+        # Otherwise, assume it's a GEval metric
+        normalized_metric_name = (
+            metric_name.split(":", 1)[1]
+            if metric_name.startswith("geval:")
+            else metric_name
+        )
+        return self.geval_handler.evaluate(
+            metric_name=normalized_metric_name,
+            conv_data=conv_data,
+            _turn_idx=scope.turn_idx,
+            turn_data=scope.turn_data,
+            is_conversation=scope.is_conversation,
+        )
 
     def _evaluate_conversation_completeness(
         self,

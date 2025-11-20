@@ -43,7 +43,10 @@ class MetricsEvaluator:
 
         # Initialize metric handlers
         self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
-        self.deepeval_metrics = DeepEvalMetrics(llm_manager)
+        self.deepeval_metrics = DeepEvalMetrics(
+            llm_manager,
+            metric_manager=metric_manager,
+        )
         self.custom_metrics = CustomMetrics(llm_manager)
         self.script_eval_metrics = ScriptEvalMetrics(script_manager)
 
@@ -51,6 +54,8 @@ class MetricsEvaluator:
         self.handlers = {
             "ragas": self.ragas_metrics,
             "deepeval": self.deepeval_metrics,
+            # Note: geval metrics are routed through deepeval_metrics handler
+            "geval": self.deepeval_metrics,
             "custom": self.custom_metrics,
             "script": self.script_eval_metrics,
         }
