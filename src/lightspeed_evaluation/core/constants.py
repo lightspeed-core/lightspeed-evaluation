@@ -19,6 +19,7 @@ DEFAULT_EMBEDDING_CACHE_DIR = ".caches/embedding_cache"
 
 DEFAULT_OUTPUT_DIR = "./eval_output"
 DEFAULT_BASE_FILENAME = "evaluation"
+MAX_RUN_NAME_LENGTH = 100
 
 SUPPORTED_OUTPUT_TYPES = ["csv", "json", "txt"]
 SUPPORTED_CSV_COLUMNS = [
