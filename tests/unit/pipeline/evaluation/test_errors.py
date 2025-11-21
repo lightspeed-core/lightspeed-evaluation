@@ -178,3 +178,117 @@ class TestEvaluationErrorHandler:
         assert summary["total_errors"] == 3
         assert summary["turn_errors"] == 2
         assert summary["conversation_errors"] == 1
+
+    def test_mark_turn_metrics_as_error(self):
+        """Test marking metrics for a single turn as error."""
+        handler = EvaluationErrorHandler()
+
+        turn_data = TurnData(
+            turn_id="turn1", query="Test query", response="Test response"
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+
+        turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
+        error_reason = "API Error: Connection timeout"
+
+        results = handler.mark_turn_metrics_as_error(
+            conv_data, 0, turn_data, turn_metrics, error_reason
+        )
+
+        # Should have 2 error results (one for each metric)
+        assert len(results) == 2
+
+        # Check first error result
+        assert results[0].conversation_group_id == "test_conv"
+        assert results[0].turn_id == "turn1"
+        assert results[0].metric_identifier == "ragas:faithfulness"
+        assert results[0].result == "ERROR"
+        assert results[0].score is None
+        assert results[0].threshold is None
+        assert results[0].reason == error_reason
+        assert results[0].query == "Test query"
+        assert results[0].response == ""
+        assert results[0].execution_time == 0.0
+
+        # Check second error result
+        assert results[1].conversation_group_id == "test_conv"
+        assert results[1].turn_id == "turn1"
+        assert results[1].metric_identifier == "custom:answer_correctness"
+        assert results[1].result == "ERROR"
+        assert results[1].reason == error_reason
+
+        # Verify results are stored internally
+        summary = handler.get_error_summary()
+        assert summary["total_errors"] == 2
+        assert summary["turn_errors"] == 2
+        assert summary["conversation_errors"] == 0
+
+    def test_mark_cascade_failure(self):
+        """Test marking remaining turns and conversation metrics as error after API failure."""
+        handler = EvaluationErrorHandler()
+
+        # Setup conversation with 3 turns
+        turn1 = TurnData(turn_id="turn1", query="Query 1", response="Response 1")
+        turn2 = TurnData(turn_id="turn2", query="Query 2", response="Response 2")
+        turn3 = TurnData(turn_id="turn3", query="Query 3", response="Response 3")
+        conv_data = EvaluationData(
+            conversation_group_id="test_conv", turns=[turn1, turn2, turn3]
+        )
+
+        # Resolved metrics for all turns
+        resolved_turn_metrics = [
+            ["ragas:faithfulness"],  # turn1
+            ["custom:answer_correctness"],  # turn2
+            ["ragas:response_relevancy"],  # turn3
+        ]
+        resolved_conversation_metrics = [
+            "deepeval:conversation_completeness",
+            "deepeval:conversation_relevancy",
+        ]
+
+        # API failure happens at turn 0 (first turn)
+        failed_turn_idx = 0
+        error_reason = "Cascade failure from turn 1 API error: Connection timeout"
+
+        results = handler.mark_cascade_failure(
+            conv_data,
+            failed_turn_idx,
+            resolved_turn_metrics,
+            resolved_conversation_metrics,
+            error_reason,
+        )
+
+        # Should have errors for:
+        # - Turn 2 (1 metric) + Turn 3 (1 metric) + Conversation (2 metrics) = 4 total
+        assert len(results) == 4
+
+        # Check turn 2 error
+        turn2_result = results[0]
+        assert turn2_result.conversation_group_id == "test_conv"
+        assert turn2_result.turn_id == "turn2"
+        assert turn2_result.metric_identifier == "custom:answer_correctness"
+        assert turn2_result.result == "ERROR"
+        assert turn2_result.reason == error_reason
+
+        # Check turn 3 error
+        turn3_result = results[1]
+        assert turn3_result.turn_id == "turn3"
+        assert turn3_result.metric_identifier == "ragas:response_relevancy"
+        assert turn3_result.result == "ERROR"
+
+        # Check conversation-level errors
+        conv_result1 = results[2]
+        assert conv_result1.turn_id is None  # Conversation-level
+        assert conv_result1.metric_identifier == "deepeval:conversation_completeness"
+        assert conv_result1.result == "ERROR"
+
+        conv_result2 = results[3]
+        assert conv_result2.turn_id is None  # Conversation-level
+        assert conv_result2.metric_identifier == "deepeval:conversation_relevancy"
+        assert conv_result2.result == "ERROR"
+
+        # Verify summary
+        summary = handler.get_error_summary()
+        assert summary["total_errors"] == 4
+        assert summary["turn_errors"] == 2  # turn2 + turn3
+        assert summary["conversation_errors"] == 2

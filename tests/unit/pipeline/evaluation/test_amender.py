@@ -1,6 +1,6 @@
 """Unit tests for pipeline evaluation amender module."""
 
-from lightspeed_evaluation.core.models import APIResponse, EvaluationData, TurnData
+from lightspeed_evaluation.core.models import APIResponse, TurnData
 from lightspeed_evaluation.core.system.exceptions import APIError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 
@@ -8,20 +8,20 @@ from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 class TestAPIDataAmender:
     """Unit tests for APIDataAmender."""
 
-    def test_amend_conversation_data_no_client(self):
+    def test_amend_single_turn_no_client(self):
         """Test amendment returns None when no API client is available."""
         amender = APIDataAmender(None)
 
         turn = TurnData(turn_id="1", query="Test query", response=None)
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = amender.amend_conversation_data(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn)
 
-        assert result is None
+        assert error_msg is None
+        assert conversation_id is None
         assert turn.response is None  # Not modified
 
-    def test_amend_conversation_data_single_turn(self, mocker):
-        """Test amending conversation data with single turn."""
+    def test_amend_single_turn_success(self, mocker):
+        """Test amending single turn data successfully."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
             response="Generated response",
@@ -34,12 +34,12 @@ class TestAPIDataAmender:
         amender = APIDataAmender(mock_client)
 
         turn = TurnData(turn_id="1", query="Test query", response=None)
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = amender.amend_conversation_data(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn)
 
         # No error should be returned
-        assert result is None
+        assert error_msg is None
+        assert conversation_id == "conv_123"
 
         # API client should be called once
         mock_client.query.assert_called_once_with(
@@ -51,93 +51,69 @@ class TestAPIDataAmender:
         assert turn.conversation_id == "conv_123"
         assert turn.contexts == ["Context 1", "Context 2"]
 
-    def test_amend_conversation_data_multiple_turns(self, mocker):
-        """Test amending conversation with multiple turns maintains conversation_id."""
+    def test_amend_single_turn_with_conversation_id(self, mocker):
+        """Test amending turn with existing conversation ID."""
         mock_client = mocker.Mock()
-
-        # First turn response
-        response1 = APIResponse(
-            response="Response 1",
-            conversation_id="conv_123",
-            contexts=["Context 1"],
-            tool_calls=[],
-        )
-
-        # Second turn response (same conversation)
-        response2 = APIResponse(
-            response="Response 2",
-            conversation_id="conv_123",
-            contexts=["Context 2"],
-            tool_calls=[],
-        )
-
-        mock_client.query.side_effect = [response1, response2]
-
-        amender = APIDataAmender(mock_client)
-
-        turn1 = TurnData(turn_id="1", query="Query 1", response=None)
-        turn2 = TurnData(turn_id="2", query="Query 2", response=None)
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn1, turn2]
-        )
-
-        result = amender.amend_conversation_data(conv_data)
-
-        assert result is None
-
-        # Should be called twice
-        assert mock_client.query.call_count == 2
-
-        # First call without conversation_id
-        mock_client.query.assert_any_call(
-            query="Query 1", conversation_id=None, attachments=None
-        )
-
-        # Second call with conversation_id from first response
-        mock_client.query.assert_any_call(
-            query="Query 2", conversation_id="conv_123", attachments=None
-        )
-
-        # Both turns should be amended
-        assert turn1.response == "Response 1"
-        assert turn1.conversation_id == "conv_123"
-        assert turn2.response == "Response 2"
-        assert turn2.conversation_id == "conv_123"
-
-    def test_amend_conversation_data_with_tool_calls(self, mocker):
-        """Test amending turn data with tool calls."""
-        mock_client = mocker.Mock()
-
-        tool_calls = [
-            [{"tool_name": "search", "arguments": {"query": "test"}}],
-            [{"tool_name": "calculator", "arguments": {"expr": "2+2"}}],
-        ]
-
         api_response = APIResponse(
-            response="Used tools",
+            response="Follow-up response",
             conversation_id="conv_123",
-            contexts=["Context"],
-            tool_calls=tool_calls,
+            contexts=["Context 3"],
+            tool_calls=[],
         )
         mock_client.query.return_value = api_response
 
         amender = APIDataAmender(mock_client)
 
-        turn = TurnData(turn_id="1", query="Query with tools", response=None)
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
+        turn = TurnData(turn_id="2", query="Follow-up query", response=None)
 
-        result = amender.amend_conversation_data(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn, "conv_123")
 
-        assert result is None
-        assert turn.tool_calls == tool_calls
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id == "conv_123"
 
-    def test_amend_conversation_data_with_attachments(self, mocker):
-        """Test amending turn with attachments."""
+        # API client should be called with existing conversation ID
+        mock_client.query.assert_called_once_with(
+            query="Follow-up query", conversation_id="conv_123", attachments=None
+        )
+
+        # Turn data should be amended
+        assert turn.response == "Follow-up response"
+        assert turn.conversation_id == "conv_123"
+        assert turn.contexts == ["Context 3"]
+
+    def test_amend_single_turn_with_tool_calls(self, mocker):
+        """Test amending turn data with tool calls."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
-            response="Response with attachments",
-            conversation_id="conv_123",
-            contexts=["Context"],
+            response="Tool response",
+            conversation_id="conv_456",
+            contexts=[],
+            tool_calls=[[{"tool": "test_tool", "args": {"param": "value"}}]],
+        )
+        mock_client.query.return_value = api_response
+
+        amender = APIDataAmender(mock_client)
+
+        turn = TurnData(turn_id="3", query="Tool query", response=None)
+
+        error_msg, conversation_id = amender.amend_single_turn(turn)
+
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id == "conv_456"
+
+        # Turn data should be amended with tool calls
+        assert turn.response == "Tool response"
+        assert turn.tool_calls == [[{"tool": "test_tool", "args": {"param": "value"}}]]
+
+    def test_amend_single_turn_with_attachments(self, mocker):
+        """Test amending turn data with attachments."""
+        mock_client = mocker.Mock()
+        api_response = APIResponse(
+            response="Attachment response",
+            conversation_id="conv_789",
+            contexts=["Attachment context"],
             tool_calls=[],
         )
         mock_client.query.return_value = api_response
@@ -145,147 +121,94 @@ class TestAPIDataAmender:
         amender = APIDataAmender(mock_client)
 
         turn = TurnData(
-            turn_id="1",
-            query="Query",
+            turn_id="4",
+            query="Attachment query",
             response=None,
             attachments=["file1.txt", "file2.pdf"],
         )
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = amender.amend_conversation_data(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn)
 
-        assert result is None
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id == "conv_789"
 
-        # Should pass attachments to API
+        # API client should be called with attachments
         mock_client.query.assert_called_once_with(
-            query="Query", conversation_id=None, attachments=["file1.txt", "file2.pdf"]
+            query="Attachment query",
+            conversation_id=None,
+            attachments=["file1.txt", "file2.pdf"],
         )
 
-    def test_amend_conversation_data_api_error_first_turn(self, mocker):
-        """Test API error on first turn returns error message."""
+        # Turn data should be amended
+        assert turn.response == "Attachment response"
+        assert turn.contexts == ["Attachment context"]
+
+    def test_amend_single_turn_api_error(self, mocker):
+        """Test handling API error during turn amendment."""
         mock_client = mocker.Mock()
         mock_client.query.side_effect = APIError("Connection failed")
 
         amender = APIDataAmender(mock_client)
 
-        turn = TurnData(turn_id="1", query="Query", response=None)
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
+        turn = TurnData(turn_id="5", query="Error query", response=None)
 
-        result = amender.amend_conversation_data(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn)
 
-        # Should return error message
-        assert result is not None
-        assert "API Error for turn 1" in result
-        assert "Connection failed" in result
+        # Error should be returned
+        assert error_msg == "API Error for turn 5: Connection failed"
+        assert conversation_id is None
 
-    def test_amend_conversation_data_api_error_second_turn(self, mocker):
-        """Test API error on second turn after first succeeds."""
-        mock_client = mocker.Mock()
+        # Turn data should not be modified
+        assert turn.response is None
+        assert turn.conversation_id is None
 
-        # First turn succeeds
-        response1 = APIResponse(
-            response="Response 1",
-            conversation_id="conv_123",
-            contexts=["Context"],
-            tool_calls=[],
-        )
-
-        # Second turn fails
-        mock_client.query.side_effect = [response1, APIError("Rate limit exceeded")]
-
-        amender = APIDataAmender(mock_client)
-
-        turn1 = TurnData(turn_id="1", query="Query 1", response=None)
-        turn2 = TurnData(turn_id="2", query="Query 2", response=None)
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn1, turn2]
-        )
-
-        result = amender.amend_conversation_data(conv_data)
-
-        # Should return error message for turn 2
-        assert result is not None
-        assert "API Error for turn 2" in result
-        assert "Rate limit exceeded" in result
-
-        # First turn should still be amended
-        assert turn1.response == "Response 1"
-        # Second turn should not be amended
-        assert turn2.response is None
-
-    def test_amend_conversation_data_no_contexts_in_response(self, mocker):
-        """Test amending when API response has no contexts."""
+    def test_amend_single_turn_no_contexts_in_response(self, mocker):
+        """Test amending turn when API response has no contexts."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
-            response="Response without contexts",
-            conversation_id="conv_123",
-            contexts=[],
+            response="No context response",
+            conversation_id="conv_no_ctx",
+            contexts=[],  # Empty contexts
             tool_calls=[],
         )
         mock_client.query.return_value = api_response
 
         amender = APIDataAmender(mock_client)
 
-        turn = TurnData(
-            turn_id="1", query="Query", response=None, contexts=["Original context"]
-        )
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
+        turn = TurnData(turn_id="6", query="No context query", response=None)
 
-        result = amender.amend_conversation_data(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn)
 
-        assert result is None
-        assert turn.response == "Response without contexts"
-        # Contexts should remain unchanged when API returns empty list
-        assert turn.contexts == ["Original context"]
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id == "conv_no_ctx"
 
-    def test_get_amendment_summary_with_client(self, mocker):
-        """Test getting amendment summary with API client."""
+        # Turn data should be amended (contexts should remain None since API response has empty contexts)
+        assert turn.response == "No context response"
+        assert turn.contexts is None
+
+    def test_amend_single_turn_no_tool_calls_in_response(self, mocker):
+        """Test amending turn when API response has no tool calls."""
         mock_client = mocker.Mock()
+        api_response = APIResponse(
+            response="No tools response",
+            conversation_id="conv_no_tools",
+            contexts=["Context"],
+            tool_calls=[],  # Empty tool calls
+        )
+        mock_client.query.return_value = api_response
+
         amender = APIDataAmender(mock_client)
 
-        turn1 = TurnData(turn_id="1", query="Q1", response="R1")
-        turn2 = TurnData(turn_id="2", query="Q2", response=None)
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn1, turn2]
-        )
+        turn = TurnData(turn_id="7", query="No tools query", response=None)
 
-        summary = amender.get_amendment_summary(conv_data)
+        error_msg, conversation_id = amender.amend_single_turn(turn)
 
-        assert summary["conversation_group_id"] == "test_conv"
-        assert summary["total_turns"] == 2
-        assert summary["api_enabled"] is True
-        assert summary["turns_with_existing_data"] == 1
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id == "conv_no_tools"
 
-    def test_get_amendment_summary_without_client(self):
-        """Test getting amendment summary without API client."""
-        amender = APIDataAmender(None)
-
-        turn = TurnData(turn_id="1", query="Query", response=None)
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
-
-        summary = amender.get_amendment_summary(conv_data)
-
-        assert summary["conversation_group_id"] == "test_conv"
-        assert summary["total_turns"] == 1
-        assert summary["api_enabled"] is False
-        assert summary["turns_with_existing_data"] == 0
-
-    def test_get_amendment_summary_with_tool_calls(self, mocker):
-        """Test summary counts turns with tool calls as having existing data."""
-        mock_client = mocker.Mock()
-        amender = APIDataAmender(mock_client)
-
-        turn1 = TurnData(
-            turn_id="1",
-            query="Q1",
-            response=None,
-            tool_calls=[[{"tool_name": "search", "arguments": {}}]],
-        )
-        turn2 = TurnData(turn_id="2", query="Q2", response=None)
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn1, turn2]
-        )
-
-        summary = amender.get_amendment_summary(conv_data)
-
-        assert summary["turns_with_existing_data"] == 1  # turn1 has tool_calls
+        # Turn data should be amended (tool_calls should remain None since API response has empty tool_calls)
+        assert turn.response == "No tools response"
+        assert turn.tool_calls is None
