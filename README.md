@@ -110,6 +110,9 @@ core:
   # 50 is OK on a typical laptop. Check your Judge-LLM service for max requests per minute
   max_threads: 50
 
+  # If false don't fail on invalid conversations (like missing context for some metrics)
+  fail_on_invalid_data: true
+
 # Judge-LLM Configuration
 llm:
   provider: openai            # openai, watsonx, azure, gemini etc.

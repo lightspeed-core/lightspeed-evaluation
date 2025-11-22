@@ -62,7 +62,10 @@ class EvaluationPipeline:
             raise ValueError(
                 "SystemConfig must be loaded before initializing components"
             )
-        self.data_validator = DataValidator(api_enabled=config.api.enabled)
+        self.data_validator = DataValidator(
+            api_enabled=config.api.enabled,
+            fail_on_invalid_data=config.core.fail_on_invalid_data,
+        )
 
         # Metric manager
         metric_manager = MetricManager(config)

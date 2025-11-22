@@ -64,6 +64,22 @@ class ConversationProcessor:
             conv_data.conversation_metrics, MetricLevel.CONVERSATION
         )
 
+        # Check if the data passes validation
+        if not conv_data.is_data_valid():
+            # The data is marked as invalid, return ERROR for all metrics
+            logger.error(
+                "Conversation '%s' marked as invalid, check Validation Errors",
+                conv_data.conversation_group_id,
+            )
+            error_results = self.components.error_handler.mark_all_metrics_as_error(
+                conv_data,
+                f"Conversation '{conv_data.conversation_group_id}' marked as invalid"
+                ", check Validation Errors",
+                resolved_turn_metrics=resolved_turn_metrics,
+                resolved_conversation_metrics=resolved_conversation_metrics,
+            )
+            return error_results
+
         # Skip if no metrics specified at any level
         has_turn_metrics = any(bool(metrics) for metrics in resolved_turn_metrics)
         has_conversation_metrics = bool(resolved_conversation_metrics)
