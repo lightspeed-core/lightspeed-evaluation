@@ -131,9 +131,7 @@ class TestConversationProcessorEvaluateTurn:
             response="Python is a programming language.",
             contexts=["Context"],
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
@@ -161,9 +159,7 @@ class TestConversationProcessorEvaluateTurn:
             response="Python is a programming language.",
             contexts=["Context"],
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         # Mark one metric as invalid
         turn_data.add_invalid_metric("ragas:faithfulness")
@@ -194,9 +190,7 @@ class TestConversationProcessorEvaluateTurn:
             response="Python is a programming language.",
             contexts=["Context"],
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         # Mark all metrics as invalid
         turn_data.add_invalid_metric("ragas:faithfulness")
@@ -227,9 +221,7 @@ class TestConversationProcessorEvaluateTurn:
             response="Python is a programming language.",
             contexts=["Context"],
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         # Mark middle metric as invalid
         turn_data.add_invalid_metric("custom:answer_correctness")
@@ -261,9 +253,7 @@ class TestConversationProcessorEvaluateTurn:
             query="What is Python?",
             response="Python is a programming language.",
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         turn_metrics = []
 
@@ -285,9 +275,7 @@ class TestConversationProcessorEvaluateTurn:
             response="Python is a programming language.",
             contexts=["Context"],
         )
-        conv_data = EvaluationData(
-            conversation_group_id="conv_456", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="conv_456", turns=[turn_data])
 
         turn_metrics = ["ragas:faithfulness"]
 
@@ -312,9 +300,7 @@ class TestConversationProcessorEvaluateTurn:
             query="What is Python?",
             response="Python is a programming language.",
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         # Reset the side_effect and make evaluator return None
         mock_metrics_evaluator.evaluate_metric.side_effect = None
@@ -362,9 +348,7 @@ class TestConversationProcessorEvaluateTurn:
             query="What is Python?",
             response="Python is a programming language.",
         )
-        conv_data = EvaluationData(
-            conversation_group_id="test_conv", turns=[turn_data]
-        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
         turn_metrics = [
             "custom:answer_correctness",

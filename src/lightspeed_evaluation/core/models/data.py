@@ -89,11 +89,11 @@ class TurnData(BaseModel):
     _invalid_metrics: set[str] = set()
 
     def add_invalid_metric(self, metric: str) -> None:
-        """Add metric to the invalid turn metrics"""
+        """Add metric to the invalid turn metrics."""
         self._invalid_metrics.add(metric)
 
     def is_metric_invalid(self, metric: str) -> bool:
-        """Returns True if the metric didn't pass the validation"""
+        """Returns True if the metric didn't pass the validation."""
         return metric in self._invalid_metrics
 
     @field_validator("turn_metrics")
@@ -349,11 +349,11 @@ class EvaluationData(BaseModel):
     _invalid_metrics: set[str] = set()
 
     def add_invalid_metric(self, metric: str) -> None:
-        """Add metric to the invalid turn metrics"""
+        """Add metric to the invalid turn metrics."""
         self._invalid_metrics.add(metric)
 
     def is_metric_invalid(self, metric: str) -> bool:
-        """Returns True if the metric didn't pass the validation"""
+        """Returns True if the metric didn't pass the validation."""
         return metric in self._invalid_metrics
 
     @field_validator("conversation_metrics")
