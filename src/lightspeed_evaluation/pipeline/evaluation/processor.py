@@ -190,7 +190,7 @@ class ConversationProcessor:
 
         for metric_identifier in turn_metrics:
             if turn_data.is_metric_invalid(metric_identifier):
-                logging.error(
+                logger.error(
                     "Invalid turn metric '%s', check Validation Errors",
                     metric_identifier,
                 )
@@ -212,7 +212,7 @@ class ConversationProcessor:
 
         for metric_identifier in conversation_metrics:
             if conv_data.is_metric_invalid(metric_identifier):
-                logging.error(
+                logger.error(
                     "Invalid conversation metric '%s', check Validation Errors",
                     metric_identifier,
                 )
