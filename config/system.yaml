@@ -29,7 +29,7 @@ embedding:
 # To get real time data. Currently it supports lightspeed-stack API.
 # But can be easily integrated with other APIs with minimal change.
 api:
-  enabled: true                       # Enable API calls instead of using pre-filled data
+  enabled: true                        # Enable API calls instead of using pre-filled data
   api_base: http://localhost:8080      # Base API URL
   endpoint_type: streaming             # Use "streaming" or "query" endpoint
   timeout: 300                         # API request timeout in seconds

@@ -177,7 +177,7 @@ class DataValidator:
             if turn_data.turn_metrics:
                 for metric in turn_data.turn_metrics:
                     if metric not in TURN_LEVEL_METRICS:
-                        data.mark_data_invalid()
+                        turn_data.add_invalid_metric(metric)
                         self.validation_errors.append(
                             f"Conversation {conversation_id}, Turn {turn_data.turn_id}: "
                             f"Unknown turn metric '{metric}'"
@@ -187,7 +187,7 @@ class DataValidator:
         if data.conversation_metrics:
             for metric in data.conversation_metrics:
                 if metric not in CONVERSATION_LEVEL_METRICS:
-                    data.mark_data_invalid()
+                    data.add_invalid_metric(metric)
                     self.validation_errors.append(
                         f"Conversation {conversation_id}: Unknown conversation metric '{metric}'"
                     )
@@ -201,8 +201,6 @@ class DataValidator:
         # No errors
         if not field_errors:
             return
-
-        data.mark_data_invalid()
 
         # Add conversation group ID prefix to errors
         for error in field_errors:
@@ -253,6 +251,8 @@ class DataValidator:
                         or (isinstance(field_value, str) and not field_value.strip())
                         or (isinstance(field_value, list) and not field_value)
                     ):
+                        turn_data.add_invalid_metric(metric)
+
                         api_context = (
                             " when API is disabled"
                             if field_name in api_populated_fields and not api_enabled
