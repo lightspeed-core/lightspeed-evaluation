@@ -190,10 +190,19 @@ class ConversationProcessor:
 
         for metric_identifier in turn_metrics:
             if turn_data.is_metric_invalid(metric_identifier):
-                logger.error(
-                    "Invalid turn metric '%s', check Validation Errors",
-                    metric_identifier,
+                # The metric didn't pass the validation
+                error_reason = f"Invalid turn metric '{metric_identifier}', check Validation Errors"
+                logger.error(error_reason)
+
+                error_result = EvaluationResult(  # pylint: disable=duplicate-code
+                    conversation_group_id=conv_data.conversation_group_id,
+                    turn_id=turn_data.turn_id,
+                    metric_identifier=metric_identifier,
+                    result="ERROR",
+                    reason=error_reason,
+                    query=turn_data.query,
                 )
+                results.append(error_result)
                 continue
 
             request = EvaluationRequest.for_turn(
@@ -212,10 +221,19 @@ class ConversationProcessor:
 
         for metric_identifier in conversation_metrics:
             if conv_data.is_metric_invalid(metric_identifier):
-                logger.error(
-                    "Invalid conversation metric '%s', check Validation Errors",
-                    metric_identifier,
+                # The metric didn't pass the validation
+                error_reason = (
+                    f"Invalid metric '{metric_identifier}', check Validation Errors"
                 )
+                logger.error(error_reason)
+
+                error_result = EvaluationResult(
+                    conversation_group_id=conv_data.conversation_group_id,
+                    metric_identifier=metric_identifier,
+                    result="ERROR",
+                    reason=error_reason,
+                )
+                results.append(error_result)
                 continue
 
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)

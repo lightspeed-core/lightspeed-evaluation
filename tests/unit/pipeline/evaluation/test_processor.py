@@ -169,9 +169,12 @@ class TestConversationProcessorEvaluateTurn:
         with caplog.at_level(logging.ERROR):
             results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
-        # Should only evaluate the valid metric
-        assert len(results) == 1
-        assert results[0].metric_identifier == "custom:answer_correctness"
+        assert len(results) == 2
+        err_res = results[0]
+        assert err_res.metric_identifier == "ragas:faithfulness"
+        assert err_res.result == "ERROR"
+
+        assert results[1].metric_identifier == "custom:answer_correctness"
 
         # Verify evaluate_metric was called only once (for valid metric)
         assert mock_metrics_evaluator.evaluate_metric.call_count == 1
@@ -201,8 +204,9 @@ class TestConversationProcessorEvaluateTurn:
         with caplog.at_level(logging.ERROR):
             results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
-        # Should return empty results
-        assert len(results) == 0
+        assert len(results) == 2
+        assert results[0].result == "ERROR"
+        assert results[1].result == "ERROR"
 
         # Verify evaluate_metric was never called
         assert mock_metrics_evaluator.evaluate_metric.call_count == 0
@@ -236,9 +240,12 @@ class TestConversationProcessorEvaluateTurn:
             results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should evaluate only the two valid metrics
-        assert len(results) == 2
+        assert len(results) == 3
         assert results[0].metric_identifier == "ragas:faithfulness"
-        assert results[1].metric_identifier == "ragas:context_recall"
+        assert results[1].metric_identifier == "custom:answer_correctness"
+        assert results[2].metric_identifier == "ragas:context_recall"
+
+        assert results[1].result == "ERROR"
 
         # Verify evaluate_metric was called twice
         assert mock_metrics_evaluator.evaluate_metric.call_count == 2
