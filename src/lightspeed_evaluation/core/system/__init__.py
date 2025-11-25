@@ -30,6 +30,7 @@ from lightspeed_evaluation.core.system.exceptions import (
     LLMError,
     MetricError,
 )
+from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.system.setup import (
     setup_environment_variables,
@@ -71,4 +72,6 @@ __all__ = [
     # Setup functions
     "setup_environment_variables",
     "setup_logging",
+    # Utilities
+    "create_lazy_getattr",
 ]

@@ -1,13 +1,28 @@
 """Metrics module for evaluation framework."""
 
-from lightspeed_evaluation.core.metrics.custom import CustomMetrics
-from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
-from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
-from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
+from typing import TYPE_CHECKING
 
-__all__ = [
-    "RagasMetrics",
-    "DeepEvalMetrics",
-    "CustomMetrics",
-    "ScriptEvalMetrics",
-]
+from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
+
+if TYPE_CHECKING:
+    # ruff: noqa: F401
+    from lightspeed_evaluation.core.metrics.custom import CustomMetrics
+    from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
+    from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
+    from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
+
+_LAZY_IMPORTS = {
+    "RagasMetrics": ("lightspeed_evaluation.core.metrics.ragas", "RagasMetrics"),
+    "DeepEvalMetrics": (
+        "lightspeed_evaluation.core.metrics.deepeval",
+        "DeepEvalMetrics",
+    ),
+    "CustomMetrics": ("lightspeed_evaluation.core.metrics.custom", "CustomMetrics"),
+    "ScriptEvalMetrics": (
+        "lightspeed_evaluation.core.metrics.script",
+        "ScriptEvalMetrics",
+    ),
+}
+
+__getattr__ = create_lazy_getattr(_LAZY_IMPORTS, __name__)
+__all__ = list(_LAZY_IMPORTS.keys())
