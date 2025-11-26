@@ -186,7 +186,7 @@ class TestConversationProcessorEvaluateTurn:
     def test_evaluate_turn_with_all_invalid_metrics(
         self, processor, mock_metrics_evaluator, caplog
     ):
-        """Test _evaluate_turn with all metrics invalid - should return empty results."""
+        """Test _evaluate_turn with all metrics invalid - should return ERROR results."""
         turn_data = TurnData(
             turn_id="1",
             query="What is Python?",
