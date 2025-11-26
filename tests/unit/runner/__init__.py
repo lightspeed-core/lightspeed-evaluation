@@ -1,1 +1,1 @@
-"""Unit tests for runner modules."""
+"""Unit tests for runner module."""

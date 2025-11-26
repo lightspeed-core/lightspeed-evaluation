@@ -267,3 +267,145 @@ class TestOutputHandler:
 
         # Should use defaults
         assert (tmp_path / "evaluation_20250101_120000_detailed.csv").exists()
+
+
+class TestOutputHandlerInitialization:
+    """Additional tests for OutputHandler initialization and configuration."""
+
+    def test_output_handler_initialization_default(self, tmp_path, mocker):
+        """Test OutputHandler initialization with default parameters."""
+        mock_print = mocker.patch("builtins.print")
+
+        handler = OutputHandler(output_dir=str(tmp_path))
+
+        assert handler.output_dir == tmp_path
+        assert handler.base_filename == "evaluation"
+        assert handler.system_config is None
+        assert handler.output_dir.exists()
+
+        mock_print.assert_called_with(f"✅ Output handler initialized: {tmp_path}")
+
+    def test_output_handler_initialization_custom(self, tmp_path, mocker):
+        """Test OutputHandler initialization with custom parameters."""
+        system_config = mocker.Mock()
+        system_config.llm.provider = "openai"
+
+        mocker.patch("builtins.print")
+
+        handler = OutputHandler(
+            output_dir=str(tmp_path),
+            base_filename="custom_eval",
+            system_config=system_config,
+        )
+
+        assert handler.output_dir == tmp_path
+        assert handler.base_filename == "custom_eval"
+        assert handler.system_config == system_config
+
+    def test_output_handler_creates_directory(self, tmp_path, mocker):
+        """Test that OutputHandler creates output directory if it doesn't exist."""
+        output_path = tmp_path / "new_output_dir"
+
+        mocker.patch("builtins.print")
+
+        handler = OutputHandler(output_dir=str(output_path))
+
+        assert handler.output_dir.exists()
+        assert handler.output_dir.is_dir()
+
+    def test_generate_csv_with_specific_results(self, tmp_path, mocker):
+        """Test CSV report generation with specific results."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="test_conv",
+                turn_id="turn1",
+                metric_identifier="test:metric",
+                result="PASS",
+                score=0.8,
+                threshold=0.7,
+                reason="Good performance",
+                execution_time=1.5,
+            ),
+            EvaluationResult(
+                conversation_group_id="test_conv",
+                turn_id="turn2",
+                metric_identifier="test:metric",
+                result="FAIL",
+                score=0.3,
+                threshold=0.7,
+                reason="Poor performance",
+                execution_time=0.8,
+            ),
+        ]
+
+        mocker.patch("builtins.print")
+
+        handler = OutputHandler(output_dir=str(tmp_path))
+        csv_file = handler._generate_csv_report(results, "test_eval")
+
+        assert csv_file.exists()
+        assert csv_file.suffix == ".csv"
+
+        # Read and verify CSV content
+        import csv as csv_module
+
+        with open(csv_file, encoding="utf-8") as f:
+            reader = csv_module.DictReader(f)
+            rows = list(reader)
+
+        assert len(rows) == 2
+        assert rows[0]["conversation_group_id"] == "test_conv"
+        assert rows[0]["result"] == "PASS"
+        assert rows[1]["result"] == "FAIL"
+
+    def test_csv_columns_configuration(self, tmp_path, mocker):
+        """Test that CSV uses configured columns."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="test_conv",
+                turn_id="turn1",
+                metric_identifier="test:metric",
+                result="PASS",
+                score=0.8,
+                threshold=0.7,
+                reason="Good performance",
+            )
+        ]
+
+        mocker.patch("builtins.print")
+
+        # Test with custom system config
+        system_config = mocker.Mock()
+        system_config.output.csv_columns = ["conversation_group_id", "result", "score"]
+        system_config.visualization.enabled_graphs = []
+
+        handler = OutputHandler(output_dir=str(tmp_path), system_config=system_config)
+        csv_file = handler._generate_csv_report(results, "test_eval")
+
+        # Read CSV headers
+        import csv as csv_module
+
+        with open(csv_file, encoding="utf-8") as f:
+            reader = csv_module.reader(f)
+            headers = next(reader)
+
+        assert headers == ["conversation_group_id", "result", "score"]
+
+    def test_filename_timestamp_format(self, tmp_path, mocker):
+        """Test that generated filenames include proper timestamps."""
+        results = []
+
+        mocker.patch("builtins.print")
+
+        handler = OutputHandler(output_dir=str(tmp_path), base_filename="test")
+
+        # Mock datetime to get predictable timestamps
+        mock_datetime = mocker.patch(
+            "lightspeed_evaluation.core.output.generator.datetime"
+        )
+        mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
+
+        csv_file = handler._generate_csv_report(results, "test_20240101_120000")
+
+        assert "test_20240101_120000" in csv_file.name
+        assert csv_file.suffix == ".csv"

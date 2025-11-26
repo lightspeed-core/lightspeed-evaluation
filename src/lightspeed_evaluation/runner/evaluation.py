@@ -48,7 +48,10 @@ def run_evaluation(  # pylint: disable=too-many-locals
         output_config = system_config.output
 
         # Step 2: Load and validate evaluation data
-        data_validator = DataValidator(api_enabled=system_config.api.enabled)
+        data_validator = DataValidator(
+            api_enabled=system_config.api.enabled,
+            fail_on_invalid_data=system_config.core.fail_on_invalid_data,
+        )
         evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
 
         print(f"✅ System config: {llm_config.provider}/{llm_config.model}")

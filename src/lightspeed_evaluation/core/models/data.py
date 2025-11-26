@@ -85,6 +85,17 @@ class TurnData(BaseModel):
         default=None, description="Path to verify script for script-based evaluation"
     )
 
+    # Set of turn metrics that don't pass the validation to ignore them later
+    _invalid_metrics: set[str] = set()
+
+    def add_invalid_metric(self, metric: str) -> None:
+        """Add metric to the invalid turn metrics."""
+        self._invalid_metrics.add(metric)
+
+    def is_metric_invalid(self, metric: str) -> bool:
+        """Returns True if the metric didn't pass the validation."""
+        return metric in self._invalid_metrics
+
     @field_validator("turn_metrics")
     @classmethod
     def validate_turn_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
@@ -333,6 +344,17 @@ class EvaluationData(BaseModel):
         default=None,
         description="Path to cleanup script to run after conversation ends",
     )
+
+    # Set of conversation metrics that don't pass the validation to ignore them later
+    _invalid_metrics: set[str] = set()
+
+    def add_invalid_metric(self, metric: str) -> None:
+        """Add metric to the invalid turn metrics."""
+        self._invalid_metrics.add(metric)
+
+    def is_metric_invalid(self, metric: str) -> bool:
+        """Returns True if the metric didn't pass the validation."""
+        return metric in self._invalid_metrics
 
     @field_validator("conversation_metrics")
     @classmethod

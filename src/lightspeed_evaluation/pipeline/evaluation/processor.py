@@ -189,6 +189,22 @@ class ConversationProcessor:
         results = []
 
         for metric_identifier in turn_metrics:
+            if turn_data.is_metric_invalid(metric_identifier):
+                # The metric didn't pass the validation
+                error_reason = f"Invalid turn metric '{metric_identifier}', check Validation Errors"
+                logger.error(error_reason)
+
+                error_result = EvaluationResult(  # pylint: disable=duplicate-code
+                    conversation_group_id=conv_data.conversation_group_id,
+                    turn_id=turn_data.turn_id,
+                    metric_identifier=metric_identifier,
+                    result="ERROR",
+                    reason=error_reason,
+                    query=turn_data.query,
+                )
+                results.append(error_result)
+                continue
+
             request = EvaluationRequest.for_turn(
                 conv_data, metric_identifier, turn_idx, turn_data
             )
@@ -204,6 +220,22 @@ class ConversationProcessor:
         results = []
 
         for metric_identifier in conversation_metrics:
+            if conv_data.is_metric_invalid(metric_identifier):
+                # The metric didn't pass the validation
+                error_reason = (
+                    f"Invalid metric '{metric_identifier}', check Validation Errors"
+                )
+                logger.error(error_reason)
+
+                error_result = EvaluationResult(
+                    conversation_group_id=conv_data.conversation_group_id,
+                    metric_identifier=metric_identifier,
+                    result="ERROR",
+                    reason=error_reason,
+                )
+                results.append(error_result)
+                continue
+
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
             result = self.components.metrics_evaluator.evaluate_metric(request)
             if result:
