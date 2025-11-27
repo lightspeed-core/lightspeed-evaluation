@@ -3,7 +3,6 @@
 from typing import Any, Optional, Union
 
 import litellm
-import re
 
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
