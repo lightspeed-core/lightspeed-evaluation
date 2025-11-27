@@ -57,7 +57,7 @@ class AgentHttpClient:
 
         try:
             response = self.client.post(
-                "/v1/query",
+                "/query",
                 json=api_input,
                 timeout=timeout,
             )

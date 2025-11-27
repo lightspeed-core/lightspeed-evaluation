@@ -65,7 +65,7 @@ class LSClient:  # pylint: disable=too-few-public-methods
 
         logging.info("Calling LightSpeed service for query '%s'", query)
         response = self.client.post(
-            "/v1/query",
+            "/query",
             json={
                 "query": query,
                 "provider": self.provider,

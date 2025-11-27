@@ -127,7 +127,7 @@ class APIClient:
             raise APIError("HTTP client not initialized")
         try:
             response = self.client.post(
-                "/v1/query",
+                "/query",
                 json=api_request.model_dump(exclude_none=True),
             )
             response.raise_for_status()

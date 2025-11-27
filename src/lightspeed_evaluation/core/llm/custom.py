@@ -3,6 +3,7 @@
 from typing import Any, Optional, Union
 
 import litellm
+import re
 
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
@@ -46,6 +47,7 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temp,
             "n": n,
+            "response_format": {"type": "json_object"},
             "max_tokens": self.llm_params.get("max_tokens"),
             "timeout": self.llm_params.get("timeout"),
             "num_retries": self.llm_params.get("num_retries", 3),
@@ -70,6 +72,9 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
                 return results[0]
 
             return results
+
+        except Exception as e:
+            raise LLMError(f"LLM call failed: {str(e)}") from e
 
         except Exception as e:
             raise LLMError(f"LLM call failed: {str(e)}") from e
