@@ -200,7 +200,7 @@ Expectation is that, either a third-party inference provider access is there or 
 ```bash
 lsc_agent_eval \
     --eval_data_yaml agent_goal_eval.yaml \
-    --agent_endpoint http://localhost:8080 \
+    --agent_endpoint http://localhost:8080/v1 \
     --endpoint_type streaming \
     --agent_provider watsonx \
     --agent_model ibm/granite-3-2-8b-instruct \
@@ -218,7 +218,7 @@ from lsc_agent_eval import AgentGoalEval
 class EvalArgs:
     def __init__(self):
         self.eval_data_yaml = 'data/example_eval.yaml'
-        self.agent_endpoint = 'http://localhost:8080'
+        self.agent_endpoint = 'http://localhost:8080/v1'
         self.endpoint_type = 'query'  # Non-streaming
         self.agent_provider = 'watsonx'
         self.agent_model = 'ibm/granite-3-2-8b-instruct'
@@ -236,7 +236,7 @@ evaluator.run_evaluation()
 ### Key Arguments
 
 - `--eval_data_yaml`: Path to the YAML file containing evaluation data
-- `--agent_endpoint`: Endpoint URL for the agent API (default: <http://localhost:8080>)
+- `--agent_endpoint`: Endpoint URL for the agent API (default: <http://localhost:8080/v1>)
 - `--endpoint_type`: Endpoint type to use for agent queries (default: streaming). Options: 'streaming' or 'query'
 - `--agent_auth_token_file`: Path to .txt file containing API token (if required). Or set `AGENT_API_TOKEN` env var without using a .txt file
 - `--agent_provider`: Provider for the agent API

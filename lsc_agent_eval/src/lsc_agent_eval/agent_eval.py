@@ -31,7 +31,7 @@ def _args_parser(args: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--agent_endpoint",
         type=str,
-        default="http://localhost:8080",
+        default="http://localhost:8080/v1",
         help="Agent API endpoint URL",
     )
 

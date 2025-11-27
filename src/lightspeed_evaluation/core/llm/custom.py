@@ -46,6 +46,7 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temp,
             "n": n,
+            "response_format": {"type": "json_object"},
             "max_tokens": self.llm_params.get("max_tokens"),
             "timeout": self.llm_params.get("timeout"),
             "num_retries": self.llm_params.get("num_retries", 3),
