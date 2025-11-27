@@ -74,6 +74,3 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
 
         except Exception as e:
             raise LLMError(f"LLM call failed: {str(e)}") from e
-
-        except Exception as e:
-            raise LLMError(f"LLM call failed: {str(e)}") from e
