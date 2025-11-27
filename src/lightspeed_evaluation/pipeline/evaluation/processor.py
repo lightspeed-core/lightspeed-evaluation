@@ -43,7 +43,9 @@ class ConversationProcessor:
         self.config = config_loader.system_config
         self.components = components
 
-    def process_conversation(self, conv_data: EvaluationData) -> list[EvaluationResult]:
+    def process_conversation(  # pylint: disable=too-many-locals
+        self, conv_data: EvaluationData
+    ) -> list[EvaluationResult]:
         """Process single conversation - handle turn and conversation level metrics.
 
         Returns:
@@ -88,31 +90,68 @@ class ConversationProcessor:
             return error_results
 
         try:
-            # Step 2: Amend with API data if enabled
             if self.config is None:
                 raise ValueError("SystemConfig must be loaded")
-            api_error_message = None
-            if self.config.api.enabled:
-                logger.debug("Amending data via API")
-                api_error_message = self.components.api_amender.amend_conversation_data(
-                    conv_data
-                )
 
-            # If API error occurred, mark all metrics as ERROR and skip evaluation
-            if api_error_message:
-                logger.error("API error detected - marking all metrics as ERROR")
-                error_results = self.components.error_handler.mark_all_metrics_as_error(
-                    conv_data,
-                    api_error_message,
-                    resolved_turn_metrics=resolved_turn_metrics,
-                    resolved_conversation_metrics=resolved_conversation_metrics,
-                )
-                return error_results
+            # Step 2: Process each turn individually (API call + evaluation)
+            conversation_id: Optional[str] = None
 
-            # Step 3: Process turn-level metrics for each turn
             for turn_idx, (turn_data, turn_metrics) in enumerate(
                 zip(conv_data.turns, resolved_turn_metrics)
             ):
+                # Step 2a: Amend with API data if enabled (per turn)
+                if self.config.api.enabled:
+                    logger.debug("Processing turn %d: %s", turn_idx, turn_data.turn_id)
+                    api_error_message, conversation_id = (
+                        self.components.api_amender.amend_single_turn(
+                            turn_data, conversation_id
+                        )
+                    )
+                    logger.debug(
+                        "✅ API Call completed for turn %d: %s",
+                        turn_idx,
+                        turn_data.turn_id,
+                    )
+
+                    # If API error occurred, mark current turn + remaining + conversation as ERROR
+                    if api_error_message:
+                        logger.error(
+                            "API error for turn %d - marking current turn, "
+                            "remaining turns, and conversation as ERROR",
+                            turn_idx,
+                        )
+                        # Mark current turn as ERROR
+                        current_turn_errors = (
+                            self.components.error_handler.mark_turn_metrics_as_error(
+                                conv_data,
+                                turn_idx,
+                                turn_data,
+                                turn_metrics,
+                                api_error_message,
+                            )
+                        )
+                        results.extend(current_turn_errors)
+
+                        # Mark remaining turns and conversation metrics as ERROR
+                        cascade_error_reason = (
+                            f"Cascade failure from turn {turn_idx + 1} API error: "
+                            f"{api_error_message}"
+                        )
+                        remaining_errors = (
+                            self.components.error_handler.mark_cascade_failure(
+                                conv_data,
+                                turn_idx,
+                                resolved_turn_metrics,
+                                resolved_conversation_metrics,
+                                cascade_error_reason,
+                            )
+                        )
+                        results.extend(remaining_errors)
+
+                        # Stop processing - API failure cascades to all remaining
+                        return results
+
+                # Step 2b: Process turn-level metrics for this turn
                 if turn_metrics:
                     logger.debug(
                         "Processing turn %d metrics: %s", turn_idx, turn_metrics
@@ -122,7 +161,7 @@ class ConversationProcessor:
                     )
                     results.extend(turn_results)
 
-            # Step 4: Process conversation-level metrics
+            # Step 3: Process conversation-level metrics
             if resolved_conversation_metrics:
                 logger.debug(
                     "Processing conversation-level metrics: %s",
@@ -136,7 +175,7 @@ class ConversationProcessor:
             return results
 
         finally:
-            # Step 5: Always run cleanup script (if provided) regardless of results
+            # Step 4: Always run cleanup script (if provided) regardless of results
             self._run_cleanup_script(conv_data)
 
     def _evaluate_turn(
@@ -150,6 +189,22 @@ class ConversationProcessor:
         results = []
 
         for metric_identifier in turn_metrics:
+            if turn_data.is_metric_invalid(metric_identifier):
+                # The metric didn't pass the validation
+                error_reason = f"Invalid turn metric '{metric_identifier}', check Validation Errors"
+                logger.error(error_reason)
+
+                error_result = EvaluationResult(  # pylint: disable=duplicate-code
+                    conversation_group_id=conv_data.conversation_group_id,
+                    turn_id=turn_data.turn_id,
+                    metric_identifier=metric_identifier,
+                    result="ERROR",
+                    reason=error_reason,
+                    query=turn_data.query,
+                )
+                results.append(error_result)
+                continue
+
             request = EvaluationRequest.for_turn(
                 conv_data, metric_identifier, turn_idx, turn_data
             )
@@ -165,6 +220,22 @@ class ConversationProcessor:
         results = []
 
         for metric_identifier in conversation_metrics:
+            if conv_data.is_metric_invalid(metric_identifier):
+                # The metric didn't pass the validation
+                error_reason = (
+                    f"Invalid metric '{metric_identifier}', check Validation Errors"
+                )
+                logger.error(error_reason)
+
+                error_result = EvaluationResult(
+                    conversation_group_id=conv_data.conversation_group_id,
+                    metric_identifier=metric_identifier,
+                    result="ERROR",
+                    reason=error_reason,
+                )
+                results.append(error_result)
+                continue
+
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
             result = self.components.metrics_evaluator.evaluate_metric(request)
             if result:

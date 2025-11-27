@@ -29,6 +29,7 @@ class TestTurnData:
         assert turn.turn_id == "1"
         assert turn.query == "What is Python?"
         assert turn.response == "Python is a programming language."
+        assert turn.contexts is not None
         assert len(turn.contexts) == 1
         assert turn.contexts[0] == "Python context"
         assert turn.expected_response == "Python is a high-level language."

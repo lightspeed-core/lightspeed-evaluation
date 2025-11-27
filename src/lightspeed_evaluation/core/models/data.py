@@ -53,6 +53,10 @@ class TurnData(BaseModel):
     contexts: Optional[list[str]] = Field(
         default=None, min_length=1, description="Contexts"
     )
+    expected_keywords: Optional[list[list[str]]] = Field(
+        default=None,
+        description="Expected keywords for keyword evaluation (list of alternatives)",
+    )
     expected_response: Optional[str] = Field(
         default=None, min_length=1, description="Expected response for comparison"
     )
@@ -81,12 +85,53 @@ class TurnData(BaseModel):
         default=None, description="Path to verify script for script-based evaluation"
     )
 
+    # Set of turn metrics that don't pass the validation to ignore them later
+    _invalid_metrics: set[str] = set()
+
+    def add_invalid_metric(self, metric: str) -> None:
+        """Add metric to the invalid turn metrics."""
+        self._invalid_metrics.add(metric)
+
+    def is_metric_invalid(self, metric: str) -> bool:
+        """Returns True if the metric didn't pass the validation."""
+        return metric in self._invalid_metrics
+
     @field_validator("turn_metrics")
     @classmethod
     def validate_turn_metrics(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         """Validate and deduplicate turn-specific metrics."""
         if v is not None:
             v = _validate_and_deduplicate_metrics(v, "Turn metric")
+        return v
+
+    @field_validator("expected_keywords")
+    @classmethod
+    def validate_expected_keywords(
+        cls, v: Optional[list[list[str]]]
+    ) -> Optional[list[list[str]]]:
+        """Validate expected keywords when provided."""
+        if v is None:
+            return None
+
+        if not isinstance(v, list):
+            raise ValueError("expected_keywords must be a list of lists")
+
+        # Validate each alternative group
+        for i, keyword_group in enumerate(v):
+            if not isinstance(keyword_group, list):
+                raise ValueError(f"expected_keywords[{i}] must be a list of strings")
+
+            if not keyword_group:
+                raise ValueError(f"expected_keywords[{i}] cannot be empty")
+
+            for j, keyword in enumerate(keyword_group):
+                if not isinstance(keyword, str):
+                    raise ValueError(f"expected_keywords[{i}][{j}] must be a string")
+                if not keyword.strip():
+                    raise ValueError(
+                        f"expected_keywords[{i}][{j}] cannot be empty or whitespace"
+                    )
+
         return v
 
     @field_validator("expected_tool_calls", mode="before")
@@ -299,6 +344,17 @@ class EvaluationData(BaseModel):
         default=None,
         description="Path to cleanup script to run after conversation ends",
     )
+
+    # Set of conversation metrics that don't pass the validation to ignore them later
+    _invalid_metrics: set[str] = set()
+
+    def add_invalid_metric(self, metric: str) -> None:
+        """Add metric to the invalid turn metrics."""
+        self._invalid_metrics.add(metric)
+
+    def is_metric_invalid(self, metric: str) -> bool:
+        """Returns True if the metric didn't pass the validation."""
+        return metric in self._invalid_metrics
 
     @field_validator("conversation_metrics")
     @classmethod

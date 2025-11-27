@@ -262,6 +262,10 @@ class CoreConfig(BaseModel):
         description="Maximum threads for multithreading eval",
         gt=0,
     )
+    fail_on_invalid_data: bool = Field(
+        default=True,
+        description="If False don't fail on invalid conversations",
+    )
 
 
 class SystemConfig(BaseModel):

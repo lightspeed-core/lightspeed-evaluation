@@ -93,6 +93,111 @@ class TestMetricManager:
         assert "deepeval:conversation_completeness" in metrics
         assert "deepeval:conversation_relevancy" not in metrics
 
+    def test_get_metric_metadata_from_system_defaults(self, system_config):
+        """Test getting full metadata from system defaults."""
+        manager = MetricManager(system_config)
+
+        metadata = manager.get_metric_metadata(
+            "ragas:faithfulness", MetricLevel.TURN, conv_data=None, turn_data=None
+        )
+
+        assert metadata is not None
+        assert metadata["threshold"] == 0.7
+        assert metadata["default"] is True
+        assert metadata["description"] == "Test"
+
+    def test_get_metric_metadata_turn_level_override(self, system_config):
+        """Test turn-level metadata completely overrides system defaults."""
+        manager = MetricManager(system_config)
+
+        turn_data = TurnData(
+            turn_id="1",
+            query="Query",
+            response="Response",
+            turn_metrics_metadata={
+                "ragas:faithfulness": {
+                    "threshold": 0.9,
+                    "custom_field": "custom_value",
+                }
+            },
+        )
+
+        metadata = manager.get_metric_metadata(
+            "ragas:faithfulness", MetricLevel.TURN, turn_data=turn_data
+        )
+
+        assert metadata is not None
+        assert metadata["threshold"] == 0.9
+        assert metadata["custom_field"] == "custom_value"
+        # Turn-level metadata completely replaces system defaults
+        assert "default" not in metadata
+        assert "description" not in metadata
+
+    def test_get_metric_metadata_conversation_level_override(self, system_config):
+        """Test conversation-level metadata overrides system defaults."""
+        manager = MetricManager(system_config)
+
+        turn = TurnData(turn_id="1", query="Q", response="R")
+        conv_data = EvaluationData(
+            conversation_group_id="test_conv",
+            turns=[turn],
+            conversation_metrics_metadata={
+                "deepeval:conversation_completeness": {
+                    "threshold": 0.85,
+                    "criteria": "Custom criteria",
+                }
+            },
+        )
+
+        metadata = manager.get_metric_metadata(
+            "deepeval:conversation_completeness",
+            MetricLevel.CONVERSATION,
+            conv_data=conv_data,
+        )
+
+        assert metadata is not None
+        assert metadata["threshold"] == 0.85
+        assert metadata["criteria"] == "Custom criteria"
+
+    def test_get_metric_metadata_not_found(self, system_config):
+        """Test getting metadata for unknown metric returns None."""
+        manager = MetricManager(system_config)
+
+        metadata = manager.get_metric_metadata("unknown:metric", MetricLevel.TURN)
+
+        assert metadata is None
+
+    def test_get_metric_metadata_preserves_all_fields(self, system_config):
+        """Test that all metadata fields are preserved."""
+        config = SystemConfig()
+        config.default_turn_metrics_metadata = {
+            "geval:technical_accuracy": {
+                "threshold": 0.8,
+                "criteria": "Evaluate technical accuracy",
+                "evaluation_params": ["query", "response", "expected_response"],
+                "evaluation_steps": ["Step 1", "Step 2"],
+                "default": True,
+                "description": "GEval metric for technical accuracy",
+            }
+        }
+
+        manager = MetricManager(config)
+        metadata = manager.get_metric_metadata(
+            "geval:technical_accuracy", MetricLevel.TURN
+        )
+
+        assert metadata is not None
+        assert metadata["threshold"] == 0.8
+        assert metadata["criteria"] == "Evaluate technical accuracy"
+        assert metadata["evaluation_params"] == [
+            "query",
+            "response",
+            "expected_response",
+        ]
+        assert metadata["evaluation_steps"] == ["Step 1", "Step 2"]
+        assert metadata["default"] is True
+        assert metadata["description"] == "GEval metric for technical accuracy"
+
     def test_get_effective_threshold_from_system_defaults(self, system_config):
         """Test getting threshold from system defaults."""
         manager = MetricManager(system_config)

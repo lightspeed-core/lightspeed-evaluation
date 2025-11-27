@@ -3,10 +3,11 @@
 # Core evaluation parameters
 core:
   max_threads: 50             # Maximum number of threads, set to null for Python default. 50 is OK for bigger datasets
+  fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
 
 # LLM as a judge configuration
 llm:
-  provider: "openai"          # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+  provider: "openai"      # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
   model: "gpt-4o-mini"        # Model name for the provider
   temperature: 0.0            # Generation temperature
   max_tokens: 512             # Maximum tokens in response
@@ -76,6 +77,9 @@ metrics_metadata:
       description: "Is what we retrieved actually relevant to user query?"
 
     # Custom metrics
+    "custom:keywords_eval":  # boolean eval (either 0 or 1)
+      description: "Keywords (ALL) matching evaluation with alternative sets"
+
     "custom:answer_correctness":
       threshold: 0.75
       description: "Correctness vs expected answer using custom LLM evaluation"
@@ -90,6 +94,26 @@ metrics_metadata:
     # Script-based metrics
     "script:action_eval":
       description: "Script-based evaluation for infrastructure/environment validation"
+
+    # GEval turn-level metrics 
+    "geval:technical_accuracy":
+      criteria: |
+        Assess whether the response provides technically accurate information,
+        commands, code, syntax, and follows relevant industry or
+        domain-specific best practices. The response should
+        contain valid syntax and use appropriate functions, modules, or tools.
+      evaluation_params:
+        - query
+        - response
+        - expected_response
+      evaluation_steps:
+        - "Verify that the provided syntax (e.g., code, commands, configuration) is valid and follows the language/tool's formatting rules."
+        - "Check if the response uses appropriate modules, functions, libraries, or parameters for the given task."
+        - "Assess whether the solution aligns with relevant official documentation or established best practices for the specific domain."
+        - "Verify the response directly and accurately addresses the user's specific query or task."
+        - "Check for potential security issues, significant inefficiencies, or anti-patterns."
+      threshold: 0.7
+      description: "General technical accuracy of provided commands, code, or technical information"
 
   # Conversation-level metrics metadata
   conversation_level:
@@ -106,6 +130,24 @@ metrics_metadata:
     "deepeval:knowledge_retention":
       threshold: 0.7
       description: "How well the model retains information from previous turns"
+
+    # GEval conversation-level metrics
+    "geval:conversation_coherence":
+      criteria: |
+        Evaluate whether the conversation maintains context and provides coherent
+        responses across multiple turns. The assistant should reference previous
+        exchanges and build upon earlier context.
+      evaluation_params:
+        - query
+        - response
+      evaluation_steps:
+        - "Check if the assistant remembers information from previous turns"
+        - "Verify responses build logically on previous context"
+        - "Assess whether the conversation flows naturally"
+        - "Check for contradictions with earlier statements"
+      threshold: 0.6
+      description: "Context maintenance and coherence across conversation turns"
+
 
 # Output Configuration
 output:

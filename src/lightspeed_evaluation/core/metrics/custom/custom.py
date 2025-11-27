@@ -9,6 +9,7 @@ from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
 )
+from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
 from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_calls
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
@@ -28,6 +29,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         )
 
         self.supported_metrics = {
+            "keywords_eval": evaluate_keywords,
             "answer_correctness": self._evaluate_answer_correctness,
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,

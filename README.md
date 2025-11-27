@@ -86,6 +86,7 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
   - Response Evaluation
     - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom.py)
     - [`intent_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Evaluates whether the response demonstrates the expected intent or purpose
+    - [`keywords_eval`](src/lightspeed_evaluation/core/metrics/custom/keywords_eval.py) - Keywords evaluation with alternatives (ALL keywords must match, case insensitive)
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
 - **Script-based**
@@ -108,6 +109,9 @@ core:
   # Maximum number of threads, set to null for Python default.
   # 50 is OK on a typical laptop. Check your Judge-LLM service for max requests per minute
   max_threads: 50
+
+  # If false don't fail on invalid conversations (like missing context for some metrics)
+  fail_on_invalid_data: true
 
 # Judge-LLM Configuration
 llm:
@@ -149,6 +153,9 @@ metrics_metadata:
       
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls (regex for arguments)"
+      
+    "custom:keywords_eval":  # Binary evaluation (0 or 1)
+      description: "Keywords evaluation (ALL match) with sequential alternate checking (case insensitive)"
   
   conversation_level:
     "deepeval:conversation_completeness":
@@ -226,12 +233,14 @@ embedding:
       contexts:
         - OpenShift Virtualization is an extension of the OpenShift ...
       attachments: []                   # Attachments (Optional)
+      expected_keywords: [["virtualization"], ["openshift"]]  # For keywords_eval evaluation
       expected_response: OpenShift Virtualization is an extension of the OpenShift Container Platform that allows running virtual machines alongside containers
       expected_intent: "explain a concept"  # Expected intent for intent evaluation
       
       # Per-turn metrics (overrides system defaults)
       turn_metrics:
         - "ragas:faithfulness"
+        - "custom:keywords_eval"
         - "custom:answer_correctness"
         - "custom:intent_eval"
       
@@ -289,6 +298,7 @@ embedding:
 | `response`            | string           | 📋       | Actual response from system          | ✅ (if API enabled)   |
 | `contexts`            | list[string]     | 📋       | Context information for evaluation   | ✅ (if API enabled)   |
 | `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
+| `expected_keywords`   | list[list[string]] | 📋     | Expected keywords for keyword evaluation (list of alternatives) | ❌ |
 | `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
 | `expected_intent`     | string           | 📋       | Expected intent for intent evaluation| ❌                    |
 | `expected_tool_calls` | list[list[list[dict]]] | 📋 | Expected tool call sequences (multiple alternative sets) | ❌ |
@@ -300,6 +310,7 @@ embedding:
 > 📋 **Required based on metrics**: Some fields are required only when using specific metrics
 
 Examples
+> - `expected_keywords`: Required for `custom:keywords_eval` (case insensitive matching)
 > - `expected_response`: Required for `custom:answer_correctness`
 > - `expected_intent`: Required for `custom:intent_eval`
 > - `expected_tool_calls`: Required for `custom:tool_eval` (multiple alternative sets format)
