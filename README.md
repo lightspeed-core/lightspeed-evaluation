@@ -65,8 +65,8 @@ lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation
 # Set required environment variable(s) for Judge-LLM
 export OPENAI_API_KEY="your-key"
 
-# Use configuration with api.enabled: false
-# Pre-fill response, contexts & tool_calls data in YAML
+# Use system configuration with api.enabled: false
+# You have to pre-generate response, contexts & tool_calls data in the input evaluation data file
 lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data config/evaluation_data.yaml
 ```
 
@@ -103,112 +103,11 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
 
 ### System Config (`config/system.yaml`)
 
-```yaml
-# Core evaluation parameters
-core:
-  # Maximum number of threads, set to null for Python default.
-  # 50 is OK on a typical laptop. Check your Judge-LLM service for max requests per minute
-  max_threads: 50
+The default system config file is [`config/system.yaml`](config/system.yaml).
+See [`docs/configuration.md`](docs/configuration.md) for the detailed description.
 
-  # If false don't fail on invalid conversations (like missing context for some metrics)
-  fail_on_invalid_data: true
 
-# Judge-LLM Configuration
-llm:
-  provider: openai            # openai, watsonx, azure, gemini etc.
-  model: gpt-4o-mini          # Model name for the provider
-  temperature: 0.0            # Generation temperature
-  max_tokens: 512             # Maximum tokens in response
-  timeout: 300                # Request timeout in seconds
-  num_retries: 3              # Retry attempts
-
-# Lightspeed API Configuration for Real-time Data Generation
-api:
-  enabled: true                        # Enable/disable API calls
-  api_base: http://localhost:8080      # Base API URL
-  endpoint_type: streaming             # streaming or query endpoint
-  timeout: 300                         # API request timeout in seconds
-  
-  provider: openai                     # LLM provider for API queries (optional)
-  model: gpt-4o-mini                   # Model to use for API queries (optional)
-  no_tools: null                       # Whether to bypass tools (optional)
-  system_prompt: null                  # Custom system prompt (optional)
-
-# Metrics Configuration with thresholds and defaults
-metrics_metadata:
-  turn_level:
-    "ragas:response_relevancy":
-      threshold: 0.8
-      description: "How relevant the response is to the question"
-      default: true   # Used by default when turn_metrics is null
-
-    "ragas:faithfulness":
-      threshold: 0.8
-      description: "How faithful the response is to the provided context"
-      default: false  # Only used when explicitly specified
-      
-    "custom:intent_eval":
-      threshold: 1  # Binary evaluation (0 or 1)
-      description: "Intent alignment evaluation using custom LLM evaluation"
-      
-    "custom:tool_eval":
-      description: "Tool call evaluation comparing expected vs actual tool calls (regex for arguments)"
-      
-    "custom:keywords_eval":  # Binary evaluation (0 or 1)
-      description: "Keywords evaluation (ALL match) with sequential alternate checking (case insensitive)"
-  
-  conversation_level:
-    "deepeval:conversation_completeness":
-      threshold: 0.8
-      description: "How completely the conversation addresses user intentions"
-
-# Output Configuration
-output:
-  output_dir: ./eval_output
-  base_filename: evaluation
-  enabled_outputs:          # Enable specific output types
-    - csv                   # Detailed results CSV
-    - json                  # Summary JSON with statistics
-    - txt                   # Human-readable summary
-
-# Visualization Configuration
-visualization:
-  figsize: [12, 8]            # Graph size (width, height)
-  dpi: 300                    # Image resolution
-  enabled_graphs:
-    - "pass_rates"            # Pass rate bar chart
-    - "score_distribution"    # Score distribution box plot
-    - "conversation_heatmap"  # Heatmap of conversation performance
-    - "status_breakdown"      # Pie chart for pass/fail/error breakdown
-```
-
-#### Non OpenAI configuration example
-```yaml
-# Judge-LLM Google Gemini
-llm:
-  provider: "gemini"
-  model: "gemini-1.5-pro"    
-  temperature: 0.0  
-  max_tokens: 512  
-  timeout: 120        
-  num_retries: 3
-
-# Embeddings for Judge-LLM
-# provider: "huggingface" or "openai"
-# model: model name
-# provider_kwargs: additional arguments,
-#   for examples see https://docs.ragas.io/en/stable/references/embeddings/#ragas.embeddings.HuggingfaceEmbeddings
-embedding:
-  provider: "huggingface"
-  model: "sentence-transformers/all-mpnet-base-v2"
-  provider_kwargs:
-    # cache_folder: <path_for_downloaded_model>
-    model_kwargs:
-      device: "cpu"
-...
-```
-
-### Evaluation Data Structure (`config/evaluation_data.yaml`)
+### Input File Data Structure (`config/evaluation_data.yaml`)
 
 ```yaml
 - conversation_group_id: "test_conversation"
@@ -261,21 +160,7 @@ embedding:
         - "script:action_eval"          # Script-based evaluation (if API is enabled)
 ```
 
-### API Modes
-
-#### With API Enabled (`api.enabled: true`)
-- **Real-time data generation**: Queries are sent to external API
-- **Dynamic responses**: `response` and `tool_calls` fields populated by API
-- **Conversation context**: Conversation context is maintained across turns
-- **Authentication**: Use `API_KEY` environment variable
-- **Data persistence**: Saves amended `response`/`tool_calls` data to output directory so it can be used with API disabled
-
-#### With API Disabled (`api.enabled: false`)
-- **Static data mode**: Use pre-filled `response` and `tool_calls` data
-- **Faster execution**: No external API calls
-- **Reproducible results**: Same data used across runs
-
-### Data Structure Details
+### Input file Data Structure Details
 
 #### Conversation Data Fields
 
@@ -321,9 +206,9 @@ Examples
 
 | Override Value | Behavior |
 |---------------------|----------|
-| `null` (or omitted) | Use system defaults (metrics with `default: true`) |
+| `null` (or omitted) | Use system global metrics (metrics with `default: true`) |
 | `[]` (empty list)   | Skip evaluation for this turn |
-| `["metric1", ...]`  | Use specified metrics only |
+| `["metric1", ...]`  | Use specified metrics only, ignore global metrics |
 
 #### Tool Evaluation
 
@@ -392,7 +277,7 @@ Script paths in evaluation data can be specified in multiple ways:
 
 ### Required Environment Variables
 
-#### For LLM Evaluation (Always Required)
+#### For LLM as a Judge Evaluation (Always Required)
 ```bash
 # Hosted vLLM (provider: hosted_vllm)
 export HOSTED_VLLM_API_KEY="your-key"
@@ -410,7 +295,7 @@ export WATSONX_PROJECT_ID="your-project-id"
 export GEMINI_API_KEY="your-key"
 ```
 
-#### For API Integration (When `api.enabled: true`)
+#### For Lightspeed Core API Integration (When `api.enabled: true`)
 ```bash
 # API authentication for external system (MCP)
 export API_KEY="your-api-endpoint-key"
