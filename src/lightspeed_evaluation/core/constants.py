@@ -1,6 +1,6 @@
 """Common constants for evaluation framework."""
 
-DEFAULT_API_BASE = "http://localhost:8080v1"
+DEFAULT_API_BASE = "http://localhost:8080/v1/"
 DEFAULT_API_TIMEOUT = 300
 DEFAULT_ENDPOINT_TYPE = "streaming"
 SUPPORTED_ENDPOINT_TYPES = ["streaming", "query"]

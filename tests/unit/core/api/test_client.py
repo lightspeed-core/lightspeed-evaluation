@@ -12,7 +12,7 @@ def api_config():
     """Create test API config."""
     return APIConfig(
         enabled=True,
-        api_base="http://localhost:8080/v1",
+        api_base="http://localhost:8080/v1/",
         endpoint_type="query",
         timeout=30,
         cache_enabled=False,
@@ -30,7 +30,7 @@ class TestAPIClient:
         with pytest.raises(ValidationError, match="Endpoint type must be one of"):
             APIConfig(
                 enabled=True,
-                api_base="http://localhost:8080/v1",
+                api_base="http://localhost:8080/v1/",
                 endpoint_type="unsupported_type",
                 timeout=30,
             )
@@ -191,7 +191,7 @@ class TestAPIClient:
         """Test query to streaming endpoint."""
         config = APIConfig(
             enabled=True,
-            api_base="http://localhost:8080/v1",
+            api_base="http://localhost:8080/v1/",
             endpoint_type="streaming",
             timeout=30,
             cache_enabled=False,

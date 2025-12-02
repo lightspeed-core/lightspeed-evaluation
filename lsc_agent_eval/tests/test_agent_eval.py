@@ -27,7 +27,7 @@ class TestArgsParser:
         assert parsed.eval_data_yaml == "test.yaml"
         assert parsed.agent_provider == "openai"
         assert parsed.agent_model == "gpt-4"
-        assert parsed.agent_endpoint == "http://localhost:8080/v1"  # default
+        assert parsed.agent_endpoint == "http://localhost:8080/v1/"  # default
         assert parsed.result_dir == "eval_output/"  # default
         assert parsed.endpoint_type == "streaming"  # default
 

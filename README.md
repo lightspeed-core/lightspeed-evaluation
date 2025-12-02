@@ -54,7 +54,7 @@ export OPENAI_API_KEY="your-evaluation-llm-key"
 export API_KEY="your-api-endpoint-key"
 
 # Ensure API is running at configured endpoint
-# Default: http://localhost:8080/v1
+# Default: http://localhost:8080/v1/
 
 # Run with API-enabled configuration
 lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation_data.yaml
@@ -125,7 +125,7 @@ llm:
 # Lightspeed API Configuration for Real-time Data Generation
 api:
   enabled: true                        # Enable/disable API calls
-  api_base: http://localhost:8080/v1      # Base API URL
+  api_base: http://localhost:8080/v1/     # Base API URL
   endpoint_type: streaming             # streaming or query endpoint
   timeout: 300                         # API request timeout in seconds
   

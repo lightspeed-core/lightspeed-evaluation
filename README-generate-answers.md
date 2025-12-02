@@ -13,7 +13,7 @@ lightspeed-core service configuration. `display_name` is a nice short model name
 
 Example:
 ```yaml
-lightspeed_url: "http://localhost:8080/v1"
+lightspeed_url: "http://localhost:8080/v1/"
 models:
   - display_name: "granite-3-3-8b-instruct"
     provider: "watsonx"
