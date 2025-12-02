@@ -117,7 +117,7 @@ class AgentHttpClient:
         try:
             with self.client.stream(
                 "POST",
-                "/v1/streaming_query",
+                "/streaming_query",
                 json=api_input,
                 timeout=timeout,
             ) as response:

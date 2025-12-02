@@ -250,7 +250,7 @@ class TestAgentHttpClient:
 
         mock_client.stream.assert_called_once_with(
             "POST",
-            "/v1/streaming_query",
+            "/streaming_query",
             json=api_input,
             timeout=300,
         )

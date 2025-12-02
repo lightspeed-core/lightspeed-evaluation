@@ -177,7 +177,7 @@ class APIClient:
         try:
             with self.client.stream(
                 "POST",
-                "/v1/streaming_query",
+                "/streaming_query",
                 json=api_request.model_dump(exclude_none=True),
             ) as response:
                 self._handle_response_errors(response)
