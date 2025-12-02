@@ -70,6 +70,14 @@ class TurnData(BaseModel):
         default=None, description="Conversation ID - populated by API if enabled"
     )
 
+    # Token usage tracking
+    api_input_tokens: int = Field(
+        default=0, ge=0, description="Input tokens used by API call"
+    )
+    api_output_tokens: int = Field(
+        default=0, ge=0, description="Output tokens used by API call"
+    )
+
     # Per-turn metrics support
     turn_metrics: Optional[list[str]] = Field(
         default=None,
@@ -398,6 +406,16 @@ class EvaluationResult(BaseModel):
     response: str = Field(default="", description="Response text")
     execution_time: float = Field(
         default=0, ge=0, description="Execution time in seconds"
+    )
+    judge_llm_input_tokens: int = Field(
+        default=0, ge=0, description="Judge LLM input tokens used"
+    )
+    judge_llm_output_tokens: int = Field(
+        default=0, ge=0, description="Judge LLM output tokens used"
+    )
+    api_input_tokens: int = Field(default=0, ge=0, description="API input tokens used")
+    api_output_tokens: int = Field(
+        default=0, ge=0, description="API output tokens used"
     )
 
     @field_validator("result")

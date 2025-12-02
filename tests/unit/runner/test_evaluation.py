@@ -54,7 +54,15 @@ class TestRunEvaluation:
         mock_stats = mocker.patch(
             "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
         )
-        mock_stats.return_value = {"TOTAL": 1, "PASS": 1, "FAIL": 0, "ERROR": 0}
+        mock_stats.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "total_judge_llm_input_tokens": 100,
+            "total_judge_llm_output_tokens": 50,
+            "total_judge_llm_tokens": 150,
+        }
 
         result = run_evaluation("config/system.yaml", "config/evaluation_data.yaml")
 
@@ -101,7 +109,15 @@ class TestRunEvaluation:
         mock_stats = mocker.patch(
             "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
         )
-        mock_stats.return_value = {"TOTAL": 0, "PASS": 0, "FAIL": 0, "ERROR": 0}
+        mock_stats.return_value = {
+            "TOTAL": 0,
+            "PASS": 0,
+            "FAIL": 0,
+            "ERROR": 0,
+            "total_judge_llm_input_tokens": 0,
+            "total_judge_llm_output_tokens": 0,
+            "total_judge_llm_tokens": 0,
+        }
 
         run_evaluation(
             "config/system.yaml", "config/evaluation_data.yaml", "/custom/output"
@@ -191,7 +207,15 @@ class TestRunEvaluation:
         mock_stats = mocker.patch(
             "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
         )
-        mock_stats.return_value = {"TOTAL": 10, "PASS": 5, "FAIL": 2, "ERROR": 3}
+        mock_stats.return_value = {
+            "TOTAL": 10,
+            "PASS": 5,
+            "FAIL": 2,
+            "ERROR": 3,
+            "total_judge_llm_input_tokens": 500,
+            "total_judge_llm_output_tokens": 250,
+            "total_judge_llm_tokens": 750,
+        }
 
         result = run_evaluation("config/system.yaml", "config/evaluation_data.yaml")
 

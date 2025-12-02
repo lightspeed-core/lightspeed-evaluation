@@ -32,6 +32,10 @@ SUPPORTED_CSV_COLUMNS = [
     "execution_time",
     "query",
     "response",
+    "judge_llm_input_tokens",
+    "judge_llm_output_tokens",
+    "api_input_tokens",
+    "api_output_tokens",
 ]
 SUPPORTED_GRAPH_TYPES = [
     "pass_rates",
