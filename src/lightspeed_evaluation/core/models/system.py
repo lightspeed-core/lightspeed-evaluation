@@ -8,6 +8,7 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
     DEFAULT_API_CACHE_DIR,
     DEFAULT_API_TIMEOUT,
+    DEFAULT_API_VERSION,
     DEFAULT_BASE_FILENAME,
     DEFAULT_EMBEDDING_CACHE_DIR,
     DEFAULT_EMBEDDING_MODEL,
@@ -121,7 +122,10 @@ class APIConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Enable API-based data generation")
     api_base: str = Field(
-        default=DEFAULT_API_BASE, description="Base URL for API requests"
+        default=DEFAULT_API_BASE, description="Base URL for API requests (without version)"
+    )
+    version: str = Field(
+        default=DEFAULT_API_VERSION, description="API version (e.g., v1, v2)"
     )
     endpoint_type: str = Field(
         default=DEFAULT_ENDPOINT_TYPE,

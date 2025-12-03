@@ -27,7 +27,8 @@ class TestArgsParser:
         assert parsed.eval_data_yaml == "test.yaml"
         assert parsed.agent_provider == "openai"
         assert parsed.agent_model == "gpt-4"
-        assert parsed.agent_endpoint == "http://localhost:8080/v1/"  # default
+        assert parsed.agent_endpoint == "http://localhost:8080"  # default
+        assert parsed.agent_api_version == "v1"  # default
         assert parsed.result_dir == "eval_output/"  # default
         assert parsed.endpoint_type == "streaming"  # default
 
@@ -38,6 +39,8 @@ class TestArgsParser:
             "test.yaml",
             "--agent_endpoint",
             "http://custom:9090",
+            "--agent_api_version",
+            "v2",
             "--agent_provider",
             "watsonx",
             "--agent_model",
@@ -60,6 +63,7 @@ class TestArgsParser:
 
         assert parsed.eval_data_yaml == "test.yaml"
         assert parsed.agent_endpoint == "http://custom:9090"
+        assert parsed.agent_api_version == "v2"
         assert parsed.agent_provider == "watsonx"
         assert parsed.agent_model == "granite-3-8b-instruct"
         assert parsed.agent_auth_token_file == "token.txt"
