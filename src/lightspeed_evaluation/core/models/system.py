@@ -122,7 +122,8 @@ class APIConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Enable API-based data generation")
     api_base: str = Field(
-        default=DEFAULT_API_BASE, description="Base URL for API requests (without version)"
+        default=DEFAULT_API_BASE,
+        description="Base URL for API requests (without version)",
     )
     version: str = Field(
         default=DEFAULT_API_VERSION, description="API version (e.g., v1, v2)"
