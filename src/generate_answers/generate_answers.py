@@ -173,6 +173,7 @@ def main(  # pylint: disable=R0913,R0917,R0914
                 config.lightspeed_url,
                 provider=model.provider,
                 model=model.model,
+                version=config.lightspeed_api_version,
                 cache_dir=llm_cache_dir,
             ),
         )
