@@ -54,7 +54,9 @@ class AgentGoalEval:
 
         # Agent HTTP client
         self.agent_client = AgentHttpClient(
-            self.eval_args.agent_endpoint, self.eval_args.agent_auth_token_file
+            self.eval_args.agent_endpoint,
+            version=getattr(self.eval_args, "agent_api_version", "v1"),
+            token_file=self.eval_args.agent_auth_token_file,
         )
 
         # Judge model manager (optional)

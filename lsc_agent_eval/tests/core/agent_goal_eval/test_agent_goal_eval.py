@@ -23,6 +23,7 @@ class TestAgentGoalEval:
         args = mocker.Mock()
         args.eval_data_yaml = "test_data.yaml"
         args.agent_endpoint = "http://localhost:8080"
+        args.agent_api_version = "v1"
         args.agent_auth_token_file = None
         args.agent_provider = "openai"
         args.agent_model = "gpt-4"
@@ -103,7 +104,9 @@ class TestAgentGoalEval:
 
         # Verify all components were initialized
         mock_config_manager.assert_called_once_with("test_data.yaml")
-        mock_agent_client.assert_called_once_with("http://localhost:8080", None)
+        mock_agent_client.assert_called_once_with(
+            "http://localhost:8080", version="v1", token_file=None
+        )
         mock_judge_manager.assert_called_once_with("openai", "gpt-4")
         mock_script_runner.assert_called_once_with(None)
         mock_evaluation_runner.assert_called_once_with(

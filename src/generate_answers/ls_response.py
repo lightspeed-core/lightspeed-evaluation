@@ -15,15 +15,17 @@ logger = logging.getLogger(__name__)
 class LSClient:  # pylint: disable=too-few-public-methods
     """LightSpeed client."""
 
-    def __init__(
+    def __init__(  # pylint: disable=R0913,R0917
         self,
         ls_url: str,
         provider: str,
         model: str,
+        version: str = "v1",
         cache_dir: str = ".caches/llm_cache",
     ):
         """Init LightSpeed."""
         self.url = ls_url
+        self.version = version
         self.provider = provider
         self.model = model
         self.client = Client(base_url=ls_url, verify=False)
@@ -65,7 +67,7 @@ class LSClient:  # pylint: disable=too-few-public-methods
 
         logging.info("Calling LightSpeed service for query '%s'", query)
         response = self.client.post(
-            "/v1/query",
+            f"/{self.version}/query",
             json={
                 "query": query,
                 "provider": self.provider,

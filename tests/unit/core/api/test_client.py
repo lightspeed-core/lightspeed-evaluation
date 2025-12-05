@@ -13,6 +13,7 @@ def api_config():
     return APIConfig(
         enabled=True,
         api_base="http://localhost:8080",
+        version="v1",
         endpoint_type="query",
         timeout=30,
         cache_enabled=False,
@@ -45,6 +46,7 @@ class TestAPIClient:
             APIConfig(
                 enabled=True,
                 api_base="http://localhost:8080",
+                version="v1",
                 endpoint_type="unsupported_type",
                 timeout=30,
             )
@@ -206,6 +208,7 @@ class TestAPIClient:
         config = APIConfig(
             enabled=True,
             api_base="http://localhost:8080",
+            version="v1",
             endpoint_type="streaming",
             timeout=30,
             cache_enabled=False,

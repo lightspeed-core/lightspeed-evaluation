@@ -30,7 +30,8 @@ embedding:
 # But can be easily integrated with other APIs with minimal change.
 api:
   enabled: true                        # Enable API calls instead of using pre-filled data
-  api_base: http://localhost:8080      # Base API URL
+  api_base: http://localhost:8080      # Base API URL (without version)
+  version: v1                          # API version (e.g., v1, v2)
   endpoint_type: streaming             # Use "streaming" or "query" endpoint
   timeout: 300                         # API request timeout in seconds
 

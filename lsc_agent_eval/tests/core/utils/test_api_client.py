@@ -16,9 +16,10 @@ class TestAgentHttpClient:
     def test_init_without_token(self, mocker: MockerFixture):
         """Test initializing client without token."""
         mock_client = mocker.patch("httpx.Client")
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         assert client.endpoint == "http://localhost:8080"
+        assert client.version == "v1"
         mock_client.assert_called_once_with(
             base_url="http://localhost:8080", verify=False
         )
@@ -30,9 +31,12 @@ class TestAgentHttpClient:
         mock_client = mocker.patch("httpx.Client")
         mocker.patch("builtins.open", mocker.mock_open(read_data=token_content))
 
-        client = AgentHttpClient("http://localhost:8080", "token.txt")
+        client = AgentHttpClient(
+            "http://localhost:8080", version="v1", token_file="token.txt"
+        )
 
         assert client.endpoint == "http://localhost:8080"
+        assert client.version == "v1"
         mock_client.assert_called_once_with(
             base_url="http://localhost:8080", verify=False
         )
@@ -46,14 +50,16 @@ class TestAgentHttpClient:
         mocker.patch("builtins.open", side_effect=FileNotFoundError)
 
         with pytest.raises(AgentAPIError, match="Token file not found"):
-            AgentHttpClient("http://localhost:8080", "missing.txt")
+            AgentHttpClient(
+                "http://localhost:8080", version="v1", token_file="missing.txt"
+            )
 
     def test_init_with_env_token(self, mocker: MockerFixture):
         """Test initializing client with environment token."""
         mock_client = mocker.patch("httpx.Client")
         mocker.patch("os.getenv", return_value="env-token-456")
 
-        AgentHttpClient("http://localhost:8080")
+        AgentHttpClient("http://localhost:8080", version="v1")
 
         mock_client.return_value.headers.update.assert_called_once_with(
             {"Authorization": "Bearer env-token-456"}
@@ -77,7 +83,7 @@ class TestAgentHttpClient:
         mock_client.post.return_value = mock_response
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {
             "query": "How many namespaces are there?",
@@ -116,7 +122,7 @@ class TestAgentHttpClient:
         mock_client.post.return_value = mock_response
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {
             "query": "What is Openshift Virtualization?",
@@ -143,7 +149,7 @@ class TestAgentHttpClient:
         )
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
         with pytest.raises(AgentAPIError, match="Agent API error: 500"):
@@ -156,7 +162,7 @@ class TestAgentHttpClient:
         mock_client.post.side_effect = httpx.TimeoutException("Request timeout")
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {
             "query": "Test query",
@@ -178,7 +184,7 @@ class TestAgentHttpClient:
         mock_client.post.return_value = mock_response
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
         with pytest.raises(
@@ -190,14 +196,14 @@ class TestAgentHttpClient:
         """Test agent query when client is not initialized."""
         mocker.patch("httpx.Client", side_effect=Exception("Setup failed"))
         with pytest.raises(AgentAPIError, match="Failed to setup HTTP client"):
-            AgentHttpClient("http://localhost:8080")
+            AgentHttpClient("http://localhost:8080", version="v1")
 
     def test_close_client_success(self, mocker: MockerFixture):
         """Test closing client successfully."""
         mock_client = mocker.Mock()
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
         client.close()
 
         mock_client.close.assert_called_once()
@@ -208,7 +214,7 @@ class TestAgentHttpClient:
         with pytest.raises(
             AgentAPIError, match="Failed to setup HTTP client: Setup failed"
         ):
-            AgentHttpClient("http://localhost:8080")
+            AgentHttpClient("http://localhost:8080", version="v1")
 
     # Streaming Query Tests
     def test_streaming_query_agent_success(self, mocker: MockerFixture):
@@ -237,7 +243,7 @@ class TestAgentHttpClient:
         )
 
         mock_parser.return_value = expected_result
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {
             "query": "What is OpenShift?",
@@ -278,7 +284,7 @@ class TestAgentHttpClient:
         # Mock the parser to raise the specific error
         mock_parser.side_effect = ValueError("No Conversation ID found")
 
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
         api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
 
         with pytest.raises(
@@ -294,7 +300,7 @@ class TestAgentHttpClient:
         mock_client.stream.side_effect = httpx.TimeoutException("Request timeout")
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {
             "query": "Test query",
@@ -326,7 +332,7 @@ class TestAgentHttpClient:
         mock_client.stream.return_value = mock_stream_response
 
         mocker.patch("httpx.Client", return_value=mock_client)
-        client = AgentHttpClient("http://localhost:8080")
+        client = AgentHttpClient("http://localhost:8080", version="v1")
 
         api_input = {"query": "Test query", "provider": "openai", "model": "gpt-4"}
 

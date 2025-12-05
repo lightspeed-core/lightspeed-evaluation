@@ -16,9 +16,18 @@ logger = logging.getLogger(__name__)
 class AgentHttpClient:
     """HTTP client for agent API communication."""
 
-    def __init__(self, endpoint: str, token_file: Optional[str] = None):
-        """Initialize HTTP client."""
+    def __init__(
+        self, endpoint: str, version: str = "v1", token_file: Optional[str] = None
+    ):
+        """Initialize HTTP client.
+
+        Args:
+            endpoint: Base API URL.
+            version: API version (e.g., v1, v2). Defaults to "v1".
+            token_file: Optional path to token file for authentication.
+        """
         self.endpoint = endpoint
+        self.version = version
         self.client: Optional[httpx.Client] = None
         self._setup_client(token_file)
 
@@ -57,7 +66,7 @@ class AgentHttpClient:
 
         try:
             response = self.client.post(
-                "/v1/query",
+                f"/{self.version}/query",
                 json=api_input,
                 timeout=timeout,
             )
@@ -117,7 +126,7 @@ class AgentHttpClient:
         try:
             with self.client.stream(
                 "POST",
-                "/v1/streaming_query",
+                f"/{self.version}/streaming_query",
                 json=api_input,
                 timeout=timeout,
             ) as response:
