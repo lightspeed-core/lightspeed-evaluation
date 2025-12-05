@@ -90,6 +90,8 @@ class APIResponse(BaseModel):
         default_factory=list, description="Tool call sequences"
     )
     contexts: list[str] = Field(default_factory=list, description="Context from API")
+    input_tokens: int = Field(default=0, ge=0, description="Input tokens used")
+    output_tokens: int = Field(default=0, ge=0, description="Output tokens used")
 
     @classmethod
     def from_raw_response(cls, raw_data: dict[str, Any]) -> "APIResponse":
@@ -108,9 +110,15 @@ class APIResponse(BaseModel):
                 if isinstance(chunk_data, dict) and "content" in chunk_data:
                     contexts.append(chunk_data["content"])
 
+        # Extract token counts
+        input_tokens = raw_data.get("input_tokens", 0)
+        output_tokens = raw_data.get("output_tokens", 0)
+
         return cls(
             response=raw_data["response"].strip(),
             conversation_id=conversation_id,
             tool_calls=tool_call_sequences,
             contexts=contexts,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )

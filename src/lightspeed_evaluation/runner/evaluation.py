@@ -36,7 +36,10 @@ def run_evaluation(  # pylint: disable=too-many-locals
         # Step 1: Import heavy modules once environment & logging is set
         print("\n📋 Loading Heavy Modules...")
         from lightspeed_evaluation.core.output import OutputHandler
-        from lightspeed_evaluation.core.output.statistics import calculate_basic_stats
+        from lightspeed_evaluation.core.output.statistics import (
+            calculate_api_token_usage,
+            calculate_basic_stats,
+        )
         from lightspeed_evaluation.core.system import DataValidator
         from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
@@ -75,8 +78,8 @@ def run_evaluation(  # pylint: disable=too-many-locals
             system_config=system_config,
         )
 
-        # Generate reports based on configuration
-        output_handler.generate_reports(results)
+        # Generate reports based on configuration (pass evaluation_data for API token stats)
+        output_handler.generate_reports(results, evaluation_data)
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
@@ -91,6 +94,27 @@ def run_evaluation(  # pylint: disable=too-many-locals
             print(
                 f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report"
             )
+
+        # Display token usage summary
+        print("\n📊 Token Usage Summary:")
+        print(
+            f"Judge LLM: {summary['total_judge_llm_tokens']:,} tokens "
+            f"(Input: {summary['total_judge_llm_input_tokens']:,}, "
+            f"Output: {summary['total_judge_llm_output_tokens']:,})"
+        )
+
+        # Calculate API token usage if API was enabled
+        if system_config.api.enabled:
+            api_tokens = calculate_api_token_usage(evaluation_data)
+            print(
+                f"API Calls: {api_tokens['total_api_tokens']:,} tokens "
+                f"(Input: {api_tokens['total_api_input_tokens']:,}, "
+                f"Output: {api_tokens['total_api_output_tokens']:,})"
+            )
+            total_tokens = (
+                summary["total_judge_llm_tokens"] + api_tokens["total_api_tokens"]
+            )
+            print(f"Total: {total_tokens:,} tokens")
 
         return {
             "TOTAL": summary["TOTAL"],

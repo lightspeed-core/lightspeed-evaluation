@@ -5,6 +5,7 @@ import time
 from typing import Optional
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
+from lightspeed_evaluation.core.llm.custom import TokenTracker
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
@@ -62,9 +63,26 @@ class MetricsEvaluator:
 
         self.metric_manager = metric_manager
 
-    def evaluate_metric(self, request: EvaluationRequest) -> Optional[EvaluationResult]:
-        """Evaluate a single metric and return result."""
+    def evaluate_metric(  # pylint: disable=too-many-locals
+        self, request: EvaluationRequest
+    ) -> Optional[EvaluationResult]:
+        """Evaluate a single metric and return result.
+
+        Tracks judge LLM token usage during evaluation and includes token counts
+        in the result.
+
+        Args:
+            request: Evaluation request containing conversation data and metric
+                identifier.
+
+        Returns:
+            EvaluationResult with score, status, and token usage, or None if the
+            metric should be skipped (e.g., script metrics when API is disabled).
+        """
         start_time = time.time()
+
+        # Initialize token tracker for this evaluation
+        token_tracker = TokenTracker()
 
         try:
             # Create logging summary
@@ -103,12 +121,21 @@ class MetricsEvaluator:
                 is_conversation=request.is_conversation,
             )
 
+            # Start token tracking
+            token_tracker.start()
+
             # Evaluate metric
             score, reason = self.handlers[framework].evaluate(  # type: ignore
                 metric_name, request.conv_data, evaluation_scope
             )
 
+            # Stop token tracking
+            token_tracker.stop()
+
             execution_time = time.time() - start_time
+
+            # Get token counts
+            judge_input_tokens, judge_output_tokens = token_tracker.get_counts()
 
             if score is None:
                 return self._create_error_result(request, reason, execution_time)
@@ -135,11 +162,21 @@ class MetricsEvaluator:
                 query=request.turn_data.query if request.turn_data else "",
                 response=request.turn_data.response or "" if request.turn_data else "",
                 execution_time=execution_time,
+                judge_llm_input_tokens=judge_input_tokens,
+                judge_llm_output_tokens=judge_output_tokens,
+                api_input_tokens=(
+                    request.turn_data.api_input_tokens if request.turn_data else 0
+                ),
+                api_output_tokens=(
+                    request.turn_data.api_output_tokens if request.turn_data else 0
+                ),
             )
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Any evaluation error should result in ERROR status
             execution_time = time.time() - start_time
+            # Stop token tracking on error
+            token_tracker.stop()
             return self._create_error_result(
                 request, f"Evaluation error: {e}", execution_time
             )
@@ -159,6 +196,12 @@ class MetricsEvaluator:
             query=request.turn_data.query if request.turn_data else "",
             response=request.turn_data.response or "" if request.turn_data else "",
             execution_time=execution_time,
+            api_input_tokens=(
+                request.turn_data.api_input_tokens if request.turn_data else 0
+            ),
+            api_output_tokens=(
+                request.turn_data.api_output_tokens if request.turn_data else 0
+            ),
         )
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:

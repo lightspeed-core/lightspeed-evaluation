@@ -12,8 +12,9 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_GRAPH_TYPES,
     SUPPORTED_OUTPUT_TYPES,
 )
-from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
 from lightspeed_evaluation.core.output.statistics import (
+    calculate_api_token_usage,
     calculate_basic_stats,
     calculate_detailed_stats,
 )
@@ -37,8 +38,17 @@ class OutputHandler:
 
         print(f"✅ Output handler initialized: {self.output_dir}")
 
-    def generate_reports(self, results: list[EvaluationResult]) -> None:
-        """Generate all output reports based on configuration."""
+    def generate_reports(
+        self,
+        results: list[EvaluationResult],
+        evaluation_data: Optional[list[EvaluationData]] = None,
+    ) -> None:
+        """Generate all output reports based on configuration.
+
+        Args:
+            results: List of evaluation results.
+            evaluation_data: Optional evaluation data for API token calculation.
+        """
         # Prepare timestamped base filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_filename = f"{self.base_filename}_{timestamp}"
@@ -54,6 +64,16 @@ class OutputHandler:
 
         # Pre-calculate stats once for reuse across all reports
         stats = self._calculate_stats(results)
+
+        # Calculate API token usage if evaluation data is provided
+        if evaluation_data:
+            stats["api_tokens"] = calculate_api_token_usage(evaluation_data)
+        else:
+            stats["api_tokens"] = {
+                "total_api_input_tokens": 0,
+                "total_api_output_tokens": 0,
+                "total_api_tokens": 0,
+            }
 
         # Generate individual reports based on configuration
         self._generate_individual_reports(
@@ -92,13 +112,21 @@ class OutputHandler:
 
         if "json" in enabled_outputs:
             json_file = self._generate_json_summary(
-                results, base_filename, stats["basic"], stats["detailed"]
+                results,
+                base_filename,
+                stats["basic"],
+                stats["detailed"],
+                stats.get("api_tokens", {}),
             )
             print(f"  ✅ JSON: {json_file}")
 
         if "txt" in enabled_outputs:
             txt_file = self._generate_text_summary(
-                results, base_filename, stats["basic"], stats["detailed"]
+                results,
+                base_filename,
+                stats["basic"],
+                stats["detailed"],
+                stats.get("api_tokens", {}),
             )
             print(f"  ✅ TXT: {txt_file}")
 
@@ -168,21 +196,33 @@ class OutputHandler:
 
         return csv_file
 
-    def _generate_json_summary(
+    def _generate_json_summary(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         results: list[EvaluationResult],
         base_filename: str,
         basic_stats: dict[str, Any],
         detailed_stats: dict[str, Any],
+        api_tokens: dict[str, Any],
     ) -> Path:
         """Generate JSON summary report."""
         json_file = self.output_dir / f"{base_filename}_summary.json"
+
+        # Merge API tokens into overall stats
+        judge_llm_tokens = basic_stats.get("total_judge_llm_tokens", 0)
+        api_total_tokens = api_tokens.get("total_api_tokens", 0)
+        overall_stats = {
+            **basic_stats,
+            "total_api_input_tokens": api_tokens.get("total_api_input_tokens", 0),
+            "total_api_output_tokens": api_tokens.get("total_api_output_tokens", 0),
+            "total_api_tokens": api_total_tokens,
+            "total_tokens": judge_llm_tokens + api_total_tokens,
+        }
 
         summary = {
             "timestamp": datetime.now().isoformat(),
             "total_evaluations": len(results),
             "summary_stats": {
-                "overall": basic_stats,
+                "overall": overall_stats,
                 "by_metric": detailed_stats["by_metric"],
                 "by_conversation": detailed_stats["by_conversation"],
             },
@@ -195,6 +235,8 @@ class OutputHandler:
                     "score": r.score,
                     "threshold": r.threshold,
                     "execution_time": round(r.execution_time, 3),
+                    "judge_llm_input_tokens": r.judge_llm_input_tokens,
+                    "judge_llm_output_tokens": r.judge_llm_output_tokens,
                 }
                 for r in results
             ],
@@ -205,12 +247,13 @@ class OutputHandler:
 
         return json_file
 
-    def _generate_text_summary(
+    def _generate_text_summary(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         results: list[EvaluationResult],
         base_filename: str,
         basic_stats: dict[str, Any],
         detailed_stats: dict[str, Any],
+        api_tokens: dict[str, Any],
     ) -> Path:
         """Generate human-readable text summary."""
         txt_file = self.output_dir / f"{base_filename}_summary.txt"
@@ -219,6 +262,7 @@ class OutputHandler:
             "overall": basic_stats,
             "by_metric": detailed_stats["by_metric"],
             "by_conversation": detailed_stats["by_conversation"],
+            "api_tokens": api_tokens,
         }
 
         with open(txt_file, "w", encoding="utf-8") as f:
@@ -239,6 +283,30 @@ class OutputHandler:
             )
             f.write(
                 f"Error: {stats['overall']['ERROR']} ({stats['overall']['error_rate']:.1f}%)\n\n"
+            )
+
+            # Token usage statistics
+            f.write("Token Usage (Judge LLM):\n")
+            f.write("-" * 20 + "\n")
+            f.write(
+                f"Input Tokens: {stats['overall']['total_judge_llm_input_tokens']:,}\n"
+            )
+            f.write(
+                f"Output Tokens: {stats['overall']['total_judge_llm_output_tokens']:,}\n"
+            )
+            f.write(f"Total Tokens: {stats['overall']['total_judge_llm_tokens']:,}\n\n")
+
+            # API token usage
+            f.write("Token Usage (API Calls):\n")
+            f.write("-" * 20 + "\n")
+            f.write(
+                f"Input Tokens: {stats['api_tokens'].get('total_api_input_tokens', 0):,}\n"
+            )
+            f.write(
+                f"Output Tokens: {stats['api_tokens'].get('total_api_output_tokens', 0):,}\n"
+            )
+            f.write(
+                f"Total Tokens: {stats['api_tokens'].get('total_api_tokens', 0):,}\n\n"
             )
 
             # By metric breakdown

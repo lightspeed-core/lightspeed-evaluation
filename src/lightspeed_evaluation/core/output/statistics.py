@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
 
 
 def bootstrap_intervals(
@@ -45,12 +45,19 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
             "pass_rate": 0.0,
             "fail_rate": 0.0,
             "error_rate": 0.0,
+            "total_judge_llm_input_tokens": 0,
+            "total_judge_llm_output_tokens": 0,
+            "total_judge_llm_tokens": 0,
         }
 
     total = len(results)
     pass_count = sum(1 for r in results if r.result == "PASS")
     fail_count = sum(1 for r in results if r.result == "FAIL")
     error_count = sum(1 for r in results if r.result == "ERROR")
+
+    # Calculate token totals
+    total_judge_input = sum(r.judge_llm_input_tokens for r in results)
+    total_judge_output = sum(r.judge_llm_output_tokens for r in results)
 
     return {
         "TOTAL": total,
@@ -60,6 +67,9 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
         "pass_rate": (pass_count / total) * 100 if total > 0 else 0,
         "fail_rate": (fail_count / total) * 100 if total > 0 else 0,
         "error_rate": (error_count / total) * 100 if total > 0 else 0,
+        "total_judge_llm_input_tokens": total_judge_input,
+        "total_judge_llm_output_tokens": total_judge_output,
+        "total_judge_llm_tokens": total_judge_input + total_judge_output,
     }
 
 
@@ -201,3 +211,28 @@ def _finalize_conversation_stats(stats: dict[str, Any]) -> None:
         stats["fail_rate"] = 0.0
         stats["error_rate"] = 0.0
         stats["confidence_intervals"] = None
+
+
+def calculate_api_token_usage(evaluation_data: list[EvaluationData]) -> dict[str, Any]:
+    """Calculate total API token usage from evaluation data.
+
+    Args:
+        evaluation_data: List of evaluation data containing turn-level API token counts.
+
+    Returns:
+        Dictionary containing total_api_input_tokens, total_api_output_tokens,
+        and total_api_tokens.
+    """
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    for conv_data in evaluation_data:
+        for turn in conv_data.turns:
+            total_input_tokens += turn.api_input_tokens
+            total_output_tokens += turn.api_output_tokens
+
+    return {
+        "total_api_input_tokens": total_input_tokens,
+        "total_api_output_tokens": total_output_tokens,
+        "total_api_tokens": total_input_tokens + total_output_tokens,
+    }

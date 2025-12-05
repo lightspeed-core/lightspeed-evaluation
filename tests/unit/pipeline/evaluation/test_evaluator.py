@@ -2,6 +2,7 @@
 
 import pytest
 
+from lightspeed_evaluation.core.llm.custom import TokenTracker
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationRequest,
@@ -453,3 +454,64 @@ class TestMetricsEvaluator:
         # Should use 0.5 as default
         assert evaluator._determine_status(0.6, None) == "PASS"
         assert evaluator._determine_status(0.4, None) == "FAIL"
+
+
+class TestTokenTracker:
+    """Unit tests for TokenTracker class."""
+
+    def test_token_tracker_initialization(self):
+        """Test TokenTracker initializes with zero counts."""
+        tracker = TokenTracker()
+        input_tokens, output_tokens = tracker.get_counts()
+        assert input_tokens == 0
+        assert output_tokens == 0
+
+    def test_token_tracker_get_counts_returns_tuple(self):
+        """Test get_counts returns a tuple."""
+        tracker = TokenTracker()
+        result = tracker.get_counts()
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+
+    def test_token_tracker_reset(self):
+        """Test reset clears token counts."""
+        tracker = TokenTracker()
+        tracker.input_tokens = 100
+        tracker.output_tokens = 50
+        tracker.reset()
+        assert tracker.get_counts() == (0, 0)
+
+    def test_token_tracker_start_stop(self):
+        """Test start and stop methods."""
+        tracker = TokenTracker()
+        tracker.start()
+        assert tracker._callback_registered is True
+        tracker.stop()
+        assert tracker._callback_registered is False
+
+    def test_token_tracker_double_start(self):
+        """Test calling start twice doesn't register callback twice."""
+        tracker = TokenTracker()
+        tracker.start()
+        tracker.start()  # Should not fail
+        assert tracker._callback_registered is True
+        tracker.stop()
+
+    def test_token_tracker_double_stop(self):
+        """Test calling stop twice doesn't fail."""
+        tracker = TokenTracker()
+        tracker.start()
+        tracker.stop()
+        tracker.stop()  # Should not fail
+        assert tracker._callback_registered is False
+
+    def test_token_tracker_independent_instances(self):
+        """Test multiple TokenTracker instances are independent."""
+        tracker1 = TokenTracker()
+        tracker2 = TokenTracker()
+        tracker1.input_tokens = 100
+        tracker1.output_tokens = 50
+        tracker2.input_tokens = 200
+        tracker2.output_tokens = 100
+        assert tracker1.get_counts() == (100, 50)
+        assert tracker2.get_counts() == (200, 100)

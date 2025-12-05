@@ -11,11 +11,15 @@ logger = logging.getLogger(__name__)
 DATA_PREFIX = "data: "
 
 
-def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
+def parse_streaming_response(  # pylint: disable=too-many-branches
+    response: httpx.Response,
+) -> dict[str, Any]:
     """Parse streaming response and extract data."""
     conversation_id = ""
     final_response = ""
     tool_calls: list[dict[str, Any]] = []
+    input_tokens = 0
+    output_tokens = 0
 
     for line in response.iter_lines():
         line = line.strip()
@@ -45,6 +49,12 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
             if tool_call:
                 tool_calls.append(tool_call)
                 logger.debug("Found tool call: %s", tool_call)
+        elif event == "end":
+            # Extract token counts from end event (provided by lightspeed-stack)
+            if "input_tokens" in event_data:
+                input_tokens = event_data["input_tokens"]
+            if "output_tokens" in event_data:
+                output_tokens = event_data["output_tokens"]
 
     if not final_response:
         raise ValueError("No final response found in streaming output")
@@ -57,6 +67,8 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
         "response": final_response,
         "tool_calls": tool_sequences,
         "conversation_id": conversation_id,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
     }
 
 

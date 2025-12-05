@@ -103,9 +103,14 @@ class TestOutputHandler:
         """Test JSON summary generation."""
         handler = OutputHandler(output_dir=str(tmp_path))
         stats = handler._calculate_stats(sample_results)
+        api_tokens = {
+            "total_api_input_tokens": 100,
+            "total_api_output_tokens": 200,
+            "total_api_tokens": 300,
+        }
 
         json_file = handler._generate_json_summary(
-            sample_results, "test", stats["basic"], stats["detailed"]
+            sample_results, "test", stats["basic"], stats["detailed"], api_tokens
         )
 
         assert json_file.exists()
@@ -116,20 +121,30 @@ class TestOutputHandler:
 
         assert "summary_stats" in data or "results" in data
         assert data.get("total_evaluations") == 2 or len(data.get("results", [])) == 2
+        # Verify API token usage is included in summary_stats.overall
+        assert "summary_stats" in data
+        assert data["summary_stats"]["overall"]["total_api_tokens"] == 300
 
     def test_generate_text_summary(self, tmp_path, sample_results):
         """Test text summary generation."""
         handler = OutputHandler(output_dir=str(tmp_path))
         stats = handler._calculate_stats(sample_results)
+        api_tokens = {
+            "total_api_input_tokens": 100,
+            "total_api_output_tokens": 200,
+            "total_api_tokens": 300,
+        }
 
         txt_file = handler._generate_text_summary(
-            sample_results, "test", stats["basic"], stats["detailed"]
+            sample_results, "test", stats["basic"], stats["detailed"], api_tokens
         )
 
         assert txt_file.exists()
 
         content = txt_file.read_text()
         assert "TOTAL" in content or "Summary" in content
+        # Verify API token usage is included
+        assert "Token Usage (API Calls)" in content
 
     def test_get_output_directory(self, tmp_path):
         """Test get output directory."""
