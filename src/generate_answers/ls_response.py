@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class LSClient:  # pylint: disable=too-few-public-methods
     """LightSpeed client."""
 
-    def __init__( # pylint: disable=R0913,R0917
+    def __init__(  # pylint: disable=R0913,R0917
         self,
         ls_url: str,
         provider: str,
