@@ -339,7 +339,11 @@ class TestOutputHandlerInitialization:
                 score=0.8,
                 threshold=0.7,
                 reason="Good performance",
+                query="What is OpenShift?",
+                response="OpenShift is a container platform.",
                 execution_time=1.5,
+                contexts='["OpenShift context"]',
+                expected_keywords='[["OpenShift", "container"]]',
             ),
             EvaluationResult(
                 conversation_group_id="test_conv",
@@ -349,7 +353,22 @@ class TestOutputHandlerInitialization:
                 score=0.3,
                 threshold=0.7,
                 reason="Poor performance",
+                query="How to deploy?",
+                response="Use oc apply.",
                 execution_time=0.8,
+                expected_response="Use oc apply -f deployment.yaml",
+            ),
+            EvaluationResult(
+                conversation_group_id="test_conv",
+                turn_id="turn3",
+                metric_identifier="ragas:response_relevancy",
+                result="ERROR",
+                score=None,
+                threshold=None,
+                reason="API connection failed",
+                query="Create namespace",
+                response="",
+                execution_time=0.0,
             ),
         ]
 
@@ -368,10 +387,22 @@ class TestOutputHandlerInitialization:
             reader = csv_module.DictReader(f)
             rows = list(reader)
 
-        assert len(rows) == 2
+        assert len(rows) == 3
+
         assert rows[0]["conversation_group_id"] == "test_conv"
         assert rows[0]["result"] == "PASS"
+        assert rows[0]["query"] == "What is OpenShift?"
+        assert rows[0]["response"] == "OpenShift is a container platform."
+        assert rows[0]["contexts"] == '["OpenShift context"]'
+        assert rows[0]["expected_keywords"] == '[["OpenShift", "container"]]'
+
         assert rows[1]["result"] == "FAIL"
+        assert rows[1]["expected_response"] == "Use oc apply -f deployment.yaml"
+
+        # ERROR result - Additional fields are kept as empty
+        assert rows[2]["result"] == "ERROR"
+        assert rows[2]["query"] == "Create namespace"
+        assert rows[2]["contexts"] == ""
 
     def test_csv_columns_configuration(self, tmp_path, mocker):
         """Test that CSV uses configured columns."""

@@ -407,15 +407,34 @@ class EvaluationResult(BaseModel):
     execution_time: float = Field(
         default=0, ge=0, description="Execution time in seconds"
     )
+    api_input_tokens: int = Field(default=0, ge=0, description="API input tokens used")
+    api_output_tokens: int = Field(
+        default=0, ge=0, description="API output tokens used"
+    )
     judge_llm_input_tokens: int = Field(
         default=0, ge=0, description="Judge LLM input tokens used"
     )
     judge_llm_output_tokens: int = Field(
         default=0, ge=0, description="Judge LLM output tokens used"
     )
-    api_input_tokens: int = Field(default=0, ge=0, description="API input tokens used")
-    api_output_tokens: int = Field(
-        default=0, ge=0, description="API output tokens used"
+    tool_calls: Optional[str] = Field(
+        default=None, description="Actual tool calls formatted as string"
+    )
+    contexts: Optional[str] = Field(
+        default=None, description="Contexts formatted as string"
+    )
+    expected_response: Optional[str] = Field(
+        default=None, description="Expected response for comparison metrics"
+    )
+    expected_intent: Optional[str] = Field(
+        default=None, description="Expected intent for intent evaluation"
+    )
+    expected_keywords: Optional[str] = Field(
+        default=None,
+        description="Expected keywords formatted as string",
+    )
+    expected_tool_calls: Optional[str] = Field(
+        default=None, description="Expected tool calls formatted as string"
     )
 
     @field_validator("result")

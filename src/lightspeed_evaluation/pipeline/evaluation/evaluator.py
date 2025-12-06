@@ -1,8 +1,9 @@
 """Metrics evaluation module - handles individual metric evaluation."""
 
+import json
 import logging
 import time
-from typing import Optional
+from typing import Any, Optional
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
 from lightspeed_evaluation.core.llm.custom import TokenTracker
@@ -21,6 +22,16 @@ from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.core.system import ConfigLoader
 
 logger = logging.getLogger(__name__)
+
+
+def _to_json_str(value: Any) -> Optional[str]:
+    """Convert any value to JSON string. Returns None for empty values."""
+    if value is None or value == [] or value == {}:
+        return None
+    try:
+        return json.dumps(value, indent=None, default=str)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 class MetricsEvaluator:
@@ -151,6 +162,7 @@ class MetricsEvaluator:
             )
             status = self._determine_status(score, threshold)
 
+            turn_data = request.turn_data
             return EvaluationResult(
                 conversation_group_id=request.conv_data.conversation_group_id,
                 turn_id=request.turn_id,
@@ -159,16 +171,26 @@ class MetricsEvaluator:
                 score=score,
                 threshold=threshold,
                 reason=reason,
-                query=request.turn_data.query if request.turn_data else "",
-                response=request.turn_data.response or "" if request.turn_data else "",
+                query=turn_data.query if turn_data else "",
+                response=turn_data.response or "" if turn_data else "",
                 execution_time=execution_time,
-                judge_llm_input_tokens=judge_input_tokens,
-                judge_llm_output_tokens=judge_output_tokens,
                 api_input_tokens=(
                     request.turn_data.api_input_tokens if request.turn_data else 0
                 ),
                 api_output_tokens=(
                     request.turn_data.api_output_tokens if request.turn_data else 0
+                ),
+                judge_llm_input_tokens=judge_input_tokens,
+                judge_llm_output_tokens=judge_output_tokens,
+                tool_calls=_to_json_str(turn_data.tool_calls) if turn_data else None,
+                contexts=_to_json_str(turn_data.contexts) if turn_data else None,
+                expected_response=turn_data.expected_response if turn_data else None,
+                expected_intent=turn_data.expected_intent if turn_data else None,
+                expected_keywords=(
+                    _to_json_str(turn_data.expected_keywords) if turn_data else None
+                ),
+                expected_tool_calls=(
+                    _to_json_str(turn_data.expected_tool_calls) if turn_data else None
                 ),
             )
 

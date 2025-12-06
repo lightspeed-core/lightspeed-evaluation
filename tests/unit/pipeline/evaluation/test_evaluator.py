@@ -154,6 +154,10 @@ class TestMetricsEvaluator:
         assert result.turn_id == "1"
         assert result.metric_identifier == "ragas:faithfulness"
 
+        assert result.query == "What is Python?"
+        assert result.response == "Python is a programming language."
+        assert result.contexts == '["Context"]'
+
     def test_evaluate_metric_turn_level_fail(
         self, config_loader, mock_metric_manager, mock_script_manager, mocker
     ):
@@ -360,6 +364,11 @@ class TestMetricsEvaluator:
         assert result.result == "ERROR"
         assert "Evaluation error" in result.reason
         assert "Unexpected error" in result.reason
+
+        assert result.query == "Q"
+        assert result.response == "R"
+        assert result.contexts is None
+        assert result.expected_response is None
 
     def test_evaluate_metric_skip_script_when_api_disabled(
         self, config_loader, mock_metric_manager, mock_script_manager, mocker
