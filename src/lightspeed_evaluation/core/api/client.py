@@ -29,6 +29,7 @@ class APIClient:
         """Initialize the client with configuration."""
         self.config = config
         self.api_base = config.api_base
+        self.version = config.version
         self.endpoint_type = config.endpoint_type
         self.timeout = config.timeout
 
@@ -127,7 +128,7 @@ class APIClient:
             raise APIError("HTTP client not initialized")
         try:
             response = self.client.post(
-                "/v1/query",
+                f"/{self.version}/query",
                 json=api_request.model_dump(exclude_none=True),
             )
             response.raise_for_status()
@@ -177,7 +178,7 @@ class APIClient:
         try:
             with self.client.stream(
                 "POST",
-                "/v1/streaming_query",
+                f"/{self.version}/streaming_query",
                 json=api_request.model_dump(exclude_none=True),
             ) as response:
                 self._handle_response_errors(response)

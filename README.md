@@ -54,7 +54,7 @@ export OPENAI_API_KEY="your-evaluation-llm-key"
 export API_KEY="your-api-endpoint-key"
 
 # Ensure API is running at configured endpoint
-# Default: http://localhost:8080
+# Default: http://localhost:8080/v1/
 
 # Run with API-enabled configuration
 lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation_data.yaml

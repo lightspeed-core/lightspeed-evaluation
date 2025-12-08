@@ -16,6 +16,7 @@ class EvalConfig(BaseModel):
     """Evaluation configuration."""
 
     lightspeed_url: str
+    lightspeed_api_version: str = "v1"
     models: list[EvalModel]
     models_to_evaluate: set[str]
 
