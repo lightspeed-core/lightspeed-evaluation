@@ -7,6 +7,63 @@ import litellm
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
+class TokenTracker:
+    """Tracks token usage from LiteLLM calls via callbacks.
+
+    Usage:
+        tracker = TokenTracker()
+        tracker.start()  # Register callback
+        # ... make LLM calls ...
+        tracker.stop()   # Unregister callback
+        input_tokens, output_tokens = tracker.get_counts()
+    """
+
+    def __init__(self) -> None:
+        """Initialize token tracker."""
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self._callback_registered = False
+
+    def _token_callback(
+        self,
+        _kwargs: dict[str, Any],
+        completion_response: Any,
+        _start_time: float,
+        _end_time: float,
+    ) -> None:
+        """Capture token usage from LiteLLM completion response."""
+        if hasattr(completion_response, "usage") and completion_response.usage:
+            usage = completion_response.usage
+            self.input_tokens += getattr(usage, "prompt_tokens", 0)
+            self.output_tokens += getattr(usage, "completion_tokens", 0)
+
+    def start(self) -> None:
+        """Register the token tracking callback."""
+        if self._callback_registered:
+            return
+        if not hasattr(litellm, "success_callback") or litellm.success_callback is None:
+            litellm.success_callback = []
+        litellm.success_callback.append(self._token_callback)
+        self._callback_registered = True
+
+    def stop(self) -> None:
+        """Unregister the token tracking callback."""
+        if not self._callback_registered:
+            return
+        if self._token_callback in litellm.success_callback:
+            litellm.success_callback.remove(self._token_callback)
+        self._callback_registered = False
+
+    def get_counts(self) -> tuple[int, int]:
+        """Get accumulated token counts."""
+        return self.input_tokens, self.output_tokens
+
+    def reset(self) -> None:
+        """Reset token counts to zero."""
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+
 class BaseCustomLLM:  # pylint: disable=too-few-public-methods
     """Base LLM class with core calling functionality."""
 

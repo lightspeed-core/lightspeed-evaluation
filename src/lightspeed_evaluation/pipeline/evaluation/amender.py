@@ -59,6 +59,15 @@ class APIDataAmender:
                     len(api_response.tool_calls),
                 )
                 turn_data.tool_calls = api_response.tool_calls
+            # Update token usage from API output (with fallback to 0 if not present)
+            turn_data.api_input_tokens = getattr(api_response, "input_tokens", 0)
+            turn_data.api_output_tokens = getattr(api_response, "output_tokens", 0)
+            logger.debug(
+                "Token usage for turn %s: input=%d, output=%d",
+                turn_data.turn_id,
+                turn_data.api_input_tokens,
+                turn_data.api_output_tokens,
+            )
 
             logger.debug("Data amended for turn %s", turn_data.turn_id)
             return None, api_response.conversation_id
