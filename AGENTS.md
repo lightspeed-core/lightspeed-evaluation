@@ -53,6 +53,7 @@ make verify          # Linting (black --check, ruff, pylint)
 make check-types     # Type checking (mypy)
 make pyright         # Type checking (pyright)
 make docstyle        # Docstring style (pydocstyle)
+make bandit          # Security scanning
 
 # Run tests
 make test            # Or: uv run pytest tests

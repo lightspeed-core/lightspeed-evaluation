@@ -319,13 +319,19 @@ export API_KEY="your-api-endpoint-key"
 ### Development Tools
 ```bash
 uv sync --group dev
-make format
-make pylint
-make pyright
-make docstyle
-make check-types
 
-uv run pytest tests --cov=src
+# Format code
+make format
+
+# Run all quality checks (same as CI)
+make verify          # Linting (black --check, ruff, pylint)
+make check-types     # Type checking (mypy)
+make pyright         # Type checking (pyright)
+make docstyle        # Docstring style (pydocstyle)
+make bandit          # Security scanning
+
+# Run tests
+make test            # Or: uv run pytest tests --cov=src
 ```
 
 ## Generate answers (optional - for creating test data)

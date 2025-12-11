@@ -33,6 +33,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "bandit>=1.7.0",
     "black>=25.1.0",
     "mypy>=1.15.0",
     "ruff>=0.8.0",
