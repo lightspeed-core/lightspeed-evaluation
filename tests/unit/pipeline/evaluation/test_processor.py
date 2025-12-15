@@ -532,6 +532,21 @@ def mock_api_amender(mocker):
 def mock_error_handler(mocker):
     """Create a mock error handler."""
     handler = mocker.Mock(spec=EvaluationErrorHandler)
+
+    # Configure create_error_result to return a proper EvaluationResult
+    def create_error_result_side_effect(
+        conv_id, metric_id, reason, *, turn_id=None, query=""
+    ):
+        return EvaluationResult(
+            conversation_group_id=conv_id,
+            turn_id=turn_id,
+            metric_identifier=metric_id,
+            result="ERROR",
+            reason=reason,
+            query=query,
+        )
+
+    handler.create_error_result.side_effect = create_error_result_side_effect
     return handler
 
 
