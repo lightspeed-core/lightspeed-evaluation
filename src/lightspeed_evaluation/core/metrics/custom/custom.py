@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.metrics.custom.mmlu_style_eval import MMLUMetrics
 from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
@@ -27,12 +28,15 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         self.llm = BaseCustomLLM(
             llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
+        self.mmlu_metrics = MMLUMetrics()
 
         self.supported_metrics = {
             "keywords_eval": evaluate_keywords,
             "answer_correctness": self._evaluate_answer_correctness,
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
+            "multiple_choice_exact": self._evaluate_mmlu_exact,
+            "multiple_choice_strict": self._evaluate_mmlu_strict,
         }
 
         print(f"✅ Custom Metrics initialized: {self.llm.model_name}")
@@ -241,3 +245,50 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             return score, reason
         except LLMError as e:
             return None, f"Intent evaluation failed: {str(e)}"
+
+    def _evaluate_mmlu_exact(
+        self,
+        conv_data: Any,
+        turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Evaluate using MMLU exact match metric.
+
+        Args:
+            conv_data: Conversation data.
+            turn_idx: Turn index.
+            turn_data: Turn data containing response and expected response.
+            is_conversation: Whether this is conversation-level evaluation.
+
+        Returns:
+            Tuple of (score, reason).
+        """
+        scope = EvaluationScope(
+            turn_idx=turn_idx, turn_data=turn_data, is_conversation=is_conversation
+        )
+        return self.mmlu_metrics.evaluate("multiple_choice_exact", conv_data, scope)
+
+    def _evaluate_mmlu_strict(
+        self,
+        conv_data: Any,
+        turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Evaluate using MMLU strict match metric.
+
+        Args:
+            conv_data: Conversation data.
+            turn_idx: Turn index.
+            turn_data: Turn data containing response and expected response.
+            is_conversation: Whether this is conversation-level evaluation.
+
+        Returns:
+            Tuple of (score, reason).
+        """
+        scope = EvaluationScope(
+            turn_idx=turn_idx, turn_data=turn_data, is_conversation=is_conversation
+        )
+        return self.mmlu_metrics.evaluate("multiple_choice_strict", conv_data, scope)
+
