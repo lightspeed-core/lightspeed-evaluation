@@ -34,6 +34,16 @@ class ProcessorComponents:
     script_manager: ScriptExecutionManager
 
 
+@dataclass
+class TurnProcessingContext:
+    """Context for processing turns within a conversation."""
+
+    conv_data: EvaluationData
+    resolved_turn_metrics: list[list[str]]
+    resolved_conversation_metrics: list[str]
+    conversation_id: Optional[str] = None
+
+
 class ConversationProcessor:
     """Processes individual conversations - handles both turn and conversation metrics."""
 
@@ -43,17 +53,43 @@ class ConversationProcessor:
         self.config = config_loader.system_config
         self.components = components
 
-    def process_conversation(  # pylint: disable=too-many-locals
-        self, conv_data: EvaluationData
-    ) -> list[EvaluationResult]:
+    def process_conversation(self, conv_data: EvaluationData) -> list[EvaluationResult]:
         """Process single conversation - handle turn and conversation level metrics.
 
         Returns:
             list[EvaluationResult]: Results from processing this conversation
         """
         logger.info("Evaluating conversation: %s", conv_data.conversation_group_id)
-        results: list[EvaluationResult] = []
 
+        # Build processing context with resolved metrics
+        ctx = self._build_processing_context(conv_data)
+
+        # Skip if no metrics specified at any level
+        if not self._has_metrics_to_evaluate(ctx):
+            logger.debug(
+                "No metrics to evaluate (no defaults or explicit metrics), skipping"
+            )
+            return []
+
+        # Run setup script if provided
+        setup_error = self._run_setup_script(conv_data)
+        if setup_error:
+            return self._handle_setup_failure(ctx, setup_error)
+
+        try:
+            if self.config is None:
+                raise ValueError("SystemConfig must be loaded")
+
+            return self._process_turns_and_conversation(ctx)
+
+        finally:
+            # Always run cleanup script (if provided) regardless of results
+            self._run_cleanup_script(conv_data)
+
+    def _build_processing_context(
+        self, conv_data: EvaluationData
+    ) -> TurnProcessingContext:
+        """Build processing context with resolved metrics."""
         resolved_turn_metrics = [
             self.components.metric_manager.resolve_metrics(
                 turn_data.turn_metrics, MetricLevel.TURN
@@ -63,120 +99,126 @@ class ConversationProcessor:
         resolved_conversation_metrics = self.components.metric_manager.resolve_metrics(
             conv_data.conversation_metrics, MetricLevel.CONVERSATION
         )
+        return TurnProcessingContext(
+            conv_data=conv_data,
+            resolved_turn_metrics=resolved_turn_metrics,
+            resolved_conversation_metrics=resolved_conversation_metrics,
+        )
 
-        # Skip if no metrics specified at any level
-        has_turn_metrics = any(bool(metrics) for metrics in resolved_turn_metrics)
-        has_conversation_metrics = bool(resolved_conversation_metrics)
+    def _has_metrics_to_evaluate(self, ctx: TurnProcessingContext) -> bool:
+        """Check if there are any metrics to evaluate."""
+        has_turn_metrics = any(bool(metrics) for metrics in ctx.resolved_turn_metrics)
+        has_conversation_metrics = bool(ctx.resolved_conversation_metrics)
+        return has_turn_metrics or has_conversation_metrics
 
-        if not has_turn_metrics and not has_conversation_metrics:
+    def _handle_setup_failure(
+        self, ctx: TurnProcessingContext, setup_error: str
+    ) -> list[EvaluationResult]:
+        """Handle setup script failure - mark all metrics as ERROR."""
+        logger.error("Setup script failed - marking all metrics as ERROR")
+        error_results = self.components.error_handler.mark_all_metrics_as_error(
+            ctx.conv_data,
+            f"Setup script failed: {setup_error}",
+            resolved_turn_metrics=ctx.resolved_turn_metrics,
+            resolved_conversation_metrics=ctx.resolved_conversation_metrics,
+        )
+        # Attempt cleanup even when setup failed
+        self._run_cleanup_script(ctx.conv_data)
+        return error_results
+
+    def _process_turns_and_conversation(
+        self, ctx: TurnProcessingContext
+    ) -> list[EvaluationResult]:
+        """Process all turns and conversation-level metrics."""
+        results: list[EvaluationResult] = []
+
+        # Process each turn individually (API call + evaluation)
+        for turn_idx, (turn_data, turn_metrics) in enumerate(
+            zip(ctx.conv_data.turns, ctx.resolved_turn_metrics)
+        ):
+            # Handle API call if enabled
+            if self.config and self.config.api.enabled:
+                api_error = self._process_turn_api(ctx, turn_idx, turn_data)
+                if api_error:
+                    # API failure - mark current turn and cascade to remaining
+                    api_error_results = self._handle_api_error(ctx, turn_idx, api_error)
+                    results.extend(api_error_results)
+                    return results
+
+            # Evaluate turn-level metrics
+            if turn_metrics:
+                logger.debug("Processing turn %d metrics: %s", turn_idx, turn_metrics)
+                turn_results = self._evaluate_turn(
+                    ctx.conv_data, turn_idx, turn_data, turn_metrics
+                )
+                results.extend(turn_results)
+
+        # Process conversation-level metrics
+        if ctx.resolved_conversation_metrics:
             logger.debug(
-                "No metrics to evaluate (no defaults or explicit metrics), skipping"
+                "Processing conversation-level metrics: %s",
+                ctx.resolved_conversation_metrics,
             )
-            return results
-
-        # Step 1: Run setup script if provided
-        setup_error = self._run_setup_script(conv_data)
-        if setup_error:
-            # If setup fails, mark all evaluations as ERROR
-            logger.error("Setup script failed - marking all metrics as ERROR")
-            error_results = self.components.error_handler.mark_all_metrics_as_error(
-                conv_data,
-                f"Setup script failed: {setup_error}",
-                resolved_turn_metrics=resolved_turn_metrics,
-                resolved_conversation_metrics=resolved_conversation_metrics,
+            conv_results = self._evaluate_conversation(
+                ctx.conv_data, ctx.resolved_conversation_metrics
             )
-            # Attempt cleanup even when setup failed
-            self._run_cleanup_script(conv_data)
-            return error_results
+            results.extend(conv_results)
 
-        try:
-            if self.config is None:
-                raise ValueError("SystemConfig must be loaded")
+        return results
 
-            # Step 2: Process each turn individually (API call + evaluation)
-            conversation_id: Optional[str] = None
+    def _process_turn_api(
+        self, ctx: TurnProcessingContext, turn_idx: int, turn_data: TurnData
+    ) -> Optional[str]:
+        """Process API call for a single turn. Returns error message if failed."""
+        logger.debug("Processing turn %d: %s", turn_idx, turn_data.turn_id)
+        api_error_message, ctx.conversation_id = (
+            self.components.api_amender.amend_single_turn(
+                turn_data, ctx.conversation_id
+            )
+        )
+        logger.debug(
+            "✅ API Call completed for turn %d: %s", turn_idx, turn_data.turn_id
+        )
+        return api_error_message
 
-            for turn_idx, (turn_data, turn_metrics) in enumerate(
-                zip(conv_data.turns, resolved_turn_metrics)
-            ):
-                # Step 2a: Amend with API data if enabled (per turn)
-                if self.config.api.enabled:
-                    logger.debug("Processing turn %d: %s", turn_idx, turn_data.turn_id)
-                    api_error_message, conversation_id = (
-                        self.components.api_amender.amend_single_turn(
-                            turn_data, conversation_id
-                        )
-                    )
-                    logger.debug(
-                        "✅ API Call completed for turn %d: %s",
-                        turn_idx,
-                        turn_data.turn_id,
-                    )
+    def _handle_api_error(
+        self,
+        ctx: TurnProcessingContext,
+        turn_idx: int,
+        api_error_message: str,
+    ) -> list[EvaluationResult]:
+        """Handle API error - mark current turn and cascade to remaining."""
+        logger.error(
+            "API error for turn %d - marking current turn, "
+            "remaining turns, and conversation as ERROR",
+            turn_idx,
+        )
+        results: list[EvaluationResult] = []
 
-                    # If API error occurred, mark current turn + remaining + conversation as ERROR
-                    if api_error_message:
-                        logger.error(
-                            "API error for turn %d - marking current turn, "
-                            "remaining turns, and conversation as ERROR",
-                            turn_idx,
-                        )
-                        # Mark current turn as ERROR
-                        current_turn_errors = (
-                            self.components.error_handler.mark_turn_metrics_as_error(
-                                conv_data,
-                                turn_idx,
-                                turn_data,
-                                turn_metrics,
-                                api_error_message,
-                            )
-                        )
-                        results.extend(current_turn_errors)
+        # Derive turn data and metrics from context
+        turn_data = ctx.conv_data.turns[turn_idx]
+        turn_metrics = ctx.resolved_turn_metrics[turn_idx]
 
-                        # Mark remaining turns and conversation metrics as ERROR
-                        cascade_error_reason = (
-                            f"Cascade failure from turn {turn_idx + 1} API error: "
-                            f"{api_error_message}"
-                        )
-                        remaining_errors = (
-                            self.components.error_handler.mark_cascade_failure(
-                                conv_data,
-                                turn_idx,
-                                resolved_turn_metrics,
-                                resolved_conversation_metrics,
-                                cascade_error_reason,
-                            )
-                        )
-                        results.extend(remaining_errors)
+        # Mark current turn as ERROR
+        current_turn_errors = self.components.error_handler.mark_turn_metrics_as_error(
+            ctx.conv_data, turn_idx, turn_data, turn_metrics, api_error_message
+        )
+        results.extend(current_turn_errors)
 
-                        # Stop processing - API failure cascades to all remaining
-                        return results
+        # Mark remaining turns and conversation metrics as ERROR
+        cascade_error_reason = (
+            f"Cascade failure from turn {turn_idx + 1} API error: {api_error_message}"
+        )
+        remaining_errors = self.components.error_handler.mark_cascade_failure(
+            ctx.conv_data,
+            turn_idx,
+            ctx.resolved_turn_metrics,
+            ctx.resolved_conversation_metrics,
+            cascade_error_reason,
+        )
+        results.extend(remaining_errors)
 
-                # Step 2b: Process turn-level metrics for this turn
-                if turn_metrics:
-                    logger.debug(
-                        "Processing turn %d metrics: %s", turn_idx, turn_metrics
-                    )
-                    turn_results = self._evaluate_turn(
-                        conv_data, turn_idx, turn_data, turn_metrics
-                    )
-                    results.extend(turn_results)
-
-            # Step 3: Process conversation-level metrics
-            if resolved_conversation_metrics:
-                logger.debug(
-                    "Processing conversation-level metrics: %s",
-                    resolved_conversation_metrics,
-                )
-                conv_results = self._evaluate_conversation(
-                    conv_data, resolved_conversation_metrics
-                )
-                results.extend(conv_results)
-
-            return results
-
-        finally:
-            # Step 4: Always run cleanup script (if provided) regardless of results
-            self._run_cleanup_script(conv_data)
+        return results
 
     def _evaluate_turn(
         self,
@@ -190,19 +232,17 @@ class ConversationProcessor:
 
         for metric_identifier in turn_metrics:
             if turn_data.is_metric_invalid(metric_identifier):
-                # The metric didn't pass the validation
                 error_reason = f"Invalid turn metric '{metric_identifier}', check Validation Errors"
                 logger.error(error_reason)
-
-                error_result = EvaluationResult(  # pylint: disable=duplicate-code
-                    conversation_group_id=conv_data.conversation_group_id,
-                    turn_id=turn_data.turn_id,
-                    metric_identifier=metric_identifier,
-                    result="ERROR",
-                    reason=error_reason,
-                    query=turn_data.query,
+                results.append(
+                    self.components.error_handler.create_error_result(
+                        conv_data.conversation_group_id,
+                        metric_identifier,
+                        error_reason,
+                        turn_id=turn_data.turn_id,
+                        query=turn_data.query,
+                    )
                 )
-                results.append(error_result)
                 continue
 
             request = EvaluationRequest.for_turn(
@@ -221,19 +261,15 @@ class ConversationProcessor:
 
         for metric_identifier in conversation_metrics:
             if conv_data.is_metric_invalid(metric_identifier):
-                # The metric didn't pass the validation
                 error_reason = (
                     f"Invalid metric '{metric_identifier}', check Validation Errors"
                 )
                 logger.error(error_reason)
-
-                error_result = EvaluationResult(
-                    conversation_group_id=conv_data.conversation_group_id,
-                    metric_identifier=metric_identifier,
-                    result="ERROR",
-                    reason=error_reason,
+                results.append(
+                    self.components.error_handler.create_error_result(
+                        conv_data.conversation_group_id, metric_identifier, error_reason
+                    )
                 )
-                results.append(error_result)
                 continue
 
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
