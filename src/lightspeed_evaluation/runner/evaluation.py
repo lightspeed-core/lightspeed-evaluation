@@ -88,7 +88,8 @@ def run_evaluation(  # pylint: disable=too-many-locals
         # Step 5: Final Summary
         summary = calculate_basic_stats(results)
         print(
-            f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, ⚠️ Error: {summary['ERROR']}"
+            f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, "
+            f"⚠️ Error: {summary['ERROR']}, ⏭️ Skipped: {summary['SKIPPED']}"
         )
         if summary["ERROR"] > 0:
             print(
@@ -121,6 +122,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
             "PASS": summary["PASS"],
             "FAIL": summary["FAIL"],
             "ERROR": summary["ERROR"],
+            "SKIPPED": summary["SKIPPED"],
         }
 
     except (FileNotFoundError, ValueError, RuntimeError) as e:

@@ -15,6 +15,35 @@ class EvaluationErrorHandler:
         """Initialize error handler."""
         self.results: list[EvaluationResult] = []
 
+    def _create_result(  # pylint: disable=too-many-arguments
+        self,
+        conv_id: str,
+        metric_id: str,
+        reason: str,
+        result_status: str,
+        *,
+        turn_id: Optional[str] = None,
+        query: str = "",
+    ) -> EvaluationResult:
+        """Create an EvaluationResult with specified status.
+
+        Args:
+            conv_id: Conversation group ID
+            metric_id: Metric identifier
+            reason: Reason for the result
+            result_status: Result status (ERROR, SKIPPED, etc.)
+            turn_id: Turn ID (None for conversation-level)
+            query: Query text
+        """
+        return EvaluationResult(
+            conversation_group_id=conv_id,
+            turn_id=turn_id,
+            metric_identifier=metric_id,
+            result=result_status,
+            reason=reason,
+            query=query,
+        )
+
     def create_error_result(  # pylint: disable=too-many-arguments
         self,
         conv_id: str,
@@ -33,13 +62,30 @@ class EvaluationErrorHandler:
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """
-        return EvaluationResult(
-            conversation_group_id=conv_id,
-            turn_id=turn_id,
-            metric_identifier=metric_id,
-            result="ERROR",
-            reason=reason,
-            query=query,
+        return self._create_result(
+            conv_id, metric_id, reason, "ERROR", turn_id=turn_id, query=query
+        )
+
+    def create_skipped_result(  # pylint: disable=too-many-arguments
+        self,
+        conv_id: str,
+        metric_id: str,
+        reason: str,
+        *,
+        turn_id: Optional[str] = None,
+        query: str = "",
+    ) -> EvaluationResult:
+        """Create a SKIPPED EvaluationResult.
+
+        Args:
+            conv_id: Conversation group ID
+            metric_id: Metric identifier
+            reason: Skip reason
+            turn_id: Turn ID (None for conversation-level)
+            query: Query text
+        """
+        return self._create_result(
+            conv_id, metric_id, reason, "SKIPPED", turn_id=turn_id, query=query
         )
 
     def mark_all_metrics_as_error(
@@ -182,6 +228,59 @@ class EvaluationErrorHandler:
 
         self.results.extend(error_results)
         return error_results
+
+    def mark_cascade_skipped(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        conv_data: EvaluationData,
+        failed_turn_idx: int,
+        resolved_turn_metrics: list[list[str]],
+        resolved_conversation_metrics: list[str],
+        skip_reason: str,
+    ) -> list[EvaluationResult]:
+        """Mark remaining turns and conversation metrics as SKIPPED (skip on eval failure).
+
+        Args:
+            conv_data: Conversation data
+            failed_turn_idx: Index of the turn that failed
+            resolved_turn_metrics: Resolved metrics for all turns
+            resolved_conversation_metrics: Resolved conversation metrics
+            skip_reason: Reason for skipping
+
+        Returns:
+            list[EvaluationResult]: SKIPPED results for remaining turns and conversation
+        """
+        logger.info(
+            "Skipping remaining turns (%d onwards) and conversation metrics for %s: %s",
+            failed_turn_idx + 1,
+            conv_data.conversation_group_id,
+            skip_reason,
+        )
+        skipped_results: list[EvaluationResult] = []
+
+        # Mark remaining turns as SKIPPED (from failed_turn_idx + 1 onwards)
+        for turn_idx in range(failed_turn_idx + 1, len(conv_data.turns)):
+            turn_data = conv_data.turns[turn_idx]
+            for metric_id in resolved_turn_metrics[turn_idx]:
+                skipped_results.append(
+                    self.create_skipped_result(
+                        conv_data.conversation_group_id,
+                        metric_id,
+                        skip_reason,
+                        turn_id=turn_data.turn_id,
+                        query=turn_data.query,
+                    )
+                )
+
+        # Mark conversation-level metrics as SKIPPED
+        for metric_id in resolved_conversation_metrics:
+            skipped_results.append(
+                self.create_skipped_result(
+                    conv_data.conversation_group_id, metric_id, skip_reason
+                )
+            )
+
+        self.results.extend(skipped_results)
+        return skipped_results
 
     def get_error_summary(self) -> dict[str, int]:
         """Get summary of error results collected."""
