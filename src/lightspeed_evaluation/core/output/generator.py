@@ -247,7 +247,7 @@ class OutputHandler:
 
         return json_file
 
-    def _generate_text_summary(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _generate_text_summary(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-statements,too-many-locals
         self,
         results: list[EvaluationResult],
         base_filename: str,
@@ -282,8 +282,11 @@ class OutputHandler:
                 f"Fail: {stats['overall']['FAIL']} ({stats['overall']['fail_rate']:.1f}%)\n"
             )
             f.write(
-                f"Error: {stats['overall']['ERROR']} ({stats['overall']['error_rate']:.1f}%)\n\n"
+                f"Error: {stats['overall']['ERROR']} ({stats['overall']['error_rate']:.1f}%)\n"
             )
+            skipped = stats["overall"]["SKIPPED"]
+            skipped_rate = stats["overall"]["skipped_rate"]
+            f.write(f"Skipped: {skipped} ({skipped_rate:.1f}%)\n\n")
 
             # Token usage statistics
             f.write("Token Usage (Judge LLM):\n")
@@ -324,6 +327,10 @@ class OutputHandler:
                     f.write(
                         f"  Error: {metric_stats['error']} ({metric_stats['error_rate']:.1f}%)\n"
                     )
+                    if metric_stats.get("skipped", 0) > 0:
+                        skip_count = metric_stats["skipped"]
+                        skip_rate = metric_stats["skipped_rate"]
+                        f.write(f"  Skipped: {skip_count} ({skip_rate:.1f}%)\n")
                     if (
                         "score_statistics" in metric_stats
                         and metric_stats["score_statistics"]["count"] > 0
@@ -354,6 +361,10 @@ class OutputHandler:
                     f.write(
                         f"  Error: {conv_stats['error']} ({conv_stats['error_rate']:.1f}%)\n"
                     )
+                    if conv_stats.get("skipped", 0) > 0:
+                        skip_count = conv_stats["skipped"]
+                        skip_rate = conv_stats["skipped_rate"]
+                        f.write(f"  Skipped: {skip_count} ({skip_rate:.1f}%)\n")
                     f.write("\n")
 
         return txt_file

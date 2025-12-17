@@ -24,6 +24,7 @@ CHART_COLORS = {
     "PASS": "#28a745",  # Green
     "FAIL": "#dc3545",  # Red
     "ERROR": "#ffc107",  # Yellow/Orange
+    "SKIPPED": "#6c757d",  # Gray
 }
 
 
@@ -153,9 +154,16 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         for metric, stats in by_metric_stats.items():
             metrics.append(metric)
             pass_rates.append(stats["pass_rate"])
-            status_breakdowns.append(
-                f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']}"
-            )
+            # Include skipped count if present
+            skipped = stats.get("skipped", 0)
+            if skipped > 0:
+                status_breakdowns.append(
+                    f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']} S:{skipped}"
+                )
+            else:
+                status_breakdowns.append(
+                    f"P:{stats['pass']} F:{stats['fail']} E:{stats['error']}"
+                )
 
         # Create figure
         _, ax = plt.subplots(figsize=(12, 8))
@@ -280,7 +288,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
             return None
 
         # Count status breakdown
-        status_counts = {"PASS": 0, "FAIL": 0, "ERROR": 0}
+        status_counts = {"PASS": 0, "FAIL": 0, "ERROR": 0, "SKIPPED": 0}
         for result in results:
             if result.result in status_counts:
                 status_counts[result.result] += 1
@@ -363,14 +371,13 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
                     "pass": 0,
                     "fail": 0,
                     "error": 0,
+                    "skipped": 0,
                 }
 
-            if result.result == "PASS":
-                conversation_metrics[conv_id][metric_id]["pass"] += 1
-            elif result.result == "FAIL":
-                conversation_metrics[conv_id][metric_id]["fail"] += 1
-            elif result.result == "ERROR":
-                conversation_metrics[conv_id][metric_id]["error"] += 1
+            # Use lowercase result as key to increment counter
+            result_key = result.result.lower()
+            if result_key in conversation_metrics[conv_id][metric_id]:
+                conversation_metrics[conv_id][metric_id][result_key] += 1
 
         if not conversation_metrics:
             return None
@@ -390,7 +397,12 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
                 if metric_id in conversation_metrics[conv_id]:
                     # Calculate pass rate for this metric in this conversation
                     stats = conversation_metrics[conv_id][metric_id]
-                    total = stats["pass"] + stats["fail"] + stats["error"]
+                    total = (
+                        stats["pass"]
+                        + stats["fail"]
+                        + stats["error"]
+                        + stats["skipped"]
+                    )
                     pass_rate = (stats["pass"] / total * 100) if total > 0 else 0
                     row.append(pass_rate)
                 else:

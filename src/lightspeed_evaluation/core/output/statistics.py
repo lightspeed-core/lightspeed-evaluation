@@ -35,16 +35,18 @@ def bootstrap_intervals(
 
 
 def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
-    """Calculate basic pass/fail/error statistics from results."""
+    """Calculate basic pass/fail/error/skipped statistics from results."""
     if not results:
         return {
             "TOTAL": 0,
             "PASS": 0,
             "FAIL": 0,
             "ERROR": 0,
+            "SKIPPED": 0,
             "pass_rate": 0.0,
             "fail_rate": 0.0,
             "error_rate": 0.0,
+            "skipped_rate": 0.0,
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
@@ -54,6 +56,7 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
     pass_count = sum(1 for r in results if r.result == "PASS")
     fail_count = sum(1 for r in results if r.result == "FAIL")
     error_count = sum(1 for r in results if r.result == "ERROR")
+    skipped_count = sum(1 for r in results if r.result == "SKIPPED")
 
     # Calculate token totals
     total_judge_input = sum(r.judge_llm_input_tokens for r in results)
@@ -64,9 +67,11 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
         "PASS": pass_count,
         "FAIL": fail_count,
         "ERROR": error_count,
+        "SKIPPED": skipped_count,
         "pass_rate": (pass_count / total) * 100 if total > 0 else 0,
         "fail_rate": (fail_count / total) * 100 if total > 0 else 0,
         "error_rate": (error_count / total) * 100 if total > 0 else 0,
+        "skipped_rate": (skipped_count / total) * 100 if total > 0 else 0,
         "total_judge_llm_input_tokens": total_judge_input,
         "total_judge_llm_output_tokens": total_judge_output,
         "total_judge_llm_tokens": total_judge_input + total_judge_output,
@@ -105,6 +110,7 @@ def _update_metric_stats(
             "pass": 0,
             "fail": 0,
             "error": 0,
+            "skipped": 0,
             "scores": [],
         }
 
@@ -124,6 +130,7 @@ def _update_conversation_stats(
             "pass": 0,
             "fail": 0,
             "error": 0,
+            "skipped": 0,
         }
 
     by_conversation[result.conversation_group_id][result.result.lower()] += 1
@@ -131,15 +138,17 @@ def _update_conversation_stats(
 
 def _finalize_metric_stats(stats: dict[str, Any]) -> None:
     """Calculate final statistics for a metric."""
-    total = stats["pass"] + stats["fail"] + stats["error"]
+    total = stats["pass"] + stats["fail"] + stats["error"] + stats["skipped"]
     if total > 0:
         stats["pass_rate"] = stats["pass"] / total * 100
         stats["fail_rate"] = stats["fail"] / total * 100
         stats["error_rate"] = stats["error"] / total * 100
+        stats["skipped_rate"] = stats["skipped"] / total * 100
     else:
         stats["pass_rate"] = 0.0
         stats["fail_rate"] = 0.0
         stats["error_rate"] = 0.0
+        stats["skipped_rate"] = 0.0
 
     # Calculate statistical measures for scores
     if stats["scores"]:
@@ -187,11 +196,12 @@ def _finalize_metric_stats(stats: dict[str, Any]) -> None:
 
 def _finalize_conversation_stats(stats: dict[str, Any]) -> None:
     """Calculate final statistics for a conversation."""
-    total = stats["pass"] + stats["fail"] + stats["error"]
+    total = stats["pass"] + stats["fail"] + stats["error"] + stats["skipped"]
     if total > 0:
         stats["pass_rate"] = stats["pass"] / total * 100
         stats["fail_rate"] = stats["fail"] / total * 100
         stats["error_rate"] = stats["error"] / total * 100
+        stats["skipped_rate"] = stats["skipped"] / total * 100
 
         # Calculate confidence intervals for conversation rates
         if total > 1:  # Need at least 2 samples for meaningful bootstrap
@@ -210,6 +220,7 @@ def _finalize_conversation_stats(stats: dict[str, Any]) -> None:
         stats["pass_rate"] = 0.0
         stats["fail_rate"] = 0.0
         stats["error_rate"] = 0.0
+        stats["skipped_rate"] = 0.0
         stats["confidence_intervals"] = None
 
 
