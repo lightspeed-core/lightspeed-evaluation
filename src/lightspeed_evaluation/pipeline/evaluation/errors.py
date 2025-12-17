@@ -176,7 +176,57 @@ class EvaluationErrorHandler:
         self.results.extend(error_results)
         return error_results
 
-    def mark_cascade_failure(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _mark_cascade(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        conv_data: EvaluationData,
+        failed_turn_idx: int,
+        resolved_turn_metrics: list[list[str]],
+        resolved_conversation_metrics: list[str],
+        reason: str,
+        result_status: str,
+    ) -> list[EvaluationResult]:
+        """Internal helper for cascade marking with configurable status.
+
+        Args:
+            conv_data: Conversation data
+            failed_turn_idx: Index of the turn that failed
+            resolved_turn_metrics: Resolved metrics for all turns
+            resolved_conversation_metrics: Resolved conversation metrics
+            reason: Reason for the result
+            result_status: Result status (ERROR or SKIPPED)
+
+        Returns:
+            list[EvaluationResult]: Results for remaining turns and conversation
+        """
+        results: list[EvaluationResult] = []
+
+        # Mark remaining turns (from failed_turn_idx + 1 onwards)
+        for turn_idx in range(failed_turn_idx + 1, len(conv_data.turns)):
+            turn_data = conv_data.turns[turn_idx]
+            for metric_id in resolved_turn_metrics[turn_idx]:
+                results.append(
+                    self._create_result(
+                        conv_data.conversation_group_id,
+                        metric_id,
+                        reason,
+                        result_status,
+                        turn_id=turn_data.turn_id,
+                        query=turn_data.query,
+                    )
+                )
+
+        # Mark conversation-level metrics
+        for metric_id in resolved_conversation_metrics:
+            results.append(
+                self._create_result(
+                    conv_data.conversation_group_id, metric_id, reason, result_status
+                )
+            )
+
+        self.results.extend(results)
+        return results
+
+    def mark_cascade_error(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         conv_data: EvaluationData,
         failed_turn_idx: int,
@@ -184,7 +234,7 @@ class EvaluationErrorHandler:
         resolved_conversation_metrics: list[str],
         error_reason: str,
     ) -> list[EvaluationResult]:
-        """Mark remaining turns and conversation metrics as ERROR (cascade failure).
+        """Mark remaining turns and conversation metrics as ERROR (cascade error).
 
         Args:
             conv_data: Conversation data
@@ -202,32 +252,14 @@ class EvaluationErrorHandler:
             conv_data.conversation_group_id,
             error_reason,
         )
-        error_results: list[EvaluationResult] = []
-
-        # Mark remaining turns as ERROR (from failed_turn_idx + 1 onwards)
-        for turn_idx in range(failed_turn_idx + 1, len(conv_data.turns)):
-            turn_data = conv_data.turns[turn_idx]
-            for metric_id in resolved_turn_metrics[turn_idx]:
-                error_results.append(
-                    self.create_error_result(
-                        conv_data.conversation_group_id,
-                        metric_id,
-                        error_reason,
-                        turn_id=turn_data.turn_id,
-                        query=turn_data.query,
-                    )
-                )
-
-        # Mark conversation-level metrics as ERROR
-        for metric_id in resolved_conversation_metrics:
-            error_results.append(
-                self.create_error_result(
-                    conv_data.conversation_group_id, metric_id, error_reason
-                )
-            )
-
-        self.results.extend(error_results)
-        return error_results
+        return self._mark_cascade(
+            conv_data,
+            failed_turn_idx,
+            resolved_turn_metrics,
+            resolved_conversation_metrics,
+            error_reason,
+            "ERROR",
+        )
 
     def mark_cascade_skipped(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -255,37 +287,11 @@ class EvaluationErrorHandler:
             conv_data.conversation_group_id,
             skip_reason,
         )
-        skipped_results: list[EvaluationResult] = []
-
-        # Mark remaining turns as SKIPPED (from failed_turn_idx + 1 onwards)
-        for turn_idx in range(failed_turn_idx + 1, len(conv_data.turns)):
-            turn_data = conv_data.turns[turn_idx]
-            for metric_id in resolved_turn_metrics[turn_idx]:
-                skipped_results.append(
-                    self.create_skipped_result(
-                        conv_data.conversation_group_id,
-                        metric_id,
-                        skip_reason,
-                        turn_id=turn_data.turn_id,
-                        query=turn_data.query,
-                    )
-                )
-
-        # Mark conversation-level metrics as SKIPPED
-        for metric_id in resolved_conversation_metrics:
-            skipped_results.append(
-                self.create_skipped_result(
-                    conv_data.conversation_group_id, metric_id, skip_reason
-                )
-            )
-
-        self.results.extend(skipped_results)
-        return skipped_results
-
-    def get_error_summary(self) -> dict[str, int]:
-        """Get summary of error results collected."""
-        return {
-            "total_errors": len(self.results),
-            "turn_errors": len([r for r in self.results if r.turn_id is not None]),
-            "conversation_errors": len([r for r in self.results if r.turn_id is None]),
-        }
+        return self._mark_cascade(
+            conv_data,
+            failed_turn_idx,
+            resolved_turn_metrics,
+            resolved_conversation_metrics,
+            skip_reason,
+            "SKIPPED",
+        )

@@ -364,13 +364,13 @@ class TestConversationProcessor:
             None,
         )
         processor_components.error_handler.mark_turn_metrics_as_error.return_value = []
-        processor_components.error_handler.mark_cascade_failure.return_value = []
+        processor_components.error_handler.mark_cascade_error.return_value = []
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
         processor.process_conversation(conv_data)
 
         # Verify cascade error handling was triggered
-        processor_components.error_handler.mark_cascade_failure.assert_called_once()
+        processor_components.error_handler.mark_cascade_error.assert_called_once()
 
     def test_evaluate_turn(
         self, mock_config_loader, processor_components, sample_conv_data, mocker

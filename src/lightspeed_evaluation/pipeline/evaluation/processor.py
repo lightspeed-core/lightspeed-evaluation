@@ -247,7 +247,7 @@ class ConversationProcessor:
         cascade_error_reason = (
             f"Cascade failure from turn {turn_idx + 1} API error: {api_error_message}"
         )
-        remaining_errors = self.components.error_handler.mark_cascade_failure(
+        remaining_errors = self.components.error_handler.mark_cascade_error(
             ctx.conv_data,
             turn_idx,
             ctx.resolved_turn_metrics,
