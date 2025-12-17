@@ -271,6 +271,10 @@ class CoreConfig(BaseModel):
         default=True,
         description="If False don't fail on invalid conversations",
     )
+    skip_on_failure: bool = Field(
+        default=False,
+        description="Skip remaining turns in conversation when a turn evaluation fails",
+    )
 
 
 class SystemConfig(BaseModel):

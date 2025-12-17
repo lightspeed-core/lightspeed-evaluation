@@ -353,6 +353,11 @@ class EvaluationData(BaseModel):
         description="Path to cleanup script to run after conversation ends",
     )
 
+    skip_on_failure: Optional[bool] = Field(
+        default=None,
+        description="Skip remaining turns when a turn evaluation fails (overrides system config)",
+    )
+
     # Set of conversation metrics that don't pass the validation to ignore them later
     _invalid_metrics: set[str] = set()
 
