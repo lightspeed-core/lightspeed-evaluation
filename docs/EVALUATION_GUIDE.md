@@ -769,6 +769,22 @@ visualization:
         - "script:action_eval"
 ```
 
+**Skip on Failure Example:**
+
+Skip remaining turns completely (no API calls or evaluations) when a turn fails:
+
+```yaml
+- conversation_group_id: dependent_workflow
+  skip_on_failure: true  # Or set globally in system.yaml.
+  turns:
+    - turn_id: step_1
+      query: "Create namespace"
+      turn_metrics: ["script:action_eval"]
+    - turn_id: step_2  # SKIPPED if step_1 fails
+      query: "Deploy to namespace"
+      turn_metrics: ["script:action_eval"]
+```
+
 ---
 
 ## 9. Running Evaluations

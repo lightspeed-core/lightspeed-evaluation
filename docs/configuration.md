@@ -7,12 +7,14 @@ The system configuration is driven by YAML file. The default config file is [con
 |-----------------|---------|-------------|
 | max_threads    | `50` | Maximum number of threads, set to null for Python default. 50 is OK on a typical laptop. Check your Judge-LLM service for max requests per minute |
 | fail_on_invalid_data | `true` | If `false` don't fail on invalid conversations (like missing `context` field for some metrics) |
+| skip_on_failure | `false` | If `true`, skip remaining turns and conversation metrics when a turn evaluation fails (FAIL or ERROR). Can be overridden per conversation in the input data yaml file. |
 
 ### Example
 ```yaml
 core:
   max_threads: 50
   fail_on_invalid_data: true
+  skip_on_failure: false  # Set to true to stop evaluation on first failure
 ```
 
 ## Judge LLM configuration
@@ -192,7 +194,7 @@ Lightspeed Evaluation produces several outputs with the results and possibly mod
 | conversation_group_id | Conversation group id |
 | turn_id | Turn id |
 | metric_identifier | Metric name |
-| result | Result -- PASS/FAIL/ERROR |
+| result | Result -- PASS/FAIL/ERROR/SKIPPED |
 | score | Score returned by the metric |
 | threshold | Threshold from the setup |
 | reason | Human readable description of the result |
