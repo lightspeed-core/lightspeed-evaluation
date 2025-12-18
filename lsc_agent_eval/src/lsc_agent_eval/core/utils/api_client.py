@@ -16,8 +16,13 @@ logger = logging.getLogger(__name__)
 class AgentHttpClient:
     """HTTP client for agent API communication."""
 
-    def __init__(
-        self, endpoint: str, version: str = "v1", token_file: Optional[str] = None
+    def __init__(  # pylint: disable=R0913,R0917
+        self,
+        endpoint: str,
+        version: str = "v1",
+        token_file: Optional[str] = None,
+        verify_ssl: bool = True,
+        timeout: float = 300.0,
     ):
         """Initialize HTTP client.
 
@@ -25,17 +30,22 @@ class AgentHttpClient:
             endpoint: Base API URL.
             version: API version (e.g., v1, v2). Defaults to "v1".
             token_file: Optional path to token file for authentication.
+            verify_ssl: Whether to verify SSL certificates. Defaults to True.
+            timeout: Default timeout in seconds for requests. Defaults to 300.0.
         """
         self.endpoint = endpoint
         self.version = version
         self.client: Optional[httpx.Client] = None
-        self._setup_client(token_file)
+        self._setup_client(token_file, verify_ssl, timeout)
 
-    def _setup_client(self, token_file: Optional[str]) -> None:
+    def _setup_client(
+        self, token_file: Optional[str], verify_ssl: bool, timeout: float
+    ) -> None:
         """Initialize HTTP client with authentication."""
         try:
-            # enable verify, currently for eval it is set to False
-            self.client = httpx.Client(base_url=self.endpoint, verify=False)
+            self.client = httpx.Client(
+                base_url=self.endpoint, verify=verify_ssl, timeout=timeout
+            )
 
             token = None
             if token_file:

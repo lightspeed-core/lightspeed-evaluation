@@ -55,7 +55,8 @@ def read_qna_lightspeed_eval_json(filename: str) -> pd.DataFrame:
     df = pd.DataFrame(columns=_QNA_COLS)  # type: ignore
 
     for eval_id, eval_data in qna["evaluation"].items():
-        assert eval_id not in df[_ID_COL], f"Non unique eval_id: {eval_id}"
+        if eval_id in df[_ID_COL].values:
+            raise ValueError(f"Non unique eval_id: {eval_id}")
         try:
             question = eval_data["question"]
             ground_truth = eval_data["answer"]["ground_truth+with_rag"]["text"]

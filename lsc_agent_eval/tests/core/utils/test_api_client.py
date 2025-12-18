@@ -21,7 +21,7 @@ class TestAgentHttpClient:
         assert client.endpoint == "http://localhost:8080"
         assert client.version == "v1"
         mock_client.assert_called_once_with(
-            base_url="http://localhost:8080", verify=False
+            base_url="http://localhost:8080", verify=True, timeout=300.0
         )
 
     def test_init_with_token_file(self, mocker: MockerFixture):
@@ -38,7 +38,7 @@ class TestAgentHttpClient:
         assert client.endpoint == "http://localhost:8080"
         assert client.version == "v1"
         mock_client.assert_called_once_with(
-            base_url="http://localhost:8080", verify=False
+            base_url="http://localhost:8080", verify=True, timeout=300.0
         )
         mock_client.return_value.headers.update.assert_called_once_with(
             {"Authorization": "Bearer test-token-123"}
