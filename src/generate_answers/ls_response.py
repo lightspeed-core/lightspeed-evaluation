@@ -22,16 +22,18 @@ class LSClient:  # pylint: disable=too-few-public-methods
         model: str,
         version: str = "v1",
         cache_dir: str = ".caches/llm_cache",
+        verify_ssl: bool = True,
+        timeout: float = 120.0,
     ):
         """Init LightSpeed."""
         self.url = ls_url
         self.version = version
         self.provider = provider
         self.model = model
-        self.client = Client(base_url=ls_url, verify=False)
+        self.client = Client(base_url=ls_url, verify=verify_ssl, timeout=timeout)
 
-        # Timeout in seconds
-        self.rest_api_timeout = 60
+        # Timeout in seconds (for individual requests)
+        self.rest_api_timeout = timeout
 
         # Disk cache for caching LLM responses
         self.cache = Cache(cache_dir)
