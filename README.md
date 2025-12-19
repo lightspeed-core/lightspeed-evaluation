@@ -31,6 +31,20 @@ pip install uv
 uv sync
 ```
 
+#### Optional: Local Embedding Models (HuggingFace)
+
+By default, lightspeed-evaluation uses remote embedding providers (OpenAI, Gemini). If you need **local embedding models** (HuggingFace/sentence-transformers), install with:
+
+```bash
+# Using pip
+pip install 'lightspeed-evaluation[local-embeddings]'
+
+# Using uv (local development)
+uv sync --extra local-embeddings
+```
+
+> **Note**: Local embeddings require PyTorch and related packages (~6GB). Only install if you need `embedding.provider: huggingface` in your configuration.
+
 ### Basic Usage
 
 ```bash

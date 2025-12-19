@@ -1,5 +1,8 @@
 """Ragas Embedding Manager - Ragas specific embedding wrapper."""
 
+import logging
+from typing import Any
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
@@ -7,6 +10,9 @@ from ragas.cache import DiskCacheBackend
 from ragas.embeddings import LangchainEmbeddingsWrapper
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
@@ -17,13 +23,23 @@ class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
         config = embedding_manager.config
         self.config = config
 
-        embedding_class = {
-            "openai": OpenAIEmbeddings,
-            "huggingface": HuggingFaceEmbeddings,
-            "gemini": GoogleGenerativeAIEmbeddings,
-        }.get(config.provider)
-        if not embedding_class:
-            raise RuntimeError(f"Unknown embedding provider {config.provider}")
+        embedding_class: Any
+        if config.provider == "openai":
+            embedding_class = OpenAIEmbeddings
+        elif config.provider == "huggingface":
+            # EmbeddingManager already validated sentence-transformers is available
+            embedding_class = HuggingFaceEmbeddings
+        elif config.provider == "gemini":
+            embedding_class = GoogleGenerativeAIEmbeddings
+        else:
+            logger.error("Unknown embedding provider: %s", config.provider)
+            raise ConfigurationError(f"Unknown embedding provider {config.provider}")
+
+        logger.debug(
+            "Using embedding provider: %s with model: %s",
+            config.provider,
+            config.model,
+        )
 
         kwargs = config.provider_kwargs
         if kwargs is None:
