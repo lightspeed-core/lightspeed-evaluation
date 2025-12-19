@@ -1,5 +1,7 @@
 """Additional tests for system configuration models."""
 
+import os
+import tempfile
 import pytest
 from pydantic import ValidationError
 
@@ -40,6 +42,63 @@ class TestLLMConfig:
         """Test num_retries minimum validation."""
         with pytest.raises(ValidationError):
             LLMConfig(num_retries=-1)
+
+    def test_ssl_verify_default(self):
+        """Test ssl_verify has correct default value."""
+        config = LLMConfig()
+        assert config.ssl_verify is True
+
+    def test_ssl_verify_false(self):
+        """Test ssl_verify can be set to False."""
+        config = LLMConfig(ssl_verify=False)
+        assert config.ssl_verify is False
+
+    def test_ssl_cert_file_default(self):
+        """Test ssl_cert_file defaults to None."""
+        config = LLMConfig()
+        assert config.ssl_cert_file is None
+
+    def test_ssl_cert_file_valid_path(self):
+        """Test ssl_cert_file with valid certificate file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
+            cert_path = f.name
+            f.write("-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----\n")
+
+        try:
+            config = LLMConfig(ssl_cert_file=cert_path)
+            assert config.ssl_cert_file == os.path.abspath(cert_path)
+            assert os.path.isabs(config.ssl_cert_file)
+        finally:
+            os.unlink(cert_path)
+
+    def test_ssl_cert_file_expands_env_variables(self, mocker):
+        """Test ssl_cert_file expands environment variables."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as f:
+            cert_path = f.name
+
+        try:
+            test_dir = os.path.dirname(cert_path)
+            test_filename = os.path.basename(cert_path)
+            mocker.patch.dict(os.environ, {"TEST_CERT_DIR": test_dir})
+
+            env_path = f"$TEST_CERT_DIR/{test_filename}"
+            config = LLMConfig(ssl_cert_file=env_path)
+            assert config.ssl_cert_file == os.path.abspath(cert_path)
+        finally:
+            os.unlink(cert_path)
+
+    def test_ssl_cert_file_nonexistent_raises_error(self):
+        """Test ssl_cert_file validation fails for non-existent file."""
+        with pytest.raises(ValidationError) as exc_info:
+            LLMConfig(ssl_cert_file="/tmp/nonexistent_cert_12345.crt")
+
+        assert "not found" in str(exc_info.value).lower()
+
+    def test_ssl_cert_file_directory_raises_error(self):
+        """Test ssl_cert_file validation fails for directory paths."""
+        temp_dir = tempfile.gettempdir()
+        with pytest.raises(ValidationError):
+            LLMConfig(ssl_cert_file=temp_dir)
 
 
 class TestEmbeddingConfig:

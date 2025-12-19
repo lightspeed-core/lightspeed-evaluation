@@ -184,3 +184,5 @@ eval_output*/
 
 # Keeping experimental changes here
 wip*/
+
+.history/

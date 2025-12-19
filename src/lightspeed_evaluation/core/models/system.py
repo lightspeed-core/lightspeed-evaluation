@@ -1,8 +1,9 @@
 """System configuration models."""
 
+import os
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
@@ -18,6 +19,8 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_LLM_MAX_TOKENS,
     DEFAULT_LLM_MODEL,
     DEFAULT_LLM_PROVIDER,
+    DEFAULT_SSL_VERIFY,
+    DEFAULT_SSL_CERT_FILE,
     DEFAULT_LLM_RETRIES,
     DEFAULT_LLM_TEMPERATURE,
     DEFAULT_LOG_FORMAT,
@@ -49,6 +52,38 @@ class LLMConfig(BaseModel):
         min_length=1,
         description="Model identifier or deployment name",
     )
+    ssl_verify: bool = Field(
+        default=DEFAULT_SSL_VERIFY,
+        description="Verify SSL certificates for HTTPS connections. Can be True/False",
+    )
+    ssl_cert_file: Optional[str] = Field(
+        default=DEFAULT_SSL_CERT_FILE,
+        description="Path to custom CA certificate file for SSL verification",
+    )
+
+    @model_validator(mode="after")
+    def validate_ssl_cert_file(self) -> "LLMConfig":
+        """Validate SSL certificate file exists if provided."""
+        if self.ssl_cert_file is not None:
+            cert_path = self.ssl_cert_file
+
+            # Expand environment variables and user paths
+            cert_path = os.path.expandvars(os.path.expanduser(cert_path))
+
+            # Check if file exists
+            if not os.path.isfile(cert_path):
+                raise ValueError(
+                    f"SSL certificate file not found: '{cert_path}'. "
+                    f"Original path: '{self.ssl_cert_file}'. "
+                    "Please provide a valid path to a CA certificate file "
+                    "or set ssl_cert_file to null."
+                )
+
+            # Update to absolute path for consistency
+            self.ssl_cert_file = os.path.abspath(cert_path)
+
+        return self
+
     temperature: float = Field(
         default=DEFAULT_LLM_TEMPERATURE,
         ge=0.0,

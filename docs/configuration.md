@@ -23,6 +23,8 @@ This section configures LLM as a judge for both Ragas and DeepEval.
 |----------------|---------|-------------|
 | provider | `"openai"` | LLM provider: openai, hosted_vllm, watsonx, azure, gemini |
 | model | `"gpt-4o-mini"` | Model name for the provider |
+| ssl_verify | `true` | Verify SSL certificates for specified provider |
+| ssl_cert_file | `null` | Path to custom CA certificate file (PEM format, merged with certifi defaults) |
 | temperature | `0.0` | Generation temperature |
 | max_tokens |  `512` | Maximum tokens in response |
 | timeout | `300` | Request timeout in seconds |
@@ -46,6 +48,8 @@ Some Ragas metrics use embeddings to compute similarity between generated answer
 llm:
   provider: openai
   model: gpt-4o-mini
+  ssl_verify: true
+  ssl_cert_file: null
   temperature: 0.0
   max_tokens: 512
   timeout: 300

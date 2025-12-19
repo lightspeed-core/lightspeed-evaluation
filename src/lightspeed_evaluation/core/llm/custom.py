@@ -1,10 +1,15 @@
 """Base Custom LLM class for evaluation framework."""
 
+import os
+import logging
 from typing import Any, Optional, Union
 
 import litellm
+from litellm.exceptions import InternalServerError
 
 from lightspeed_evaluation.core.system.exceptions import LLMError
+
+logger = logging.getLogger(__name__)
 
 
 class TokenTracker:
@@ -72,6 +77,19 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
         self.model_name = model_name
         self.llm_params = llm_params
 
+        self.setup_ssl_verify()
+
+    def setup_ssl_verify(self) -> None:
+        """Setup SSL verification based on LLM parameters."""
+        ssl_verify = self.llm_params.get("ssl_verify", True)
+
+        if ssl_verify:
+            # Use our combined certifi bundle (includes system + custom certs)
+            litellm.ssl_verify = os.environ.get("SSL_CERTIFI_BUNDLE", True)
+        else:
+            # Explicitly disable SSL verification
+            litellm.ssl_verify = False
+
     def call(
         self,
         prompt: str,
@@ -127,6 +145,17 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
                 return results[0]
 
             return results
+
+        except InternalServerError as e:
+            # Check if it's an SSL/certificate error
+            error_msg = str(e)
+            if "[X509]" in error_msg or "PEM lib" in error_msg:
+                raise LLMError(
+                    f"Judge LLM SSL certificate verification failed: {error_msg}"
+                ) from e
+
+            # Otherwise, it's a different internal server error
+            raise LLMError(f"LLM internal server error: {error_msg}") from e
 
         except Exception as e:
             raise LLMError(f"LLM call failed: {str(e)}") from e

@@ -1,6 +1,7 @@
 """Unit tests for system setup module."""
 
 import logging
+import os
 
 from lightspeed_evaluation.core.models import LoggingConfig
 from lightspeed_evaluation.core.system.setup import (
@@ -14,12 +15,14 @@ class TestSetupEnvironmentVariables:
 
     def test_setup_default_environment_variables(self, mocker):
         """Test setting up default environment variables."""
-        import os
-
         config_data = {}
 
         # Use mocker to patch os.environ
         mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
 
         setup_environment_variables(config_data)
 
@@ -28,11 +31,11 @@ class TestSetupEnvironmentVariables:
         assert os.environ["DEEPEVAL_DISABLE_PROGRESS_BAR"] == "YES"
         assert os.environ["LITELLM_LOG"] == "ERROR"
         assert os.environ["RAGAS_DO_NOT_TRACK"] == "true"
+        assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
+        mock_where.assert_called_once()
 
     def test_setup_custom_environment_variables(self, mocker):
         """Test setting up custom environment variables."""
-        import os
-
         config_data = {
             "environment": {
                 "CUSTOM_VAR": "custom_value",
@@ -41,6 +44,10 @@ class TestSetupEnvironmentVariables:
         }
 
         mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
 
         setup_environment_variables(config_data)
 
@@ -49,33 +56,40 @@ class TestSetupEnvironmentVariables:
         assert os.environ["ANOTHER_VAR"] == "another_value"
         # Defaults should still be set
         assert os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] == "YES"
+        assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
 
     def test_setup_environment_variables_override_defaults(self, mocker):
         """Test overriding default environment variables."""
-        import os
-
         config_data = {"environment": {"LITELLM_LOG": "DEBUG"}}
 
         mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
 
         setup_environment_variables(config_data)
 
         # Verify override worked
         assert os.environ["LITELLM_LOG"] == "DEBUG"
+        assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
 
     def test_setup_environment_variables_handles_key_error(self, mocker, capsys):
         """Test handling of KeyError during environment setup."""
-        import os
-
         config_data = {"environment": None}  # This will cause issues
 
         mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
 
         # Should not raise, should fallback to defaults
         setup_environment_variables(config_data)
 
         # Verify defaults were still set
         assert os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] == "YES"
+        assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
 
         # Verify warning was printed
         captured = capsys.readouterr()
@@ -83,16 +97,33 @@ class TestSetupEnvironmentVariables:
 
     def test_setup_environment_variables_handles_type_error(self, mocker, capsys):
         """Test handling of TypeError during environment setup."""
-        import os
-
         config_data = {"environment": "invalid_type"}
 
         mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
 
         setup_environment_variables(config_data)
 
         # Defaults should be set despite error
         assert os.environ["RAGAS_DO_NOT_TRACK"] == "true"
+        assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
+
+    def test_setup_ssl_certifi_bundle_set_when_ssl_cert_file_is_none(self, mocker):
+        """Test SSL_CERTIFI_BUNDLE is still set even when ssl_cert_file is None."""
+        config_data = {"llm": {"ssl_verify": True, "ssl_cert_file": None}}
+        mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
+
+        setup_environment_variables(config_data)
+
+        assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
+        mock_where.assert_called()
 
 
 class TestSetupLogging:
