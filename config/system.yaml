@@ -4,6 +4,7 @@
 core:
   max_threads: 50             # Maximum number of threads, set to null for Python default. 50 is OK for bigger datasets
   fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
+  skip_on_failure: false      # If True, skip remaining turns when a turn evaluation fails (can be overridden per conversation)
 
 # LLM as a judge configuration
 llm:

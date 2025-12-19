@@ -59,6 +59,7 @@ class TestRunEvaluation:
             "PASS": 1,
             "FAIL": 0,
             "ERROR": 0,
+            "SKIPPED": 0,
             "total_judge_llm_input_tokens": 100,
             "total_judge_llm_output_tokens": 50,
             "total_judge_llm_tokens": 150,
@@ -114,6 +115,7 @@ class TestRunEvaluation:
             "PASS": 0,
             "FAIL": 0,
             "ERROR": 0,
+            "SKIPPED": 0,
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
@@ -212,6 +214,7 @@ class TestRunEvaluation:
             "PASS": 5,
             "FAIL": 2,
             "ERROR": 3,
+            "SKIPPED": 0,
             "total_judge_llm_input_tokens": 500,
             "total_judge_llm_output_tokens": 250,
             "total_judge_llm_tokens": 750,
@@ -271,7 +274,13 @@ class TestMain:
         mock_run = mocker.patch(
             "lightspeed_evaluation.runner.evaluation.run_evaluation"
         )
-        mock_run.return_value = {"TOTAL": 1, "PASS": 1, "FAIL": 0, "ERROR": 0}
+        mock_run.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+        }
 
         exit_code = main()
 
@@ -298,7 +307,13 @@ class TestMain:
         mock_run = mocker.patch(
             "lightspeed_evaluation.runner.evaluation.run_evaluation"
         )
-        mock_run.return_value = {"TOTAL": 1, "PASS": 1, "FAIL": 0, "ERROR": 0}
+        mock_run.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+        }
 
         exit_code = main()
 

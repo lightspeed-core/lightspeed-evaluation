@@ -131,6 +131,7 @@ class ConversationProcessor:
     ) -> list[EvaluationResult]:
         """Process all turns and conversation-level metrics."""
         results: list[EvaluationResult] = []
+        skip_on_failure = self._is_skip_on_failure_enabled(ctx.conv_data)
 
         # Process each turn individually (API call + evaluation)
         for turn_idx, (turn_data, turn_metrics) in enumerate(
@@ -153,6 +154,13 @@ class ConversationProcessor:
                 )
                 results.extend(turn_results)
 
+                # Check for evaluation metric failures and skip remaining if enabled
+                # Note: API/Script failure/error is handled differently
+                if skip_on_failure and self._has_failure(turn_results):
+                    skip_results = self._handle_skip_on_failure(ctx, turn_idx)
+                    results.extend(skip_results)
+                    return results
+
         # Process conversation-level metrics
         if ctx.resolved_conversation_metrics:
             logger.debug(
@@ -165,6 +173,36 @@ class ConversationProcessor:
             results.extend(conv_results)
 
         return results
+
+    def _is_skip_on_failure_enabled(self, conv_data: EvaluationData) -> bool:
+        """Check if skip_on_failure is enabled (conversation-level overrides system)."""
+        # Conversation-level override takes precedence
+        if conv_data.skip_on_failure is not None:
+            return conv_data.skip_on_failure
+        # Fall back to system config
+        if self.config:
+            return self.config.core.skip_on_failure
+        return False
+
+    def _has_failure(self, results: list[EvaluationResult]) -> bool:
+        """Check if any result in the list is a failure (FAIL or ERROR)."""
+        return any(r.result in ("FAIL", "ERROR") for r in results)
+
+    def _handle_skip_on_failure(
+        self, ctx: TurnProcessingContext, failed_turn_idx: int
+    ) -> list[EvaluationResult]:
+        """Handle skip on failure - mark remaining turns and conversation as SKIPPED."""
+        skip_reason = (
+            f"Skipped due to eval metric failure in turn {failed_turn_idx + 1} "
+            f"(skip_on_failure enabled)"
+        )
+        return self.components.error_handler.mark_cascade_skipped(
+            ctx.conv_data,
+            failed_turn_idx,
+            ctx.resolved_turn_metrics,
+            ctx.resolved_conversation_metrics,
+            skip_reason,
+        )
 
     def _process_turn_api(
         self, ctx: TurnProcessingContext, turn_idx: int, turn_data: TurnData
@@ -209,7 +247,7 @@ class ConversationProcessor:
         cascade_error_reason = (
             f"Cascade failure from turn {turn_idx + 1} API error: {api_error_message}"
         )
-        remaining_errors = self.components.error_handler.mark_cascade_failure(
+        remaining_errors = self.components.error_handler.mark_cascade_error(
             ctx.conv_data,
             turn_idx,
             ctx.resolved_turn_metrics,

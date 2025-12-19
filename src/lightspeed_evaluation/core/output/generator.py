@@ -258,13 +258,6 @@ class OutputHandler:
         """Generate human-readable text summary."""
         txt_file = self.output_dir / f"{base_filename}_summary.txt"
 
-        stats = {
-            "overall": basic_stats,
-            "by_metric": detailed_stats["by_metric"],
-            "by_conversation": detailed_stats["by_conversation"],
-            "api_tokens": api_tokens,
-        }
-
         with open(txt_file, "w", encoding="utf-8") as f:
             f.write("LSC Evaluation Framework - Summary Report\n")
             f.write("=" * 50 + "\n\n")
@@ -273,90 +266,92 @@ class OutputHandler:
             f.write(f"Total Evaluations: {len(results)}\n\n")
 
             # Overall statistics
-            f.write("Overall Statistics:\n")
-            f.write("-" * 20 + "\n")
-            f.write(
-                f"Pass: {stats['overall']['PASS']} ({stats['overall']['pass_rate']:.1f}%)\n"
-            )
-            f.write(
-                f"Fail: {stats['overall']['FAIL']} ({stats['overall']['fail_rate']:.1f}%)\n"
-            )
-            f.write(
-                f"Error: {stats['overall']['ERROR']} ({stats['overall']['error_rate']:.1f}%)\n\n"
-            )
+            self._write_overall_stats(f, basic_stats)
 
             # Token usage statistics
-            f.write("Token Usage (Judge LLM):\n")
-            f.write("-" * 20 + "\n")
-            f.write(
-                f"Input Tokens: {stats['overall']['total_judge_llm_input_tokens']:,}\n"
-            )
-            f.write(
-                f"Output Tokens: {stats['overall']['total_judge_llm_output_tokens']:,}\n"
-            )
-            f.write(f"Total Tokens: {stats['overall']['total_judge_llm_tokens']:,}\n\n")
-
-            # API token usage
-            f.write("Token Usage (API Calls):\n")
-            f.write("-" * 20 + "\n")
-            f.write(
-                f"Input Tokens: {stats['api_tokens'].get('total_api_input_tokens', 0):,}\n"
-            )
-            f.write(
-                f"Output Tokens: {stats['api_tokens'].get('total_api_output_tokens', 0):,}\n"
-            )
-            f.write(
-                f"Total Tokens: {stats['api_tokens'].get('total_api_tokens', 0):,}\n\n"
-            )
+            self._write_token_stats(f, basic_stats, api_tokens)
 
             # By metric breakdown
-            if stats["by_metric"]:
-                f.write("By Metric:\n")
-                f.write("-" * 10 + "\n")
-                for metric, metric_stats in stats["by_metric"].items():
-                    f.write(f"{metric}:\n")
-                    f.write(
-                        f"  Pass: {metric_stats['pass']} ({metric_stats['pass_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Fail: {metric_stats['fail']} ({metric_stats['fail_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Error: {metric_stats['error']} ({metric_stats['error_rate']:.1f}%)\n"
-                    )
-                    if (
-                        "score_statistics" in metric_stats
-                        and metric_stats["score_statistics"]["count"] > 0
-                    ):
-                        score_stats = metric_stats["score_statistics"]
-                        f.write("  Score Statistics:\n")
-                        f.write(f"    Mean: {score_stats['mean']:.3f}\n")
-                        f.write(f"    Median: {score_stats['median']:.3f}\n")
-                        f.write(
-                            f"    Min: {score_stats['min']:.3f}, Max: {score_stats['max']:.3f}\n"
-                        )
-                        if score_stats["count"] > 1:
-                            f.write(f"    Std Dev: {score_stats['std']:.3f}\n")
-                    f.write("\n")
+            self._write_metric_breakdown(f, detailed_stats["by_metric"])
 
             # By conversation breakdown
-            if stats["by_conversation"]:
-                f.write("By Conversation:\n")
-                f.write("-" * 15 + "\n")
-                for conv_id, conv_stats in stats["by_conversation"].items():
-                    f.write(f"{conv_id}:\n")
-                    f.write(
-                        f"  Pass: {conv_stats['pass']} ({conv_stats['pass_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Fail: {conv_stats['fail']} ({conv_stats['fail_rate']:.1f}%)\n"
-                    )
-                    f.write(
-                        f"  Error: {conv_stats['error']} ({conv_stats['error_rate']:.1f}%)\n"
-                    )
-                    f.write("\n")
+            self._write_conversation_breakdown(f, detailed_stats["by_conversation"])
 
         return txt_file
+
+    def _write_overall_stats(self, f: Any, stats: dict[str, Any]) -> None:
+        """Write overall statistics section."""
+        f.write("Overall Statistics:\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"Pass: {stats['PASS']} ({stats['pass_rate']:.1f}%)\n")
+        f.write(f"Fail: {stats['FAIL']} ({stats['fail_rate']:.1f}%)\n")
+        f.write(f"Error: {stats['ERROR']} ({stats['error_rate']:.1f}%)\n")
+        f.write(f"Skipped: {stats['SKIPPED']} ({stats['skipped_rate']:.1f}%)\n\n")
+
+    def _write_token_stats(
+        self, f: Any, basic_stats: dict[str, Any], api_tokens: dict[str, Any]
+    ) -> None:
+        """Write token usage statistics section."""
+        f.write("Token Usage (Judge LLM):\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"Input Tokens: {basic_stats['total_judge_llm_input_tokens']:,}\n")
+        f.write(f"Output Tokens: {basic_stats['total_judge_llm_output_tokens']:,}\n")
+        f.write(f"Total Tokens: {basic_stats['total_judge_llm_tokens']:,}\n\n")
+
+        f.write("Token Usage (API Calls):\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"Input Tokens: {api_tokens.get('total_api_input_tokens', 0):,}\n")
+        f.write(f"Output Tokens: {api_tokens.get('total_api_output_tokens', 0):,}\n")
+        f.write(f"Total Tokens: {api_tokens.get('total_api_tokens', 0):,}\n\n")
+
+    def _write_metric_breakdown(
+        self, f: Any, by_metric: dict[str, dict[str, Any]]
+    ) -> None:
+        """Write metric breakdown section."""
+        if not by_metric:
+            return
+        f.write("By Metric:\n")
+        f.write("-" * 10 + "\n")
+        for metric, stats in by_metric.items():
+            f.write(f"{metric}:\n")
+            f.write(f"  Pass: {stats['pass']} ({stats['pass_rate']:.1f}%)\n")
+            f.write(f"  Fail: {stats['fail']} ({stats['fail_rate']:.1f}%)\n")
+            f.write(f"  Error: {stats['error']} ({stats['error_rate']:.1f}%)\n")
+            if stats.get("skipped", 0) > 0:
+                f.write(
+                    f"  Skipped: {stats['skipped']} ({stats['skipped_rate']:.1f}%)\n"
+                )
+            if "score_statistics" in stats and stats["score_statistics"]["count"] > 0:
+                self._write_score_stats(f, stats["score_statistics"])
+            f.write("\n")
+
+    def _write_score_stats(self, f: Any, score_stats: dict[str, Any]) -> None:
+        """Write score statistics for a metric."""
+        f.write("  Score Statistics:\n")
+        f.write(f"    Mean: {score_stats['mean']:.3f}\n")
+        f.write(f"    Median: {score_stats['median']:.3f}\n")
+        f.write(f"    Min: {score_stats['min']:.3f}, Max: {score_stats['max']:.3f}\n")
+        if score_stats["count"] > 1:
+            f.write(f"    Std Dev: {score_stats['std']:.3f}\n")
+
+    def _write_conversation_breakdown(
+        self, f: Any, by_conversation: dict[str, dict[str, Any]]
+    ) -> None:
+        """Write conversation breakdown section."""
+        if not by_conversation:
+            return
+        f.write("By Conversation:\n")
+        f.write("-" * 15 + "\n")
+        for conv_id, stats in by_conversation.items():
+            f.write(f"{conv_id}:\n")
+            f.write(f"  Pass: {stats['pass']} ({stats['pass_rate']:.1f}%)\n")
+            f.write(f"  Fail: {stats['fail']} ({stats['fail_rate']:.1f}%)\n")
+            f.write(f"  Error: {stats['error']} ({stats['error_rate']:.1f}%)\n")
+            if stats.get("skipped", 0) > 0:
+                f.write(
+                    f"  Skipped: {stats['skipped']} ({stats['skipped_rate']:.1f}%)\n"
+                )
+            f.write("\n")
 
     def get_output_directory(self) -> Path:
         """Get the output directory path."""

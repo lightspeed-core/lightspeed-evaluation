@@ -12,6 +12,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
+- **Skip on Failure**: Optionally skip remaining evaluations in a conversation when a turn evaluation fails (configurable globally or per conversation). When there is an error in API call/Setup script execution metrics are marked as ERROR always.
 - **Flexible Configuration**: Configurable environment & metric metadata
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
 - **Early Validation**: Catch configuration errors before expensive LLM calls

@@ -364,13 +364,13 @@ class TestConversationProcessor:
             None,
         )
         processor_components.error_handler.mark_turn_metrics_as_error.return_value = []
-        processor_components.error_handler.mark_cascade_failure.return_value = []
+        processor_components.error_handler.mark_cascade_error.return_value = []
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
         processor.process_conversation(conv_data)
 
         # Verify cascade error handling was triggered
-        processor_components.error_handler.mark_cascade_failure.assert_called_once()
+        processor_components.error_handler.mark_cascade_error.assert_called_once()
 
     def test_evaluate_turn(
         self, mock_config_loader, processor_components, sample_conv_data, mocker
@@ -880,3 +880,176 @@ class TestConversationProcessorEvaluateTurn:
         # Adding same metric again should not cause issues
         turn_data.add_invalid_metric("ragas:faithfulness")
         assert turn_data.is_metric_invalid("ragas:faithfulness")
+
+
+class TestSkipOnFailure:
+    """Unit tests for skip_on_failure feature."""
+
+    @pytest.fixture
+    def multi_turn_conv_data(self):
+        """Create conversation data with multiple turns."""
+        turns = [
+            TurnData(
+                turn_id=f"turn{i}",
+                query=f"Q{i}",
+                response=f"R{i}",
+                turn_metrics=["custom:answer_correctness"],
+            )
+            for i in range(1, 4)
+        ]
+        return EvaluationData(
+            conversation_group_id="multi_turn_conv",
+            turns=turns,
+            conversation_metrics=["deepeval:conversation_completeness"],
+        )
+
+    @pytest.fixture
+    def config_loader_factory(self, mocker):
+        """Factory to create config loader with configurable skip_on_failure."""
+
+        def _create(skip_on_failure: bool):
+            loader = mocker.Mock(spec=ConfigLoader)
+            config = SystemConfig()
+            config.api.enabled = False
+            config.core.skip_on_failure = skip_on_failure
+            loader.system_config = config
+            return loader
+
+        return _create
+
+    @pytest.mark.parametrize(
+        "system_skip,conv_skip,expected",
+        [
+            (True, None, True),  # System enabled, no override
+            (False, None, False),  # System disabled, no override
+            (False, True, True),  # System disabled, conv enables
+            (True, False, False),  # System enabled, conv disables
+        ],
+    )
+    def test_is_skip_on_failure_enabled(
+        self,
+        config_loader_factory,
+        processor_components,
+        system_skip,
+        conv_skip,
+        expected,
+    ):
+        """Test skip_on_failure resolution from system config and conversation override."""
+        conv_data = EvaluationData(
+            conversation_group_id="test",
+            turns=[TurnData(turn_id="1", query="Q")],
+            skip_on_failure=conv_skip,
+        )
+        processor = ConversationProcessor(
+            config_loader_factory(system_skip), processor_components
+        )
+        assert processor._is_skip_on_failure_enabled(conv_data) is expected
+
+    @pytest.mark.parametrize(
+        "results_status,expected",
+        [
+            (["PASS", "FAIL"], True),  # Has FAIL
+            (["PASS", "ERROR"], True),  # Has ERROR
+            (["PASS", "PASS"], False),  # All PASS
+        ],
+    )
+    def test_has_failure(
+        self, mock_config_loader, processor_components, results_status, expected
+    ):
+        """Test _has_failure detection for FAIL and ERROR results."""
+        processor = ConversationProcessor(mock_config_loader, processor_components)
+        results = [
+            EvaluationResult(
+                conversation_group_id="test", metric_identifier=f"m{i}", result=status
+            )
+            for i, status in enumerate(results_status)
+        ]
+        assert processor._has_failure(results) is expected
+
+    @pytest.mark.parametrize("skip_enabled,expect_skip", [(True, True), (False, False)])
+    def test_skip_on_failure_behavior(
+        self,
+        config_loader_factory,
+        processor_components,
+        multi_turn_conv_data,
+        skip_enabled,
+        expect_skip,
+    ):
+        """Test skip_on_failure skips remaining turns when enabled, continues when disabled."""
+        # Configure metric manager
+        processor_components.metric_manager.resolve_metrics.side_effect = [
+            ["custom:answer_correctness"],  # turn1
+            ["custom:answer_correctness"],  # turn2
+            ["custom:answer_correctness"],  # turn3
+            ["deepeval:conversation_completeness"],  # conversation level
+        ]
+
+        if expect_skip:
+            # When skip enabled: turn1 PASS, turn2 FAIL, then skip
+            processor_components.metrics_evaluator.evaluate_metric.side_effect = [
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    turn_id="turn1",
+                    metric_identifier="custom:answer_correctness",
+                    result="PASS",
+                ),
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    turn_id="turn2",
+                    metric_identifier="custom:answer_correctness",
+                    result="FAIL",
+                ),
+            ]
+            processor_components.error_handler.mark_cascade_skipped.return_value = [
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    turn_id="turn3",
+                    metric_identifier="custom:answer_correctness",
+                    result="SKIPPED",
+                ),
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    metric_identifier="deepeval:conversation_completeness",
+                    result="SKIPPED",
+                ),
+            ]
+        else:
+            # When skip disabled: all turns evaluated
+            processor_components.metrics_evaluator.evaluate_metric.side_effect = [
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    turn_id="turn1",
+                    metric_identifier="custom:answer_correctness",
+                    result="PASS",
+                ),
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    turn_id="turn2",
+                    metric_identifier="custom:answer_correctness",
+                    result="FAIL",
+                ),
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    turn_id="turn3",
+                    metric_identifier="custom:answer_correctness",
+                    result="PASS",
+                ),
+                EvaluationResult(
+                    conversation_group_id="multi_turn_conv",
+                    metric_identifier="deepeval:conversation_completeness",
+                    result="PASS",
+                ),
+            ]
+
+        processor = ConversationProcessor(
+            config_loader_factory(skip_enabled), processor_components
+        )
+        results = processor.process_conversation(multi_turn_conv_data)
+
+        assert len(results) == 4
+        if expect_skip:
+            assert [r.result for r in results] == ["PASS", "FAIL", "SKIPPED", "SKIPPED"]
+            processor_components.error_handler.mark_cascade_skipped.assert_called_once()
+        else:
+            assert [r.result for r in results] == ["PASS", "FAIL", "PASS", "PASS"]
+            processor_components.error_handler.mark_cascade_skipped.assert_not_called()
