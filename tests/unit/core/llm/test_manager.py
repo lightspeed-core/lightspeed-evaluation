@@ -87,6 +87,33 @@ class TestLLMManager:
             "max_tokens": 1000,
             "timeout": 60,
             "num_retries": 3,
+            "ssl_verify": True,
+        }
+        assert params == expected
+
+    def test_get_llm_params_with_ssl_verify_false(self, mocker: MockerFixture):
+        """Test get_llm_params method with ssl_verify set to False."""
+        config = LLMConfig(
+            provider="openai",
+            model="gpt-4",
+            temperature=0.5,
+            max_tokens=512,
+            timeout=30,
+            num_retries=2,
+            ssl_verify=False,
+        )
+
+        mocker.patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
+        manager = LLMManager(config)
+        params = manager.get_llm_params()
+
+        expected = {
+            "model": "gpt-4",
+            "temperature": 0.5,
+            "max_tokens": 512,
+            "timeout": 30,
+            "num_retries": 2,
+            "ssl_verify": False,
         }
         assert params == expected
 

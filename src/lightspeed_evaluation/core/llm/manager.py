@@ -100,6 +100,7 @@ class LLMManager:
             "max_tokens": self.config.max_tokens,
             "timeout": self.config.timeout,
             "num_retries": self.config.num_retries,
+            "ssl_verify": self.config.ssl_verify,
         }
 
     def get_config(self) -> LLMConfig:

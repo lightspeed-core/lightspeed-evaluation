@@ -8,14 +8,16 @@ core:
 
 # LLM as a judge configuration
 llm:
-  provider: "openai"      # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
-  model: "gpt-4o-mini"        # Model name for the provider
-  temperature: 0.0            # Generation temperature
-  max_tokens: 512             # Maximum tokens in response
-  timeout: 300                # Request timeout in seconds
-  num_retries: 3              # Retry attempts
+  provider: "openai"                  # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+  model: "gpt-4o-mini"                # Model name for the provider
+  ssl_verify: true                    # Verify SSL certificates for specified provider
+  ssl_cert_file: null                 # Path to custom CA
+  temperature: 0.0                    # Generation temperature
+  max_tokens: 512                     # Maximum tokens in response
+  timeout: 300                        # Request timeout in seconds
+  num_retries: 3                      # Retry attempts
   cache_dir: ".caches/llm_cache"      # Directory with LLM cache
-  cache_enabled: true         # Is LLM cache enabled?
+  cache_enabled: true                # Is LLM cache enabled?
 
 # Default embedding (for LLM as a judge) configuration:
 embedding:

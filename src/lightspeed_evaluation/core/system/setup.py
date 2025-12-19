@@ -5,15 +5,21 @@ import os
 from typing import Any
 
 from lightspeed_evaluation.core.models import LoggingConfig
+from lightspeed_evaluation.core.system.ssl_certifi import create_ssl_certifi_bundle
 
 
 def setup_environment_variables(config_data: dict[str, Any]) -> None:
     """Setup environment variables from validated config data."""
+    # Create combined SSL certificate certifi bundle
+    certifi_bundle_file = create_ssl_certifi_bundle(config_data)
+
+    # Set environment variables
     env_values = {
         "DEEPEVAL_TELEMETRY_OPT_OUT": "YES",
         "DEEPEVAL_DISABLE_PROGRESS_BAR": "YES",
         "LITELLM_LOG": "ERROR",
         "RAGAS_DO_NOT_TRACK": "true",
+        "SSL_CERTIFI_BUNDLE": certifi_bundle_file,  # Used by requests library (ragas, deepeval)
     }
 
     try:
