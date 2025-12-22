@@ -34,6 +34,8 @@ This section configures LLM as a judge for both Ragas and DeepEval.
 | cache_dir | `".caches/llm_cache"` | Directory with cached LLM responses |
 | cache_enabled | `true` | Is LLM cache enabled? |
 
+**Note**: For RHAIIS, models.corp, or other vLLM-based inference servers, use the `hosted_vllm` provider configuration. `models.corp` additionally requires certificate setup via `ssl_cert_file` configuration option.
+
 ### Embeddings
 Some Ragas metrics use embeddings to compute similarity between generated answers (or variants)
 
