@@ -349,6 +349,13 @@ make bandit          # Security scanning
 make test            # Or: uv run pytest tests --cov=src
 ```
 
+## 🔧 Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Parsing error with context-related metrics (e.g., `faithfulness`) | Increase [`max_tokens`](config/system.yaml#L16) to a higher value (e.g., 2048 or higher - depends on number of the context & size) |
+| API responses not changing after updates | Disable caching (`cache_enabled: false`) or delete the cache folders (`.caches/`) |
+
 ## Generate answers (optional - for creating test data)
 For generating answers (optional) refer [README-generate-answers](README-generate-answers.md)
 
