@@ -1,6 +1,6 @@
 # LightSpeed Evaluation Framework: Complete Guide
 
-**Last Updated:** October 28, 2025  
+**Last Updated:** December 23, 2025  
 **Assisted by:** AI to generate the document
 
 ---
@@ -605,7 +605,7 @@ turn_metrics:
 
 ### Step 1: Prerequisites
 
-- Python 3.11+
+- Python 3.11 - 3.13
 - UV package manager (recommended) or pip
 - API key for a Judge LLM (e.g., OpenAI)
 - Basic command line knowledge
@@ -824,7 +824,7 @@ lightspeed-eval \
 
 4. **Scoring & Analysis**
    - Compares scores against thresholds
-   - Generates PASS/FAIL/ERROR status
+   - Generates PASS/FAIL/ERROR/SKIPPED status
    - Calculates statistics
 
 5. **Output Generation**
@@ -855,7 +855,7 @@ eval_output/
 Contains every metric evaluation with:
 - Conversation group ID and turn ID
 - Metric identifier
-- Score, threshold, status (PASS/FAIL/ERROR)
+- Score, threshold, status (PASS/FAIL/ERROR/SKIPPED)
 - Detailed reasoning
 - Query and response text
 - Execution time
@@ -909,7 +909,8 @@ ragas:faithfulness:
 
 - **PASS** ✅: Score met or exceeded threshold
 - **FAIL** ❌: Score below threshold
-- **ERROR** ⚠️: Evaluation couldn't complete
+- **ERROR** ⚠️: Evaluation couldn't complete (missing data, API failure, etc.)
+- **SKIPPED** ⏭️: Evaluation skipped due to prior failure (when `skip_on_failure` is enabled)
 
 ### Score Quality Levels
 
@@ -1633,7 +1634,7 @@ This comprehensive guide has covered everything you need to know to effectively 
 
 ---
 
-**Last Updated:** October 28, 2025  
+**Last Updated:** December 23, 2025  
 **Status:** Complete and Ready for Use  
 
 **Feedback:** Please submit suggestions via GitHub issues or pull requests.
