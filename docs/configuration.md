@@ -39,11 +39,26 @@ Some Ragas metrics use embeddings to compute similarity between generated answer
 
 | Setting (embedding.) | Default | Description |
 |----------------------|---------|-------------|
-| provider | `"openai"` | Supported providers: `"openai"`, `"gemini"` or `"huggingface"`. `"huggingface"` downloads the model to the local machine and run the inference locally.  |
+| provider | `"openai"` | Supported providers: `"openai"`, `"gemini"` or `"huggingface"`. `"huggingface"` downloads the model to the local machine and runs inference locally (requires optional dependencies).  |
 | model | `"text-embedding-3-small"` | Model name for the provider |
 | provider_kwargs | `{}` | Optional arguments for the model |
 | cache_dir | `".caches/embedding_cache"` | Directory with cached embeddings |
 | cache_enabled | `true` | Is embeddings cache enabled? |
+
+#### Remote vs Local Embedding Models
+
+By default, lightspeed-evaluation uses **remote embedding providers** (OpenAI, Gemini) which require no additional dependencies and are lightweight to install.
+
+**Local embedding models** (HuggingFace/sentence-transformers) are **optional** and require additional packages including PyTorch (~6GB). This is to avoid long download times and wasted disk space for users who only need remote embeddings.
+
+To use local HuggingFace embeddings, install the optional dependencies:
+```bash
+# Using pip
+pip install 'lightspeed-evaluation[local-embeddings]'
+
+# Using uv
+uv sync --extra local-embeddings
+```
 
 ### Example
 ```yaml

@@ -1386,10 +1386,15 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "ragas" },
+    { name = "scipy" },
     { name = "seaborn" },
-    { name = "sentence-transformers" },
     { name = "tenacity" },
     { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+local-embeddings = [
+    { name = "sentence-transformers" },
 ]
 
 [package.dev-dependencies]
@@ -1422,11 +1427,13 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", specifier = ">=0.3.0" },
+    { name = "scipy", specifier = ">=1.10.0" },
     { name = "seaborn", specifier = ">=0.11.0" },
-    { name = "sentence-transformers", specifier = ">=5.1.0" },
+    { name = "sentence-transformers", marker = "extra == 'local-embeddings'", specifier = ">=5.1.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
+provides-extras = ["local-embeddings"]
 
 [package.metadata.requires-dev]
 dev = [
