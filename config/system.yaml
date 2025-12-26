@@ -178,6 +178,10 @@ output:
     - "api_output_tokens"
     - "judge_llm_input_tokens"
     - "judge_llm_output_tokens"
+    # Streaming performance metrics (only populated when using streaming endpoint)
+    - "time_to_first_token"    # Time to first token in seconds
+    - "streaming_duration"      # Total streaming duration in seconds
+    - "tokens_per_second"       # Output tokens per second throughput
     - "tool_calls"
     - "contexts"
     - "expected_response"

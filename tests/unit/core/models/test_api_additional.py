@@ -164,3 +164,65 @@ class TestAPIResponse:
 
         with pytest.raises(ValueError, match="conversation_id is required"):
             APIResponse.from_raw_response(raw_data)
+
+    def test_response_with_streaming_performance_metrics(self):
+        """Test response with streaming performance metrics."""
+        response = APIResponse(
+            response="Test",
+            conversation_id="conv123",
+            time_to_first_token=0.125,
+            streaming_duration=2.5,
+            tokens_per_second=85.3,
+        )
+
+        assert response.time_to_first_token == 0.125
+        assert response.streaming_duration == 2.5
+        assert response.tokens_per_second == 85.3
+
+    def test_response_without_streaming_metrics(self):
+        """Test response defaults for streaming metrics (None for non-streaming)."""
+        response = APIResponse(
+            response="Test",
+            conversation_id="conv123",
+        )
+
+        assert response.time_to_first_token is None
+        assert response.streaming_duration is None
+        assert response.tokens_per_second is None
+
+    def test_from_raw_response_with_streaming_metrics(self):
+        """Test creating response from raw data with streaming metrics."""
+        raw_data = {
+            "response": "Test response",
+            "conversation_id": "conv123",
+            "input_tokens": 50,
+            "output_tokens": 150,
+            "time_to_first_token": 0.234,
+            "streaming_duration": 3.456,
+            "tokens_per_second": 46.5,
+        }
+
+        response = APIResponse.from_raw_response(raw_data)
+
+        assert response.input_tokens == 50
+        assert response.output_tokens == 150
+        assert response.time_to_first_token == 0.234
+        assert response.streaming_duration == 3.456
+        assert response.tokens_per_second == 46.5
+
+    def test_from_raw_response_without_streaming_metrics(self):
+        """Test creating response from raw data without streaming metrics (query endpoint)."""
+        raw_data = {
+            "response": "Test response",
+            "conversation_id": "conv123",
+            "input_tokens": 50,
+            "output_tokens": 150,
+        }
+
+        response = APIResponse.from_raw_response(raw_data)
+
+        assert response.input_tokens == 50
+        assert response.output_tokens == 150
+        assert response.time_to_first_token is None
+        assert response.streaming_duration is None
+        assert response.tokens_per_second is None

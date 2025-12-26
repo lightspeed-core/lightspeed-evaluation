@@ -69,6 +69,26 @@ class APIDataAmender:
                 turn_data.api_output_tokens,
             )
 
+            # Update streaming performance metrics (only available for streaming endpoint)
+            turn_data.time_to_first_token = getattr(
+                api_response, "time_to_first_token", None
+            )
+            turn_data.streaming_duration = getattr(
+                api_response, "streaming_duration", None
+            )
+            turn_data.tokens_per_second = getattr(
+                api_response, "tokens_per_second", None
+            )
+            if turn_data.time_to_first_token is not None:
+                logger.debug(
+                    "Streaming metrics for turn %s: TTFT=%.3fs, duration=%.3fs, "
+                    "throughput=%.2f tokens/sec",
+                    turn_data.turn_id,
+                    turn_data.time_to_first_token,
+                    turn_data.streaming_duration or 0.0,
+                    turn_data.tokens_per_second or 0.0,
+                )
+
             logger.debug("Data amended for turn %s", turn_data.turn_id)
             return None, api_response.conversation_id
 
