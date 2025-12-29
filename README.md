@@ -12,11 +12,14 @@ A comprehensive framework for evaluating GenAI applications.
 - **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
-- **Skip on Failure**: Optionally skip remaining evaluations in a conversation when a turn evaluation fails (configurable globally or per conversation). When there is an error in API call/Setup script execution metrics are marked as ERROR always.
-- **Flexible Configuration**: Configurable environment & metric metadata
-- **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
-- **Early Validation**: Catch configuration errors before expensive LLM calls
+- **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
+- **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
+- **Flexible Configuration**: Configurable environment & metric metadata, Global defaults with per-conversation/per-turn metric overrides
+- **Early Validation**: Catch configuration errors before expensive LLM calls
+- **Concurrent Evaluation**: Multi-threaded evaluation with configurable thread count
+- **Caching**: LLM, embedding, and API response caching for faster re-runs
+- **Skip on Failure**: Optionally skip remaining evaluations in a conversation when a turn evaluation fails (configurable globally or per conversation). When there is an error in API call/Setup script execution metrics are marked as ERROR always.
 
 ## 🚀 Quick Start
 
@@ -113,6 +116,29 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
   - [`conversation_completeness`](https://deepeval.com/docs/metrics-conversation-completeness)
   - [`conversation_relevancy`](https://deepeval.com/docs/metrics-turn-relevancy)
   - [`knowledge_retention`](https://deepeval.com/docs/metrics-knowledge-retention)
+
+### Custom Metrics with GEval (from DeepEval)
+
+GEval allows us to define custom evaluation metrics using natural language criteria. Define metrics in `system.yaml` under `metrics_metadata`:
+
+```yaml
+metrics_metadata:
+  turn_level:
+    "geval:custom_metric_name":
+      criteria: |
+        Specific criteria for the evaluation.
+      evaluation_params:
+        - query
+        - response
+        - expected_response  # optional
+      evaluation_steps:
+        - "Step 1: Check if..."
+        - "Step 2: Verify that..."
+      threshold: 0.7
+      description: "Metric description"
+```
+
+See sample [`system config`](config/system.yaml) for complete examples of `geval:technical_accuracy` and `geval:conversation_coherence`.
 
 ## ⚙️ Configuration
 
@@ -325,8 +351,8 @@ export API_KEY="your-api-endpoint-key"
 - **PNG**: 4 visualization types (pass rates, score distributions, heatmaps, status breakdown)
 
 ### Key Metrics in Output
-- **PASS/FAIL/ERROR**: Status based on thresholds
-- **Actual Reasons**: DeepEval provides LLM-generated explanations, Custom metrics provide detailed reasoning
+- **Status**: PASS/FAIL/ERROR/SKIPPED
+- **Actual Reasons**: Reason for evaluation status/result
 - **Score Statistics**: Mean, median, standard deviation, min/max for every metric
 
 ## 🧪 Development
