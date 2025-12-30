@@ -1,6 +1,6 @@
 [project]
 name = "lightspeed-evaluation"
-version = "0.3.0"
+version = "0.4.0"
 description = "LSC Evaluation Framework - Comprehensive evaluation tooling for GenAI applications"
 authors = []
 requires-python = ">=3.11,<3.14"
