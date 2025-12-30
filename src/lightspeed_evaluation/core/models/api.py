@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
+
 
 class RAGChunk(BaseModel):
     """RAG chunk data from lightspeed-stack API."""
@@ -77,7 +79,7 @@ class APIRequest(BaseModel):
         )
 
 
-class APIResponse(BaseModel):
+class APIResponse(StreamingMetricsMixin):
     """API response model."""
 
     model_config = ConfigDict(extra="forbid")
@@ -114,6 +116,11 @@ class APIResponse(BaseModel):
         input_tokens = raw_data.get("input_tokens", 0)
         output_tokens = raw_data.get("output_tokens", 0)
 
+        # Extract streaming performance metrics (only available for streaming endpoint)
+        time_to_first_token = raw_data.get("time_to_first_token")
+        streaming_duration = raw_data.get("streaming_duration")
+        tokens_per_second = raw_data.get("tokens_per_second")
+
         return cls(
             response=raw_data["response"].strip(),
             conversation_id=conversation_id,
@@ -121,4 +128,7 @@ class APIResponse(BaseModel):
             contexts=contexts,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            time_to_first_token=time_to_first_token,
+            streaming_duration=streaming_duration,
+            tokens_per_second=tokens_per_second,
         )
