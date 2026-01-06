@@ -45,13 +45,13 @@ class JudgeModelManager:
         elif provider == "azure":
             # Azure OpenAI - LiteLLM format: azure/{deployment_name}
             # Keep the deployment_name same as model name for consistency
-            api_key = os.environ.get("AZURE_OPENAI_API_KEY")
-            api_base = os.environ.get("AZURE_OPENAI_ENDPOINT")
-            deployment_name = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME")
+            api_key = os.environ.get("AZURE_API_KEY")
+            api_base = os.environ.get("AZURE_API_BASE")
+            deployment_name = os.environ.get("AZURE_DEPLOYMENT_NAME")
 
             if not all([api_key, api_base]):
                 raise JudgeModelError(
-                    "AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT "
+                    "AZURE_API_KEY and AZURE_API_BASE "
                     "environment variables are required for Azure provider"
                 )
 
