@@ -38,8 +38,8 @@ class TestProviderValidators:
         mocker.patch.dict(
             "os.environ",
             {
-                "AZURE_OPENAI_API_KEY": "test_key",
-                "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/",
+                "AZURE_API_KEY": "test_key",
+                "AZURE_API_BASE": "https://test.openai.azure.com/",
             },
         )
 
@@ -169,8 +169,8 @@ class TestValidateProviderEnv:
         mocker.patch.dict(
             "os.environ",
             {
-                "AZURE_OPENAI_API_KEY": "test",
-                "AZURE_OPENAI_ENDPOINT": "https://test.com",
+                "AZURE_API_KEY": "test",
+                "AZURE_API_BASE": "https://test.com",
             },
         )
 

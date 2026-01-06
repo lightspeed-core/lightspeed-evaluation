@@ -53,9 +53,7 @@ class TestLLMManager:
             temperature=0.0,
         )
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
-        mocker.patch.dict(
-            "os.environ", {"AZURE_OPENAI_DEPLOYMENT_NAME": "my-deployment"}
-        )
+        mocker.patch.dict("os.environ", {"AZURE_DEPLOYMENT_NAME": "my-deployment"})
 
         manager = LLMManager(config)
 

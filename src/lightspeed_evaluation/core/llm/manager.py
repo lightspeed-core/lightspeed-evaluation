@@ -60,7 +60,7 @@ class LLMManager:
     def _handle_azure_provider(self) -> str:
         """Handle Azure provider setup."""
         validate_provider_env("azure")
-        deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME") or self.config.model
+        deployment = os.environ.get("AZURE_DEPLOYMENT_NAME") or self.config.model
         return f"azure/{deployment}"
 
     def _handle_watsonx_provider(self) -> str:
