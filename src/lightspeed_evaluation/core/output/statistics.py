@@ -247,3 +247,47 @@ def calculate_api_token_usage(evaluation_data: list[EvaluationData]) -> dict[str
         "total_api_output_tokens": total_output_tokens,
         "total_api_tokens": total_input_tokens + total_output_tokens,
     }
+
+
+def calculate_streaming_stats(
+    evaluation_data: list[EvaluationData],
+) -> dict[str, Any]:
+    """Calculate streaming performance statistics from evaluation data.
+
+    Args:
+        evaluation_data: List of evaluation data containing turn-level streaming metrics.
+
+    Returns:
+        Dictionary containing streaming performance statistics (TTFT, duration, throughput).
+    """
+    ttft_values: list[float] = []
+    duration_values: list[float] = []
+    throughput_values: list[float] = []
+
+    for conv_data in evaluation_data:
+        for turn in conv_data.turns:
+            if turn.time_to_first_token is not None:
+                ttft_values.append(turn.time_to_first_token)
+            if turn.streaming_duration is not None:
+                duration_values.append(turn.streaming_duration)
+            if turn.tokens_per_second is not None:
+                throughput_values.append(turn.tokens_per_second)
+
+    def _calc_stats(values: list[float]) -> dict[str, Any]:
+        """Calculate statistics for a list of values."""
+        if not values:
+            return {"count": 0}
+        return {
+            "count": len(values),
+            "mean": statistics.mean(values),
+            "median": statistics.median(values),
+            "min": min(values),
+            "max": max(values),
+            "std": statistics.stdev(values) if len(values) > 1 else 0.0,
+        }
+
+    return {
+        "time_to_first_token": _calc_stats(ttft_values),
+        "streaming_duration": _calc_stats(duration_values),
+        "tokens_per_second": _calc_stats(throughput_values),
+    }

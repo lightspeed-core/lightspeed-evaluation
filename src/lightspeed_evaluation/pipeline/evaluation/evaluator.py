@@ -182,6 +182,14 @@ class MetricsEvaluator:
                 ),
                 judge_llm_input_tokens=judge_input_tokens,
                 judge_llm_output_tokens=judge_output_tokens,
+                # Streaming performance metrics
+                time_to_first_token=(
+                    turn_data.time_to_first_token if turn_data else None
+                ),
+                streaming_duration=(
+                    turn_data.streaming_duration if turn_data else None
+                ),
+                tokens_per_second=(turn_data.tokens_per_second if turn_data else None),
                 tool_calls=_to_json_str(turn_data.tool_calls) if turn_data else None,
                 contexts=_to_json_str(turn_data.contexts) if turn_data else None,
                 expected_response=turn_data.expected_response if turn_data else None,
@@ -207,6 +215,7 @@ class MetricsEvaluator:
         self, request: EvaluationRequest, reason: str, execution_time: float
     ) -> EvaluationResult:
         """Create an ERROR result for failed evaluation."""
+        turn_data = request.turn_data
         return EvaluationResult(
             conversation_group_id=request.conv_data.conversation_group_id,
             turn_id=request.turn_id,
@@ -215,15 +224,15 @@ class MetricsEvaluator:
             score=None,
             threshold=None,
             reason=reason,
-            query=request.turn_data.query if request.turn_data else "",
-            response=request.turn_data.response or "" if request.turn_data else "",
+            query=turn_data.query if turn_data else "",
+            response=turn_data.response or "" if turn_data else "",
             execution_time=execution_time,
-            api_input_tokens=(
-                request.turn_data.api_input_tokens if request.turn_data else 0
-            ),
-            api_output_tokens=(
-                request.turn_data.api_output_tokens if request.turn_data else 0
-            ),
+            api_input_tokens=turn_data.api_input_tokens if turn_data else 0,
+            api_output_tokens=turn_data.api_output_tokens if turn_data else 0,
+            # Streaming performance metrics
+            time_to_first_token=turn_data.time_to_first_token if turn_data else None,
+            streaming_duration=turn_data.streaming_duration if turn_data else None,
+            tokens_per_second=turn_data.tokens_per_second if turn_data else None,
         )
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:

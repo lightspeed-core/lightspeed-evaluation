@@ -39,6 +39,10 @@ SUPPORTED_CSV_COLUMNS = [
     "api_output_tokens",
     "judge_llm_input_tokens",
     "judge_llm_output_tokens",
+    # Streaming performance metrics
+    "time_to_first_token",
+    "streaming_duration",
+    "tokens_per_second",
     "tool_calls",
     "contexts",
     "expected_response",

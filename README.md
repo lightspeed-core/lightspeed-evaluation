@@ -13,6 +13,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations
+- **Streaming Performance Metrics**: Capture time-to-first-token (TTFT), streaming duration, and tokens/second when using streaming endpoint
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
 - **Flexible Configuration**: Configurable environment & metric metadata, Global defaults with per-conversation/per-turn metric overrides
@@ -354,6 +355,21 @@ export API_KEY="your-api-endpoint-key"
 - **Status**: PASS/FAIL/ERROR/SKIPPED
 - **Actual Reasons**: Reason for evaluation status/result
 - **Score Statistics**: Mean, median, standard deviation, min/max for every metric
+
+### Streaming Performance Metrics
+
+When using the streaming endpoint (`api.endpoint_type: streaming`), the framework captures additional performance metrics:
+
+| Metric | Description |
+|--------|-------------|
+| `time_to_first_token` | Time in seconds from request start to first content token received |
+| `streaming_duration` | Total time in seconds to receive all tokens |
+| `tokens_per_second` | Output throughput (tokens generated per second, excluding TTFT) |
+
+These metrics are included in:
+- **CSV output**: Per-result columns for each metric
+- **JSON output**: Per-result fields and aggregate statistics in `streaming_performance`
+- **TXT output**: Aggregate statistics (mean, median, min/max) in the summary
 
 ## 🧪 Development
 

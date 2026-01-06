@@ -12,6 +12,7 @@ from lightspeed_evaluation.core.models.data import (
     EvaluationScope,
     TurnData,
 )
+from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
     CoreConfig,
@@ -43,4 +44,6 @@ __all__ = [
     "APIRequest",
     "APIResponse",
     "AttachmentData",
+    # Mixins
+    "StreamingMetricsMixin",
 ]

@@ -2,74 +2,169 @@
 
 import json
 import logging
+import time
 from typing import Any, Optional
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 logger = logging.getLogger(__name__)
 
 DATA_PREFIX = "data: "
+CONTENT_EVENTS = ("token", "tool_call", "turn_complete")
+
+
+class _PerformanceTracker(BaseModel):
+    """Tracks streaming performance metrics (TTFT, throughput)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    stream_start_time: float = Field(default_factory=time.perf_counter)
+    time_to_first_token: Optional[float] = Field(default=None)
+    _first_content_received: bool = PrivateAttr(default=False)
+
+    def capture_ttft(self) -> None:
+        """Capture time to first token if not already captured."""
+        if not self._first_content_received:
+            self.time_to_first_token = time.perf_counter() - self.stream_start_time
+            self._first_content_received = True
+            logger.debug("Time to first token: %.3f seconds", self.time_to_first_token)
+
+    def get_metrics(self, output_tokens: int) -> tuple[float, Optional[float]]:
+        """Calculate streaming duration and tokens per second."""
+        streaming_duration = time.perf_counter() - self.stream_start_time
+        tokens_per_second = _calculate_tokens_per_second(
+            output_tokens, self.time_to_first_token, streaming_duration
+        )
+        return streaming_duration, tokens_per_second
+
+
+class StreamingContext(BaseModel):
+    """Context for streaming response parsing."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    conversation_id: str = Field(default="")
+    final_response: str = Field(default="")
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    input_tokens: int = Field(default=0)
+    output_tokens: int = Field(default=0)
+    perf: _PerformanceTracker = Field(default_factory=_PerformanceTracker)
+
+    def to_response_dict(self) -> dict[str, Any]:
+        """Convert context to response dictionary."""
+        streaming_duration, tokens_per_second = self.perf.get_metrics(
+            self.output_tokens
+        )
+        return {
+            "response": self.final_response,
+            "tool_calls": _format_tool_sequences(self.tool_calls),
+            "conversation_id": self.conversation_id,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "time_to_first_token": self.perf.time_to_first_token,
+            "streaming_duration": streaming_duration,
+            "tokens_per_second": tokens_per_second,
+        }
+
+
+def _calculate_tokens_per_second(
+    output_tokens: int, ttft: Optional[float], total_duration: float
+) -> Optional[float]:
+    """Calculate tokens per second, excluding TTFT from throughput calculation."""
+    if output_tokens <= 0 or ttft is None:
+        return None
+    generation_time = total_duration - ttft
+    if generation_time <= 0:
+        return None
+    tokens_per_second = output_tokens / generation_time
+    logger.debug(
+        "Streaming performance: %.3f tokens/sec (%d tokens in %.3f sec)",
+        tokens_per_second,
+        output_tokens,
+        generation_time,
+    )
+    return tokens_per_second
 
 
 def parse_streaming_response(  # pylint: disable=too-many-branches
     response: httpx.Response,
 ) -> dict[str, Any]:
-    """Parse streaming response and extract data."""
-    conversation_id = ""
-    final_response = ""
-    tool_calls: list[dict[str, Any]] = []
-    input_tokens = 0
-    output_tokens = 0
+    """Parse streaming response and extract data.
+
+    Captures performance metrics including:
+    - Time to First Token (TTFT): Time from request start to first content token
+    - Streaming duration: Total time to receive all tokens
+    - Tokens per second: Output throughput calculation
+
+    Args:
+        response: The httpx streaming response object to parse.
+
+    Returns:
+        Dictionary containing parsed response data with keys:
+            - response: Final response text
+            - conversation_id: Conversation tracking ID
+            - tool_calls: List of tool call sequences
+            - input_tokens: Number of input tokens used
+            - output_tokens: Number of output tokens generated
+            - time_to_first_token: TTFT in seconds (None if not captured)
+            - streaming_duration: Total streaming time in seconds
+            - tokens_per_second: Output throughput (None if not calculable)
+
+    Raises:
+        APIError: If an error event is received from the streaming API.
+        DataValidationError: If required response fields are missing.
+    """
+    ctx = StreamingContext()
 
     for line in response.iter_lines():
         line = line.strip()
         if not line or not line.startswith(DATA_PREFIX):
             continue
 
-        json_data = line.replace(DATA_PREFIX, "")  # Remove data prefix
-        parsed_data = _parse_sse_line(json_data)
-
+        parsed_data = _parse_sse_line(line.replace(DATA_PREFIX, ""))
         if not parsed_data:
             continue
 
         event, event_data = parsed_data
 
-        if event == "error" and "token" in event_data:
-            error_message = event_data["token"]
-            logger.error("Received error event from streaming API: %s", error_message)
-            raise ValueError(f"Streaming API error: {error_message}")
-        if event == "start" and "conversation_id" in event_data:
-            conversation_id = event_data["conversation_id"].strip()
-            logger.debug("Found conversation_id: %s", conversation_id)
-        elif event == "turn_complete" and "token" in event_data:
-            final_response = event_data["token"].strip()
-            logger.debug("Found final response (%d characters)", len(final_response))
-        elif event == "tool_call" and "token" in event_data:
-            tool_call = _parse_tool_call(event_data["token"])
-            if tool_call:
-                tool_calls.append(tool_call)
-                logger.debug("Found tool call: %s", tool_call)
-        elif event == "end":
-            # Extract token counts from end event (provided by lightspeed-stack)
-            if "input_tokens" in event_data:
-                input_tokens = event_data["input_tokens"]
-            if "output_tokens" in event_data:
-                output_tokens = event_data["output_tokens"]
+        if event in CONTENT_EVENTS:
+            ctx.perf.capture_ttft()
 
-    if not final_response:
+        _process_event(ctx, event, event_data)
+
+    _validate_response(ctx)
+    return ctx.to_response_dict()
+
+
+def _process_event(ctx: StreamingContext, event: str, event_data: dict) -> None:
+    """Process a single streaming event and update context."""
+    if event == "error" and "token" in event_data:
+        error_message = event_data["token"]
+        logger.error("Received error event from streaming API: %s", error_message)
+        raise ValueError(f"Streaming API error: {error_message}")
+    if event == "start" and "conversation_id" in event_data:
+        ctx.conversation_id = event_data["conversation_id"].strip()
+        logger.debug("Found conversation_id: %s", ctx.conversation_id)
+    elif event == "turn_complete" and "token" in event_data:
+        ctx.final_response = event_data["token"].strip()
+        logger.debug("Found final response (%d characters)", len(ctx.final_response))
+    elif event == "tool_call" and "token" in event_data:
+        tool_call = _parse_tool_call(event_data["token"])
+        if tool_call:
+            ctx.tool_calls.append(tool_call)
+            logger.debug("Found tool call: %s", tool_call)
+    elif event == "end":
+        ctx.input_tokens = event_data.get("input_tokens", 0)
+        ctx.output_tokens = event_data.get("output_tokens", 0)
+
+
+def _validate_response(ctx: StreamingContext) -> None:
+    """Validate that required response fields are present."""
+    if not ctx.final_response:
         raise ValueError("No final response found in streaming output")
-    if not conversation_id:
+    if not ctx.conversation_id:
         raise ValueError("No Conversation ID found")
-
-    tool_sequences = _format_tool_sequences(tool_calls)
-
-    return {
-        "response": final_response,
-        "tool_calls": tool_sequences,
-        "conversation_id": conversation_id,
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-    }
 
 
 def _parse_sse_line(json_data: str) -> Optional[tuple[str, dict[str, Any]]]:
