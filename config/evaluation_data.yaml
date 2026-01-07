@@ -34,6 +34,7 @@
   turns:
     - turn_id: turn_id1
       query: User Query
+      response: Sample response based on context  # Required when API disabled
       contexts:
         - Context 1
       expected_response: Expected Response
@@ -48,11 +49,13 @@
     - deepeval:conversation_completeness
     - deepeval:conversation_relevancy
   turns:
-    - turn_id: turn_id1  # Skip evaluation
+    - turn_id: turn_id1  # Skip turn-level evaluation
       query: User Query 1
+      response: Response to query 1  # Required for conversation metrics
       turn_metrics: []
     - turn_id: turn_id2  # Default evaluation
       query: User Query 2
+      response: Response to query 2  # Required for conversation metrics
 
 - conversation_group_id: tool_eval_example
   description: Example of tool call evaluation with direct and regex matching
@@ -103,3 +106,46 @@
       turn_metrics:
         - script:action_eval
       verify_script: sample_scripts/verify.sh
+
+# NLP Metrics Examples - Text comparison without LLM
+# These metrics compare response vs expected_response using traditional NLP techniques
+#
+# REQUIRED: Install optional dependencies first:
+#   pip install 'lightspeed-evaluation[nlp-metrics]'
+#   OR: pip install sacrebleu rouge-score rapidfuzz
+
+- conversation_group_id: nlp_metrics_basic
+  description: Basic NLP metrics - BLEU, ROUGE, and Semantic Similarity with defaults
+
+  turns:
+    - turn_id: turn_id1
+      query: What is the capital of France?
+      response: The capital of France is Paris, a major European city.
+      expected_response: Paris is the capital of France.
+      turn_metrics:
+        - nlp:bleu              # N-gram overlap (0-1, higher = more similar)
+        - nlp:rouge             # Recall-oriented overlap (default: rougeL, fmeasure)
+        # - nlp:semantic_similarity_distance  # String distance (NOT recommended for LLM outputs)
+
+- conversation_group_id: nlp_metrics_custom_config
+  description: NLP metrics with custom configuration options
+
+  turns:
+    - turn_id: turn_id1
+      query: Explain how to deploy a pod in Kubernetes
+      response: Use kubectl apply -f pod.yaml to deploy a pod to your Kubernetes cluster.
+      expected_response: To deploy a pod in Kubernetes, use the kubectl apply command with your pod manifest file.
+      turn_metrics:
+        - nlp:bleu
+        - nlp:rouge
+        - nlp:semantic_similarity_distance  # Caution: measures character distance, not meaning
+      turn_metrics_metadata:
+        nlp:bleu:
+          threshold: 0.3  # Custom threshold for BLEU
+          max_ngram: 2    # Use bigrams instead of default 4-grams (options: 1-4)
+        nlp:rouge:
+          threshold: 0.3
+          rouge_type: rouge1  # Options: rouge1, rouge2, rougeL, rougeLsum
+        nlp:semantic_similarity_distance:
+          threshold: 0.6
+          distance_measure: jaro_winkler  # Options: levenshtein, hamming, jaro, jaro_winkler

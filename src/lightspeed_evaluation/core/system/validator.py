@@ -65,6 +65,14 @@ METRIC_REQUIREMENTS = {
     },
 }
 
+# NLP metrics share identical requirements - add them programmatically
+_NLP_METRIC_REQUIREMENTS = {
+    "required_fields": ["response", "expected_response"],
+    "description": "requires 'response' and 'expected_response' fields",
+}
+for _nlp_metric in ["nlp:bleu", "nlp:rouge", "nlp:semantic_similarity_distance"]:
+    METRIC_REQUIREMENTS[_nlp_metric] = _NLP_METRIC_REQUIREMENTS
+
 
 def format_pydantic_error(error: ValidationError) -> str:
     """Format Pydantic validation error for better readability."""
