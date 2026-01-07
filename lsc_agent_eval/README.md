@@ -190,7 +190,7 @@ For judge-llm evaluations, currently LiteLLM is used.
 Expectation is that, either a third-party inference provider access is there or local model inference is already created. The eval framework doesn't handle this.
 
 - **OpenAI**: Set `OPENAI_API_KEY` environment variable
-- **Azure OpenAI**: Set `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`
+- **Azure OpenAI**: Set `AZURE_API_KEY`, `AZURE_API_BASE`
 - **IBM Watsonx**: Set `WATSONX_API_KEY`, `WATSONX_API_BASE`, `WATSONX_PROJECT_ID`
 - **Ollama**: Set `OLLAMA_API_BASE` (for local models)
 - **Any Other Provider**: Check [LiteLLM documentation](https://docs.litellm.ai/docs/providers)

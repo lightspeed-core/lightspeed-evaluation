@@ -24,7 +24,7 @@ def validate_openai_env() -> None:
 
 def validate_azure_env() -> None:
     """Validate Azure OpenAI environment variables."""
-    required = ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"]
+    required = ["AZURE_API_KEY", "AZURE_API_BASE"]
     if not all(os.environ.get(var) for var in required):
         raise LLMError(f"Azure provider requires environment variables: {required}")
 

@@ -35,9 +35,9 @@ class TestJudgeModelManager:
         mocker.patch.dict(
             os.environ,
             {
-                "AZURE_OPENAI_API_KEY": "test-key",
-                "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com",
-                "AZURE_OPENAI_DEPLOYMENT_NAME": "gpt-4-deployment",
+                "AZURE_API_KEY": "test-key",
+                "AZURE_API_BASE": "https://test.openai.azure.com",
+                "AZURE_DEPLOYMENT_NAME": "gpt-4-deployment",
             },
         )
         judge = JudgeModelManager("azure", "gpt-4")

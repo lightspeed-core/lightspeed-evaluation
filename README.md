@@ -334,7 +334,14 @@ export WATSONX_PROJECT_ID="your-project-id"
 
 # Gemini (provider: gemini)
 export GEMINI_API_KEY="your-key"
+
+# Azure OpenAI (provider: azure)
+export AZURE_API_KEY="your-azure-key"
+export AZURE_API_BASE="https://your-resource.openai.azure.com/"
+# AZURE_API_VERSION is optional
 ```
+
+> **Note for Azure**: The `model` field should be **Azure deployment name**, not the model name (when these are different).
 
 #### For Lightspeed Core API Integration (When `api.enabled: true`)
 ```bash
