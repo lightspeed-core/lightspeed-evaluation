@@ -108,9 +108,15 @@ class TestOutputHandler:
             "total_api_output_tokens": 200,
             "total_api_tokens": 300,
         }
+        streaming_stats = {}
 
         json_file = handler._generate_json_summary(
-            sample_results, "test", stats["basic"], stats["detailed"], api_tokens
+            sample_results,
+            "test",
+            stats["basic"],
+            stats["detailed"],
+            api_tokens,
+            streaming_stats,
         )
 
         assert json_file.exists()
@@ -134,9 +140,15 @@ class TestOutputHandler:
             "total_api_output_tokens": 200,
             "total_api_tokens": 300,
         }
+        streaming_stats = {}
 
         txt_file = handler._generate_text_summary(
-            sample_results, "test", stats["basic"], stats["detailed"], api_tokens
+            sample_results,
+            "test",
+            stats["basic"],
+            stats["detailed"],
+            api_tokens,
+            streaming_stats,
         )
 
         assert txt_file.exists()

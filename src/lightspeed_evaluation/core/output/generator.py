@@ -17,6 +17,7 @@ from lightspeed_evaluation.core.output.statistics import (
     calculate_api_token_usage,
     calculate_basic_stats,
     calculate_detailed_stats,
+    calculate_streaming_stats,
 )
 from lightspeed_evaluation.core.output.visualization import GraphGenerator
 
@@ -65,15 +66,17 @@ class OutputHandler:
         # Pre-calculate stats once for reuse across all reports
         stats = self._calculate_stats(results)
 
-        # Calculate API token usage if evaluation data is provided
+        # Calculate API token usage and streaming stats if evaluation data is provided
         if evaluation_data:
             stats["api_tokens"] = calculate_api_token_usage(evaluation_data)
+            stats["streaming"] = calculate_streaming_stats(evaluation_data)
         else:
             stats["api_tokens"] = {
                 "total_api_input_tokens": 0,
                 "total_api_output_tokens": 0,
                 "total_api_tokens": 0,
             }
+            stats["streaming"] = {}
 
         # Generate individual reports based on configuration
         self._generate_individual_reports(
@@ -117,6 +120,7 @@ class OutputHandler:
                 stats["basic"],
                 stats["detailed"],
                 stats.get("api_tokens", {}),
+                stats.get("streaming", {}),
             )
             print(f"  ✅ JSON: {json_file}")
 
@@ -127,6 +131,7 @@ class OutputHandler:
                 stats["basic"],
                 stats["detailed"],
                 stats.get("api_tokens", {}),
+                stats.get("streaming", {}),
             )
             print(f"  ✅ TXT: {txt_file}")
 
@@ -203,6 +208,7 @@ class OutputHandler:
         basic_stats: dict[str, Any],
         detailed_stats: dict[str, Any],
         api_tokens: dict[str, Any],
+        streaming_stats: dict[str, Any],
     ) -> Path:
         """Generate JSON summary report."""
         json_file = self.output_dir / f"{base_filename}_summary.json"
@@ -218,14 +224,19 @@ class OutputHandler:
             "total_tokens": judge_llm_tokens + api_total_tokens,
         }
 
+        summary_stats: dict[str, Any] = {
+            "overall": overall_stats,
+            "by_metric": detailed_stats["by_metric"],
+            "by_conversation": detailed_stats["by_conversation"],
+        }
+        # Only include streaming_performance if there's data
+        if streaming_stats:
+            summary_stats["streaming_performance"] = streaming_stats
+
         summary = {
             "timestamp": datetime.now().isoformat(),
             "total_evaluations": len(results),
-            "summary_stats": {
-                "overall": overall_stats,
-                "by_metric": detailed_stats["by_metric"],
-                "by_conversation": detailed_stats["by_conversation"],
-            },
+            "summary_stats": summary_stats,
             "results": [
                 {
                     "conversation_group_id": r.conversation_group_id,
@@ -237,6 +248,10 @@ class OutputHandler:
                     "execution_time": round(r.execution_time, 3),
                     "judge_llm_input_tokens": r.judge_llm_input_tokens,
                     "judge_llm_output_tokens": r.judge_llm_output_tokens,
+                    # Streaming performance metrics
+                    "time_to_first_token": r.time_to_first_token,
+                    "streaming_duration": r.streaming_duration,
+                    "tokens_per_second": r.tokens_per_second,
                 }
                 for r in results
             ],
@@ -254,6 +269,7 @@ class OutputHandler:
         basic_stats: dict[str, Any],
         detailed_stats: dict[str, Any],
         api_tokens: dict[str, Any],
+        streaming_stats: dict[str, Any],
     ) -> Path:
         """Generate human-readable text summary."""
         txt_file = self.output_dir / f"{base_filename}_summary.txt"
@@ -270,6 +286,9 @@ class OutputHandler:
 
             # Token usage statistics
             self._write_token_stats(f, basic_stats, api_tokens)
+
+            # Streaming performance statistics
+            self._write_streaming_stats(f, streaming_stats)
 
             # By metric breakdown
             self._write_metric_breakdown(f, detailed_stats["by_metric"])
@@ -303,6 +322,39 @@ class OutputHandler:
         f.write(f"Input Tokens: {api_tokens.get('total_api_input_tokens', 0):,}\n")
         f.write(f"Output Tokens: {api_tokens.get('total_api_output_tokens', 0):,}\n")
         f.write(f"Total Tokens: {api_tokens.get('total_api_tokens', 0):,}\n\n")
+
+    def _write_streaming_stats(self, f: Any, streaming_stats: dict[str, Any]) -> None:
+        """Write streaming performance statistics section."""
+        # Check if there are any streaming metrics
+        ttft = streaming_stats.get("time_to_first_token", {})
+        duration = streaming_stats.get("streaming_duration", {})
+        throughput = streaming_stats.get("tokens_per_second", {})
+
+        if ttft.get("count", 0) == 0:
+            return  # No streaming data available
+
+        f.write("Streaming Performance:\n")
+        f.write("-" * 20 + "\n")
+
+        if ttft.get("count", 0) > 0:
+            f.write("Time to First Token (seconds):\n")
+            f.write(f"  Mean: {ttft['mean']:.3f}\n")
+            f.write(f"  Median: {ttft['median']:.3f}\n")
+            f.write(f"  Min: {ttft['min']:.3f}, Max: {ttft['max']:.3f}\n")
+
+        if duration.get("count", 0) > 0:
+            f.write("Streaming Duration (seconds):\n")
+            f.write(f"  Mean: {duration['mean']:.3f}\n")
+            f.write(f"  Median: {duration['median']:.3f}\n")
+            f.write(f"  Min: {duration['min']:.3f}, Max: {duration['max']:.3f}\n")
+
+        if throughput.get("count", 0) > 0:
+            f.write("Tokens per Second:\n")
+            f.write(f"  Mean: {throughput['mean']:.1f}\n")
+            f.write(f"  Median: {throughput['median']:.1f}\n")
+            f.write(f"  Min: {throughput['min']:.1f}, Max: {throughput['max']:.1f}\n")
+
+        f.write("\n")
 
     def _write_metric_breakdown(
         self, f: Any, by_metric: dict[str, dict[str, Any]]

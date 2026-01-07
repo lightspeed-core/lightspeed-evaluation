@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lightspeed_evaluation.core.constants import SUPPORTED_RESULT_STATUSES
+from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def _validate_and_deduplicate_metrics(
     return deduplicated
 
 
-class TurnData(BaseModel):
+class TurnData(StreamingMetricsMixin):
     """Individual turn data within a conversation."""
 
     model_config = ConfigDict(extra="forbid")
@@ -380,7 +381,7 @@ class EvaluationData(BaseModel):
         return v
 
 
-class EvaluationResult(BaseModel):
+class EvaluationResult(StreamingMetricsMixin):
     """Single evaluation result."""
 
     model_config = ConfigDict(extra="forbid")
@@ -422,6 +423,7 @@ class EvaluationResult(BaseModel):
     judge_llm_output_tokens: int = Field(
         default=0, ge=0, description="Judge LLM output tokens used"
     )
+
     tool_calls: Optional[str] = Field(
         default=None, description="Actual tool calls formatted as string"
     )
