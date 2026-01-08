@@ -5,6 +5,7 @@ import pandas as pd
 
 from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult, TurnData
 from lightspeed_evaluation.core.output.statistics import (
+    _calculate_score_statistics,
     bootstrap_intervals,
     calculate_api_token_usage,
     calculate_basic_stats,
@@ -145,6 +146,62 @@ class TestBootstrapIntervals:
         # Test 100% confidence (should be very wide)
         low_100, mean_100, high_100 = bootstrap_intervals(data, confidence=100)
         assert low_100 <= mean_100 <= high_100
+
+
+class TestCalculateScoreStatistics:
+    """Tests for _calculate_score_statistics function."""
+
+    def test_score_statistics_multiple_scores(self):
+        """Test score statistics with multiple scores includes confidence interval."""
+        scores = [0.8, 0.85, 0.9, 0.75, 0.88]
+        result = _calculate_score_statistics(scores)
+
+        assert result["count"] == 5
+        assert result["mean"] == pytest.approx(0.836, rel=1e-3)
+        assert result["median"] == 0.85
+        assert result["min"] == 0.75
+        assert result["max"] == 0.9
+        assert result["std"] > 0
+
+        # Confidence interval should be calculated
+        ci = result["confidence_interval"]
+        assert ci is not None
+        assert "low" in ci
+        assert "mean" in ci
+        assert "high" in ci
+        assert ci["confidence_level"] == 95
+        assert ci["low"] < ci["mean"] < ci["high"]
+
+    def test_score_statistics_two_scores(self):
+        """Test score statistics with exactly 2 scores includes CI."""
+        scores = [0.7, 0.9]
+        result = _calculate_score_statistics(scores)
+
+        assert result["count"] == 2
+        assert result["mean"] == 0.8
+        assert result["confidence_interval"] is not None
+
+    def test_score_statistics_single_score_no_ci(self):
+        """Test score statistics with single score has no confidence interval."""
+        scores = [0.8]
+        result = _calculate_score_statistics(scores)
+
+        assert result["count"] == 1
+        assert result["mean"] == 0.8
+        assert result["std"] == 0.0  # No std for single value
+        assert result["confidence_interval"] is None
+
+    def test_score_statistics_empty_scores(self):
+        """Test score statistics with empty list returns zeros and no CI."""
+        result = _calculate_score_statistics([])
+
+        assert result["count"] == 0
+        assert result["mean"] == 0.0
+        assert result["median"] == 0.0
+        assert result["std"] == 0.0
+        assert result["min"] == 0.0
+        assert result["max"] == 0.0
+        assert result["confidence_interval"] is None
 
 
 class TestCalculateBasicStats:
@@ -566,6 +623,14 @@ class TestCalculateDetailedStats:
         assert score_stats["max"] == 0.9
         assert score_stats["median"] == 0.8
         assert score_stats["std"] > 0  # Should have some standard deviation
+        # Confidence interval should be calculated for 3+ scores
+        assert "confidence_interval" in score_stats
+        ci = score_stats["confidence_interval"]
+        assert ci is not None
+        assert "low" in ci
+        assert "mean" in ci
+        assert "high" in ci
+        assert ci["confidence_level"] == 95
 
     def test_calculate_detailed_stats_no_scores(self):
         """Test calculate_detailed_stats with results that have no scores."""
@@ -590,6 +655,30 @@ class TestCalculateDetailedStats:
         assert score_stats["mean"] == 0.0
         assert score_stats["median"] == 0.0
         assert score_stats["std"] == 0.0
+        # Confidence interval should be None when no scores
+        assert score_stats["confidence_interval"] is None
+
+    def test_calculate_detailed_stats_single_score_no_confidence_interval(self):
+        """Test calculate_detailed_stats with single score has no CI (needs 2+)."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="conv1",
+                turn_id="turn1",
+                metric_identifier="test:metric",
+                result="PASS",
+                score=0.8,
+                threshold=0.7,
+                reason="Good",
+            )
+        ]
+
+        stats = calculate_detailed_stats(results)
+
+        metric_stats = stats["by_metric"]["test:metric"]
+        score_stats = metric_stats["score_statistics"]
+        assert score_stats["count"] == 1
+        # Confidence interval should be None for single score
+        assert score_stats["confidence_interval"] is None
 
 
 class TestCalculateApiTokenUsage:
