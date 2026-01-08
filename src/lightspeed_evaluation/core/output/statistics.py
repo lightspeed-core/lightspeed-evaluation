@@ -86,58 +86,69 @@ def calculate_detailed_stats(results: list[EvaluationResult]) -> dict[str, Any]:
     by_metric: dict[str, dict[str, Any]] = {}
     by_conversation: dict[str, dict[str, Any]] = {}
 
-    # Collect data
+    # Collect data using generic update function
     for result in results:
-        _update_metric_stats(by_metric, result)
-        _update_conversation_stats(by_conversation, result)
+        _update_stats(by_metric, result.metric_identifier, result, include_scores=True)
+        _update_stats(by_conversation, result.conversation_group_id, result)
 
-    # Calculate derived statistics
-    for _, stats in by_metric.items():
-        _finalize_metric_stats(stats)
+    # Finalize statistics for each group
+    for stats in by_metric.values():
+        _finalize_group_stats(stats, include_scores=True)
 
-    for _, stats in by_conversation.items():
-        _finalize_conversation_stats(stats)
+    # Note: Conversations don't include score_statistics with confidence intervals.
+    # To calculate CI for conversations, we would need to reconstruct the original
+    # results for each conversation to create binary series for each outcome type.
+    # This could be enhanced by passing the original results to this function.
+    for stats in by_conversation.values():
+        _finalize_group_stats(stats)
 
     return {"by_metric": by_metric, "by_conversation": by_conversation}
 
 
-def _update_metric_stats(
-    by_metric: dict[str, dict[str, Any]], result: EvaluationResult
-) -> None:
-    """Update metric statistics with a single result."""
-    if result.metric_identifier not in by_metric:
-        by_metric[result.metric_identifier] = {
-            "pass": 0,
-            "fail": 0,
-            "error": 0,
-            "skipped": 0,
-            "scores": [],
-        }
+def _create_empty_stats(*, include_scores: bool = False) -> dict[str, Any]:
+    """Create empty statistics dictionary.
 
-    stats = by_metric[result.metric_identifier]
+    Args:
+        include_scores: Whether to include a scores list for score tracking.
+    """
+    stats: dict[str, Any] = {
+        "pass": 0,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+    }
+    if include_scores:
+        stats["scores"] = []
+    return stats
+
+
+def _update_stats(
+    stats_dict: dict[str, dict[str, Any]],
+    key: str,
+    result: EvaluationResult,
+    *,
+    include_scores: bool = False,
+) -> None:
+    """Update statistics dictionary with a result.
+
+    Args:
+        stats_dict: Dictionary mapping keys to their statistics.
+        key: The key to update (e.g., metric_identifier, conversation_group_id).
+        result: The evaluation result to add.
+        include_scores: Whether to track individual scores.
+    """
+    if key not in stats_dict:
+        stats_dict[key] = _create_empty_stats(include_scores=include_scores)
+
+    stats = stats_dict[key]
     stats[result.result.lower()] += 1
 
-    if result.score is not None:
+    if include_scores and result.score is not None:
         stats["scores"].append(result.score)
 
 
-def _update_conversation_stats(
-    by_conversation: dict[str, dict[str, Any]], result: EvaluationResult
-) -> None:
-    """Update conversation statistics with a single result."""
-    if result.conversation_group_id not in by_conversation:
-        by_conversation[result.conversation_group_id] = {
-            "pass": 0,
-            "fail": 0,
-            "error": 0,
-            "skipped": 0,
-        }
-
-    by_conversation[result.conversation_group_id][result.result.lower()] += 1
-
-
-def _finalize_metric_stats(stats: dict[str, Any]) -> None:
-    """Calculate final statistics for a metric."""
+def _calculate_rates(stats: dict[str, Any]) -> None:
+    """Calculate pass/fail/error/skipped rates for a stats dictionary."""
     total = stats["pass"] + stats["fail"] + stats["error"] + stats["skipped"]
     if total > 0:
         stats["pass_rate"] = stats["pass"] / total * 100
@@ -150,40 +161,40 @@ def _finalize_metric_stats(stats: dict[str, Any]) -> None:
         stats["error_rate"] = 0.0
         stats["skipped_rate"] = 0.0
 
-    # Calculate statistical measures for scores
-    if stats["scores"]:
-        scores = stats["scores"]
-        scores_series = pd.Series(scores)
 
-        # Calculate basic statistics
-        score_stats = {
-            "mean": statistics.mean(scores),
-            "median": statistics.median(scores),
-            "std": statistics.stdev(scores) if len(scores) > 1 else 0.0,
-            "min": min(scores),
-            "max": max(scores),
-            "count": len(scores),
-        }
+def _calculate_numeric_stats(values: list[float]) -> dict[str, Any]:
+    """Calculate basic numeric statistics for a list of values.
 
-        # Calculate confidence intervals using bootstrap
-        if len(scores) > 1:  # Need at least 2 samples for meaningful bootstrap
-            try:
-                ci_low, ci_mean, ci_high = bootstrap_intervals(scores_series)
-                score_stats["confidence_interval"] = {
-                    "low": float(ci_low),
-                    "mean": float(ci_mean),
-                    "high": float(ci_high),
-                    "confidence_level": 95,  # Default confidence level
-                }
-            except (ValueError, RuntimeError):
-                # If bootstrap fails, set confidence interval to None
-                score_stats["confidence_interval"] = None
-        else:
-            score_stats["confidence_interval"] = None
+    Args:
+        values: List of numeric values.
 
-        stats["score_statistics"] = score_stats
-    else:
-        stats["score_statistics"] = {
+    Returns:
+        Dictionary containing count, mean, median, std, min, max.
+    """
+    if not values:
+        return {"count": 0}
+
+    return {
+        "count": len(values),
+        "mean": statistics.mean(values),
+        "median": statistics.median(values),
+        "std": statistics.stdev(values) if len(values) > 1 else 0.0,
+        "min": min(values),
+        "max": max(values),
+    }
+
+
+def _calculate_score_statistics(scores: list[float]) -> dict[str, Any]:
+    """Calculate score statistics with confidence intervals.
+
+    Args:
+        scores: List of score values.
+
+    Returns:
+        Dictionary containing mean, median, std, min, max, count, and confidence_interval.
+    """
+    if not scores:
+        return {
             "mean": 0.0,
             "median": 0.0,
             "std": 0.0,
@@ -193,35 +204,38 @@ def _finalize_metric_stats(stats: dict[str, Any]) -> None:
             "confidence_interval": None,
         }
 
+    score_stats = _calculate_numeric_stats(scores)
+    score_stats["confidence_interval"] = None
 
-def _finalize_conversation_stats(stats: dict[str, Any]) -> None:
-    """Calculate final statistics for a conversation."""
-    total = stats["pass"] + stats["fail"] + stats["error"] + stats["skipped"]
-    if total > 0:
-        stats["pass_rate"] = stats["pass"] / total * 100
-        stats["fail_rate"] = stats["fail"] / total * 100
-        stats["error_rate"] = stats["error"] / total * 100
-        stats["skipped_rate"] = stats["skipped"] / total * 100
+    # Calculate confidence intervals using bootstrap
+    if len(scores) > 1:  # Need at least 2 samples for meaningful bootstrap
+        try:
+            scores_series = pd.Series(scores)
+            ci_low, ci_mean, ci_high = bootstrap_intervals(scores_series)
+            score_stats["confidence_interval"] = {
+                "low": float(ci_low),
+                "mean": float(ci_mean),
+                "high": float(ci_high),
+                "confidence_level": 95,
+            }
+        except (ValueError, RuntimeError):
+            pass  # confidence_interval already set to None
 
-        # Calculate confidence intervals for conversation rates
-        if total > 1:  # Need at least 2 samples for meaningful bootstrap
-            try:
-                # Create binary series for each outcome type
-                # Note: We need to reconstruct the original results for this conversation
-                # Since we don't have access to the original results here,
-                # we'll skip CI for conversations. This could be enhanced by
-                # passing the original results to this function
-                stats["confidence_intervals"] = None
-            except (ValueError, RuntimeError):
-                stats["confidence_intervals"] = None
-        else:
-            stats["confidence_intervals"] = None
-    else:
-        stats["pass_rate"] = 0.0
-        stats["fail_rate"] = 0.0
-        stats["error_rate"] = 0.0
-        stats["skipped_rate"] = 0.0
-        stats["confidence_intervals"] = None
+    return score_stats
+
+
+def _finalize_group_stats(
+    stats: dict[str, Any], *, include_scores: bool = False
+) -> None:
+    """Finalize statistics for a group (calculate rates and optionally score stats).
+
+    Args:
+        stats: Statistics dictionary to finalize.
+        include_scores: Whether to calculate score statistics.
+    """
+    _calculate_rates(stats)
+    if include_scores:
+        stats["score_statistics"] = _calculate_score_statistics(stats.get("scores", []))
 
 
 def calculate_api_token_usage(evaluation_data: list[EvaluationData]) -> dict[str, Any]:
@@ -273,21 +287,8 @@ def calculate_streaming_stats(
             if turn.tokens_per_second is not None:
                 throughput_values.append(turn.tokens_per_second)
 
-    def _calc_stats(values: list[float]) -> dict[str, Any]:
-        """Calculate statistics for a list of values."""
-        if not values:
-            return {"count": 0}
-        return {
-            "count": len(values),
-            "mean": statistics.mean(values),
-            "median": statistics.median(values),
-            "min": min(values),
-            "max": max(values),
-            "std": statistics.stdev(values) if len(values) > 1 else 0.0,
-        }
-
     return {
-        "time_to_first_token": _calc_stats(ttft_values),
-        "streaming_duration": _calc_stats(duration_values),
-        "tokens_per_second": _calc_stats(throughput_values),
+        "time_to_first_token": _calculate_numeric_stats(ttft_values),
+        "streaming_duration": _calculate_numeric_stats(duration_values),
+        "tokens_per_second": _calculate_numeric_stats(throughput_values),
     }
