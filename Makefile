@@ -3,13 +3,10 @@
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
 .PHONY: format verify
 
-install-tools: ## Install required utilities/tools
+install-tools: git-hooks  ## Install required utilities/tools
 	# Install uv if not already installed
 	@command -v uv > /dev/null || { echo >&2 "uv is not installed. Installing..."; pip install uv; }
 	uv --version
-	# this is quick fix for OLS-758: "Verify" CI job is broken after new Mypy 1.10.1 was released 2 days ago
-	# CI job configuration would need to be updated in follow-up task
-	# pip uninstall -v -y mypy 2> /dev/null || true
 	# display setuptools version
 	uv pip show setuptools
 	export PIP_DEFAULT_TIMEOUT=100
@@ -23,6 +20,10 @@ install-tools: ## Install required utilities/tools
 	uv run ruff --version
 	# check that Pytest is installed
 	uv run pytest --version
+
+git-hooks:  ## Install git hooks
+	@echo "Installing git hooks"
+	cd .git/hooks ; ln -sf ../../githooks/* ./
 
 uv-lock-check: ## Check that the uv.lock file is in a good shape
 	uv lock --check
