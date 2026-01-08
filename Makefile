@@ -1,7 +1,7 @@
 # Put targets here if there is a risk that a target name might conflict with a filename.
 # this list is probably overkill right now.
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: format verify
+.PHONY: help test
 
 install-tools: git-hooks  ## Install required utilities/tools
 	# Install uv if not already installed
@@ -23,7 +23,7 @@ install-tools: git-hooks  ## Install required utilities/tools
 
 git-hooks:  ## Install git hooks
 	@echo "Installing git hooks"
-	cd .git/hooks ; ln -sf ../../githooks/* ./
+	cd .git/hooks && ln -sf ../../githooks/* ./
 
 uv-lock-check: ## Check that the uv.lock file is in a good shape
 	uv lock --check
@@ -44,16 +44,8 @@ check-types: ## Checks type hints in sources
 black-check:
 	uv run black . --check
 
-black:
+black-format:
 	uv run black .
-
-format: black install-deps-test ## Format the code into unified format
-	uv run ruff check . --fix --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
-
-verify:	install-deps-test ## Verify the code using various linters
-	uv run black . --check
-	uv run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
-	uv run pylint src tests lsc_agent_eval/src lsc_agent_eval/tests
 
 requirements.txt:	pyproject.toml uv.lock ## Generate requirements.txt file containing hashes for all non-devel packages
 	uv export --no-dev --format requirements-txt --output-file requirements.txt
