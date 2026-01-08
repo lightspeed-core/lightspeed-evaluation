@@ -79,17 +79,19 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
 
 
 def calculate_detailed_stats(results: list[EvaluationResult]) -> dict[str, Any]:
-    """Calculate detailed statistics broken down by metric and conversation."""
+    """Calculate detailed statistics broken down by different categories."""
     if not results:
-        return {"by_metric": {}, "by_conversation": {}}
+        return {"by_metric": {}, "by_conversation": {}, "by_tag": {}}
 
     by_metric: dict[str, dict[str, Any]] = {}
     by_conversation: dict[str, dict[str, Any]] = {}
+    by_tag: dict[str, dict[str, Any]] = {}
 
     # Collect data using generic update function
     for result in results:
         _update_stats(by_metric, result.metric_identifier, result, include_scores=True)
         _update_stats(by_conversation, result.conversation_group_id, result)
+        _update_stats(by_tag, result.tag, result, include_scores=True)
 
     # Finalize statistics for each group
     for stats in by_metric.values():
@@ -102,7 +104,14 @@ def calculate_detailed_stats(results: list[EvaluationResult]) -> dict[str, Any]:
     for stats in by_conversation.values():
         _finalize_group_stats(stats)
 
-    return {"by_metric": by_metric, "by_conversation": by_conversation}
+    for stats in by_tag.values():
+        _finalize_group_stats(stats, include_scores=True)
+
+    return {
+        "by_metric": by_metric,
+        "by_conversation": by_conversation,
+        "by_tag": by_tag,
+    }
 
 
 def _create_empty_stats(*, include_scores: bool = False) -> dict[str, Any]:

@@ -97,7 +97,7 @@ class OutputHandler:
             "detailed": (
                 calculate_detailed_stats(results)
                 if results
-                else {"by_metric": {}, "by_conversation": {}}
+                else {"by_metric": {}, "by_conversation": {}, "by_tag": {}}
             ),
         }
 
@@ -228,6 +228,7 @@ class OutputHandler:
             "overall": overall_stats,
             "by_metric": detailed_stats["by_metric"],
             "by_conversation": detailed_stats["by_conversation"],
+            "by_tag": detailed_stats.get("by_tag", {}),
         }
         # Only include streaming_performance if there's data
         if streaming_stats:
@@ -240,6 +241,7 @@ class OutputHandler:
             "results": [
                 {
                     "conversation_group_id": r.conversation_group_id,
+                    "tag": r.tag,
                     "turn_id": r.turn_id,
                     "metric_identifier": r.metric_identifier,
                     "result": r.result,
@@ -296,6 +298,9 @@ class OutputHandler:
             )
             self._write_breakdown_section(
                 f, "By Conversation", detailed_stats["by_conversation"]
+            )
+            self._write_breakdown_section(
+                f, "By Tag", detailed_stats.get("by_tag", {}), include_scores=True
             )
 
         return txt_file
