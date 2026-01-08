@@ -216,6 +216,12 @@ class OutputConfig(BaseModel):
         description="CSV columns to include in detailed results",
     )
 
+    summary_config_sections: list[str] = Field(
+        default=["llm", "embedding", "api"],
+        description="Configuration sections to include in summary reports",
+    )
+
+
     @field_validator("csv_columns")
     @classmethod
     def validate_csv_columns(cls, v: list[str]) -> list[str]:
