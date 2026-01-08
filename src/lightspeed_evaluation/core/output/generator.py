@@ -290,11 +290,13 @@ class OutputHandler:
             # Streaming performance statistics
             self._write_streaming_stats(f, streaming_stats)
 
-            # By metric breakdown
-            self._write_metric_breakdown(f, detailed_stats["by_metric"])
-
-            # By conversation breakdown
-            self._write_conversation_breakdown(f, detailed_stats["by_conversation"])
+            # Breakdowns by category
+            self._write_breakdown_section(
+                f, "By Metric", detailed_stats["by_metric"], include_scores=True
+            )
+            self._write_breakdown_section(
+                f, "By Conversation", detailed_stats["by_conversation"]
+            )
 
         return txt_file
 
@@ -336,36 +338,59 @@ class OutputHandler:
         f.write("Streaming Performance:\n")
         f.write("-" * 20 + "\n")
 
-        if ttft.get("count", 0) > 0:
-            f.write("Time to First Token (seconds):\n")
-            f.write(f"  Mean: {ttft['mean']:.3f}\n")
-            f.write(f"  Median: {ttft['median']:.3f}\n")
-            f.write(f"  Min: {ttft['min']:.3f}, Max: {ttft['max']:.3f}\n")
-
-        if duration.get("count", 0) > 0:
-            f.write("Streaming Duration (seconds):\n")
-            f.write(f"  Mean: {duration['mean']:.3f}\n")
-            f.write(f"  Median: {duration['median']:.3f}\n")
-            f.write(f"  Min: {duration['min']:.3f}, Max: {duration['max']:.3f}\n")
-
-        if throughput.get("count", 0) > 0:
-            f.write("Tokens per Second:\n")
-            f.write(f"  Mean: {throughput['mean']:.1f}\n")
-            f.write(f"  Median: {throughput['median']:.1f}\n")
-            f.write(f"  Min: {throughput['min']:.1f}, Max: {throughput['max']:.1f}\n")
+        self._write_numeric_stats(f, "Time to First Token (seconds)", ttft)
+        self._write_numeric_stats(f, "Streaming Duration (seconds)", duration)
+        self._write_numeric_stats(f, "Tokens per Second", throughput, precision=1)
 
         f.write("\n")
 
-    def _write_metric_breakdown(
-        self, f: Any, by_metric: dict[str, dict[str, Any]]
+    def _write_numeric_stats(
+        self,
+        f: Any,
+        title: str,
+        stats: dict[str, Any],
+        *,
+        precision: int = 3,
     ) -> None:
-        """Write metric breakdown section."""
-        if not by_metric:
+        """Write numeric statistics with mean, median, min, max.
+
+        Args:
+            f: File handle to write to.
+            title: Section title.
+            stats: Statistics dictionary with mean, median, min, max, count.
+            precision: Decimal precision for formatting numbers.
+        """
+        if stats.get("count", 0) == 0:
             return
-        f.write("By Metric:\n")
-        f.write("-" * 10 + "\n")
-        for metric, stats in by_metric.items():
-            f.write(f"{metric}:\n")
+
+        fmt = f".{precision}f"
+        f.write(f"{title}:\n")
+        f.write(f"  Mean: {stats['mean']:{fmt}}\n")
+        f.write(f"  Median: {stats['median']:{fmt}}\n")
+        f.write(f"  Min: {stats['min']:{fmt}}, Max: {stats['max']:{fmt}}\n")
+
+    def _write_breakdown_section(
+        self,
+        f: Any,
+        title: str,
+        stats_dict: dict[str, dict[str, Any]],
+        *,
+        include_scores: bool = False,
+    ) -> None:
+        """Write a breakdown section by different categories.
+
+        Args:
+            f: File handle to write to.
+            title: Section title (e.g., "By Metric", "By Conversation").
+            stats_dict: Dictionary mapping keys to their statistics.
+            include_scores: Whether to include score statistics.
+        """
+        if not stats_dict:
+            return
+        f.write(f"{title}:\n")
+        f.write("-" * len(title) + "\n")
+        for key, stats in stats_dict.items():
+            f.write(f"{key}:\n")
             f.write(f"  Pass: {stats['pass']} ({stats['pass_rate']:.1f}%)\n")
             f.write(f"  Fail: {stats['fail']} ({stats['fail_rate']:.1f}%)\n")
             f.write(f"  Error: {stats['error']} ({stats['error_rate']:.1f}%)\n")
@@ -373,7 +398,11 @@ class OutputHandler:
                 f.write(
                     f"  Skipped: {stats['skipped']} ({stats['skipped_rate']:.1f}%)\n"
                 )
-            if "score_statistics" in stats and stats["score_statistics"]["count"] > 0:
+            if (
+                include_scores
+                and "score_statistics" in stats
+                and stats["score_statistics"]["count"] > 0
+            ):
                 self._write_score_stats(f, stats["score_statistics"])
             f.write("\n")
 
@@ -385,25 +414,6 @@ class OutputHandler:
         f.write(f"    Min: {score_stats['min']:.3f}, Max: {score_stats['max']:.3f}\n")
         if score_stats["count"] > 1:
             f.write(f"    Std Dev: {score_stats['std']:.3f}\n")
-
-    def _write_conversation_breakdown(
-        self, f: Any, by_conversation: dict[str, dict[str, Any]]
-    ) -> None:
-        """Write conversation breakdown section."""
-        if not by_conversation:
-            return
-        f.write("By Conversation:\n")
-        f.write("-" * 15 + "\n")
-        for conv_id, stats in by_conversation.items():
-            f.write(f"{conv_id}:\n")
-            f.write(f"  Pass: {stats['pass']} ({stats['pass_rate']:.1f}%)\n")
-            f.write(f"  Fail: {stats['fail']} ({stats['fail_rate']:.1f}%)\n")
-            f.write(f"  Error: {stats['error']} ({stats['error_rate']:.1f}%)\n")
-            if stats.get("skipped", 0) > 0:
-                f.write(
-                    f"  Skipped: {stats['skipped']} ({stats['skipped_rate']:.1f}%)\n"
-                )
-            f.write("\n")
 
     def get_output_directory(self) -> Path:
         """Get the output directory path."""
