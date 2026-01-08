@@ -5,12 +5,4 @@
 set -eo pipefail
 
 # Run all checks for all files
-uv run black --check .
-uv run pydocstyle -v .
-make pyright
-make pylint
-make ruff
-make check-types
-
-# Tests moved to pre-push hook
-# uv run python -m pytest tests --cov=src --cov-report term-missing
+make pre-commit

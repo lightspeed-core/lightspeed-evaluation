@@ -41,8 +41,13 @@ update-deps: ## Check pyproject.toml for changes, update the lock file if needed
 check-types: ## Checks type hints in sources
 	uv run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/ lsc_agent_eval/src/
 
-format: install-deps-test ## Format the code into unified format
+black-check:
+	uv run black . --check
+
+black:
 	uv run black .
+
+format: black install-deps-test ## Format the code into unified format
 	uv run ruff check . --fix --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
 
 verify:	install-deps-test ## Verify the code using various linters
@@ -61,6 +66,9 @@ distribution-archives: ## Generate distribution archives to be uploaded into Pyt
 
 test: install-deps-test ## Execute tests with Pytest
 	uv run pytest tests lsc_agent_eval/tests
+
+pre-commit: black-check docstyle pyright pylint ruff check-types bandit
+	@echo "All checks successful"
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
