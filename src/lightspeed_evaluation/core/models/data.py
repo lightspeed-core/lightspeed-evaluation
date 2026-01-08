@@ -328,6 +328,11 @@ class EvaluationData(BaseModel):
         min_length=1,
         description="Optional description of the conversation group",
     )
+    tag: str = Field(
+        default="eval",
+        min_length=1,
+        description="Tag for grouping and filtering conversations",
+    )
 
     # Conversation-level metrics
     conversation_metrics: Optional[list[str]] = Field(
@@ -388,6 +393,11 @@ class EvaluationResult(StreamingMetricsMixin):
 
     conversation_group_id: str = Field(
         ..., min_length=1, description="Conversation group identifier"
+    )
+    tag: str = Field(
+        default="eval",
+        min_length=1,
+        description="Tag for grouping and filtering results",
     )
     turn_id: Optional[str] = Field(
         default=None, description="Turn ID if turn-level evaluation"

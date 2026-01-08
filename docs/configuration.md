@@ -213,6 +213,7 @@ Lightspeed Evaluation produces several outputs with the results and possibly mod
 | CSV column name | Description |
 |-----------------|-------------|
 | conversation_group_id | Conversation group id |
+| tag | Tag for grouping eval conversations |
 | turn_id | Turn id |
 | metric_identifier | Metric name |
 | result | Result -- PASS/FAIL/ERROR/SKIPPED |
@@ -245,6 +246,7 @@ output:
 
   csv_columns:
     - "conversation_group_id"
+    - "tag"
     - "turn_id"
     - "metric_identifier"
     - "result"
