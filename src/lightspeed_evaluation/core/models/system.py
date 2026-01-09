@@ -221,7 +221,6 @@ class OutputConfig(BaseModel):
         description="Configuration sections to include in summary reports",
     )
 
-
     @field_validator("csv_columns")
     @classmethod
     def validate_csv_columns(cls, v: list[str]) -> list[str]:
