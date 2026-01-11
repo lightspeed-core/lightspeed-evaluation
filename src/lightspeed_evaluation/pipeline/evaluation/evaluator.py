@@ -165,6 +165,7 @@ class MetricsEvaluator:
             turn_data = request.turn_data
             return EvaluationResult(
                 conversation_group_id=request.conv_data.conversation_group_id,
+                tag=request.conv_data.tag,
                 turn_id=request.turn_id,
                 metric_identifier=request.metric_identifier,
                 result=status,
@@ -218,6 +219,7 @@ class MetricsEvaluator:
         turn_data = request.turn_data
         return EvaluationResult(
             conversation_group_id=request.conv_data.conversation_group_id,
+            tag=request.conv_data.tag,
             turn_id=request.turn_id,
             metric_identifier=request.metric_identifier,
             result="ERROR",

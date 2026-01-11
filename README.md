@@ -154,6 +154,7 @@ See [`docs/configuration.md`](docs/configuration.md) for the detailed descriptio
 ```yaml
 - conversation_group_id: "test_conversation"
   description: "Sample evaluation"
+  tag: "basic"  # Optional: Tag for grouping eval conversations (default: "eval")
   
   # Optional: Environment setup/cleanup scripts, when API is enabled
   setup_script: "scripts/setup_env.sh"      # Run before conversation
@@ -210,6 +211,7 @@ See [`docs/configuration.md`](docs/configuration.md) for the detailed descriptio
 |---------------------------------|----------------|----------|----------------------------------------------------------------------|
 | `conversation_group_id`         | string         | ✅       | Unique identifier for conversation                                   |
 | `description`                   | string         | ❌       | Optional description                                                 |
+| `tag`                           | string         | ❌       | Tag for grouping eval conversations (default: "eval")             |
 | `setup_script`                  | string         | ❌       | Path to setup script (Optional, used when API is enabled)            |
 | `cleanup_script`                | string         | ❌       | Path to cleanup script (Optional, used when API is enabled)          |
 | `conversation_metrics`          | list[string]   | ❌       | Conversation-level metrics (Optional, if override is required)       |

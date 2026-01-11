@@ -2,6 +2,7 @@
 
 - conversation_group_id: conv_group_1
   description: conversation group description
+  tag: basic  # Tag for grouping eval conversations (default: "eval")
 
   conversation_metrics: []
   conversation_metrics_metadata: {}
@@ -56,6 +57,7 @@
 
 - conversation_group_id: tool_eval_example
   description: Example of tool call evaluation with direct and regex matching
+  tag: tools
 
   turns:
     - turn_id: turn_id1
@@ -94,6 +96,7 @@
 
 - conversation_group_id: script_eval_example
   description: Example of script-based evaluation for namespace testing
+  tag: infrastructure
   setup_script: sample_scripts/setup.sh
   cleanup_script: sample_scripts/cleanup.sh
 

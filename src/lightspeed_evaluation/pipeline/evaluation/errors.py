@@ -15,13 +15,14 @@ class EvaluationErrorHandler:
         """Initialize error handler."""
         self.results: list[EvaluationResult] = []
 
-    def _create_result(  # pylint: disable=too-many-arguments
+    def _create_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         conv_id: str,
         metric_id: str,
         reason: str,
         result_status: str,
         *,
+        tag: str = "eval",
         turn_id: Optional[str] = None,
         query: str = "",
     ) -> EvaluationResult:
@@ -32,11 +33,13 @@ class EvaluationErrorHandler:
             metric_id: Metric identifier
             reason: Reason for the result
             result_status: Result status (ERROR, SKIPPED, etc.)
+            tag: Tag for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """
         return EvaluationResult(
             conversation_group_id=conv_id,
+            tag=tag,
             turn_id=turn_id,
             metric_identifier=metric_id,
             result=result_status,
@@ -44,12 +47,13 @@ class EvaluationErrorHandler:
             query=query,
         )
 
-    def create_error_result(  # pylint: disable=too-many-arguments
+    def create_error_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         conv_id: str,
         metric_id: str,
         reason: str,
         *,
+        tag: str = "eval",
         turn_id: Optional[str] = None,
         query: str = "",
     ) -> EvaluationResult:
@@ -59,19 +63,21 @@ class EvaluationErrorHandler:
             conv_id: Conversation group ID
             metric_id: Metric identifier
             reason: Error reason
+            tag: Tag for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """
         return self._create_result(
-            conv_id, metric_id, reason, "ERROR", turn_id=turn_id, query=query
+            conv_id, metric_id, reason, "ERROR", tag=tag, turn_id=turn_id, query=query
         )
 
-    def create_skipped_result(  # pylint: disable=too-many-arguments
+    def create_skipped_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         conv_id: str,
         metric_id: str,
         reason: str,
         *,
+        tag: str = "eval",
         turn_id: Optional[str] = None,
         query: str = "",
     ) -> EvaluationResult:
@@ -81,11 +87,12 @@ class EvaluationErrorHandler:
             conv_id: Conversation group ID
             metric_id: Metric identifier
             reason: Skip reason
+            tag: Tag for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """
         return self._create_result(
-            conv_id, metric_id, reason, "SKIPPED", turn_id=turn_id, query=query
+            conv_id, metric_id, reason, "SKIPPED", tag=tag, turn_id=turn_id, query=query
         )
 
     def mark_all_metrics_as_error(
@@ -121,6 +128,7 @@ class EvaluationErrorHandler:
                         conv_data.conversation_group_id,
                         metric_id,
                         error_reason,
+                        tag=conv_data.tag,
                         turn_id=turn_data.turn_id,
                         query=turn_data.query,
                     )
@@ -130,7 +138,10 @@ class EvaluationErrorHandler:
         for metric_id in resolved_conversation_metrics:
             error_results.append(
                 self.create_error_result(
-                    conv_data.conversation_group_id, metric_id, error_reason
+                    conv_data.conversation_group_id,
+                    metric_id,
+                    error_reason,
+                    tag=conv_data.tag,
                 )
             )
 
@@ -168,6 +179,7 @@ class EvaluationErrorHandler:
                 conv_data.conversation_group_id,
                 metric_id,
                 error_reason,
+                tag=conv_data.tag,
                 turn_id=turn_data.turn_id,
                 query=turn_data.query,
             )
@@ -210,6 +222,7 @@ class EvaluationErrorHandler:
                         metric_id,
                         reason,
                         result_status,
+                        tag=conv_data.tag,
                         turn_id=turn_data.turn_id,
                         query=turn_data.query,
                     )
@@ -219,7 +232,11 @@ class EvaluationErrorHandler:
         for metric_id in resolved_conversation_metrics:
             results.append(
                 self._create_result(
-                    conv_data.conversation_group_id, metric_id, reason, result_status
+                    conv_data.conversation_group_id,
+                    metric_id,
+                    reason,
+                    result_status,
+                    tag=conv_data.tag,
                 )
             )
 

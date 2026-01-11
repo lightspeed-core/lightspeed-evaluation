@@ -680,6 +680,83 @@ class TestCalculateDetailedStats:
         # Confidence interval should be None for single score
         assert score_stats["confidence_interval"] is None
 
+    def test_calculate_detailed_stats_by_tag(self):
+        """Test calculate_detailed_stats includes by_tag breakdown."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="conv1",
+                tag="production",
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="PASS",
+                score=0.9,
+                threshold=0.7,
+                reason="Good",
+            ),
+            EvaluationResult(
+                conversation_group_id="conv2",
+                tag="production",
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="PASS",
+                score=0.8,
+                threshold=0.7,
+                reason="Good",
+            ),
+            EvaluationResult(
+                conversation_group_id="conv3",
+                tag="staging",
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="FAIL",
+                score=0.5,
+                threshold=0.7,
+                reason="Below threshold",
+            ),
+        ]
+
+        stats = calculate_detailed_stats(results)
+
+        # Verify by_tag is present
+        assert "by_tag" in stats
+        assert "production" in stats["by_tag"]
+        assert "staging" in stats["by_tag"]
+
+        # Check production tag stats
+        prod_stats = stats["by_tag"]["production"]
+        assert prod_stats["pass"] == 2
+        assert prod_stats["fail"] == 0
+        assert prod_stats["pass_rate"] == 100.0
+        assert "score_statistics" in prod_stats
+        assert prod_stats["score_statistics"]["count"] == 2
+        assert prod_stats["score_statistics"]["mean"] == pytest.approx(0.85)
+
+        # Check staging tag stats
+        staging_stats = stats["by_tag"]["staging"]
+        assert staging_stats["pass"] == 0
+        assert staging_stats["fail"] == 1
+        assert staging_stats["fail_rate"] == 100.0
+        assert "score_statistics" in staging_stats
+
+    def test_calculate_detailed_stats_default_tag(self):
+        """Test calculate_detailed_stats with default 'eval' tag."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="conv1",
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="PASS",
+                threshold=0.7,
+            ),
+        ]
+
+        stats = calculate_detailed_stats(results)
+
+        # Default tag should be "eval"
+        assert "by_tag" in stats
+        assert "eval" in stats["by_tag"]
+        assert stats["by_tag"]["eval"]["pass"] == 1
+
 
 class TestCalculateApiTokenUsage:
     """Tests for calculate_api_token_usage function."""

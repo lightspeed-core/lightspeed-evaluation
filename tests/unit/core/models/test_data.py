@@ -284,13 +284,29 @@ class TestEvaluationData:
             conversation_group_id="conv1",
             turns=turns,
             description="Test conversation",
+            tag="test_tag",
             conversation_metrics=["deepeval:conversation_completeness"],
         )
 
         assert eval_data.conversation_group_id == "conv1"
+        assert eval_data.tag == "test_tag"
         assert len(eval_data.turns) == 2
         assert eval_data.description == "Test conversation"
         assert len(eval_data.conversation_metrics) == 1
+
+    def test_default_tag_value(self):
+        """Test EvaluationData has correct default tag value."""
+        turn = TurnData(turn_id="turn1", query="Query")
+        eval_data = EvaluationData(conversation_group_id="conv1", turns=[turn])
+
+        assert eval_data.tag == "eval"
+
+    def test_empty_tag_rejected(self):
+        """Test that empty tag is rejected."""
+        turn = TurnData(turn_id="turn1", query="Query")
+
+        with pytest.raises(ValidationError):
+            EvaluationData(conversation_group_id="conv1", turns=[turn], tag="")
 
     def test_empty_conversation_id_rejected(self):
         """Test that empty conversation_group_id is rejected."""
@@ -319,9 +335,35 @@ class TestEvaluationResult:
         )
 
         # Test meaningful defaults
+        assert result.tag == "eval"
         assert result.score is None
         assert result.reason == ""
         assert result.execution_time == 0
+
+    def test_explicit_tag_value(self):
+        """Test EvaluationResult with explicit tag value."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            tag="custom_tag",
+            turn_id="turn1",
+            metric_identifier="metric1",
+            result="PASS",
+            threshold=0.7,
+        )
+
+        assert result.tag == "custom_tag"
+
+    def test_empty_tag_rejected(self):
+        """Test that empty tag is rejected."""
+        with pytest.raises(ValidationError):
+            EvaluationResult(
+                conversation_group_id="conv1",
+                tag="",
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="PASS",
+                threshold=0.7,
+            )
 
     def test_invalid_result_status_rejected(self):
         """Test that invalid result status is rejected."""

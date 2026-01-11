@@ -26,6 +26,7 @@ DEFAULT_BASE_FILENAME = "evaluation"
 SUPPORTED_OUTPUT_TYPES = ["csv", "json", "txt"]
 SUPPORTED_CSV_COLUMNS = [
     "conversation_group_id",
+    "tag",
     "turn_id",
     "metric_identifier",
     "result",
