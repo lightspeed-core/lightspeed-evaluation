@@ -42,6 +42,14 @@ local-embeddings = [
     "sentence-transformers>=5.1.0",
 ]
 
+# NLP metrics dependencies - required for nlp:bleu, nlp:rouge, nlp:semantic_similarity_distance
+# Install with: pip install 'lightspeed-evaluation[nlp-metrics]'
+nlp-metrics = [
+    "sacrebleu>=2.0.0",      # Required for BLEU score
+    "rouge-score>=0.1.2",    # Required for ROUGE score
+    "rapidfuzz>=3.0.0",      # Required for semantic_similarity_distance
+]
+
 [dependency-groups]
 dev = [
     "bandit>=1.7.0",

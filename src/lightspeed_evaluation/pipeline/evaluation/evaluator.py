@@ -11,6 +11,7 @@ from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
+from lightspeed_evaluation.core.metrics.nlp import NLPMetrics
 from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
 from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
 from lightspeed_evaluation.core.models import (
@@ -45,6 +46,8 @@ class MetricsEvaluator:
     ) -> None:
         """Initialize Metric Evaluator."""
         self.config_loader = config_loader
+        self.metric_manager = metric_manager
+
         if config_loader.system_config is None:
             raise RuntimeError("Uninitialized system_config")
 
@@ -53,26 +56,15 @@ class MetricsEvaluator:
             config_loader.system_config
         )
 
-        # Initialize metric handlers
-        self.ragas_metrics = RagasMetrics(llm_manager, embedding_manager)
-        self.deepeval_metrics = DeepEvalMetrics(
-            llm_manager,
-            metric_manager=metric_manager,
-        )
-        self.custom_metrics = CustomMetrics(llm_manager)
-        self.script_eval_metrics = ScriptEvalMetrics(script_manager)
-
-        # Metric routing map
+        # Initialize metric handlers and routing map
         self.handlers = {
-            "ragas": self.ragas_metrics,
-            "deepeval": self.deepeval_metrics,
-            # Note: geval metrics are routed through deepeval_metrics handler
-            "geval": self.deepeval_metrics,
-            "custom": self.custom_metrics,
-            "script": self.script_eval_metrics,
+            "nlp": NLPMetrics(),
+            "ragas": RagasMetrics(llm_manager, embedding_manager),
+            "deepeval": DeepEvalMetrics(llm_manager, metric_manager=metric_manager),
+            "geval": DeepEvalMetrics(llm_manager, metric_manager=metric_manager),
+            "custom": CustomMetrics(llm_manager),
+            "script": ScriptEvalMetrics(script_manager),
         }
-
-        self.metric_manager = metric_manager
 
     def evaluate_metric(  # pylint: disable=too-many-locals
         self, request: EvaluationRequest
