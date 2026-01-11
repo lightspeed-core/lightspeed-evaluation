@@ -30,9 +30,9 @@ A comprehensive framework for evaluating GenAI applications.
 # From Git
 pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git
 
-# Local Development
+# Additional steps for local development
 pip install uv
-uv sync
+make install-tools
 ```
 
 #### Optional: Local Embedding Models (HuggingFace)
@@ -43,7 +43,7 @@ By default, lightspeed-evaluation uses remote embedding providers (OpenAI, Gemin
 # Using pip
 pip install 'lightspeed-evaluation[local-embeddings]'
 
-# Using uv (local development)
+# Using uv (from already cloned repo for local development)
 uv sync --extra local-embeddings
 ```
 
@@ -384,13 +384,19 @@ These metrics are included in:
 
 ### Development Tools
 ```bash
-uv sync --group dev
+make install-tools
 
 # Format code
-make format
+make black-format
 
 # Run all quality checks (same as CI)
-make verify          # Linting (black --check, ruff, pylint)
+make pre-commit      # Run all pre-commit checks
+
+# or run each check individually
+make black-check     # Linting (black --check, ruff, pylint)
+make ruff
+make pylint
+
 make check-types     # Type checking (mypy)
 make pyright         # Type checking (pyright)
 make docstyle        # Docstring style (pydocstyle)

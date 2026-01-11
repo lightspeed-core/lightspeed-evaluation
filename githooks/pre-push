@@ -1,0 +1,8 @@
+#!/bin/bash
+# Pre-push hook
+
+# If any command fails, exit immediately with that command's exit status
+set -eo pipefail
+
+# Run all tests
+uv run python -m pytest tests --cov=src --cov-report term-missing

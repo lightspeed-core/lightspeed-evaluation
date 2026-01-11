@@ -1,0 +1,8 @@
+#!/bin/bash
+# Pre-commit hook
+
+# If any command fails, exit immediately with that command's exit status
+set -eo pipefail
+
+# Run all checks for all files
+make pre-commit
