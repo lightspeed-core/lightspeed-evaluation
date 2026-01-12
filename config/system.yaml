@@ -95,6 +95,14 @@ metrics_metadata:
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls"
 
+    "custom:multiple_choice_exact":
+      threshold: 1.0
+      description: "MMLU-style multiple choice exact match with flexible letter extraction"
+
+    "custom:multiple_choice_strict":
+      threshold: 1.0
+      description: "MMLU-style multiple choice strict match (single letter only)"
+
     # Script-based metrics
     "script:action_eval":
       description: "Script-based evaluation for infrastructure/environment validation"
