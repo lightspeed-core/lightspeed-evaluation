@@ -99,6 +99,25 @@ metrics_metadata:
     "script:action_eval":
       description: "Script-based evaluation for infrastructure/environment validation"
 
+    # NLP-based metrics (non-LLM text comparison)
+    "nlp:bleu":
+      threshold: 0.5
+      description: "BLEU score - measures n-gram overlap between response and expected_response"
+      max_ngram: 4  # Options: 1 (unigrams), 2 (bigrams), 3 (trigrams), 4 (standard BLEU-4)
+      default: false
+
+    "nlp:rouge":
+      threshold: 0.3  # Note: ROUGE measures n-gram overlap, not semantic meaning. Meaningful responses with different wording may score low.
+      description: "ROUGE score - measures n-gram overlap. Returns fmeasure (F1) with precision/recall in reason."
+      rouge_type: "rougeL"  # Options: rouge1, rouge2, rougeL, rougeLsum
+      default: false
+
+    "nlp:semantic_similarity_distance":
+      threshold: 0.7
+      description: "String distance metrics (Levenshtein, Jaro, etc.) - NOT recommended for LLM outputs as it measures character similarity, not semantic meaning"
+      distance_measure: "levenshtein"  # Options: levenshtein, hamming, jaro, jaro_winkler
+      default: false  # Use custom:answer_correctness for semantic comparison instead
+
     # GEval turn-level metrics 
     "geval:technical_accuracy":
       criteria: |

@@ -82,6 +82,7 @@ class TestMetricsEvaluator:
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
         )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
 
         evaluator = MetricsEvaluator(
             config_loader, mock_metric_manager, mock_script_manager
@@ -89,7 +90,9 @@ class TestMetricsEvaluator:
 
         assert evaluator.config_loader == config_loader
         assert evaluator.metric_manager == mock_metric_manager
-        assert len(evaluator.handlers) == 5  # ragas, deepeval, geval, custom, script
+        assert (
+            len(evaluator.handlers) == 6
+        )  # ragas, deepeval, geval, custom, script, nlp
 
     def test_initialization_raises_error_without_config(
         self, mock_metric_manager, mock_script_manager

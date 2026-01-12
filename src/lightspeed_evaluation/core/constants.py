@@ -1,5 +1,56 @@
 """Common constants for evaluation framework."""
 
+# Map similarity measure strings to Ragas DistanceMeasure enum
+from ragas.metrics import DistanceMeasure
+
+# NLP Metrics Constants - BLEU
+DEFAULT_BLEU_MAX_NGRAM = 4  # Standard BLEU uses up to 4-grams
+MIN_BLEU_NGRAM = 1
+MAX_BLEU_NGRAM = 4
+
+# NLP Metrics Constants - ROUGE Types
+ROUGE_TYPE_ROUGE1 = "rouge1"
+ROUGE_TYPE_ROUGE2 = "rouge2"
+ROUGE_TYPE_ROUGEL = "rougeL"
+ROUGE_TYPE_ROUGELSUM = "rougeLsum"
+SUPPORTED_ROUGE_TYPES = [
+    ROUGE_TYPE_ROUGE1,
+    ROUGE_TYPE_ROUGE2,
+    ROUGE_TYPE_ROUGEL,
+    ROUGE_TYPE_ROUGELSUM,
+]
+
+# NLP Metrics Constants - ROUGE Modes
+ROUGE_MODE_PRECISION = "precision"
+ROUGE_MODE_RECALL = "recall"
+ROUGE_MODE_FMEASURE = "fmeasure"
+SUPPORTED_ROUGE_MODES = [
+    ROUGE_MODE_PRECISION,
+    ROUGE_MODE_RECALL,
+    ROUGE_MODE_FMEASURE,
+]
+
+# NLP Metrics Constants - Similarity Measures
+SIMILARITY_LEVENSHTEIN = "levenshtein"
+SIMILARITY_HAMMING = "hamming"
+SIMILARITY_JARO = "jaro"
+SIMILARITY_JARO_WINKLER = "jaro_winkler"
+SUPPORTED_SIMILARITY_MEASURES = [
+    SIMILARITY_LEVENSHTEIN,
+    SIMILARITY_HAMMING,
+    SIMILARITY_JARO,
+    SIMILARITY_JARO_WINKLER,
+]
+
+DISTANCE_MEASURE_MAP = {
+    SIMILARITY_LEVENSHTEIN: DistanceMeasure.LEVENSHTEIN,
+    SIMILARITY_HAMMING: DistanceMeasure.HAMMING,
+    SIMILARITY_JARO: DistanceMeasure.JARO,
+    SIMILARITY_JARO_WINKLER: DistanceMeasure.JARO_WINKLER,
+}
+
+
+# API Constants
 DEFAULT_API_BASE = "http://localhost:8080"
 DEFAULT_API_VERSION = "v1"
 DEFAULT_API_TIMEOUT = 300
