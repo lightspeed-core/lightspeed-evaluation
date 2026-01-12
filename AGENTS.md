@@ -45,19 +45,25 @@ If the user provides new project conventions, coding standards, or constraints:
 Before considering any code change complete, you **MUST** run:
 
 ```bash
-# Format code first
-make format
+# Format code
+make black-format
 
-# Run all quality checks (same as CI)
-make verify          # Linting (black --check, ruff, pylint)
-make check-types     # Type checking (mypy)
-make pyright         # Type checking (pyright)
-make docstyle        # Docstring style (pydocstyle)
-make bandit          # Security scanning
+# Run all pre-commit checks at once (same as CI)
+make pre-commit      # Runs: bandit, check-types, pyright, docstyle, ruff, pylint, black-check
+# or Run each quality checks individually:
+make bandit          # Security scan
+make check-types     # Type check
+make pyright         # Type check
+make docstyle        # Docstring style
+make ruff            # Lint check
+make pylint          # Lint check
+make black-check     # Check formatting
 
 # Run tests
 make test            # Or: uv run pytest tests
 ```
+
+**Git hooks** are automatically installed via `make install-deps-test`. They run `make pre-commit` before commits and tests before pushes.
 
 **Do NOT skip these steps.** If any check fails:
 1. Fix the issues in code you changed

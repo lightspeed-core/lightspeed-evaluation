@@ -44,6 +44,13 @@ The development requires at least [Python 3.11](https://docs.python.org/3/whatsn
 1. `pip install --user uv`
 1. `uv --version` -- should return no error
 
+### Installed Hooks
+
+| Hook | What it runs | When |
+|------|--------------|------|
+| `pre-commit` | `make pre-commit` (all quality checks) | Before each commit |
+| `pre-push` | `make test` | Before each push |
+
 ## Setting up your development environment
 
 ```bash
@@ -58,20 +65,25 @@ uv sync --group dev
 
 # Now you can run commands through make targets, or prefix commands with `uv run`
 
-# install all development tools
+# Install dev dependencies and git hooks
 make install-deps-test
 
-# run tests
+# Format code
+make black-format
+
+# Run all pre-commit checks at once (same as CI)
+make pre-commit      # Runs: bandit, check-types, pyright, docstyle, ruff, pylint, black-check
+# or Run each quality checks individually:
+make bandit          # Security scan
+make check-types     # Type check
+make pyright         # Type check
+make docstyle        # Docstring style
+make ruff            # Lint check
+make pylint          # Lint check
+make black-check     # Check formatting
+
+# Run tests
 make test
-
-# code formatting
-make format
-
-# code style and docstring style
-make verify
-
-# check type hints
-make check-types
 
 # run evaluation (requires OLS API to be running)
 uv run evaluate --help

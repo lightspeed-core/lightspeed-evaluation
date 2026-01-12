@@ -384,23 +384,22 @@ These metrics are included in:
 
 ### Development Tools
 ```bash
-make install-tools
+# Install dev dependencies and git hooks
+make install-deps-test
 
 # Format code
 make black-format
 
-# Run all quality checks (same as CI)
-make pre-commit      # Run all pre-commit checks
-
-# or run each check individually
-make black-check     # Linting (black --check, ruff, pylint)
-make ruff
-make pylint
-
-make check-types     # Type checking (mypy)
-make pyright         # Type checking (pyright)
-make docstyle        # Docstring style (pydocstyle)
-make bandit          # Security scanning
+# Run all pre-commit checks at once (same as CI)
+make pre-commit      # Runs: bandit, check-types, pyright, docstyle, ruff, pylint, black-check
+# or Run each quality checks individually:
+make bandit          # Security scan
+make check-types     # Type check
+make pyright         # Type check
+make docstyle        # Docstring style
+make ruff            # Lint check
+make pylint          # Lint check
+make black-check     # Check formatting
 
 # Run tests
 make test            # Or: uv run pytest tests --cov=src
