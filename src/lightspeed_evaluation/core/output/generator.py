@@ -240,6 +240,7 @@ class OutputHandler:
             "timestamp": datetime.now().isoformat(),
             "total_evaluations": len(results),
             "summary_stats": summary_stats,
+            "configuration": self._build_config_dict(),
             "results": [
                 {
                     "conversation_group_id": r.conversation_group_id,
@@ -471,6 +472,19 @@ class OutputHandler:
         # Default sections if not configured (see system.py:220)
         return ["llm", "embedding", "api"]
 
+    def _convert_config_to_dict(self, config: BaseModel | dict) -> dict[str, Any]:
+        """Convert configuration to dictionary, excluding sensitive fields.
+
+        Args:
+            config: Configuration object (Pydantic model or dict).
+
+        Returns:
+            Dictionary with cache_dir excluded.
+        """
+        if isinstance(config, BaseModel):
+            return config.model_dump(exclude={"cache_dir"})
+        return {k: v for k, v in config.items() if k != "cache_dir"}
+
     def _format_config_section(
         self, config: BaseModel | dict, indent: int = 2
     ) -> list[str]:
@@ -487,10 +501,7 @@ class OutputHandler:
         prefix = " " * indent
 
         # Convert Pydantic model to dict
-        if isinstance(config, BaseModel):
-            config_dict = config.model_dump(exclude={"cache_dir"})
-        else:
-            config_dict = {k: v for k, v in config.items() if k != "cache_dir"}
+        config_dict = self._convert_config_to_dict(config)
 
         # Format each field
         for key, value in config_dict.items():
@@ -510,6 +521,29 @@ class OutputHandler:
                 lines.append(f"{prefix}{display_name}: {value}")
 
         return lines
+
+    def _build_config_dict(self) -> dict[str, Any]:
+        """Build configuration parameters dictionary for JSON output.
+
+        Returns:
+            Dictionary mapping section names to their configuration values.
+        """
+        if self.system_config is None:
+            return {}
+
+        config_dict = {}
+        included_sections = self._get_included_config_sections()
+
+        for field_name in self.system_config.model_fields.keys():
+            if field_name not in included_sections:
+                continue
+
+            field_value = getattr(self.system_config, field_name)
+
+            # Convert Pydantic model to dict, excluding cache_dir for security
+            config_dict[field_name] = self._convert_config_to_dict(field_value)
+
+        return config_dict
 
     def get_output_directory(self) -> Path:
         """Get the output directory path."""
