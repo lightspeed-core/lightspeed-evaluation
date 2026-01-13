@@ -453,6 +453,10 @@ class EvaluationResult(StreamingMetricsMixin):
     expected_tool_calls: Optional[str] = Field(
         default=None, description="Expected tool calls formatted as string"
     )
+    metrics_metadata: Optional[str] = Field(
+        default=None,
+        description="Additional metric metadata (JSON-encoded key-value pairs)",
+    )
 
     @field_validator("result")
     @classmethod
