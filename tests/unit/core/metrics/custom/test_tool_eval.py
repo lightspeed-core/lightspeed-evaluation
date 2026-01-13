@@ -255,3 +255,112 @@ class TestCompareToolArguments:
         result = _compare_tool_arguments(expected, actual)
 
         assert result is False
+
+
+class TestOrderedParameter:
+    """Test cases for the ordered parameter in tool evaluation."""
+
+    def test_ordered_true_default_matches_in_order(self):
+        """Test ordered=True (default) matches when order is correct, fails otherwise."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual_correct = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+        ]
+        actual_wrong = [
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool1", "arguments": {}}],
+        ]
+
+        # Default (ordered=True) should match correct order
+        success, details = evaluate_tool_calls(expected, actual_correct)
+        assert success is True
+        assert "ordered" in details
+
+        # Should fail with wrong order
+        success, _ = evaluate_tool_calls(expected, actual_wrong, ordered=True)
+        assert success is False
+
+    def test_ordered_false_matches_any_order(self):
+        """Test ordered=False succeeds regardless of order."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool1", "arguments": {}}],
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, ordered=False)
+        assert success is True
+        assert "unordered" in details
+
+    def test_ordered_false_fails_when_content_differs(self):
+        """Test ordered=False still fails when tool calls don't match."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool3", "arguments": {}}],
+            [{"tool_name": "tool4", "arguments": {}}],
+        ]
+
+        success, _ = evaluate_tool_calls(expected, actual, ordered=False)
+        assert success is False
+
+    def test_unordered_handles_duplicates_correctly(self):
+        """Test unordered matching handles duplicate sequences properly."""
+        # Each expected item must match exactly one actual item
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool1", "arguments": {}}],  # Duplicate
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual_valid = [
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool1", "arguments": {}}],
+        ]
+        actual_invalid = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool3", "arguments": {}}],  # Missing second tool1
+        ]
+
+        assert evaluate_tool_calls(expected, actual_valid, ordered=False)[0] is True
+        assert evaluate_tool_calls(expected, actual_invalid, ordered=False)[0] is False
+
+    def test_tools_within_sequence_always_ordered(self):
+        """Test that tools within a single sequence must always match in order.
+
+        The `ordered` parameter only affects sequence order, not tool order within.
+        """
+        expected = [
+            [  # Single sequence with two tools
+                {"tool_name": "tool1", "arguments": {}},
+                {"tool_name": "tool2", "arguments": {}},
+            ]
+        ]
+        actual = [
+            [  # Tools in wrong order within the sequence
+                {"tool_name": "tool2", "arguments": {}},
+                {"tool_name": "tool1", "arguments": {}},
+            ]
+        ]
+
+        # Should fail because within a sequence, order always matters
+        result = _compare_tool_call_sequence(expected[0], actual[0])
+        assert result is False
