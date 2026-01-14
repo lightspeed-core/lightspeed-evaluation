@@ -3,38 +3,63 @@
 import argparse
 import sys
 import traceback
-from typing import Optional
+from typing import Any, Optional
 
 # Import only lightweight modules at top level
 from lightspeed_evaluation.core.system import ConfigLoader
+from lightspeed_evaluation.core.system.exceptions import DataValidationError
+
+
+def _print_summary(
+    summary: dict[str, Any],
+    api_tokens: Optional[dict[str, int]] = None,
+) -> None:
+    """Print evaluation summary and token usage."""
+    print(
+        f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, "
+        f"⚠️ Error: {summary['ERROR']}, ⏭️ Skipped: {summary['SKIPPED']}"
+    )
+    if summary["ERROR"] > 0:
+        print(f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report")
+
+    print("\n📊 Token Usage Summary:")
+    print(
+        f"Judge LLM: {summary['total_judge_llm_tokens']:,} tokens "
+        f"(Input: {summary['total_judge_llm_input_tokens']:,}, "
+        f"Output: {summary['total_judge_llm_output_tokens']:,})"
+    )
+    if api_tokens:
+        print(
+            f"API Calls: {api_tokens['total_api_tokens']:,} tokens "
+            f"(Input: {api_tokens['total_api_input_tokens']:,}, "
+            f"Output: {api_tokens['total_api_output_tokens']:,})"
+        )
+        total = summary["total_judge_llm_tokens"] + api_tokens["total_api_tokens"]
+        print(f"Total: {total:,} tokens")
 
 
 def run_evaluation(  # pylint: disable=too-many-locals
-    system_config_path: str, evaluation_data_path: str, output_dir: Optional[str] = None
+    eval_args: argparse.Namespace,
 ) -> Optional[dict[str, int]]:
-    """Run the complete evaluation pipeline using EvaluationPipeline.
+    """Run the complete evaluation pipeline.
 
     Args:
-        system_config_path: Path to system.yaml
-        evaluation_data_path: Path to evaluation_data.yaml
-        output_dir: Optional override for output directory
+        eval_args: Parsed command line arguments
 
     Returns:
-        dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR
+        dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR, SKIPPED
     """
     print("🚀 LightSpeed Evaluation Framework")
     print("=" * 50)
 
     try:
-        # Step 0: Setup environment from config
-        print("🔧 Loading Configuration & Setting up environment and logging...")
+        print("🔧 Loading Configuration & Setting up environment...")
         loader = ConfigLoader()
-        system_config = loader.load_system_config(system_config_path)
+        system_config = loader.load_system_config(eval_args.system_config)
 
-        # pylint: disable=import-outside-toplevel
-
-        # Step 1: Import heavy modules once environment & logging is set
+        # Import heavy modules after environment is configured
         print("\n📋 Loading Heavy Modules...")
+        # pylint: disable=import-outside-toplevel
         from lightspeed_evaluation.core.output import OutputHandler
         from lightspeed_evaluation.core.output.statistics import (
             calculate_api_token_usage,
@@ -44,78 +69,50 @@ def run_evaluation(  # pylint: disable=too-many-locals
         from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
         # pylint: enable=import-outside-toplevel
+        print("✅ Configuration loaded & Setup is done !")
 
-        print("✅ Environment setup complete, modules loaded")
-
-        llm_config = system_config.llm
-        output_config = system_config.output
-
-        # Step 2: Load and validate evaluation data
-        data_validator = DataValidator(
+        # Load and validate evaluation data
+        evaluation_data = DataValidator(
             api_enabled=system_config.api.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
-        )
-        evaluation_data = data_validator.load_evaluation_data(evaluation_data_path)
+        ).load_evaluation_data(eval_args.eval_data)
 
-        print(f"✅ System config: {llm_config.provider}/{llm_config.model}")
+        print(
+            f"✅ System config: {system_config.llm.provider}/{system_config.llm.model}"
+        )
         print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
 
-        # Step 3: Run evaluation with pre-loaded data
+        # Run evaluation pipeline
         print("\n⚙️ Initializing Evaluation Pipeline...")
-        pipeline = EvaluationPipeline(loader, output_dir)
+        pipeline = EvaluationPipeline(loader, eval_args.output_dir)
 
         print("\n🔄 Running Evaluation...")
         try:
-            results = pipeline.run_evaluation(evaluation_data, evaluation_data_path)
+            results = pipeline.run_evaluation(evaluation_data, eval_args.eval_data)
         finally:
             pipeline.close()
 
-        # Step 4: Generate reports and calculate stats
+        # Generate reports
         print("\n📊 Generating Reports...")
         output_handler = OutputHandler(
-            output_dir=output_dir or output_config.output_dir,
-            base_filename=output_config.base_filename,
+            output_dir=eval_args.output_dir or system_config.output.output_dir,
+            base_filename=system_config.output.base_filename,
             system_config=system_config,
         )
-
-        # Generate reports based on configuration (pass evaluation_data for API token stats)
         output_handler.generate_reports(results, evaluation_data)
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
         print(f"📁 Reports generated in: {output_handler.output_dir}")
 
-        # Step 5: Final Summary
+        # Final Summary
         summary = calculate_basic_stats(results)
-        print(
-            f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, "
-            f"⚠️ Error: {summary['ERROR']}, ⏭️ Skipped: {summary['SKIPPED']}"
+        api_tokens = (
+            calculate_api_token_usage(evaluation_data)
+            if system_config.api.enabled
+            else None
         )
-        if summary["ERROR"] > 0:
-            print(
-                f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report"
-            )
-
-        # Display token usage summary
-        print("\n📊 Token Usage Summary:")
-        print(
-            f"Judge LLM: {summary['total_judge_llm_tokens']:,} tokens "
-            f"(Input: {summary['total_judge_llm_input_tokens']:,}, "
-            f"Output: {summary['total_judge_llm_output_tokens']:,})"
-        )
-
-        # Calculate API token usage if API was enabled
-        if system_config.api.enabled:
-            api_tokens = calculate_api_token_usage(evaluation_data)
-            print(
-                f"API Calls: {api_tokens['total_api_tokens']:,} tokens "
-                f"(Input: {api_tokens['total_api_input_tokens']:,}, "
-                f"Output: {api_tokens['total_api_output_tokens']:,})"
-            )
-            total_tokens = (
-                summary["total_judge_llm_tokens"] + api_tokens["total_api_tokens"]
-            )
-            print(f"Total: {total_tokens:,} tokens")
+        _print_summary(summary, api_tokens)
 
         return {
             "TOTAL": summary["TOTAL"],
@@ -125,7 +122,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
             "SKIPPED": summary["SKIPPED"],
         }
 
-    except (FileNotFoundError, ValueError, RuntimeError) as e:
+    except (FileNotFoundError, ValueError, RuntimeError, DataValidationError) as e:
         print(f"\n❌ Evaluation failed: {e}")
         traceback.print_exc()
         return None
@@ -148,10 +145,9 @@ def main() -> int:
     )
     parser.add_argument("--output-dir", help="Override output directory (optional)")
 
-    args = parser.parse_args()
+    eval_args = parser.parse_args()
 
-    summary = run_evaluation(args.system_config, args.eval_data, args.output_dir)
-
+    summary = run_evaluation(eval_args)
     return 0 if summary is not None else 1
 
 
