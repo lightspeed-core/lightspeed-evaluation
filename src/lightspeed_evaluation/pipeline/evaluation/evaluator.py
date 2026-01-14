@@ -21,6 +21,7 @@ from lightspeed_evaluation.core.models import (
 )
 from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.core.system import ConfigLoader
+from lightspeed_evaluation.core.system.validator import METRIC_REQUIREMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class MetricsEvaluator:
             logger.debug("Evaluating: %s", summary)
 
             # Parse framework and metric
-            framework, metric_name = request.metric_identifier.split(":", 1)
+            framework, _ = request.metric_identifier.split(":", 1)
 
             # Skip script metrics if API is disabled
             if (
@@ -124,13 +125,21 @@ class MetricsEvaluator:
                 is_conversation=request.is_conversation,
             )
 
+            # Get threshold
+            level = (
+                MetricLevel.CONVERSATION
+                if request.is_conversation
+                else MetricLevel.TURN
+            )
+            threshold = self.metric_manager.get_effective_threshold(
+                request.metric_identifier, level, request.conv_data, request.turn_data
+            )
+
             # Start token tracking
             token_tracker.start()
 
             # Evaluate metric
-            score, reason = self.handlers[framework].evaluate(  # type: ignore
-                metric_name, request.conv_data, evaluation_scope
-            )
+            score, reason = self.evaluate(request, evaluation_scope, threshold)
 
             # Stop token tracking
             token_tracker.stop()
@@ -143,15 +152,6 @@ class MetricsEvaluator:
             if score is None:
                 return self._create_error_result(request, reason, execution_time)
 
-            # Get threshold
-            level = (
-                MetricLevel.CONVERSATION
-                if request.is_conversation
-                else MetricLevel.TURN
-            )
-            threshold = self.metric_manager.get_effective_threshold(
-                request.metric_identifier, level, request.conv_data, request.turn_data
-            )
             status = self._determine_status(score, threshold)
 
             turn_data = request.turn_data
@@ -203,6 +203,61 @@ class MetricsEvaluator:
             return self._create_error_result(
                 request, f"Evaluation error: {e}", execution_time
             )
+
+    def evaluate(
+        self,
+        request: EvaluationRequest,
+        evaluation_scope: EvaluationScope,
+        threshold: Optional[float],
+    ) -> tuple[Optional[float], str]:
+        """Evaluate metric logic, handling expected_response lists."""
+        framework, metric_name = request.metric_identifier.split(":", 1)
+
+        # For conversation-level metrics, turn_data is None
+        if evaluation_scope.turn_data is None:
+            return self.handlers[framework].evaluate(
+                metric_name, request.conv_data, evaluation_scope
+            )
+
+        has_expected_response_in_requirements = (
+            request.metric_identifier in METRIC_REQUIREMENTS
+            and "expected_response"
+            in METRIC_REQUIREMENTS[request.metric_identifier]["required_fields"]
+        )
+        is_geval_metric = request.metric_identifier.startswith("geval:")
+        should_iterate = (
+            has_expected_response_in_requirements or is_geval_metric
+        ) and isinstance(evaluation_scope.turn_data.expected_response, list)
+
+        expected_responses = (
+            evaluation_scope.turn_data.expected_response
+            if should_iterate
+            else [evaluation_scope.turn_data.expected_response]
+        )
+
+        score = None
+        reason = ""
+        # Ensure at least one iteration even if expected_responses is an empty list
+        for expected_response in expected_responses if expected_responses else [None]:
+            logger.debug(
+                "Running evaluation with expected_response: %s", expected_response
+            )
+            alt_turn_data = evaluation_scope.turn_data.model_copy(
+                update={"expected_response": expected_response}
+            )
+            alt_scope = EvaluationScope(
+                turn_idx=evaluation_scope.turn_idx,
+                turn_data=alt_turn_data,
+                is_conversation=evaluation_scope.is_conversation,
+            )
+            score, reason = self.handlers[framework].evaluate(
+                metric_name, request.conv_data, alt_scope
+            )
+
+            if score is not None and self._determine_status(score, threshold) == "PASS":
+                break
+
+        return score, reason
 
     def _create_error_result(
         self, request: EvaluationRequest, reason: str, execution_time: float

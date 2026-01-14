@@ -6,6 +6,7 @@ from lightspeed_evaluation.core.llm.custom import TokenTracker
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationRequest,
+    EvaluationScope,
     SystemConfig,
     TurnData,
 )
@@ -466,6 +467,138 @@ class TestMetricsEvaluator:
         # Should use 0.5 as default
         assert evaluator._determine_status(0.6, None) == "PASS"
         assert evaluator._determine_status(0.4, None) == "FAIL"
+
+    def _setup_evaluate_test(
+        self,
+        config_loader,
+        mock_metric_manager,
+        mock_script_manager,
+        mocker,
+        mock_return,
+    ):
+        """Helper to setup common mocks for evaluate() tests."""
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
+        )
+        mock_ragas = mocker.Mock()
+        if isinstance(mock_return, list):
+            mock_ragas.evaluate.side_effect = mock_return
+        else:
+            mock_ragas.evaluate.return_value = mock_return
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
+            return_value=mock_ragas,
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
+        )
+        evaluator = MetricsEvaluator(
+            config_loader, mock_metric_manager, mock_script_manager
+        )
+        return evaluator, mock_ragas
+
+    def test_evaluate_with_expected_response_list(
+        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+    ):
+        """Test evaluate() with list expected_response for metric that requires it."""
+        evaluator, mock_ragas = self._setup_evaluate_test(
+            config_loader,
+            mock_metric_manager,
+            mock_script_manager,
+            mocker,
+            [(0.3, "Low score"), (0.85, "High score")],
+        )
+
+        turn_data = TurnData(
+            turn_id="1",
+            query="Q",
+            response="R",
+            expected_response=["A", "B"],
+            contexts=["C"],
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:context_recall", 0, turn_data
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = evaluator.evaluate(request, scope, 0.7)
+
+        assert score == 0.85 and reason == "High score"
+        assert mock_ragas.evaluate.call_count == 2
+
+    def test_evaluate_with_expected_response_string(
+        self, config_loader, mock_metric_manager, mock_script_manager, mocker
+    ):
+        """Test evaluate() with string expected_response."""
+        evaluator, mock_ragas = self._setup_evaluate_test(
+            config_loader,
+            mock_metric_manager,
+            mock_script_manager,
+            mocker,
+            (0.85, "Good score"),
+        )
+
+        turn_data = TurnData(
+            turn_id="1", query="Q", response="R", expected_response="A", contexts=["C"]
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:context_recall", 0, turn_data
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = evaluator.evaluate(request, scope, 0.7)
+
+        assert score == 0.85 and reason == "Good score"
+        assert mock_ragas.evaluate.call_count == 1
+
+    @pytest.mark.parametrize(
+        "expected_response",
+        [None, "string", ["string1", "string2"]],
+        ids=["none", "string", "string_list"],
+    )
+    def test_evaluate_with_expected_response_not_needed(
+        self,
+        config_loader,
+        mock_metric_manager,
+        mock_script_manager,
+        mocker,
+        expected_response,
+    ):
+        """Test evaluate() with metric that does not require expected_response."""
+        evaluator, mock_ragas = self._setup_evaluate_test(
+            config_loader,
+            mock_metric_manager,
+            mock_script_manager,
+            mocker,
+            [(0.3, "Low score"), (0.85, "High score")],
+        )
+
+        turn_data = TurnData(
+            turn_id="1",
+            query="Q",
+            response="R",
+            expected_response=expected_response,
+            contexts=["C"],
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:faithfulness", 0, turn_data
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = evaluator.evaluate(request, scope, 0.7)
+
+        assert score == 0.3 and reason == "Low score"
+        assert mock_ragas.evaluate.call_count == 1
 
 
 class TestTokenTracker:

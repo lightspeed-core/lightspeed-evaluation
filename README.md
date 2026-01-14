@@ -228,7 +228,7 @@ See [`docs/configuration.md`](docs/configuration.md) for the detailed descriptio
 | `contexts`            | list[string]     | 📋       | Context information for evaluation   | ✅ (if API enabled)   |
 | `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
 | `expected_keywords`   | list[list[string]] | 📋     | Expected keywords for keyword evaluation (list of alternatives) | ❌ |
-| `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
+| `expected_response`   | string or list[string] | 📋       | Expected response for comparison     | ❌                    |
 | `expected_intent`     | string           | 📋       | Expected intent for intent evaluation| ❌                    |
 | `expected_tool_calls` | list[list[list[dict]]] | 📋 | Expected tool call sequences (multiple alternative sets) | ❌ |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |

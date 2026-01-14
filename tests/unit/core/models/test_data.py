@@ -213,6 +213,51 @@ class TestTurnDataFormatDetection:
         assert len(expected[0]) == 2  # Two sequences in that set
 
 
+class TestTurnDataExpectedResponseValidation:
+    """Test cases for expected_response validation in TurnData."""
+
+    @pytest.mark.parametrize(
+        "valid_response",
+        ["Single word", ["Response option 1", "Response option 2"]],
+    )
+    def test_valid_expected_response(self, valid_response):
+        """Test valid expected_response values."""
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Test query",
+            expected_response=valid_response,
+        )
+        assert turn_data.expected_response == valid_response
+
+    def test_none_expected_response_valid(self):
+        """Test that None is valid for expected_response."""
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Test query",
+            expected_response=None,
+        )
+        assert turn_data.expected_response is None
+
+    @pytest.mark.parametrize(
+        "invalid_response,match_pattern",
+        [
+            ("", "cannot be empty or whitespace"),
+            ("   ", "cannot be empty or whitespace"),
+            ([], "expected_response list cannot be empty"),
+            (["valid", ""], "cannot be empty or whitespace"),
+            (["valid", "   "], "cannot be empty or whitespace"),
+        ],
+    )
+    def test_invalid_expected_response(self, invalid_response, match_pattern):
+        """Test that invalid expected_response values are rejected."""
+        with pytest.raises(ValidationError, match=match_pattern):
+            TurnData(
+                turn_id="test_turn",
+                query="Test query",
+                expected_response=invalid_response,
+            )
+
+
 class TestTurnDataKeywordsValidation:
     """Test cases for expected_keywords validation in TurnData."""
 

@@ -61,6 +61,11 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
         """
         response = turn_data.response if turn_data else ""
         expected_response = turn_data.expected_response if turn_data else ""
+
+        # Normalize expected_response to string (handle list of alternatives)
+        if isinstance(expected_response, list):
+            expected_response = expected_response[0] if expected_response else ""
+
         return response or "", expected_response or ""
 
     def _get_metric_metadata(
