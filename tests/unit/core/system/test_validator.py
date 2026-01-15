@@ -53,7 +53,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is True
         assert len(validator.validation_errors) == 0
@@ -76,7 +76,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert len(validator.validation_errors) > 0
@@ -100,7 +100,7 @@ class TestDataValidator:
             conversation_metrics=["unknown:conversation_metric"],
         )
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any(
@@ -120,7 +120,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any("response" in error.lower() for error in validator.validation_errors)
@@ -138,7 +138,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any("contexts" in error.lower() for error in validator.validation_errors)
@@ -163,7 +163,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         # Should pass because API will populate response
         assert result is True
@@ -182,7 +182,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any(
@@ -204,7 +204,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any(
@@ -231,7 +231,7 @@ class TestDataValidator:
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
         # Should not validate script requirements when API disabled
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         # Should pass because script validation is skipped
         assert result is True
@@ -329,7 +329,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any("contexts" in error.lower() for error in validator.validation_errors)
@@ -346,7 +346,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = validator.validate_evaluation_data([conv_data])
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
 
@@ -360,7 +360,7 @@ class TestDataValidator:
         conv1 = EvaluationData(conversation_group_id="conv1", turns=[turn1])
         conv2 = EvaluationData(conversation_group_id="conv2", turns=[turn2])
 
-        result = validator.validate_evaluation_data([conv1, conv2])
+        result = validator._validate_evaluation_data([conv1, conv2])
 
         assert result is True
 
@@ -389,7 +389,7 @@ class TestDataValidator:
 
         conv = EvaluationData(conversation_group_id="test", turns=[turn1, turn2])
 
-        result = validator.validate_evaluation_data([conv])
+        result = validator._validate_evaluation_data([conv])
 
         assert result is False
         # Should have errors for both issues
