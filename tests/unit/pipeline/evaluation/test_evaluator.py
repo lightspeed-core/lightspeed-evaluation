@@ -48,6 +48,8 @@ def mock_metric_manager(mocker):
         return thresholds.get(metric_id, 0.5)
 
     manager.get_effective_threshold.side_effect = get_threshold
+    # Mock get_metric_metadata to return None (no metadata) to support iteration in _extract_metadata_for_csv
+    manager.get_metric_metadata.return_value = None
     return manager
 
 

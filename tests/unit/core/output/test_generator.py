@@ -50,6 +50,8 @@ def mock_system_config(mocker):
         "score",
     ]
     config.visualization.enabled_graphs = []
+    # Mock model_fields to support iteration in _write_config_params and _build_config_dict
+    config.model_fields.keys.return_value = []
     return config
 
 
@@ -232,6 +234,7 @@ class TestOutputHandler:
         config = mocker.Mock()
         config.output.enabled_outputs = ["json"]
         config.visualization.enabled_graphs = []
+        config.model_fields.keys.return_value = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
         stats = handler._calculate_stats(sample_results)
@@ -247,6 +250,7 @@ class TestOutputHandler:
         config = mocker.Mock()
         config.output.enabled_outputs = ["txt"]
         config.visualization.enabled_graphs = []
+        config.model_fields.keys.return_value = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
         stats = handler._calculate_stats(sample_results)
