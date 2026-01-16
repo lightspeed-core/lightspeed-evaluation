@@ -2,6 +2,8 @@
 
 import argparse
 
+import pytest
+
 from lightspeed_evaluation.runner.evaluation import main, run_evaluation
 
 
@@ -11,6 +13,8 @@ def _make_eval_args(**kwargs) -> argparse.Namespace:
         "system_config": "config/system.yaml",
         "eval_data": "config/evaluation_data.yaml",
         "output_dir": None,
+        "tags": None,
+        "conv_ids": None,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -271,6 +275,92 @@ class TestRunEvaluation:
         mock_pipeline.close.assert_called_once()
         assert result is None
 
+    def test_run_evaluation_with_empty_filter_result(self, mocker, capsys):
+        """Test evaluation returns empty result when filter matches nothing."""
+        mock_loader = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_config.llm.provider = "openai"
+        mock_config.llm.model = "gpt-4"
+        mock_config.api.enabled = False
+        mock_loader.system_config = mock_config
+        mock_loader.load_system_config.return_value = mock_config
+
+        mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.ConfigLoader",
+            return_value=mock_loader,
+        )
+
+        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+        mock_validator.return_value.load_evaluation_data.return_value = []
+
+        result = run_evaluation(_make_eval_args(tags=["nonexistent"]))
+
+        assert result["TOTAL"] == 0
+        mock_validator.return_value.load_evaluation_data.assert_called_once_with(
+            "config/evaluation_data.yaml", tags=["nonexistent"], conv_ids=None
+        )
+
+        # Verify warning message appears
+        captured = capsys.readouterr()
+        assert "No conversation groups matched the filter criteria" in captured.out
+
+    def test_run_evaluation_with_filter_parameters(self, mocker):
+        """Test that filter parameters are correctly passed to DataValidator."""
+        mock_loader = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_config.llm.provider = "openai"
+        mock_config.llm.model = "gpt-4"
+        mock_config.api.enabled = False
+        mock_config.output.output_dir = "/tmp/output"
+        mock_config.output.base_filename = "test"
+        mock_loader.system_config = mock_config
+        mock_loader.load_system_config.return_value = mock_config
+
+        mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.ConfigLoader",
+            return_value=mock_loader,
+        )
+
+        mock_eval_data = mocker.Mock()
+        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+        mock_validator.return_value.load_evaluation_data.return_value = [mock_eval_data]
+
+        mock_pipeline = mocker.Mock()
+        mock_pipeline.run_evaluation.return_value = []
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline",
+            return_value=mock_pipeline,
+        )
+
+        mock_output_handler = mocker.Mock()
+        mock_output_handler.output_dir = "/tmp/output"
+        mocker.patch(
+            "lightspeed_evaluation.core.output.OutputHandler",
+            return_value=mock_output_handler,
+        )
+
+        mocker.patch(
+            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats",
+            return_value={
+                "TOTAL": 1,
+                "PASS": 1,
+                "FAIL": 0,
+                "ERROR": 0,
+                "SKIPPED": 0,
+                "total_judge_llm_input_tokens": 100,
+                "total_judge_llm_output_tokens": 50,
+                "total_judge_llm_tokens": 150,
+            },
+        )
+
+        run_evaluation(_make_eval_args(tags=["basic"], conv_ids=["conv_1"]))
+
+        mock_validator.return_value.load_evaluation_data.assert_called_once_with(
+            "config/evaluation_data.yaml",
+            tags=["basic"],
+            conv_ids=["conv_1"],
+        )
+
 
 class TestMain:
     """Unit tests for main CLI function."""
@@ -352,3 +442,38 @@ class TestMain:
         exit_code = main()
 
         assert exit_code == 1
+
+    @pytest.mark.parametrize(
+        "args,expected_tags,expected_conv_ids",
+        [
+            (["--tags", "basic", "advanced"], ["basic", "advanced"], None),
+            (["--conv-ids", "conv_1", "conv_2"], None, ["conv_1", "conv_2"]),
+            (
+                ["--tags", "basic", "--conv-ids", "conv_special"],
+                ["basic"],
+                ["conv_special"],
+            ),
+        ],
+    )
+    def test_main_with_filters(self, mocker, args, expected_tags, expected_conv_ids):
+        """Test main with filter arguments."""
+        mocker.patch("sys.argv", ["lightspeed-eval"] + args)
+
+        mock_run = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.run_evaluation"
+        )
+        mock_run.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+        }
+
+        exit_code = main()
+
+        assert exit_code == 0
+        mock_run.assert_called_once()
+        eval_args = mock_run.call_args[0][0]
+        assert eval_args.tags == expected_tags
+        assert eval_args.conv_ids == expected_conv_ids

@@ -101,8 +101,28 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         self.original_data_path: Optional[str] = None
         self.fail_on_invalid_data = fail_on_invalid_data
 
-    def load_evaluation_data(self, data_path: str) -> list[EvaluationData]:
-        """Load and validate evaluation data from YAML file."""
+    def load_evaluation_data(
+        self,
+        data_path: str,
+        tags: Optional[list[str]] = None,
+        conv_ids: Optional[list[str]] = None,
+    ) -> list[EvaluationData]:
+        """Load, filter, and validate evaluation data from YAML file.
+
+        Filtering logic:
+        - no tags, no conv_ids -> return all conversations
+        - tags set, no conv_ids -> return conversations with matching tags
+        - no tags, conv_ids set -> return conversations with matching IDs
+        - both set -> return conversations matching either tag OR conv_id
+
+        Args:
+            data_path: Path to the evaluation data YAML file
+            tags: Optional list of tags to filter by
+            conv_ids: Optional list of conversation group IDs to filter by
+
+        Returns:
+            Filtered and validated list of Evaluation Data
+        """
         self.original_data_path = data_path
 
         try:
@@ -142,6 +162,9 @@ class DataValidator:  # pylint: disable=too-few-public-methods
                     f"Failed to parse evaluation data item {i + 1}: {e}"
                 ) from e
 
+        # Filter by scope before validation
+        evaluation_data = self._filter_by_scope(evaluation_data, tags, conv_ids)
+
         # Semantic validation (metrics availability and requirements)
         if not self._validate_evaluation_data(evaluation_data):
             raise DataValidationError("Evaluation data validation failed")
@@ -151,9 +174,45 @@ class DataValidator:  # pylint: disable=too-few-public-methods
             self._validate_scripts(evaluation_data)
 
         self.evaluation_data = evaluation_data
-        print(f"📋 Evaluation data loaded: {len(evaluation_data)} conversations")
-
         return evaluation_data
+
+    def _filter_by_scope(
+        self,
+        evaluation_data: list[EvaluationData],
+        tags: Optional[list[str]] = None,
+        conv_ids: Optional[list[str]] = None,
+    ) -> list[EvaluationData]:
+        """Filter evaluation data based on tags and/or conversation group IDs.
+
+        Args:
+            evaluation_data: List of conversation group data to filter
+            tags: Optional list of tags to filter by
+            conv_ids: Optional list of conversation group IDs to filter by
+
+        Returns:
+            Filtered list of Evaluation Data matching the criteria
+        """
+        total_count = len(evaluation_data)
+
+        if not tags and not conv_ids:
+            print(f"📋 Evaluation data loaded: {total_count} conversations")
+            return evaluation_data
+
+        tag_set = set(tags) if tags else set()
+        conv_id_set = set(conv_ids) if conv_ids else set()
+
+        filtered = [
+            conv_data
+            for conv_data in evaluation_data
+            if conv_data.tag in tag_set
+            or conv_data.conversation_group_id in conv_id_set
+        ]
+
+        print(
+            f"📋 Evaluation data: {len(filtered)} of {total_count} "
+            "conversations (filtered)"
+        )
+        return filtered
 
     def _validate_evaluation_data(self, evaluation_data: list[EvaluationData]) -> bool:
         """Validate metrics availability and requirements for all evaluation data."""

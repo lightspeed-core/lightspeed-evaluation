@@ -60,6 +60,11 @@ export KUBECONFIG="/path/to/your/kubeconfig"
 
 # Run evaluation
 lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --output-dir <OUTPUT_DIR>
+
+# Run subset of evaluations (filter by tag or conversation ID)
+lightspeed-eval --tags basic advanced              # Filter by tags
+lightspeed-eval --conv-ids conv_1 conv_2           # Filter by conversation IDs
+lightspeed-eval --tags basic --conv-ids special    # Filter by either (OR logic)
 ```
 
 ### Usage Scenarios

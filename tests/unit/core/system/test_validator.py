@@ -394,3 +394,104 @@ class TestDataValidator:
         assert result is False
         # Should have errors for both issues
         assert len(validator.validation_errors) >= 2
+
+
+class TestFilterByScope:
+    """Unit test for filter by scope."""
+
+    def test_filter_by_scope_no_filter(self):
+        """Test no filtering when both tags and conv_ids are None."""
+        validator = DataValidator()
+        data = [
+            EvaluationData(
+                conversation_group_id="conv_1",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_2",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+        ]
+        result = validator._filter_by_scope(data)
+        assert len(result) == 2
+
+    def test_filter_by_scope_tags_only(self):
+        """Test filtering by tags only."""
+        validator = DataValidator()
+        data = [
+            EvaluationData(
+                conversation_group_id="conv_1",
+                tag="basic",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_2",
+                tag="advanced",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_3",
+                tag="basic",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+        ]
+        result = validator._filter_by_scope(data, tags=["basic"])
+        assert len(result) == 2
+        assert all(c.tag == "basic" for c in result)
+
+    def test_filter_by_scope_conv_ids_only(self):
+        """Test filtering by conversation IDs only."""
+        validator = DataValidator()
+        data = [
+            EvaluationData(
+                conversation_group_id="conv_1",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_2",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_3",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+        ]
+        result = validator._filter_by_scope(data, conv_ids=["conv_1", "conv_3"])
+        assert len(result) == 2
+        assert {c.conversation_group_id for c in result} == {"conv_1", "conv_3"}
+
+    def test_filter_by_scope_tags_and_conv_ids(self):
+        """Test filtering by both tags and conv_ids uses OR logic."""
+        validator = DataValidator()
+        data = [
+            EvaluationData(
+                conversation_group_id="conv_1",
+                tag="basic",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_2",
+                tag="advanced",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_3",
+                tag="tools",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+        ]
+        result = validator._filter_by_scope(data, tags=["basic"], conv_ids=["conv_3"])
+        assert len(result) == 2  # conv_1 (basic tag) + conv_3 (by ID)
+
+    def test_filter_by_scope_no_match_returns_empty(self):
+        """Test filtering with no matching criteria returns empty list."""
+        validator = DataValidator()
+        data = [
+            EvaluationData(
+                conversation_group_id="conv_1",
+                tag="basic",
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+        ]
+        result = validator._filter_by_scope(data, tags=["nonexistent"])
+        assert len(result) == 0
