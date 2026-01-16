@@ -1,6 +1,19 @@
 """Unit tests for runner/evaluation.py."""
 
+import argparse
+
 from lightspeed_evaluation.runner.evaluation import main, run_evaluation
+
+
+def _make_eval_args(**kwargs) -> argparse.Namespace:
+    """Helper to create eval_args namespace with defaults."""
+    defaults = {
+        "system_config": "config/system.yaml",
+        "eval_data": "config/evaluation_data.yaml",
+        "output_dir": None,
+    }
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
 
 
 class TestRunEvaluation:
@@ -65,7 +78,7 @@ class TestRunEvaluation:
             "total_judge_llm_tokens": 150,
         }
 
-        result = run_evaluation("config/system.yaml", "config/evaluation_data.yaml")
+        result = run_evaluation(_make_eval_args())
 
         assert result is not None
         assert result["TOTAL"] == 1
@@ -121,9 +134,7 @@ class TestRunEvaluation:
             "total_judge_llm_tokens": 0,
         }
 
-        run_evaluation(
-            "config/system.yaml", "config/evaluation_data.yaml", "/custom/output"
-        )
+        run_evaluation(_make_eval_args(output_dir="/custom/output"))
 
         # Verify custom output dir was used
         mock_pipeline_class.assert_called_once()
@@ -139,7 +150,7 @@ class TestRunEvaluation:
             FileNotFoundError("Config not found")
         )
 
-        result = run_evaluation("missing.yaml", "data.yaml")
+        result = run_evaluation(_make_eval_args(system_config="missing.yaml"))
 
         assert result is None
         captured = capsys.readouterr()
@@ -165,7 +176,7 @@ class TestRunEvaluation:
             "Invalid data"
         )
 
-        result = run_evaluation("config/system.yaml", "invalid.yaml")
+        result = run_evaluation(_make_eval_args(eval_data="invalid.yaml"))
 
         assert result is None
         captured = capsys.readouterr()
@@ -220,7 +231,7 @@ class TestRunEvaluation:
             "total_judge_llm_tokens": 750,
         }
 
-        result = run_evaluation("config/system.yaml", "config/evaluation_data.yaml")
+        result = run_evaluation(_make_eval_args())
 
         assert result["ERROR"] == 3
         captured = capsys.readouterr()
@@ -254,7 +265,7 @@ class TestRunEvaluation:
         )
         mock_pipeline_class.return_value = mock_pipeline
 
-        result = run_evaluation("config/system.yaml", "config/evaluation_data.yaml")
+        result = run_evaluation(_make_eval_args())
 
         # Should close pipeline even on error
         mock_pipeline.close.assert_called_once()
@@ -285,9 +296,11 @@ class TestMain:
         exit_code = main()
 
         assert exit_code == 0
-        mock_run.assert_called_once_with(
-            "config/system.yaml", "config/evaluation_data.yaml", None
-        )
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args.system_config == "config/system.yaml"
+        assert args.eval_data == "config/evaluation_data.yaml"
+        assert args.output_dir is None
 
     def test_main_custom_args(self, mocker):
         """Test main with custom arguments."""
@@ -318,9 +331,11 @@ class TestMain:
         exit_code = main()
 
         assert exit_code == 0
-        mock_run.assert_called_once_with(
-            "custom/system.yaml", "custom/eval.yaml", "/custom/output"
-        )
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args.system_config == "custom/system.yaml"
+        assert args.eval_data == "custom/eval.yaml"
+        assert args.output_dir == "/custom/output"
 
     def test_main_returns_error_on_failure(self, mocker):
         """Test main returns error code on failure."""
