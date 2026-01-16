@@ -1,7 +1,7 @@
 """Custom metrics using direct LLM integration."""
 
 import re
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
@@ -14,19 +14,30 @@ from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_ca
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
+from lightspeed_evaluation.core.metrics.manager import MetricLevel
+
+if TYPE_CHECKING:
+    from lightspeed_evaluation.core.metrics.manager import MetricManager
+
 
 class CustomMetrics:  # pylint: disable=too-few-public-methods
     """Handles custom metrics using LLMManager for direct LLM calls."""
 
-    def __init__(self, llm_manager: LLMManager):
-        """Initialize with LLM Manager.
+    def __init__(
+        self,
+        llm_manager: LLMManager,
+        metric_manager: Optional["MetricManager"] = None,
+    ):
+        """Initialize with LLM Manager and optional MetricManager.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
+            metric_manager: Optional MetricManager for reading system defaults
         """
         self.llm = BaseCustomLLM(
             llm_manager.get_model_name(), llm_manager.get_llm_params()
         )
+        self.metric_manager = metric_manager
 
         self.supported_metrics = {
             "keywords_eval": evaluate_keywords,
@@ -192,13 +203,53 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         # Get actual tool calls from turn data (will be populated by API)
         actual_tool_calls = getattr(turn_data, "tool_calls", []) or []
 
-        # Use the tool evaluation logic
+        # Get tool_eval configuration with proper priority hierarchy
+        metadata = self._get_tool_eval_metadata(turn_data, _conv_data)
+        ordered = metadata.get("ordered", True)
+        full_match = metadata.get("full_match", True)
+
+        # Use the tool evaluation logic with configuration
         success, details = evaluate_tool_calls(
-            turn_data.expected_tool_calls, actual_tool_calls
+            turn_data.expected_tool_calls,
+            actual_tool_calls,
+            ordered=ordered,
+            full_match=full_match,
         )
         score = 1.0 if success else 0.0
 
         return score, details
+
+    def _get_tool_eval_metadata(
+        self,
+        turn_data: TurnData,
+        conv_data: Any = None,
+    ) -> dict[str, Any]:
+        """Get tool_eval configuration with proper priority hierarchy.
+
+        Args:
+            turn_data: Turn data containing turn_metrics_metadata
+            conv_data: Optional conversation data for MetricManager
+
+        Returns:
+            Dictionary with tool_eval configuration (ordered, full_match)
+        """
+        # Use MetricManager if available for proper system defaults
+        if self.metric_manager is not None:
+            metadata = self.metric_manager.get_metric_metadata(
+                metric_identifier="custom:tool_eval",
+                level=MetricLevel.TURN,
+                conv_data=conv_data,
+                turn_data=turn_data,
+            )
+            if metadata:
+                return metadata
+            return {"ordered": True, "full_match": True}
+
+        # Fallback: read directly from turn_data (backwards compatibility)
+        turn_metadata = turn_data.turn_metrics_metadata or {}
+        return turn_metadata.get(
+            "custom:tool_eval", {"ordered": True, "full_match": True}
+        )
 
     def _evaluate_intent(
         self,

@@ -94,6 +94,8 @@ metrics_metadata:
 
     "custom:tool_eval":
       description: "Tool call evaluation comparing expected vs actual tool calls"
+      ordered: true       # true (default): sequence order matters, false: any order allowed
+      full_match: true    # true (default): exact 1:1 match, false: expected tools found in actual (extras allowed)
 
     # Script-based metrics
     "script:action_eval":
