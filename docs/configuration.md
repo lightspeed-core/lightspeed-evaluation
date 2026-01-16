@@ -233,6 +233,7 @@ Lightspeed Evaluation produces several outputs with the results and possibly mod
 | expected_intent | Expected intent for intent evaluation |
 | expected_keywords | Expected keywords for keyword matching |
 | expected_tool_calls | Expected tool calls for tool evaluation |
+| metrics_metadata |  Metric level metadata (excluding threshold & metric_identifier)|
 
 ### Example
 ```yaml
@@ -266,6 +267,7 @@ output:
     - "expected_intent"
     - "expected_keywords"
     - "expected_tool_calls"
+    - "metrics_metadata"
 ```
 
 ## Visualization of the results
