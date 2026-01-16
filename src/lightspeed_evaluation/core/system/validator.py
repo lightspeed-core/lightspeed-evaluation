@@ -84,8 +84,12 @@ def format_pydantic_error(error: ValidationError) -> str:
     return "; ".join(errors)
 
 
-class DataValidator:
-    """Data validator for evaluation data."""
+class DataValidator:  # pylint: disable=too-few-public-methods
+    """Data validator for evaluation data.
+
+    Single entry point: load_evaluation_data() which handles loading,
+    validation, and optional script validation.
+    """
 
     def __init__(
         self, api_enabled: bool = False, fail_on_invalid_data: bool = True
@@ -138,8 +142,8 @@ class DataValidator:
                     f"Failed to parse evaluation data item {i + 1}: {e}"
                 ) from e
 
-        # Additional validation
-        if not self.validate_evaluation_data(evaluation_data):
+        # Semantic validation (metrics availability and requirements)
+        if not self._validate_evaluation_data(evaluation_data):
             raise DataValidationError("Evaluation data validation failed")
 
         # Validate scripts only if API is enabled
@@ -151,8 +155,8 @@ class DataValidator:
 
         return evaluation_data
 
-    def validate_evaluation_data(self, evaluation_data: list[EvaluationData]) -> bool:
-        """Validate all evaluation data."""
+    def _validate_evaluation_data(self, evaluation_data: list[EvaluationData]) -> bool:
+        """Validate metrics availability and requirements for all evaluation data."""
         self.validation_errors = []
 
         for data in evaluation_data:

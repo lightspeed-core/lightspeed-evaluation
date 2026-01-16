@@ -50,7 +50,6 @@ class TestEvaluationPipeline:
     def test_initialization_success(self, mock_config_loader, mocker):
         """Test successful pipeline initialization."""
         # Mock components
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
         mocker.patch(
@@ -89,7 +88,6 @@ class TestEvaluationPipeline:
         mock_config_loader.system_config.api.api_base = "http://test.com"
         mock_config_loader.system_config.api.endpoint_type = "test"
 
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mock_api_client = mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient"
@@ -119,7 +117,6 @@ class TestEvaluationPipeline:
         """Test no API client when disabled."""
         mock_config_loader.system_config.api.enabled = False
 
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
@@ -141,48 +138,11 @@ class TestEvaluationPipeline:
 
         assert pipeline.api_client is None
 
-    def test_validate_data(self, mock_config_loader, sample_evaluation_data, mocker):
-        """Test data validation."""
-        mock_validator = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator"
-        )
-        mock_validator.return_value.validate_evaluation_data.return_value = True
-
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.ScriptExecutionManager"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.MetricsEvaluator"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.ConversationProcessor"
-        )
-
-        pipeline = EvaluationPipeline(mock_config_loader)
-        result = pipeline.validate_data(sample_evaluation_data)
-
-        assert result is True
-        mock_validator.return_value.validate_evaluation_data.assert_called_once_with(
-            sample_evaluation_data
-        )
-
     def test_run_evaluation_success(
         self, mock_config_loader, sample_evaluation_data, mocker
     ):
         """Test successful evaluation run."""
         # Mock all components
-        mock_validator = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator"
-        )
-        mock_validator.return_value.validate_evaluation_data.return_value = True
-
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
@@ -221,47 +181,11 @@ class TestEvaluationPipeline:
         assert len(results) == 1
         assert results[0].result == "PASS"
 
-    def test_run_evaluation_validation_failure(
-        self, mock_config_loader, sample_evaluation_data, mocker
-    ):
-        """Test evaluation fails on validation error."""
-        mock_validator = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator"
-        )
-        mock_validator.return_value.validate_evaluation_data.return_value = False
-
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.ScriptExecutionManager"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.MetricsEvaluator"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.ConversationProcessor"
-        )
-
-        pipeline = EvaluationPipeline(mock_config_loader)
-
-        with pytest.raises(ValueError, match="Data validation failed"):
-            pipeline.run_evaluation(sample_evaluation_data)
-
     def test_run_evaluation_saves_amended_data_when_api_enabled(
         self, mock_config_loader, sample_evaluation_data, mocker
     ):
         """Test amended data is saved when API is enabled."""
         mock_config_loader.system_config.api.enabled = True
-
-        mock_validator = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator"
-        )
-        mock_validator.return_value.validate_evaluation_data.return_value = True
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
@@ -300,11 +224,6 @@ class TestEvaluationPipeline:
     ):
         """Test save amended data handles exceptions gracefully."""
         mock_config_loader.system_config.api.enabled = True
-
-        mock_validator = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator"
-        )
-        mock_validator.return_value.validate_evaluation_data.return_value = True
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
@@ -346,7 +265,6 @@ class TestEvaluationPipeline:
         mock_config_loader.system_config.api.api_base = "http://test.com"
         mock_config_loader.system_config.api.endpoint_type = "test"
 
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mock_api_client_class = mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient"
@@ -388,7 +306,6 @@ class TestEvaluationPipeline:
         """Test close method without API client."""
         mock_config_loader.system_config.api.enabled = False
 
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
@@ -417,7 +334,6 @@ class TestEvaluationPipeline:
 
     def test_output_dir_override(self, mock_config_loader, mocker):
         """Test output directory can be overridden."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.DataValidator")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
