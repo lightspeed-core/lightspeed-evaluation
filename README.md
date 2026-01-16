@@ -262,6 +262,9 @@ The `custom:tool_eval` metric supports flexible matching with multiple alternati
 - **Matching**: Tries each alternative until one matches
 - **Use Cases**: Optional tools, multiple approaches, default arguments, skip scenarios
 - **Empty Sets**: `[]` represents "no tools" and must come after primary alternatives
+- **Options**:
+  - `ordered` (default: true) — sequence order must match when true, ignored when false
+  - `full_match` (default: true) — exact 1:1 match when true, partial match when false
 
 #### Tool Call Structure
 

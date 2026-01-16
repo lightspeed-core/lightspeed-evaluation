@@ -753,6 +753,10 @@ visualization:
               namespace: default
       turn_metrics:
         - "custom:tool_eval"
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          ordered: true      # default: true
+          full_match: true   # default: true (set false for partial match)
 ```
 
 **Script-Based Example:**

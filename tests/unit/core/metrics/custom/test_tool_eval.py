@@ -113,7 +113,7 @@ class TestCompareToolCalls:
 
         result = compare_tool_calls(expected, actual)
 
-        assert result is True
+        assert result["success"] is True
 
     def test_length_mismatch(self):
         """Test tool call sequence length mismatch."""
@@ -125,7 +125,7 @@ class TestCompareToolCalls:
 
         result = compare_tool_calls(expected, actual)
 
-        assert result is False
+        assert result["success"] is False
 
     def test_empty_sequences(self):
         """Test empty tool call sequences."""
@@ -134,7 +134,7 @@ class TestCompareToolCalls:
 
         result = compare_tool_calls(expected, actual)
 
-        assert result is True
+        assert result["success"] is True
 
 
 class TestCompareToolCallSequence:
@@ -364,3 +364,173 @@ class TestOrderedParameter:
         # Should fail because within a sequence, order always matters
         result = _compare_tool_call_sequence(expected[0], actual[0])
         assert result is False
+
+
+class TestMatchParameter:
+    """Test cases for full_match parameter (full vs partial matching)."""
+
+    def test_full_match_default_requires_exact_count(self):
+        """Test full_match=True (default) requires all expected to match all actual."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual_exact = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+        ]
+        actual_extra = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool3", "arguments": {}}],  # Extra tool
+        ]
+
+        # Full match succeeds with exact count
+        success, details = evaluate_tool_calls(expected, actual_exact)
+        assert success is True
+        assert "full" in details
+
+        # Full match fails with extra tools
+        success, _ = evaluate_tool_calls(expected, actual_extra, full_match=True)
+        assert success is False
+
+    def test_partial_match_allows_extra_actual_tools(self):
+        """Test full_match=False allows extra actual tools."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],  # Extra - should be ignored
+            [{"tool_name": "tool3", "arguments": {}}],  # Extra - should be ignored
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is True
+        assert "partial" in details
+
+    def test_partial_match_succeeds_with_some_matches(self):
+        """Test full_match=False succeeds if any expected tool is found."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool3", "arguments": {}}],  # tool2 not found
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        # Should succeed because tool1 matched (1 out of 2)
+        assert success is True
+        assert "1/2 matched" in details
+        assert "1 unmatched" in details
+
+    def test_partial_match_fails_when_no_matches(self):
+        """Test full_match=False fails when no expected tools are found."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool3", "arguments": {}}],
+            [{"tool_name": "tool4", "arguments": {}}],  # Neither tool1 nor tool2 found
+        ]
+
+        success, _ = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is False
+
+    def test_partial_match_ordered_reports_statistics(self):
+        """Test full_match=False with ordered=True reports match statistics."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool3", "arguments": {}}],
+            ]
+        ]
+        # tool1 before tool3, with tool2 in between - both should match
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],  # Extra in between
+            [{"tool_name": "tool3", "arguments": {}}],
+        ]
+
+        success, details = evaluate_tool_calls(
+            expected, actual, full_match=False, ordered=True
+        )
+        assert success is True
+        assert "2/2 matched" in details
+        assert "0 unmatched" in details
+
+    def test_partial_match_ordered_finds_all_items(self):
+        """Test full_match=False ordered finds all items using greedy matching."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool3", "arguments": {}}],
+            ]
+        ]
+        # tool3 before tool1 - greedy matching finds both
+        actual = [
+            [{"tool_name": "tool3", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool1", "arguments": {}}],
+        ]
+
+        success, details = evaluate_tool_calls(
+            expected, actual, full_match=False, ordered=True
+        )
+        # Greedy matching finds tool1 at index 2, tool3 at index 0
+        # Both expected items are found, regardless of positions
+        assert success is True
+        assert "2/2 matched" in details
+
+    def test_partial_match_unordered_ignores_order(self):
+        """Test full_match=False with ordered=False ignores order."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool3", "arguments": {}}],
+            ]
+        ]
+        # tool3 before tool1 - both should match when unordered
+        actual = [
+            [{"tool_name": "tool3", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],  # Extra
+            [{"tool_name": "tool1", "arguments": {}}],
+        ]
+
+        success, details = evaluate_tool_calls(
+            expected, actual, full_match=False, ordered=False
+        )
+        assert success is True
+        assert "partial" in details
+        assert "unordered" in details
+        assert "2/2 matched" in details
+
+    def test_partial_match_all_matched_reports_correctly(self):
+        """Test full_match=False reports all matched correctly."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+            [{"tool_name": "tool3", "arguments": {}}],  # Extra
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is True
+        assert "2/2 matched" in details
+        assert "0 unmatched" in details
