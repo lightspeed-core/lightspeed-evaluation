@@ -62,7 +62,7 @@ class MetricsEvaluator:
             "ragas": RagasMetrics(llm_manager, embedding_manager),
             "deepeval": DeepEvalMetrics(llm_manager, metric_manager=metric_manager),
             "geval": DeepEvalMetrics(llm_manager, metric_manager=metric_manager),
-            "custom": CustomMetrics(llm_manager),
+            "custom": CustomMetrics(llm_manager, metric_manager=metric_manager),
             "script": ScriptEvalMetrics(script_manager),
         }
 
