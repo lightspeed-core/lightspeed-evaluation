@@ -71,16 +71,25 @@ def run_evaluation(  # pylint: disable=too-many-locals
         # pylint: enable=import-outside-toplevel
         print("✅ Configuration loaded & Setup is done !")
 
-        # Load and validate evaluation data
+        # Load, filter, and validate evaluation data
         evaluation_data = DataValidator(
             api_enabled=system_config.api.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
-        ).load_evaluation_data(eval_args.eval_data)
+        ).load_evaluation_data(
+            eval_args.eval_data,
+            tags=eval_args.tags,
+            conv_ids=eval_args.conv_ids,
+        )
 
         print(
             f"✅ System config: {system_config.llm.provider}/{system_config.llm.model}"
         )
-        print(f"✅ Evaluation data: {len(evaluation_data)} conversation groups")
+
+        # Handle case where no conversations match the filter
+        if len(evaluation_data) == 0:
+            print("\n⚠️ No conversation groups matched the filter criteria")
+            print("   Nothing to evaluate - returning empty results")
+            return {"TOTAL": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "SKIPPED": 0}
 
         # Run evaluation pipeline
         print("\n⚙️ Initializing Evaluation Pipeline...")
@@ -144,6 +153,18 @@ def main() -> int:
         help="Path to evaluation data file (default: config/evaluation_data.yaml)",
     )
     parser.add_argument("--output-dir", help="Override output directory (optional)")
+    parser.add_argument(
+        "--tags",
+        nargs="+",
+        default=None,
+        help="Filter by tags (run conversation groups with matching tags)",
+    )
+    parser.add_argument(
+        "--conv-ids",
+        nargs="+",
+        default=None,
+        help="Filter by conversation group IDs (run only specified conversations)",
+    )
 
     eval_args = parser.parse_args()
 
