@@ -246,6 +246,8 @@ Examples
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)
 
+**Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. GEval), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
+
 #### Metrics override behavior
 
 | Override Value | Behavior |

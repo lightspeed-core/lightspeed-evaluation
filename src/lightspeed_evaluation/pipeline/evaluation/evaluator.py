@@ -21,6 +21,7 @@ from lightspeed_evaluation.core.models import (
 )
 from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.core.system import ConfigLoader
+from lightspeed_evaluation.core.system.exceptions import EvaluationError
 from lightspeed_evaluation.core.system.validator import METRIC_REQUIREMENTS
 
 logger = logging.getLogger(__name__)
@@ -85,9 +86,6 @@ class MetricsEvaluator:
         """
         start_time = time.time()
 
-        # Initialize token tracker for this evaluation
-        token_tracker = TokenTracker()
-
         try:
             # Create logging summary
             if request.is_conversation:
@@ -100,7 +98,7 @@ class MetricsEvaluator:
             logger.debug("Evaluating: %s", summary)
 
             # Parse framework and metric
-            framework, _ = request.metric_identifier.split(":", 1)
+            framework = request.metric_identifier.split(":", 1)[0]
 
             # Skip script metrics if API is disabled
             if (
@@ -135,24 +133,15 @@ class MetricsEvaluator:
                 request.metric_identifier, level, request.conv_data, request.turn_data
             )
 
-            # Start token tracking
-            token_tracker.start()
-
             # Evaluate metric
-            score, reason = self.evaluate(request, evaluation_scope, threshold)
-
-            # Stop token tracking
-            token_tracker.stop()
+            score, reason, status, judge_input_tokens, judge_output_tokens = (
+                self.evaluate(request, evaluation_scope, threshold)
+            )
 
             execution_time = time.time() - start_time
 
-            # Get token counts
-            judge_input_tokens, judge_output_tokens = token_tracker.get_counts()
-
             if score is None:
                 return self._create_error_result(request, reason, execution_time)
-
-            status = self._determine_status(score, threshold)
 
             turn_data = request.turn_data
             return EvaluationResult(
@@ -198,66 +187,184 @@ class MetricsEvaluator:
         except Exception as e:  # pylint: disable=broad-exception-caught
             # Any evaluation error should result in ERROR status
             execution_time = time.time() - start_time
-            # Stop token tracking on error
-            token_tracker.stop()
             return self._create_error_result(
                 request, f"Evaluation error: {e}", execution_time
             )
 
-    def evaluate(
+    def evaluate(  # pylint: disable=too-many-locals,too-many-statements
         self,
         request: EvaluationRequest,
         evaluation_scope: EvaluationScope,
         threshold: Optional[float],
-    ) -> tuple[Optional[float], str]:
-        """Evaluate metric logic, handling expected_response lists."""
+    ) -> tuple[Optional[float], str, str, int, int]:
+        """Evaluate metric logic, handling expected_response lists.
+
+        Supports multiple expected_response values for metrics that require it.
+        Iterates through alternatives until PASS or returns max score on failure.
+
+        Args:
+            request: Evaluation request containing conversation data and metric.
+            evaluation_scope: Scope with turn data and evaluation context.
+            threshold: Score threshold for PASS/FAIL determination.
+
+        Returns:
+            Tuple of (score, reason, status, judge_input_tokens, judge_output_tokens).
+
+        Raises:
+            RuntimeError: When required fields for metric are missing.
+            EvaluationError: When metric evaluation fails unexpectedly.
+        """
+        # Parse framework and metric info
         framework, metric_name = request.metric_identifier.split(":", 1)
 
-        # For conversation-level metrics, turn_data is None
-        if evaluation_scope.turn_data is None:
-            return self.handlers[framework].evaluate(
-                metric_name, request.conv_data, evaluation_scope
-            )
+        # Initialize token tracker
+        token_tracker = TokenTracker()
+        # Initialize helper variables
+        score = None
+        reason = ""
+        status = "FAIL"
+        judge_input_tokens, judge_output_tokens = 0, 0
 
+        # Decision logic for expected_response handling
         has_expected_response_in_requirements = (
             request.metric_identifier in METRIC_REQUIREMENTS
             and "expected_response"
             in METRIC_REQUIREMENTS[request.metric_identifier]["required_fields"]
         )
-        is_geval_metric = request.metric_identifier.startswith("geval:")
-        should_iterate = (
-            has_expected_response_in_requirements or is_geval_metric
-        ) and isinstance(evaluation_scope.turn_data.expected_response, list)
-
-        expected_responses = (
-            evaluation_scope.turn_data.expected_response
-            if should_iterate
-            else [evaluation_scope.turn_data.expected_response]
+        metric_has_no_requirements = (
+            request.metric_identifier not in METRIC_REQUIREMENTS
+        )
+        multiple_expected_responses = (
+            evaluation_scope.turn_data is not None
+            and evaluation_scope.turn_data.expected_response is not None
+            and isinstance(evaluation_scope.turn_data.expected_response, list)
         )
 
-        score = None
-        reason = ""
-        # Ensure at least one iteration even if expected_responses is an empty list
-        for expected_response in expected_responses if expected_responses else [None]:
-            logger.debug(
-                "Running evaluation with expected_response: %s", expected_response
-            )
-            alt_turn_data = evaluation_scope.turn_data.model_copy(
-                update={"expected_response": expected_response}
-            )
-            alt_scope = EvaluationScope(
-                turn_idx=evaluation_scope.turn_idx,
-                turn_data=alt_turn_data,
-                is_conversation=evaluation_scope.is_conversation,
-            )
-            score, reason = self.handlers[framework].evaluate(
-                metric_name, request.conv_data, alt_scope
-            )
+        try:
+            ## Multiple expected_responses handling
+            if has_expected_response_in_requirements and multiple_expected_responses:
+                # This check satisfies the linter but is logically redundant
+                if (
+                    evaluation_scope.turn_data is None
+                    or evaluation_scope.turn_data.expected_response is None
+                ):
+                    raise RuntimeError(
+                        f"Metric '{request.metric_identifier}' requires 'expected_response' field. "
+                        f"Could not proceed with evaluation."
+                    )
+                score_max = -float("inf")
+                reason_acc = ""
 
-            if score is not None and self._determine_status(score, threshold) == "PASS":
-                break
+                for idx, expected_response in enumerate(
+                    evaluation_scope.turn_data.expected_response
+                ):
+                    logger.debug(
+                        "Running evaluation with expected_response %d/%d: %s",
+                        idx + 1,
+                        len(evaluation_scope.turn_data.expected_response),
+                        expected_response,
+                    )
+                    alt_turn_data = evaluation_scope.turn_data.model_copy(
+                        update={"expected_response": expected_response}
+                    )
+                    alt_scope = EvaluationScope(
+                        turn_idx=evaluation_scope.turn_idx,
+                        turn_data=alt_turn_data,
+                        is_conversation=evaluation_scope.is_conversation,
+                    )
 
-        return score, reason
+                    # Evaluate metric
+                    token_tracker.reset()
+                    token_tracker.start()
+                    score, reason = self.handlers[framework].evaluate(
+                        metric_name, request.conv_data, alt_scope
+                    )
+                    token_tracker.stop()
+
+                    # Accumulate token counts
+                    input_tokens, output_tokens = token_tracker.get_counts()
+                    judge_input_tokens += input_tokens
+                    judge_output_tokens += output_tokens
+                    logger.debug(
+                        "Cumulative judge input tokens: %s, Cumulative judge output tokens: %s",
+                        judge_input_tokens,
+                        judge_output_tokens,
+                    )
+
+                    # Determine next steps
+                    if score is not None:
+                        status = self._determine_status(score, threshold)
+                    if status == "PASS":
+                        # Expected response PASSED
+                        break
+                    # Expected response did not PASS; keep track of highest score
+                    score_max = max(
+                        score_max, score if score is not None else score_max
+                    )
+                    reason_acc += f"{score}; {reason}\n"
+
+                # If no PASS found, return highest score and accumulated reasons
+                if status != "PASS":
+                    score = score_max if score_max != -float("inf") else None
+                    reason = reason_acc.strip()
+
+            # For other metrics missing in METRIC_REQUIREMENTS (GEval/Deepeval)
+            # multiple expected_responses handling is not supported.
+            # Will evaluate only first expected_response from the list.
+            elif metric_has_no_requirements and multiple_expected_responses:
+                # This check satisfies the linter but is logically redundant
+                if (
+                    evaluation_scope.turn_data is None
+                    or evaluation_scope.turn_data.expected_response is None
+                ):
+                    raise RuntimeError(
+                        f"Metric '{request.metric_identifier}' requires 'expected_response' field. "
+                        f"Could not proceed with evaluation."
+                    )
+                first_expected_response = evaluation_scope.turn_data.expected_response[
+                    0
+                ]
+                logger.debug(
+                    "Running evaluation with expected_response: %s",
+                    first_expected_response,
+                )
+                alt_turn_data = evaluation_scope.turn_data.model_copy(
+                    update={"expected_response": first_expected_response}
+                )
+                alt_scope = EvaluationScope(
+                    turn_idx=evaluation_scope.turn_idx,
+                    turn_data=alt_turn_data,
+                    is_conversation=evaluation_scope.is_conversation,
+                )
+
+                token_tracker.start()
+                score, reason = self.handlers[framework].evaluate(
+                    metric_name, request.conv_data, alt_scope
+                )
+                token_tracker.stop()
+                judge_input_tokens, judge_output_tokens = token_tracker.get_counts()
+
+                if score is not None:
+                    status = self._determine_status(score, threshold)
+
+            ## Single expected_response handling or not supported
+            else:
+                token_tracker.start()
+                score, reason = self.handlers[framework].evaluate(
+                    metric_name, request.conv_data, evaluation_scope
+                )
+                token_tracker.stop()
+                judge_input_tokens, judge_output_tokens = token_tracker.get_counts()
+
+                if score is not None:
+                    status = self._determine_status(score, threshold)
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Stop token tracking on error
+            token_tracker.stop()
+            raise EvaluationError(e) from e
+
+        return score, reason, status, judge_input_tokens, judge_output_tokens
 
     def _create_error_result(
         self, request: EvaluationRequest, reason: str, execution_time: float
