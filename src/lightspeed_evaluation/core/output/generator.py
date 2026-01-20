@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_OUTPUT_DIR,
+    DEFAULT_STORED_CONFIGS,
     SUPPORTED_CSV_COLUMNS,
     SUPPORTED_GRAPH_TYPES,
     SUPPORTED_OUTPUT_TYPES,
@@ -469,8 +470,7 @@ class OutputHandler:
         if self.system_config is not None and hasattr(self.system_config, "output"):
             if hasattr(self.system_config.output, "summary_config_sections"):
                 return self.system_config.output.summary_config_sections
-        # Default sections if not configured (see system.py:220)
-        return ["llm", "embedding", "api"]
+        return DEFAULT_STORED_CONFIGS
 
     def _convert_config_to_dict(self, config: BaseModel | dict) -> dict[str, Any]:
         """Convert configuration to dictionary, excluding sensitive fields.

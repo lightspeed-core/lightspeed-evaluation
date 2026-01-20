@@ -74,6 +74,8 @@ DEFAULT_EMBEDDING_CACHE_DIR = ".caches/embedding_cache"
 DEFAULT_OUTPUT_DIR = "./eval_output"
 DEFAULT_BASE_FILENAME = "evaluation"
 
+DEFAULT_STORED_CONFIGS = ["llm", "embedding", "api"]
+
 SUPPORTED_OUTPUT_TYPES = ["csv", "json", "txt"]
 SUPPORTED_CSV_COLUMNS = [
     "conversation_group_id",
@@ -83,7 +85,7 @@ SUPPORTED_CSV_COLUMNS = [
     "result",
     "score",
     "threshold",
-    "metrics_metadata",
+    "metric_metadata",
     "reason",
     "query",
     "response",
