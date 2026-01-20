@@ -121,7 +121,7 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temp,
             "n": n,
-            "max_tokens": self.llm_params.get("max_tokens"),
+            "max_completion_tokens": self.llm_params.get("max_completion_tokens"),
             "timeout": self.llm_params.get("timeout"),
             "num_retries": self.llm_params.get("num_retries", 3),
             **kwargs,

@@ -172,7 +172,7 @@ class TestLLMManager:
 
         assert params["model"] == "gpt-4"
         assert params["temperature"] == 0.0
-        assert params["max_tokens"] == 512
+        assert params["max_completion_tokens"] == 512
         assert params["timeout"] == 60
         assert params["num_retries"] == 3
 
@@ -227,7 +227,7 @@ class TestLLMManager:
         params = manager.get_llm_params()
 
         assert params["temperature"] == 0.7
-        assert params["max_tokens"] == 1024
+        assert params["max_completion_tokens"] == 1024
         assert params["timeout"] == 120
         assert params["num_retries"] == 5
 

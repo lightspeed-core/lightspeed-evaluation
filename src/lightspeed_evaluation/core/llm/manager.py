@@ -97,7 +97,8 @@ class LLMManager:
         return {
             "model": self.model_name,
             "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
+            # Map max_tokens to max_completion_tokens for LLM API
+            "max_completion_tokens": self.config.max_tokens,
             "timeout": self.config.timeout,
             "num_retries": self.config.num_retries,
             "ssl_verify": self.config.ssl_verify,

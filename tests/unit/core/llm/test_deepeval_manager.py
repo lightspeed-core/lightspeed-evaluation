@@ -10,7 +10,7 @@ def llm_params():
     """Create sample LLM parameters."""
     return {
         "temperature": 0.5,
-        "max_tokens": 1024,
+        "max_completion_tokens": 1024,
         "timeout": 120,
         "num_retries": 5,
     }
@@ -37,7 +37,7 @@ class TestDeepEvalLLMManager:
             "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
         )
 
-        params = {"max_tokens": 512}
+        params = {"max_completion_tokens": 512}
         DeepEvalLLMManager("gpt-3.5-turbo", params)
 
         # Should use default temperature 0.0
@@ -79,7 +79,7 @@ class TestDeepEvalLLMManager:
 
         assert info["model_name"] == "gpt-4"
         assert info["temperature"] == 0.5
-        assert info["max_tokens"] == 1024
+        assert info["max_completion_tokens"] == 1024
         assert info["timeout"] == 120
         assert info["num_retries"] == 5
 
