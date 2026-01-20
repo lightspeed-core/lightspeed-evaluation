@@ -217,7 +217,7 @@ class OutputConfig(BaseModel):
     )
 
     summary_config_sections: list[str] = Field(
-        default=["llm", "embedding", "api"],
+        default=DEFAULT_STORED_CONFIGS,
         description="Configuration sections to include in summary reports",
     )
 
