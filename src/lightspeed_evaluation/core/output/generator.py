@@ -6,8 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from pydantic import BaseModel
+
 from lightspeed_evaluation.core.constants import (
     DEFAULT_OUTPUT_DIR,
+    DEFAULT_STORED_CONFIGS,
     SUPPORTED_CSV_COLUMNS,
     SUPPORTED_GRAPH_TYPES,
     SUPPORTED_OUTPUT_TYPES,
@@ -238,6 +241,7 @@ class OutputHandler:
             "timestamp": datetime.now().isoformat(),
             "total_evaluations": len(results),
             "summary_stats": summary_stats,
+            "configuration": self._build_config_dict(),
             "results": [
                 {
                     "conversation_group_id": r.conversation_group_id,
@@ -302,6 +306,9 @@ class OutputHandler:
             self._write_breakdown_section(
                 f, "By Tag", detailed_stats.get("by_tag", {}), include_scores=True
             )
+
+            # Configuration parameters
+            self._write_config_params(f)
 
         return txt_file
 
@@ -419,6 +426,124 @@ class OutputHandler:
         f.write(f"    Min: {score_stats['min']:.3f}, Max: {score_stats['max']:.3f}\n")
         if score_stats["count"] > 1:
             f.write(f"    Std Dev: {score_stats['std']:.3f}\n")
+
+    def _write_config_params(self, f: Any) -> None:
+        """Write configuration parameters section to file.
+
+        Args:
+            f: File handle to write to.
+        """
+        if self.system_config is None:
+            return
+
+        f.write("Configuration Parameters:\n")
+        f.write("-" * 25 + "\n")
+
+        # Get configured sections to include
+        included_sections = self._get_included_config_sections()
+
+        # Iterate through specified configuration sections
+        for field_name in self.system_config.model_fields.keys():
+            # Skip sections not in the included list
+            if field_name not in included_sections:
+                continue
+
+            field_value = getattr(self.system_config, field_name)
+
+            # Format section name nicely
+            section_name = field_name.replace("_", " ").title()
+            f.write(f"\n{section_name}:\n")
+
+            # Use dynamic formatter for the section
+            lines = self._format_config_section(field_value, indent=2)
+            for line in lines:
+                f.write(f"{line}\n")
+
+        f.write("\n")
+
+    def _get_included_config_sections(self) -> list[str]:
+        """Get list of configuration sections to include in summaries.
+
+        Returns:
+            List of section names (e.g., ['llm', 'embedding', 'api']).
+        """
+        if self.system_config is not None and hasattr(self.system_config, "output"):
+            if hasattr(self.system_config.output, "summary_config_sections"):
+                return self.system_config.output.summary_config_sections
+        return DEFAULT_STORED_CONFIGS
+
+    def _convert_config_to_dict(self, config: BaseModel | dict) -> dict[str, Any]:
+        """Convert configuration to dictionary, excluding sensitive fields.
+
+        Args:
+            config: Configuration object (Pydantic model or dict).
+
+        Returns:
+            Dictionary with cache_dir excluded.
+        """
+        if isinstance(config, BaseModel):
+            return config.model_dump(exclude={"cache_dir"})
+        return {k: v for k, v in config.items() if k != "cache_dir"}
+
+    def _format_config_section(
+        self, config: BaseModel | dict, indent: int = 2
+    ) -> list[str]:
+        """Format configuration section for text output.
+
+        Args:
+            config: Configuration object (Pydantic model or dict).
+            indent: Number of spaces for indentation.
+
+        Returns:
+            List of formatted strings.
+        """
+        lines = []
+        prefix = " " * indent
+
+        # Convert Pydantic model to dict
+        config_dict = self._convert_config_to_dict(config)
+
+        # Format each field
+        for key, value in config_dict.items():
+            display_name = key.replace("_", " ").title()
+
+            # Handle lists (like enabled_outputs)
+            if isinstance(value, list):
+                if value:  # Only show non-empty lists
+                    lines.append(
+                        f"{prefix}{display_name}: {', '.join(map(str, value))}"
+                    )
+            # Handle None values
+            elif value is None:
+                lines.append(f"{prefix}{display_name}: None")
+            # Handle everything else (str, int, float, bool)
+            else:
+                lines.append(f"{prefix}{display_name}: {value}")
+
+        return lines
+
+    def _build_config_dict(self) -> dict[str, Any]:
+        """Build configuration parameters dictionary for JSON output.
+
+        Returns:
+            Dictionary mapping section names to their configuration values.
+        """
+        if self.system_config is None:
+            return {}
+
+        config_dict = {}
+        included_sections = self._get_included_config_sections()
+
+        for field_name in self.system_config.model_fields.keys():
+            if field_name not in included_sections:
+                continue
+
+            field_value = getattr(self.system_config, field_name)
+
+            # Convert Pydantic model to dict, excluding cache_dir for security
+            config_dict[field_name] = self._convert_config_to_dict(field_value)
+
+        return config_dict
 
     def get_output_directory(self) -> Path:
         """Get the output directory path."""

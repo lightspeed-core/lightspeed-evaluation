@@ -193,6 +193,7 @@ class MetricsEvaluator:
                 expected_tool_calls=(
                     _to_json_str(turn_data.expected_tool_calls) if turn_data else None
                 ),
+                metrics_metadata=self._extract_metadata_for_csv(request),
             )
 
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -227,6 +228,7 @@ class MetricsEvaluator:
             time_to_first_token=turn_data.time_to_first_token if turn_data else None,
             streaming_duration=turn_data.streaming_duration if turn_data else None,
             tokens_per_second=turn_data.tokens_per_second if turn_data else None,
+            metrics_metadata=self._extract_metadata_for_csv(request),
         )
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:
@@ -234,6 +236,40 @@ class MetricsEvaluator:
         if threshold is None:
             threshold = 0.5  # This will also handle binary metrics
         return "PASS" if score >= float(threshold) else "FAIL"
+
+    def _extract_metadata_for_csv(self, request: EvaluationRequest) -> Optional[str]:
+        """Extract metadata fields for CSV column (excluding threshold and metric_identifier).
+
+        Args:
+            request: Evaluation request containing metric and level information.
+
+        Returns:
+            JSON-encoded string of metadata fields, or None if no metadata found.
+        """
+        level = (
+            MetricLevel.CONVERSATION if request.is_conversation else MetricLevel.TURN
+        )
+
+        # Get full metadata dictionary
+        metadata = self.metric_manager.get_metric_metadata(
+            request.metric_identifier, level, request.conv_data, request.turn_data
+        )
+
+        if not metadata:
+            return None
+
+        # Exclude fields that are already in CSV columns
+        filtered_metadata = {
+            k: v
+            for k, v in metadata.items()
+            if k not in ("threshold", "metric_identifier")
+        }
+
+        if not filtered_metadata:
+            return None
+
+        # Serialize to JSON
+        return _to_json_str(filtered_metadata)
 
     def get_supported_frameworks(self) -> list[str]:
         """Get list of supported evaluation frameworks."""

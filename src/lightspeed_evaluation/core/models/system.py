@@ -21,6 +21,7 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_LLM_PROVIDER,
     DEFAULT_SSL_VERIFY,
     DEFAULT_SSL_CERT_FILE,
+    DEFAULT_STORED_CONFIGS,
     DEFAULT_LLM_RETRIES,
     DEFAULT_LLM_TEMPERATURE,
     DEFAULT_LOG_FORMAT,
@@ -214,6 +215,11 @@ class OutputConfig(BaseModel):
     csv_columns: list[str] = Field(
         default=SUPPORTED_CSV_COLUMNS,
         description="CSV columns to include in detailed results",
+    )
+
+    summary_config_sections: list[str] = Field(
+        default=DEFAULT_STORED_CONFIGS,
+        description="Configuration sections to include in summary reports",
     )
 
     @field_validator("csv_columns")
