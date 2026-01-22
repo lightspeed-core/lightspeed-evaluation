@@ -416,7 +416,37 @@ class EvaluationData(BaseModel):
         return v
 
 
-class EvaluationResult(StreamingMetricsMixin):
+class MetricResult(BaseModel):
+    """Model for framework metric result."""
+
+    result: str = Field(..., description="Evaluation result status")
+    score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Score between 0 and 1"
+    )
+    threshold: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for pass/fail",
+    )
+    reason: str = Field(default="", description="Explanation of the result")
+    judge_llm_input_tokens: int = Field(
+        default=0, ge=0, description="Judge LLM input tokens used"
+    )
+    judge_llm_output_tokens: int = Field(
+        default=0, ge=0, description="Judge LLM output tokens used"
+    )
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, v: str) -> str:
+        """Validate result is valid status."""
+        if v not in SUPPORTED_RESULT_STATUSES:
+            raise ValueError(f"Result must be one of {SUPPORTED_RESULT_STATUSES}")
+        return v
+
+
+class EvaluationResult(MetricResult, StreamingMetricsMixin):
     """Single evaluation result."""
 
     model_config = ConfigDict(extra="forbid")
@@ -437,17 +467,6 @@ class EvaluationResult(StreamingMetricsMixin):
         min_length=1,
         description="Metric identifier (e.g., 'ragas:response_relevancy')",
     )
-    result: str = Field(..., description="Evaluation result status")
-    score: Optional[float] = Field(
-        default=None, ge=0.0, le=1.0, description="Score between 0 and 1"
-    )
-    threshold: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for pass/fail",
-    )
-    reason: str = Field(default="", description="Explanation of the result")
     query: str = Field(default="", description="Query text")
     response: str = Field(default="", description="Response text")
     execution_time: float = Field(
@@ -457,13 +476,6 @@ class EvaluationResult(StreamingMetricsMixin):
     api_output_tokens: int = Field(
         default=0, ge=0, description="API output tokens used"
     )
-    judge_llm_input_tokens: int = Field(
-        default=0, ge=0, description="Judge LLM input tokens used"
-    )
-    judge_llm_output_tokens: int = Field(
-        default=0, ge=0, description="Judge LLM output tokens used"
-    )
-
     tool_calls: Optional[str] = Field(
         default=None, description="Actual tool calls formatted as string"
     )
@@ -484,14 +496,6 @@ class EvaluationResult(StreamingMetricsMixin):
     expected_tool_calls: Optional[str] = Field(
         default=None, description="Expected tool calls formatted as string"
     )
-
-    @field_validator("result")
-    @classmethod
-    def validate_result(cls, v: str) -> str:
-        """Validate result is valid status."""
-        if v not in SUPPORTED_RESULT_STATUSES:
-            raise ValueError(f"Result must be one of {SUPPORTED_RESULT_STATUSES}")
-        return v
 
 
 class EvaluationScope(BaseModel):

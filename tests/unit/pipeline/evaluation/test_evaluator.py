@@ -475,7 +475,7 @@ class TestMetricsEvaluator:
         mocker,
         mock_return,
     ):
-        """Helper to setup common mocks for evaluate() tests.
+        """Helper to setup common mocks for _evaluate_wrapper() tests.
 
         Returns:
             tuple: (evaluator, mock_handlers) where mock_handlers is a dict with keys:
@@ -550,7 +550,7 @@ class TestMetricsEvaluator:
         mocker,
         metric_identifier,
     ):
-        """Test evaluate() with list expected_response for metric that requires it."""
+        """Test _evaluate_wrapper() with list expected_response for metric that requires it."""
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
             mock_metric_manager,
@@ -570,9 +570,11 @@ class TestMetricsEvaluator:
         request = EvaluationRequest.for_turn(conv_data, metric_identifier, 0, turn_data)
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        score, reason, status, _, _ = evaluator.evaluate(request, scope, 0.7)
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
 
-        assert score == 0.85 and reason == "High score" and status == "PASS"
+        assert metric_result.score == 0.85
+        assert metric_result.reason == "High score"
+        assert metric_result.result == "PASS"
 
         # Check the appropriate handler was called based on metric framework
         framework = metric_identifier.split(":")[0]
@@ -581,7 +583,7 @@ class TestMetricsEvaluator:
     def test_evaluate_with_expected_response_list_fail(
         self, config_loader, mock_metric_manager, mock_script_manager, mocker
     ):
-        """Test evaluate() with list expected_response for metric that requires it."""
+        """Test _evaluate_wrapper() with list expected_response for metric that requires it."""
         scores_reasons = [(0.3, "Score 1"), (0.65, "Score 2"), (0.45, "Score 3")]
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
@@ -604,18 +606,20 @@ class TestMetricsEvaluator:
         )
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        score, reason, status, _, _ = evaluator.evaluate(request, scope, 0.7)
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
         reason_combined = "\n".join(
             [f"{score}; {reason}" for score, reason in scores_reasons]
         )
 
-        assert score == 0.65 and reason == reason_combined and status == "FAIL"
+        assert metric_result.score == 0.65
+        assert metric_result.reason == reason_combined
+        assert metric_result.result == "FAIL"
         assert mock_handlers["ragas"].evaluate.call_count == 3
 
     def test_evaluate_with_expected_response_string(
         self, config_loader, mock_metric_manager, mock_script_manager, mocker
     ):
-        """Test evaluate() with string expected_response."""
+        """Test _evaluate_wrapper() with string expected_response."""
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
             mock_metric_manager,
@@ -633,9 +637,11 @@ class TestMetricsEvaluator:
         )
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        score, reason, status, _, _ = evaluator.evaluate(request, scope, 0.7)
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
 
-        assert score == 0.85 and reason == "Good score" and status == "PASS"
+        assert metric_result.score == 0.85
+        assert metric_result.reason == "Good score"
+        assert metric_result.result == "PASS"
         assert mock_handlers["ragas"].evaluate.call_count == 1
 
     @pytest.mark.parametrize(
@@ -655,7 +661,7 @@ class TestMetricsEvaluator:
         metric_identifier,
         expected_response,
     ):
-        """Test evaluate() with metric that does not require expected_response."""
+        """Test _evaluate_wrapper() with metric that does not require expected_response."""
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
             mock_metric_manager,
@@ -675,9 +681,11 @@ class TestMetricsEvaluator:
         request = EvaluationRequest.for_turn(conv_data, metric_identifier, 0, turn_data)
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        score, reason, status, _, _ = evaluator.evaluate(request, scope, 0.7)
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
 
-        assert score == 0.3 and reason == "Low score" and status == "FAIL"
+        assert metric_result.score == 0.3
+        assert metric_result.reason == "Low score"
+        assert metric_result.result == "FAIL"
 
         # Check the appropriate handler was called based on metric
         framework = metric_identifier.split(":")[0]
