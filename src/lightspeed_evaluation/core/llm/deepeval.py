@@ -20,7 +20,7 @@ class DeepEvalLLMManager:
         self.llm_model = LiteLLMModel(
             model=self.model_name,
             temperature=llm_params.get("temperature", 0.0),
-            max_tokens=llm_params.get("max_tokens"),
+            max_completion_tokens=llm_params.get("max_completion_tokens"),
             timeout=llm_params.get("timeout"),
             num_retries=llm_params.get("num_retries", 3),
         )
@@ -36,7 +36,7 @@ class DeepEvalLLMManager:
         return {
             "model_name": self.model_name,
             "temperature": self.llm_params.get("temperature", 0.0),
-            "max_tokens": self.llm_params.get("max_tokens"),
+            "max_completion_tokens": self.llm_params.get("max_completion_tokens"),
             "timeout": self.llm_params.get("timeout"),
             "num_retries": self.llm_params.get("num_retries", 3),
         }

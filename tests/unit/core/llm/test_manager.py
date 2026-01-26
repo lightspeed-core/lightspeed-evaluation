@@ -84,7 +84,7 @@ class TestLLMManager:
         expected = {
             "model": "gpt-4",
             "temperature": 0.7,
-            "max_tokens": 1000,
+            "max_completion_tokens": 1000,
             "timeout": 60,
             "num_retries": 3,
             "ssl_verify": True,
@@ -110,7 +110,7 @@ class TestLLMManager:
         expected = {
             "model": "gpt-4",
             "temperature": 0.5,
-            "max_tokens": 512,
+            "max_completion_tokens": 512,
             "timeout": 30,
             "num_retries": 2,
             "ssl_verify": False,
