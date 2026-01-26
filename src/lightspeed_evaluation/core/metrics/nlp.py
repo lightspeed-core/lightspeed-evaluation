@@ -61,6 +61,13 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
         """
         response = turn_data.response if turn_data else ""
         expected_response = turn_data.expected_response if turn_data else ""
+
+        # For NLP metrics, expected_response must be a string (not a list)
+        if isinstance(expected_response, list):
+            raise MetricError(
+                "NLP metrics require expected_response to be a string, not a list"
+            )
+
         return response or "", expected_response or ""
 
     def _get_metric_metadata(

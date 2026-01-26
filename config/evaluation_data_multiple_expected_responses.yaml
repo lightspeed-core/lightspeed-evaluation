@@ -1,0 +1,25 @@
+- conversation_group_id: conv_group_1
+  description: Basic AI assistant interaction testing faithfulness and relevancy
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      query: Who are you?
+      attachments: null
+      response: I am an AI assistant designed to help you find information, answer questions, and assist with various tasks. How can I help you today?
+      tool_calls: null
+      contexts:
+        - "AI assistants are software programs designed to help users with information retrieval and task completion."
+        - "This AI assistant can answer questions, provide information, and help with various user requests."
+      expected_response: ["I'm a human assistant. How can I help you today?",
+                          "I am an AI assistant designed to help you find information, answer questions, and assist with various tasks. How can I help you today?"]
+      expected_tool_calls: null
+      turn_metrics:
+        - ragas:context_recall
+      turn_metrics_metadata:
+        ragas:context_recall:
+          threshold: 0.5
+      verify_script: null
+  setup_script: null
+  cleanup_script: null

@@ -233,7 +233,7 @@ See [`docs/configuration.md`](docs/configuration.md) for the detailed descriptio
 | `contexts`            | list[string]     | 📋       | Context information for evaluation   | ✅ (if API enabled)   |
 | `attachments`         | list[string]     | ❌       | Attachments                          | ❌                    |
 | `expected_keywords`   | list[list[string]] | 📋     | Expected keywords for keyword evaluation (list of alternatives) | ❌ |
-| `expected_response`   | string           | 📋       | Expected response for comparison     | ❌                    |
+| `expected_response`   | string or list[string] | 📋       | Expected response for comparison     | ❌                    |
 | `expected_intent`     | string           | 📋       | Expected intent for intent evaluation| ❌                    |
 | `expected_tool_calls` | list[list[list[dict]]] | 📋 | Expected tool call sequences (multiple alternative sets) | ❌ |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
@@ -250,6 +250,8 @@ Examples
 > - `expected_tool_calls`: Required for `custom:tool_eval` (multiple alternative sets format)
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)
+
+**Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. GEval), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
 
 #### Metrics override behavior
 

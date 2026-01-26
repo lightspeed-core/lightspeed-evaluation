@@ -8,6 +8,7 @@ from lightspeed_evaluation.core.models.api import (
 from lightspeed_evaluation.core.models.data import (
     EvaluationData,
     EvaluationRequest,
+    MetricResult,
     EvaluationResult,
     EvaluationScope,
     TurnData,
@@ -29,6 +30,7 @@ __all__ = [
     "TurnData",
     "EvaluationData",
     "EvaluationRequest",
+    "MetricResult",
     "EvaluationResult",
     "EvaluationScope",
     # System config models

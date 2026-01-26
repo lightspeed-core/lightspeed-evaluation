@@ -58,8 +58,9 @@ class TurnData(StreamingMetricsMixin):
         default=None,
         description="Expected keywords for keyword evaluation (list of alternatives)",
     )
-    expected_response: Optional[str] = Field(
-        default=None, min_length=1, description="Expected response for comparison"
+    expected_response: Optional[Union[str, list[str]]] = Field(
+        default=None,
+        description="Expected response or list of responses for comparison",
     )
     expected_tool_calls: Optional[list[list[list[dict[str, Any]]]]] = Field(
         default=None, description="Expected tool call sequences (with alternatives)"
@@ -111,6 +112,35 @@ class TurnData(StreamingMetricsMixin):
         """Validate and deduplicate turn-specific metrics."""
         if v is not None:
             v = _validate_and_deduplicate_metrics(v, "Turn metric")
+        return v
+
+    @field_validator("expected_response")
+    @classmethod
+    def validate_expected_response(
+        cls, v: Optional[Union[str, list[str]]]
+    ) -> Optional[Union[str, list[str]]]:
+        """Validate expected response when provided."""
+        if v is None:
+            return None
+
+        if isinstance(v, str):
+            if not v.strip():
+                raise ValueError(
+                    "expected_response string cannot be empty or whitespace"
+                )
+        elif isinstance(v, list):
+            if not v:
+                raise ValueError("expected_response list cannot be empty")
+            for i, response in enumerate(v):
+                if not isinstance(response, str):
+                    raise ValueError(f"expected_response[{i}] must be a string")
+                if not response.strip():
+                    raise ValueError(
+                        f"expected_response[{i}] cannot be empty or whitespace"
+                    )
+        else:
+            raise ValueError("expected_response must be a string or list of strings")
+
         return v
 
     @field_validator("expected_keywords")
@@ -386,7 +416,37 @@ class EvaluationData(BaseModel):
         return v
 
 
-class EvaluationResult(StreamingMetricsMixin):
+class MetricResult(BaseModel):
+    """Model for framework metric result."""
+
+    result: str = Field(..., description="Evaluation result status")
+    score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Score between 0 and 1"
+    )
+    threshold: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for pass/fail",
+    )
+    reason: str = Field(default="", description="Explanation of the result")
+    judge_llm_input_tokens: int = Field(
+        default=0, ge=0, description="Judge LLM input tokens used"
+    )
+    judge_llm_output_tokens: int = Field(
+        default=0, ge=0, description="Judge LLM output tokens used"
+    )
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, v: str) -> str:
+        """Validate result is valid status."""
+        if v not in SUPPORTED_RESULT_STATUSES:
+            raise ValueError(f"Result must be one of {SUPPORTED_RESULT_STATUSES}")
+        return v
+
+
+class EvaluationResult(MetricResult, StreamingMetricsMixin):
     """Single evaluation result."""
 
     model_config = ConfigDict(extra="forbid")
@@ -407,17 +467,6 @@ class EvaluationResult(StreamingMetricsMixin):
         min_length=1,
         description="Metric identifier (e.g., 'ragas:response_relevancy')",
     )
-    result: str = Field(..., description="Evaluation result status")
-    score: Optional[float] = Field(
-        default=None, ge=0.0, le=1.0, description="Score between 0 and 1"
-    )
-    threshold: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Threshold for pass/fail",
-    )
-    reason: str = Field(default="", description="Explanation of the result")
     query: str = Field(default="", description="Query text")
     response: str = Field(default="", description="Response text")
     execution_time: float = Field(
@@ -427,21 +476,15 @@ class EvaluationResult(StreamingMetricsMixin):
     api_output_tokens: int = Field(
         default=0, ge=0, description="API output tokens used"
     )
-    judge_llm_input_tokens: int = Field(
-        default=0, ge=0, description="Judge LLM input tokens used"
-    )
-    judge_llm_output_tokens: int = Field(
-        default=0, ge=0, description="Judge LLM output tokens used"
-    )
-
     tool_calls: Optional[str] = Field(
         default=None, description="Actual tool calls formatted as string"
     )
     contexts: Optional[str] = Field(
         default=None, description="Contexts formatted as string"
     )
-    expected_response: Optional[str] = Field(
-        default=None, description="Expected response for comparison metrics"
+    expected_response: Optional[Union[str, list[str]]] = Field(
+        default=None,
+        description="Expected response or list of responses for comparison",
     )
     expected_intent: Optional[str] = Field(
         default=None, description="Expected intent for intent evaluation"
@@ -457,14 +500,6 @@ class EvaluationResult(StreamingMetricsMixin):
         default=None,
         description="Additional metric metadata (JSON-encoded key-value pairs)",
     )
-
-    @field_validator("result")
-    @classmethod
-    def validate_result(cls, v: str) -> str:
-        """Validate result is valid status."""
-        if v not in SUPPORTED_RESULT_STATUSES:
-            raise ValueError(f"Result must be one of {SUPPORTED_RESULT_STATUSES}")
-        return v
 
 
 class EvaluationScope(BaseModel):
