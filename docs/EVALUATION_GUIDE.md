@@ -756,7 +756,7 @@ visualization:
       turn_metrics_metadata:
         "custom:tool_eval":
           ordered: true      # default: true
-          full_match: true   # default: true (set false for partial match)
+          full_match: true   # default: true (false = subset matching, all expected must be present)
 ```
 
 **Script-Based Example:**

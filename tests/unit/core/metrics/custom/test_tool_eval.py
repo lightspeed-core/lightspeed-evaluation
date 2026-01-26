@@ -413,8 +413,8 @@ class TestMatchParameter:
         assert success is True
         assert "partial" in details
 
-    def test_partial_match_succeeds_with_some_matches(self):
-        """Test full_match=False succeeds if any expected tool is found."""
+    def test_partial_match_fails_with_some_matches(self):
+        """Test full_match=False fails if not all expected tools are found."""
         expected = [
             [
                 [{"tool_name": "tool1", "arguments": {}}],
@@ -426,11 +426,9 @@ class TestMatchParameter:
             [{"tool_name": "tool3", "arguments": {}}],  # tool2 not found
         ]
 
-        success, details = evaluate_tool_calls(expected, actual, full_match=False)
-        # Should succeed because tool1 matched (1 out of 2)
-        assert success is True
-        assert "1/2 matched" in details
-        assert "1 unmatched" in details
+        success, _ = evaluate_tool_calls(expected, actual, full_match=False)
+        # Should fail because tool2 not matched (only 1 out of 2)
+        assert success is False
 
     def test_partial_match_fails_when_no_matches(self):
         """Test full_match=False fails when no expected tools are found."""
