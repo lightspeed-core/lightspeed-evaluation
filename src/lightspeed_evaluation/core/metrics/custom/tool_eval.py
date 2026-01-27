@@ -20,7 +20,7 @@ def evaluate_tool_calls(
         actual: Actual tool calls from API response
         ordered: If True, tool calls must match in order. If False, order is ignored.
         full_match: True requires all expected to match all actual (1:1).
-            False succeeds if any expected tool is found (returns match stats).
+            False requires all expected tools to be present (subset matching, extras allowed).
 
     Returns:
         tuple: (success: bool, details: str)
@@ -64,7 +64,8 @@ def compare_tool_calls(
             If False, both lists are sorted before comparison.
         full_match: Determines matching strictness.
             True (default): Requires exact 1:1 match between expected and actual.
-            False: Succeeds if any expected tool is found in actual (greedy matching).
+            False: Requires all expected tools to be found in actual (subset matching).
+                   Extra actual tools beyond expected are allowed.
 
     Note:
         In partial match mode (full_match=False), the ordered parameter affects
@@ -82,8 +83,8 @@ def compare_tool_calls(
 
     if not full_match:
         matched, total = _compare_partial(expected_normalized, actual_normalized)
-        # Partial match succeeds if at least one tool matched
-        success = matched > 0 or total == 0
+        # Partial match succeeds if all expected tools matched (subset matching)
+        success = matched == total
         return {
             "success": success,
             "stats": {"matched": matched, "total": total, "unmatched": total - matched},
