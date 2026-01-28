@@ -12,7 +12,7 @@ from lightspeed_evaluation.core.metrics.custom.tool_eval import (
 class TestEvaluateToolCalls:
     """Test cases for evaluate_tool_calls function."""
 
-    def test_primary_pattern_match(self):
+    def test_primary_pattern_match(self) -> None:
         """Test successful match with primary pattern."""
         expected = [
             [  # Primary pattern
@@ -27,7 +27,7 @@ class TestEvaluateToolCalls:
         assert "Primary pattern matched" in details
         assert "Tool calls match expected structure and arguments" in details
 
-    def test_alternative_pattern_match(self):
+    def test_alternative_pattern_match(self) -> None:
         """Test successful match with alternative pattern."""
         expected = [
             [  # Primary pattern
@@ -45,24 +45,26 @@ class TestEvaluateToolCalls:
         assert "Alternative 2 matched" in details
         assert "Tool calls match expected structure and arguments" in details
 
-    def test_empty_pattern_match_primary(self):
+    def test_empty_pattern_match_primary(self) -> None:
         """Test empty pattern match as primary."""
-        expected = [[]]  # Primary: no tools expected
-        actual = []
+        expected: list[list[dict]] = [[]]  # Primary: no tools expected
+        actual: list = []
 
-        success, details = evaluate_tool_calls(expected, actual)
+        success, details = evaluate_tool_calls(
+            expected, actual  # pyright: ignore[reportArgumentType]
+        )
 
         assert success is True
         assert "Primary pattern matched" in details
         assert "No tool calls made (valid alternate skip scenario)" in details
 
-    def test_empty_pattern_match_alternative(self):
+    def test_empty_pattern_match_alternative(self) -> None:
         """Test empty pattern match as alternative."""
         expected = [
             [[{"tool_name": "test_tool", "arguments": {}}]],  # Primary: some tool
             [],  # Alternative: no tools (skip scenario)
         ]
-        actual = []
+        actual: list = []
 
         success, details = evaluate_tool_calls(expected, actual)
 
@@ -70,7 +72,7 @@ class TestEvaluateToolCalls:
         assert "Alternative 2 matched" in details
         assert "valid alternate skip scenario" in details
 
-    def test_no_pattern_match(self):
+    def test_no_pattern_match(self) -> None:
         """Test when no patterns match."""
         expected = [
             [  # Primary pattern
@@ -87,13 +89,15 @@ class TestEvaluateToolCalls:
         assert success is False
         assert "didn't match any of the 2 expected pattern(s)" in details
 
-    def test_error_handling(self):
+    def test_error_handling(self) -> None:
         """Test error handling in evaluate_tool_calls."""
         # Invalid expected format should be handled gracefully
         expected = "invalid"  # Not a list
-        actual = []
+        actual: list = []
 
-        success, details = evaluate_tool_calls(expected, actual)
+        success, details = evaluate_tool_calls(
+            expected, actual  # pyright: ignore[reportArgumentType]
+        )
 
         assert success is False
         # The function iterates over the string characters, so we get a different error
@@ -106,7 +110,7 @@ class TestEvaluateToolCalls:
 class TestCompareToolCalls:
     """Test cases for compare_tool_calls function."""
 
-    def test_exact_match(self):
+    def test_exact_match(self) -> None:
         """Test exact tool call match."""
         expected = [[{"tool_name": "test_tool", "arguments": {"key": "value"}}]]
         actual = [[{"tool_name": "test_tool", "arguments": {"key": "value"}}]]
@@ -115,7 +119,7 @@ class TestCompareToolCalls:
 
         assert result["success"] is True
 
-    def test_length_mismatch(self):
+    def test_length_mismatch(self) -> None:
         """Test tool call sequence length mismatch."""
         expected = [
             [{"tool_name": "tool1", "arguments": {}}],
@@ -127,10 +131,10 @@ class TestCompareToolCalls:
 
         assert result["success"] is False
 
-    def test_empty_sequences(self):
+    def test_empty_sequences(self) -> None:
         """Test empty tool call sequences."""
-        expected = []
-        actual = []
+        expected: list = []
+        actual: list = []
 
         result = compare_tool_calls(expected, actual)
 
@@ -140,7 +144,7 @@ class TestCompareToolCalls:
 class TestCompareToolCallSequence:
     """Test cases for _compare_tool_call_sequence function."""
 
-    def test_sequence_match(self):
+    def test_sequence_match(self) -> None:
         """Test matching tool call sequence."""
         expected = [
             {"tool_name": "tool1", "arguments": {"key1": "value1"}},
@@ -155,7 +159,7 @@ class TestCompareToolCallSequence:
 
         assert result is True
 
-    def test_sequence_length_mismatch(self):
+    def test_sequence_length_mismatch(self) -> None:
         """Test tool call sequence with different lengths."""
         expected = [{"tool_name": "tool1", "arguments": {}}]
         actual = [
@@ -171,7 +175,7 @@ class TestCompareToolCallSequence:
 class TestCompareSingleToolCall:
     """Test cases for _compare_single_tool_call function."""
 
-    def test_tool_name_match(self):
+    def test_tool_name_match(self) -> None:
         """Test matching tool names and arguments."""
         expected = {"tool_name": "test_tool", "arguments": {"key": "value"}}
         actual = {"tool_name": "test_tool", "arguments": {"key": "value"}}
@@ -180,7 +184,7 @@ class TestCompareSingleToolCall:
 
         assert result is True
 
-    def test_tool_name_mismatch(self):
+    def test_tool_name_mismatch(self) -> None:
         """Test mismatched tool names."""
         expected = {"tool_name": "tool1", "arguments": {}}
         actual = {"tool_name": "tool2", "arguments": {}}
@@ -189,7 +193,7 @@ class TestCompareSingleToolCall:
 
         assert result is False
 
-    def test_missing_arguments(self):
+    def test_missing_arguments(self) -> None:
         """Test tool calls with missing arguments."""
         expected = {"tool_name": "test_tool", "arguments": {"key": "value"}}
         actual = {"tool_name": "test_tool"}  # Missing arguments
@@ -202,7 +206,7 @@ class TestCompareSingleToolCall:
 class TestCompareToolArguments:
     """Test cases for _compare_tool_arguments function."""
 
-    def test_exact_arguments_match(self):
+    def test_exact_arguments_match(self) -> None:
         """Test exact argument matching."""
         expected = {"key1": "value1", "key2": "value2"}
         actual = {"key1": "value1", "key2": "value2"}
@@ -211,7 +215,7 @@ class TestCompareToolArguments:
 
         assert result is True
 
-    def test_regex_pattern_match(self):
+    def test_regex_pattern_match(self) -> None:
         """Test regex pattern matching in arguments."""
         expected = {"name": "web-server-[0-9]+"}
         actual = {"name": "web-server-123"}
@@ -220,7 +224,7 @@ class TestCompareToolArguments:
 
         assert result is True
 
-    def test_missing_argument_key(self):
+    def test_missing_argument_key(self) -> None:
         """Test missing argument key."""
         expected = {"key1": "value1", "key2": "value2"}
         actual = {"key1": "value1"}  # Missing key2
@@ -229,7 +233,7 @@ class TestCompareToolArguments:
 
         assert result is False
 
-    def test_extra_argument_keys(self):
+    def test_extra_argument_keys(self) -> None:
         """Test extra argument keys."""
         expected = {"key1": "value1"}
         actual = {"key1": "value1", "key2": "value2"}  # Extra key2
@@ -238,7 +242,7 @@ class TestCompareToolArguments:
 
         assert result is False
 
-    def test_invalid_regex_pattern(self):
+    def test_invalid_regex_pattern(self) -> None:
         """Test invalid regex pattern handling."""
         expected = {"name": "[invalid_regex"}  # Invalid regex
         actual = {"name": "test"}
@@ -247,12 +251,14 @@ class TestCompareToolArguments:
 
         assert result is False
 
-    def test_non_dict_arguments(self):
+    def test_non_dict_arguments(self) -> None:
         """Test non-dictionary arguments."""
         expected = "not_a_dict"
         actual = {"key": "value"}
 
-        result = _compare_tool_arguments(expected, actual)
+        result = _compare_tool_arguments(
+            expected, actual  # pyright: ignore[reportArgumentType]
+        )
 
         assert result is False
 
@@ -260,7 +266,7 @@ class TestCompareToolArguments:
 class TestOrderedParameter:
     """Test cases for the ordered parameter in tool evaluation."""
 
-    def test_ordered_true_default_matches_in_order(self):
+    def test_ordered_true_default_matches_in_order(self) -> None:
         """Test ordered=True (default) matches when order is correct, fails otherwise."""
         expected = [
             [
@@ -286,7 +292,7 @@ class TestOrderedParameter:
         success, _ = evaluate_tool_calls(expected, actual_wrong, ordered=True)
         assert success is False
 
-    def test_ordered_false_matches_any_order(self):
+    def test_ordered_false_matches_any_order(self) -> None:
         """Test ordered=False succeeds regardless of order."""
         expected = [
             [
@@ -303,7 +309,7 @@ class TestOrderedParameter:
         assert success is True
         assert "unordered" in details
 
-    def test_ordered_false_fails_when_content_differs(self):
+    def test_ordered_false_fails_when_content_differs(self) -> None:
         """Test ordered=False still fails when tool calls don't match."""
         expected = [
             [
@@ -319,7 +325,7 @@ class TestOrderedParameter:
         success, _ = evaluate_tool_calls(expected, actual, ordered=False)
         assert success is False
 
-    def test_unordered_handles_duplicates_correctly(self):
+    def test_unordered_handles_duplicates_correctly(self) -> None:
         """Test unordered matching handles duplicate sequences properly."""
         # Each expected item must match exactly one actual item
         expected = [
@@ -343,7 +349,7 @@ class TestOrderedParameter:
         assert evaluate_tool_calls(expected, actual_valid, ordered=False)[0] is True
         assert evaluate_tool_calls(expected, actual_invalid, ordered=False)[0] is False
 
-    def test_tools_within_sequence_always_ordered(self):
+    def test_tools_within_sequence_always_ordered(self) -> None:
         """Test that tools within a single sequence must always match in order.
 
         The `ordered` parameter only affects sequence order, not tool order within.
@@ -369,7 +375,7 @@ class TestOrderedParameter:
 class TestMatchParameter:
     """Test cases for full_match parameter (full vs partial matching)."""
 
-    def test_full_match_default_requires_exact_count(self):
+    def test_full_match_default_requires_exact_count(self) -> None:
         """Test full_match=True (default) requires all expected to match all actual."""
         expected = [
             [
@@ -396,7 +402,7 @@ class TestMatchParameter:
         success, _ = evaluate_tool_calls(expected, actual_extra, full_match=True)
         assert success is False
 
-    def test_partial_match_allows_extra_actual_tools(self):
+    def test_partial_match_allows_extra_actual_tools(self) -> None:
         """Test full_match=False allows extra actual tools."""
         expected = [
             [
@@ -413,7 +419,7 @@ class TestMatchParameter:
         assert success is True
         assert "partial" in details
 
-    def test_partial_match_succeeds_with_some_matches(self):
+    def test_partial_match_succeeds_with_some_matches(self) -> None:
         """Test full_match=False succeeds if any expected tool is found."""
         expected = [
             [
@@ -432,7 +438,7 @@ class TestMatchParameter:
         assert "1/2 matched" in details
         assert "1 unmatched" in details
 
-    def test_partial_match_fails_when_no_matches(self):
+    def test_partial_match_fails_when_no_matches(self) -> None:
         """Test full_match=False fails when no expected tools are found."""
         expected = [
             [
@@ -448,7 +454,7 @@ class TestMatchParameter:
         success, _ = evaluate_tool_calls(expected, actual, full_match=False)
         assert success is False
 
-    def test_partial_match_ordered_reports_statistics(self):
+    def test_partial_match_ordered_reports_statistics(self) -> None:
         """Test full_match=False with ordered=True reports match statistics."""
         expected = [
             [
@@ -470,7 +476,7 @@ class TestMatchParameter:
         assert "2/2 matched" in details
         assert "0 unmatched" in details
 
-    def test_partial_match_ordered_finds_all_items(self):
+    def test_partial_match_ordered_finds_all_items(self) -> None:
         """Test full_match=False ordered finds all items using greedy matching."""
         expected = [
             [
@@ -493,7 +499,7 @@ class TestMatchParameter:
         assert success is True
         assert "2/2 matched" in details
 
-    def test_partial_match_unordered_ignores_order(self):
+    def test_partial_match_unordered_ignores_order(self) -> None:
         """Test full_match=False with ordered=False ignores order."""
         expected = [
             [
@@ -516,7 +522,7 @@ class TestMatchParameter:
         assert "unordered" in details
         assert "2/2 matched" in details
 
-    def test_partial_match_all_matched_reports_correctly(self):
+    def test_partial_match_all_matched_reports_correctly(self) -> None:
         """Test full_match=False reports all matched correctly."""
         expected = [
             [

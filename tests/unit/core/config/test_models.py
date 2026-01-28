@@ -1,6 +1,7 @@
 """Unit tests for core.config.models module."""
 
 import pytest
+from pydantic import ValidationError
 from lightspeed_evaluation.core.models import (
     CoreConfig,
     EvaluationData,
@@ -10,13 +11,12 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
-from pydantic import ValidationError
 
 
 class TestTurnData:
     """Unit tests for TurnData model."""
 
-    def test_valid_turn_data_creation(self):
+    def test_valid_turn_data_creation(self) -> None:
         """Test creating valid TurnData instance."""
         turn = TurnData(
             turn_id="1",
@@ -31,27 +31,32 @@ class TestTurnData:
         assert turn.response == "Python is a programming language."
         assert turn.contexts is not None
         assert len(turn.contexts) == 1
-        assert turn.contexts[0] == "Python context"
+        assert (
+            turn.contexts[0]  # pylint: disable=unsubscriptable-object
+            == "Python context"
+        )
         assert turn.expected_response == "Python is a high-level language."
 
-    def test_turn_data_invalid_empty_query(self):
+    def test_turn_data_invalid_empty_query(self) -> None:
         """Test validation error for empty query."""
         with pytest.raises(
             ValidationError, match="String should have at least 1 character"
         ):
             TurnData(turn_id="1", query="", response="Valid response")
 
-    def test_turn_data_invalid_context_missing_content(self):
+    def test_turn_data_invalid_context_missing_content(self) -> None:
         """Test validation error for non-string context."""
         with pytest.raises(ValidationError, match="Input should be a valid string"):
             TurnData(
                 turn_id="1",
                 query="Valid query",
                 response="Valid response",
-                contexts=[{"title": "No content field"}],
+                contexts=[
+                    {"title": "No content field"}
+                ],  # pyright: ignore[reportArgumentType]
             )
 
-    def test_turn_data_multiple_contexts(self):
+    def test_turn_data_multiple_contexts(self) -> None:
         """Test TurnData with multiple valid contexts."""
         contexts = [
             "First context",
@@ -61,17 +66,26 @@ class TestTurnData:
         turn = TurnData(
             turn_id="1", query="Test query", response="Test response", contexts=contexts
         )
-
+        assert turn.contexts is not None
         assert len(turn.contexts) == 3
-        assert turn.contexts[0] == "First context"
-        assert turn.contexts[1] == "Second context"
-        assert turn.contexts[2] == "Third context"
+        assert (
+            turn.contexts[0]  # pylint: disable=unsubscriptable-object
+            == "First context"
+        )
+        assert (
+            turn.contexts[1]  # pylint: disable=unsubscriptable-object
+            == "Second context"
+        )
+        assert (
+            turn.contexts[2]  # pylint: disable=unsubscriptable-object
+            == "Third context"
+        )
 
 
 class TestEvaluationData:
     """Unit tests for EvaluationData model."""
 
-    def test_valid_evaluation_data_creation(self):
+    def test_valid_evaluation_data_creation(self) -> None:
         """Test creating valid EvaluationData instance."""
         turn = TurnData(
             turn_id="1",
@@ -92,7 +106,7 @@ class TestEvaluationData:
         assert len(eval_data.turns) == 1
         assert eval_data.turns[0].turn_metrics == ["ragas:faithfulness"]
 
-    def test_evaluation_data_with_minimal_fields(self):
+    def test_evaluation_data_with_minimal_fields(self) -> None:
         """Test EvaluationData with only required fields."""
         turn = TurnData(turn_id="1", query="Test query", response="Test response")
         eval_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
@@ -103,7 +117,7 @@ class TestEvaluationData:
         assert len(eval_data.turns) == 1
         assert eval_data.turns[0].turn_metrics is None
 
-    def test_evaluation_data_invalid_empty_conversation_id(self):
+    def test_evaluation_data_invalid_empty_conversation_id(self) -> None:
         """Test validation error for empty conversation_group_id."""
         turn = TurnData(turn_id="1", query="Test query", response="Test response")
         with pytest.raises(
@@ -111,7 +125,7 @@ class TestEvaluationData:
         ):
             EvaluationData(conversation_group_id="", turns=[turn])
 
-    def test_evaluation_data_invalid_metric_format_missing_colon(self):
+    def test_evaluation_data_invalid_metric_format_missing_colon(self) -> None:
         """Test validation error for metric without colon."""
         with pytest.raises(
             ValidationError, match='must be in format "framework:metric_name"'
@@ -123,7 +137,7 @@ class TestEvaluationData:
                 turn_metrics=["invalid_metric"],
             )
 
-    def test_evaluation_data_with_metadata(self):
+    def test_evaluation_data_with_metadata(self) -> None:
         """Test EvaluationData with metadata fields."""
         turn = TurnData(
             turn_id="1",
@@ -150,7 +164,7 @@ class TestEvaluationData:
 class TestLLMConfig:
     """Unit tests for LLMConfig model."""
 
-    def test_valid_llm_config_creation(self):
+    def test_valid_llm_config_creation(self) -> None:
         """Test creating valid LLMConfig instance."""
         config = LLMConfig(
             provider="openai",
@@ -168,7 +182,7 @@ class TestLLMConfig:
         assert config.timeout == 60
         assert config.num_retries == 3
 
-    def test_llm_config_with_defaults(self):
+    def test_llm_config_with_defaults(self) -> None:
         """Test LLMConfig with default values."""
         config = LLMConfig(provider="openai", model="gpt-4")
 
@@ -183,7 +197,7 @@ class TestLLMConfig:
 class TestSystemConfig:
     """Unit tests for SystemConfig model."""
 
-    def test_valid_system_config_creation(self):
+    def test_valid_system_config_creation(self) -> None:
         """Test creating valid SystemConfig instance."""
         config = SystemConfig(
             core=CoreConfig(max_threads=42),
@@ -200,7 +214,7 @@ class TestSystemConfig:
         assert config.output.enabled_outputs == ["json"]
         assert config.core.max_threads == 42
 
-    def test_system_config_with_defaults(self):
+    def test_system_config_with_defaults(self) -> None:
         """Test SystemConfig with default values."""
         config = SystemConfig()
 
@@ -211,7 +225,7 @@ class TestSystemConfig:
         assert "csv" in config.output.enabled_outputs
         assert config.core.max_threads is None
 
-    def test_system_config_logging_defaults(self):
+    def test_system_config_logging_defaults(self) -> None:
         """Test SystemConfig logging configuration defaults."""
         config = SystemConfig()
 
@@ -224,7 +238,7 @@ class TestSystemConfig:
 class TestEvaluationResult:
     """Unit tests for EvaluationResult model."""
 
-    def test_valid_evaluation_result_creation(self):
+    def test_valid_evaluation_result_creation(self) -> None:
         """Test creating valid EvaluationResult instance."""
         result = EvaluationResult(
             conversation_group_id="test_conv",
@@ -242,7 +256,7 @@ class TestEvaluationResult:
         assert result.score == 0.85
         assert result.reason == "High faithfulness score"
 
-    def test_evaluation_result_conversation_level(self):
+    def test_evaluation_result_conversation_level(self) -> None:
         """Test EvaluationResult for conversation-level metric."""
         result = EvaluationResult(
             conversation_group_id="test_conv",
@@ -257,7 +271,7 @@ class TestEvaluationResult:
         assert result.metric_identifier == "deepeval:conversation_completeness"
         assert result.score == 0.92
 
-    def test_evaluation_result_validation_invalid_result(self):
+    def test_evaluation_result_validation_invalid_result(self) -> None:
         """Test EvaluationResult validation with invalid result."""
         with pytest.raises(ValidationError, match="Result must be one of"):
             EvaluationResult(
@@ -268,7 +282,7 @@ class TestEvaluationResult:
                 score=0.5,
             )
 
-    def test_evaluation_result_validation_invalid_score(self):
+    def test_evaluation_result_validation_invalid_score(self) -> None:
         """Test EvaluationResult validation with invalid score."""
         with pytest.raises(ValidationError, match="less than or equal to 1"):
             EvaluationResult(

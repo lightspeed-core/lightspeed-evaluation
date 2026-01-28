@@ -1,15 +1,16 @@
 """Unit tests for custom LLM classes."""
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM, TokenTracker
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
-class TestTokenTracker:
+class TestTokenTracker:  # pylint: disable=too-few-public-methods
     """Tests for TokenTracker."""
 
-    def test_token_callback_accumulates_tokens(self, mocker):
+    def test_token_callback_accumulates_tokens(self, mocker: MockerFixture) -> None:
         """Test that token callback accumulates token counts."""
         tracker = TokenTracker()
 
@@ -19,7 +20,9 @@ class TestTokenTracker:
         mock_response.usage.prompt_tokens = 10
         mock_response.usage.completion_tokens = 20
 
-        tracker._token_callback({}, mock_response, 0.0, 0.0)
+        tracker._token_callback(  # pylint: disable=protected-access
+            {}, mock_response, 0.0, 0.0
+        )
 
         input_tokens, output_tokens = tracker.get_counts()
         assert input_tokens == 10
@@ -29,7 +32,7 @@ class TestTokenTracker:
 class TestBaseCustomLLM:
     """Tests for BaseCustomLLM."""
 
-    def test_setup_ssl_verify_enabled(self, mocker):
+    def test_setup_ssl_verify_enabled(self, mocker: MockerFixture) -> None:
         """Test SSL verification enabled by default."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {"SSL_CERTIFI_BUNDLE": "/path/to/bundle.pem"})
@@ -38,7 +41,7 @@ class TestBaseCustomLLM:
 
         assert mock_litellm.ssl_verify == "/path/to/bundle.pem"
 
-    def test_setup_ssl_verify_disabled(self, mocker):
+    def test_setup_ssl_verify_disabled(self, mocker: MockerFixture) -> None:
         """Test SSL verification can be disabled."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})
@@ -47,7 +50,7 @@ class TestBaseCustomLLM:
 
         assert mock_litellm.ssl_verify is False
 
-    def test_call_returns_single_response(self, mocker):
+    def test_call_returns_single_response(self, mocker: MockerFixture) -> None:
         """Test call returns single string when n=1."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})
@@ -64,7 +67,7 @@ class TestBaseCustomLLM:
 
         assert result == "Test response"
 
-    def test_call_with_temperature_override(self, mocker):
+    def test_call_with_temperature_override(self, mocker: MockerFixture) -> None:
         """Test call with temperature override."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})
@@ -81,7 +84,7 @@ class TestBaseCustomLLM:
         call_args = mock_litellm.completion.call_args[1]
         assert call_args["temperature"] == 0.9
 
-    def test_call_raises_llm_error_on_failure(self, mocker):
+    def test_call_raises_llm_error_on_failure(self, mocker: MockerFixture) -> None:
         """Test call raises LLMError on failure."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})

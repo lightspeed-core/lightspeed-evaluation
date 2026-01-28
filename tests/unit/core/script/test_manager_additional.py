@@ -1,8 +1,10 @@
 """Additional tests for script manager to increase coverage."""
 
+from pathlib import Path
 import subprocess
-
+import logging
 import pytest
+from pytest_mock import MockFixture
 
 from lightspeed_evaluation.core.script.manager import ScriptExecutionManager
 from lightspeed_evaluation.core.system.exceptions import ScriptExecutionError
@@ -11,7 +13,9 @@ from lightspeed_evaluation.core.system.exceptions import ScriptExecutionError
 class TestScriptExecutionManagerAdditional:
     """Additional tests for ScriptExecutionManager."""
 
-    def test_run_script_timeout_error(self, tmp_path, mocker):
+    def test_run_script_timeout_error(
+        self, tmp_path: Path, mocker: MockFixture
+    ) -> None:
         """Test script execution with timeout."""
         # Create a script file
         script = tmp_path / "test_script.sh"
@@ -27,7 +31,9 @@ class TestScriptExecutionManagerAdditional:
         with pytest.raises(ScriptExecutionError, match="timeout"):
             manager.run_script(script)
 
-    def test_run_script_subprocess_error(self, tmp_path, mocker):
+    def test_run_script_subprocess_error(
+        self, tmp_path: Path, mocker: MockFixture
+    ) -> None:
         """Test script execution with subprocess error."""
         script = tmp_path / "test_script.sh"
         script.write_text("#!/bin/bash\necho 'test'\n")
@@ -42,7 +48,9 @@ class TestScriptExecutionManagerAdditional:
         with pytest.raises(ScriptExecutionError, match="Error running script"):
             manager.run_script(script)
 
-    def test_run_script_unexpected_error(self, tmp_path, mocker):
+    def test_run_script_unexpected_error(
+        self, tmp_path: Path, mocker: MockFixture
+    ) -> None:
         """Test script execution with unexpected error."""
         script = tmp_path / "test_script.sh"
         script.write_text("#!/bin/bash\necho 'test'\n")
@@ -57,7 +65,9 @@ class TestScriptExecutionManagerAdditional:
         with pytest.raises(ScriptExecutionError, match="Unexpected error"):
             manager.run_script(script)
 
-    def test_run_script_with_path_object(self, tmp_path, mocker):
+    def test_run_script_with_path_object(
+        self, tmp_path: Path, mocker: MockFixture
+    ) -> None:
         """Test run_script accepts Path objects."""
         script = tmp_path / "test_script.sh"
         script.write_text("#!/bin/bash\necho 'test'\n")
@@ -73,7 +83,7 @@ class TestScriptExecutionManagerAdditional:
 
         assert result is True
 
-    def test_script_not_file_error(self, tmp_path):
+    def test_script_not_file_error(self, tmp_path: Path) -> None:
         """Test error when script path is not a file."""
         # Create a directory instead of file
         script_dir = tmp_path / "script_dir"
@@ -84,9 +94,10 @@ class TestScriptExecutionManagerAdditional:
         with pytest.raises(ScriptExecutionError, match="not a file"):
             manager.run_script(script_dir)
 
-    def test_script_output_logging(self, tmp_path, mocker, caplog):
+    def test_script_output_logging(
+        self, tmp_path: Path, mocker: MockFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that script output is logged."""
-        import logging
 
         caplog.set_level(logging.DEBUG)
 
@@ -108,9 +119,10 @@ class TestScriptExecutionManagerAdditional:
         # Check that output was logged
         assert "test output" in caplog.text or "completed successfully" in caplog.text
 
-    def test_script_stderr_logging_on_failure(self, tmp_path, mocker, caplog):
+    def test_script_stderr_logging_on_failure(
+        self, tmp_path: Path, mocker: MockFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that stderr is logged as error on failure."""
-        import logging
 
         caplog.set_level(logging.ERROR)
 
@@ -131,9 +143,10 @@ class TestScriptExecutionManagerAdditional:
 
         assert result is False
 
-    def test_script_stderr_logging_on_success(self, tmp_path, mocker, caplog):
+    def test_script_stderr_logging_on_success(
+        self, tmp_path: Path, mocker: MockFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that stderr is logged as debug on success."""
-        import logging
 
         caplog.set_level(logging.DEBUG)
 

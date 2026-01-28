@@ -89,6 +89,7 @@ warn_required_dynamic_aliases = true
 
 [tool.pylint.MASTER]
 load-plugins = ["pylint_pydantic"]
+init-hook = "import sys; sys.path.append('.')"
 
 [tool.ruff]
 [tool.ruff.lint.flake8-tidy-imports]

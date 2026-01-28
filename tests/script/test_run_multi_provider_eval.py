@@ -2,94 +2,24 @@
 """Pytest tests for run_multi_provider_eval.py script."""
 
 import json
-import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
+import tempfile as temp_module
+import logging
+import multiprocessing
+import shutil
 
 import pytest
 import yaml
 
-# Add the script directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "script"))
-
-from run_multi_provider_eval import MultiProviderEvaluationRunner
-
-
-@pytest.fixture
-def temp_config_files(tmp_path):
-    """Create temporary configuration files for testing."""
-    # Create multi_eval_config.yaml
-    providers_config = {
-        "providers": {
-            "openai": {
-                "models": ["gpt-4o-mini", "gpt-4-turbo"],
-            },
-            "watsonx": {
-                "models": ["ibm/granite-13b-chat-v2"],
-            },
-        },
-        "settings": {"output_base": str(tmp_path / "eval_output")},
-    }
-    providers_path = tmp_path / "multi_eval_config.yaml"
-    with open(providers_path, "w", encoding="utf-8") as f:
-        yaml.dump(providers_config, f)
-
-    # Create system.yaml
-    system_config = {
-        "llm": {
-            "provider": "openai",
-            "model": "gpt-4o-mini",
-            "temperature": 0.0,
-        },
-        "api": {"enabled": False},
-        "output": {"output_dir": "./eval_output"},
-    }
-    system_path = tmp_path / "system.yaml"
-    with open(system_path, "w", encoding="utf-8") as f:
-        yaml.dump(system_config, f)
-
-    # Create evaluation_data.yaml
-    eval_data = [
-        {
-            "conversation_group_id": "test_conv",
-            "turns": [
-                {
-                    "turn_id": "turn_1",
-                    "query": "Test query",
-                    "response": "Test response",
-                    "contexts": ["Context 1"],
-                    "expected_response": "Expected",
-                    "turn_metrics": ["ragas:response_relevancy"],
-                }
-            ],
-        }
-    ]
-    eval_path = tmp_path / "evaluation_data.yaml"
-    with open(eval_path, "w", encoding="utf-8") as f:
-        yaml.dump(eval_data, f)
-
-    return {
-        "providers_config": providers_path,
-        "system_config": system_path,
-        "eval_data": eval_path,
-        "output_dir": tmp_path / "eval_output",
-    }
-
-
-@pytest.fixture
-def runner(temp_config_files):
-    """Create a MultiProviderEvaluationRunner instance for testing."""
-    return MultiProviderEvaluationRunner(
-        providers_config_path=str(temp_config_files["providers_config"]),
-        system_config_path=str(temp_config_files["system_config"]),
-        eval_data_path=str(temp_config_files["eval_data"]),
-    )
+from script.run_multi_provider_eval import MultiProviderEvaluationRunner
 
 
 class TestMultiProviderEvaluationRunnerInit:
     """Tests for MultiProviderEvaluationRunner initialization."""
 
-    def test_init_success(self, temp_config_files):
+    def test_init_success(self, temp_config_files: dict[str, Path]) -> None:
         """Test successful initialization of the runner."""
         runner = MultiProviderEvaluationRunner(
             providers_config_path=str(temp_config_files["providers_config"]),
@@ -103,9 +33,9 @@ class TestMultiProviderEvaluationRunnerInit:
         assert runner.system_config_path == Path(temp_config_files["system_config"])
         assert runner.eval_data_path == Path(temp_config_files["eval_data"])
         assert runner.output_base.exists()
-        assert runner.results == []
+        assert not runner.results
 
-    def test_init_config_not_found(self, temp_config_files):
+    def test_init_config_not_found(self, temp_config_files: dict[str, Path]) -> None:
         """Test initialization fails when any config file is missing."""
         with pytest.raises(FileNotFoundError, match="Providers config not found"):
             MultiProviderEvaluationRunner(
@@ -114,7 +44,9 @@ class TestMultiProviderEvaluationRunnerInit:
                 eval_data_path=str(temp_config_files["eval_data"]),
             )
 
-    def test_max_workers_from_constructor(self, temp_config_files):
+    def test_max_workers_from_constructor(
+        self, temp_config_files: dict[str, Path]
+    ) -> None:
         """Test max_workers configured via constructor argument."""
         runner = MultiProviderEvaluationRunner(
             providers_config_path=str(temp_config_files["providers_config"]),
@@ -124,7 +56,9 @@ class TestMultiProviderEvaluationRunnerInit:
         )
         assert runner.max_workers == 4
 
-    def test_max_workers_from_config_file(self, temp_config_files, tmp_path):
+    def test_max_workers_from_config_file(
+        self, temp_config_files: dict[str, Path], tmp_path: Path
+    ) -> None:
         """Test max_workers configured via config file."""
         # Create config with max_workers setting
         config_with_workers = {
@@ -147,7 +81,9 @@ class TestMultiProviderEvaluationRunnerInit:
         )
         assert runner.max_workers == 6
 
-    def test_max_workers_string_coercion(self, temp_config_files, tmp_path):
+    def test_max_workers_string_coercion(
+        self, temp_config_files: dict[str, Path], tmp_path: Path
+    ) -> None:
         """Test max_workers string value from YAML is coerced to int."""
         # Create config with string max_workers
         config_with_string = {
@@ -171,7 +107,9 @@ class TestMultiProviderEvaluationRunnerInit:
         assert runner.max_workers == 4
         assert isinstance(runner.max_workers, int)
 
-    def test_max_workers_invalid_value(self, temp_config_files, tmp_path):
+    def test_max_workers_invalid_value(
+        self, temp_config_files: dict[str, Path], tmp_path: Path
+    ) -> None:
         """Test max_workers with invalid value raises clear error."""
         # Create config with invalid max_workers
         config_invalid = {
@@ -194,7 +132,9 @@ class TestMultiProviderEvaluationRunnerInit:
                 eval_data_path=str(temp_config_files["eval_data"]),
             )
 
-    def test_max_workers_minimum_value(self, temp_config_files):
+    def test_max_workers_minimum_value(
+        self, temp_config_files: dict[str, Path]
+    ) -> None:
         """Test max_workers is enforced to be at least 1."""
         runner = MultiProviderEvaluationRunner(
             providers_config_path=str(temp_config_files["providers_config"]),
@@ -213,10 +153,12 @@ class TestMultiProviderEvaluationRunnerInit:
         assert runner2.max_workers == 1  # Should be clamped to 1
 
     def test_resource_warning_high_thread_count(
-        self, temp_config_files, tmp_path, caplog
-    ):
+        self,
+        temp_config_files: dict[str, Path],
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         """Test warning is logged when total threads is very high."""
-        import logging
 
         # Create system config with high max_threads
         system_config = {
@@ -248,11 +190,12 @@ class TestMultiProviderEvaluationRunnerInit:
         assert runner.max_workers == 4
 
     def test_no_resource_warning_reasonable_config(
-        self, temp_config_files, tmp_path, caplog
-    ):
+        self,
+        temp_config_files: dict[str, Path],
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         """Test no warning with reasonable thread count."""
-        import logging
-        import multiprocessing
 
         # Calculate safe thread count based on actual CPU count
         cpu_count = multiprocessing.cpu_count()
@@ -280,50 +223,66 @@ class TestMultiProviderEvaluationRunnerInit:
             )
 
         # Check no warning was logged
+        total_threads = max_workers * max_threads
         assert not any(
             "High resource usage detected" in record.message
             for record in caplog.records
-        ), f"Expected no warning with {max_workers} workers × {max_threads} threads = {max_workers * max_threads} on {cpu_count} CPUs"
+        ), (
+            f"Expected no warning: {max_workers} workers × {max_threads} "
+            f"threads = {total_threads} on {cpu_count} CPUs"
+        )
         assert runner.max_workers == max_workers
 
 
 class TestLoadYAML:
     """Tests for _load_yaml method."""
 
-    def test_load_valid_yaml(self, runner, temp_config_files):
+    def test_load_valid_yaml(
+        self, runner: MultiProviderEvaluationRunner, temp_config_files: dict[str, Path]
+    ) -> None:
         """Test loading a valid YAML file."""
-        config = runner._load_yaml(temp_config_files["providers_config"])
+        config = runner._load_yaml(  # pylint: disable=protected-access
+            temp_config_files["providers_config"]
+        )
         assert isinstance(config, dict)
         assert "providers" in config
         assert "openai" in config["providers"]
         assert "models" in config["providers"]["openai"]
         assert "settings" in config
 
-    def test_load_invalid_yaml(self, runner, tmp_path):
+    def test_load_invalid_yaml(
+        self, runner: MultiProviderEvaluationRunner, tmp_path: Path
+    ) -> None:
         """Test loading an invalid YAML file."""
         invalid_yaml = tmp_path / "invalid.yaml"
         with open(invalid_yaml, "w", encoding="utf-8") as f:
             f.write("invalid: yaml: content: [")
 
         with pytest.raises(ValueError, match="Error parsing YAML file"):
-            runner._load_yaml(invalid_yaml)
+            runner._load_yaml(invalid_yaml)  # pylint: disable=protected-access
 
-    def test_load_yaml_non_dict_type(self, runner, tmp_path):
+    def test_load_yaml_non_dict_type(
+        self, runner: MultiProviderEvaluationRunner, tmp_path: Path
+    ) -> None:
         """Test that YAML files not containing dictionaries are rejected."""
         list_yaml = tmp_path / "list.yaml"
         with open(list_yaml, "w", encoding="utf-8") as f:
             yaml.dump(["item1", "item2", "item3"], f)
 
         with pytest.raises(ValueError, match="must be a mapping, got list"):
-            runner._load_yaml(list_yaml)
+            runner._load_yaml(list_yaml)  # pylint: disable=protected-access
 
 
-class TestCreateProviderModelConfigs:
+class TestCreateProviderModelConfigs:  # pylint: disable=too-few-public-methods
     """Tests for _create_provider_model_configs method."""
 
-    def test_create_configs_multiple_providers(self, runner):
+    def test_create_configs_multiple_providers(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test creating configs with multiple providers."""
-        configs = runner._create_provider_model_configs()
+        configs = (
+            runner._create_provider_model_configs()  # pylint: disable=protected-access
+        )
 
         assert len(configs) == 3  # 2 openai models + 1 watsonx model
 
@@ -345,21 +304,25 @@ class TestCreateProviderModelConfigs:
 class TestCreateModifiedSystemConfig:
     """Tests for _create_modified_system_config method."""
 
-    def test_llm_config_stays_constant(self, runner):
+    def test_llm_config_stays_constant(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test that LLM judge config is NOT modified (stays constant for fair comparison)."""
         original_llm_provider = runner.system_config["llm"]["provider"]
         original_llm_model = runner.system_config["llm"]["model"]
 
-        modified = runner._create_modified_system_config(
-            provider_id="watsonx",
-            model="ibm/granite-13b-chat-v2",
+        modified = (
+            runner._create_modified_system_config(  # pylint: disable=protected-access
+                provider_id="watsonx",
+                model="ibm/granite-13b-chat-v2",
+            )
         )
 
         # LLM judge should remain unchanged
         assert modified["llm"]["provider"] == original_llm_provider
         assert modified["llm"]["model"] == original_llm_model
 
-    def test_api_config_is_modified(self, temp_config_files):
+    def test_api_config_is_modified(self, temp_config_files: dict[str, Path]) -> None:
         """Test that API config is modified when API is enabled."""
         # Create system config with API enabled
         system_config = {
@@ -385,9 +348,11 @@ class TestCreateModifiedSystemConfig:
             eval_data_path=str(temp_config_files["eval_data"]),
         )
 
-        modified = runner._create_modified_system_config(
-            provider_id="watsonx",
-            model="ibm/granite-13b-chat-v2",
+        modified = (
+            runner._create_modified_system_config(  # pylint: disable=protected-access
+                provider_id="watsonx",
+                model="ibm/granite-13b-chat-v2",
+            )
         )
 
         # API config should be modified with provider and model only
@@ -403,11 +368,15 @@ class TestCreateModifiedSystemConfig:
 class TestCreateTempSystemConfig:
     """Tests for _create_temp_system_config method."""
 
-    def test_create_temp_config_file(self, runner):
+    def test_create_temp_config_file(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test that a temporary config file is created."""
-        temp_path = runner._create_temp_system_config(
-            provider_id="openai",
-            model="gpt-4o-mini",
+        temp_path = (
+            runner._create_temp_system_config(  # pylint: disable=protected-access
+                provider_id="openai",
+                model="gpt-4o-mini",
+            )
         )
 
         try:
@@ -426,32 +395,36 @@ class TestCreateTempSystemConfig:
             if temp_path.exists():
                 temp_path.unlink()
 
-    def test_temp_config_cleanup_on_yaml_dump_failure(self, runner, tmp_path):
+    def test_temp_config_cleanup_on_yaml_dump_failure(
+        self,
+        runner: MultiProviderEvaluationRunner,
+    ) -> None:
         """Test that temp file is cleaned up when yaml.dump() fails."""
-        import tempfile as temp_module
 
         # Track the temp file path that gets created
         created_temp_path = None
         original_named_temp_file = temp_module.NamedTemporaryFile
 
-        def track_temp_file(*args, **kwargs):
+        def track_temp_file(*args: Any, **kwargs: Any) -> Any:
             nonlocal created_temp_path
-            temp_file = original_named_temp_file(*args, **kwargs)
+            temp_file = original_named_temp_file(  # pylint: disable=consider-using-with
+                *args, **kwargs
+            )
             created_temp_path = Path(temp_file.name)
             return temp_file
 
         # Mock NamedTemporaryFile to track the created file
         with patch(
-            "run_multi_provider_eval.tempfile.NamedTemporaryFile",
+            "script.run_multi_provider_eval.tempfile.NamedTemporaryFile",
             side_effect=track_temp_file,
         ):
             # Mock yaml.dump to raise an exception
             with patch(
-                "run_multi_provider_eval.yaml.dump",
+                "script.run_multi_provider_eval.yaml.dump",
                 side_effect=Exception("YAML dump failed"),
             ):
                 with pytest.raises(Exception, match="YAML dump failed"):
-                    runner._create_temp_system_config(
+                    runner._create_temp_system_config(  # pylint: disable=protected-access
                         provider_id="openai",
                         model="gpt-4o-mini",
                     )
@@ -464,15 +437,20 @@ class TestCreateTempSystemConfig:
                     not created_temp_path.exists()
                 ), "Temp file should have been cleaned up"
 
-    def test_temp_config_sanitizes_special_characters(self, runner):
+    def test_temp_config_sanitizes_special_characters(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test that special characters in provider_id and model are sanitized."""
-        temp_path = runner._create_temp_system_config(
-            provider_id="open..ai//test",
-            model="gpt:4o-mini/special",
+        temp_path = (
+            runner._create_temp_system_config(  # pylint: disable=protected-access
+                provider_id="open..ai//test",
+                model="gpt:4o-mini/special",
+            )
         )
 
         try:
-            # Verify filename doesn't contain path separators or colons (except drive letter on Windows)
+            # Verify filename doesn't contain path separators or colons
+            # (except drive letter on Windows)
             assert "/" not in temp_path.name
             # On some systems, : might appear in drive letters on Windows, so we're lenient
             # The key is that path traversal characters are neutralized
@@ -486,7 +464,9 @@ class TestPathTraversalSecurity:
     """Tests for path traversal security."""
 
     @pytest.fixture
-    def runner(self, temp_config_files):
+    def runner(
+        self, temp_config_files: dict[str, Path]
+    ) -> MultiProviderEvaluationRunner:
         """Create a runner instance for testing."""
         return MultiProviderEvaluationRunner(
             providers_config_path=str(temp_config_files["providers_config"]),
@@ -494,14 +474,16 @@ class TestPathTraversalSecurity:
             eval_data_path=str(temp_config_files["eval_data"]),
         )
 
-    def test_path_traversal_blocked_in_provider_id(self, runner):
+    def test_path_traversal_blocked_in_provider_id(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test that path traversal in provider_id is sanitized."""
         with patch(
-            "run_multi_provider_eval.run_evaluation",
+            "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 0, "FAIL": 0, "ERROR": 1},
         ):
             # Attempt path traversal in provider_id
-            result = runner._run_single_evaluation(
+            result = runner._run_single_evaluation(  # pylint: disable=protected-access
                 provider_name="malicious",
                 provider_id="../../etc",
                 model="test",
@@ -517,18 +499,18 @@ class TestPathTraversalSecurity:
 
             # Cleanup
             if output_path.exists():
-                import shutil
-
                 shutil.rmtree(output_path.parent, ignore_errors=True)
 
-    def test_path_traversal_blocked_in_model(self, runner):
+    def test_path_traversal_blocked_in_model(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test that path traversal in model name is sanitized."""
         with patch(
-            "run_multi_provider_eval.run_evaluation",
+            "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 0, "FAIL": 0, "ERROR": 1},
         ):
             # Attempt path traversal in model
-            result = runner._run_single_evaluation(
+            result = runner._run_single_evaluation(  # pylint: disable=protected-access
                 provider_name="openai",
                 provider_id="openai",
                 model="../../../etc/passwd",
@@ -543,22 +525,22 @@ class TestPathTraversalSecurity:
 
             # Cleanup
             if output_path.exists():
-                import shutil
-
                 shutil.rmtree(output_path.parent.parent, ignore_errors=True)
 
 
 class TestRunSingleEvaluation:
     """Tests for _run_single_evaluation method."""
 
-    def test_run_single_evaluation_success(self, runner):
+    def test_run_single_evaluation_success(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test successful single evaluation."""
         # Mock run_evaluation to return a successful summary
         with patch(
-            "run_multi_provider_eval.run_evaluation",
+            "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 5, "FAIL": 2, "ERROR": 0},
         ) as mock_run_eval:
-            result = runner._run_single_evaluation(
+            result = runner._run_single_evaluation(  # pylint: disable=protected-access
                 provider_name="openai",
                 provider_id="openai",
                 model="gpt-4o-mini",
@@ -572,11 +554,13 @@ class TestRunSingleEvaluation:
             assert "duration_seconds" in result
             mock_run_eval.assert_called_once()
 
-    def test_run_single_evaluation_failure(self, runner):
+    def test_run_single_evaluation_failure(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test evaluation failure handling."""
         # Mock run_evaluation to return None (failure)
-        with patch("run_multi_provider_eval.run_evaluation", return_value=None):
-            result = runner._run_single_evaluation(
+        with patch("script.run_multi_provider_eval.run_evaluation", return_value=None):
+            result = runner._run_single_evaluation(  # pylint: disable=protected-access
                 provider_name="openai",
                 provider_id="openai",
                 model="gpt-4o-mini",
@@ -585,14 +569,16 @@ class TestRunSingleEvaluation:
             assert result["success"] is False
             assert result["error"] == "Evaluation returned None (failed)"
 
-    def test_run_single_evaluation_invalid_summary(self, runner):
+    def test_run_single_evaluation_invalid_summary(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test evaluation with invalid summary structure."""
         # Mock run_evaluation to return a summary missing required keys
         with patch(
-            "run_multi_provider_eval.run_evaluation",
+            "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 5, "FAIL": 2},  # Missing ERROR key
         ):
-            result = runner._run_single_evaluation(
+            result = runner._run_single_evaluation(  # pylint: disable=protected-access
                 provider_name="openai",
                 provider_id="openai",
                 model="gpt-4o-mini",
@@ -603,10 +589,12 @@ class TestRunSingleEvaluation:
             assert "summary" not in result
 
 
-class TestRunEvaluations:
+class TestRunEvaluations:  # pylint: disable=too-few-public-methods
     """Tests for run_evaluations method."""
 
-    def test_run_evaluations_sequential(self, runner):
+    def test_run_evaluations_sequential(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test sequential evaluation execution."""
         # Force sequential mode
         runner.max_workers = 1
@@ -626,10 +614,12 @@ class TestRunEvaluations:
             assert mock_single_eval.call_count == 3
 
 
-class TestGenerateSummary:
+class TestGenerateSummary:  # pylint: disable=too-few-public-methods
     """Tests for generate_summary method."""
 
-    def test_generate_summary_mixed_results(self, runner):
+    def test_generate_summary_mixed_results(
+        self, runner: MultiProviderEvaluationRunner
+    ) -> None:
         """Test summary generation with mixed results."""
         runner.results = [
             {"success": True, "provider_id": "openai", "model": "gpt-4o-mini"},
@@ -644,87 +634,15 @@ class TestGenerateSummary:
         assert summary["success_rate"] == "50.0%"
 
 
-@pytest.fixture
-def sample_evaluation_summary():
-    """Create a sample evaluation summary JSON for testing analysis."""
-    return {
-        "timestamp": "2025-01-01T12:00:00",
-        "total_evaluations": 10,
-        "summary_stats": {
-            "overall": {
-                "TOTAL": 10,
-                "PASS": 8,
-                "FAIL": 2,
-                "ERROR": 0,
-                "pass_rate": 80.0,  # Percentage format
-                "fail_rate": 20.0,
-                "error_rate": 0.0,
-            },
-            "by_metric": {
-                "ragas:faithfulness": {
-                    "pass": 4,
-                    "fail": 0,
-                    "error": 0,
-                    "pass_rate": 100.0,
-                    "fail_rate": 0.0,
-                    "error_rate": 0.0,
-                    "score_statistics": {
-                        "mean": 0.95,
-                        "median": 0.95,
-                        "std": 0.02,
-                        "min": 0.92,
-                        "max": 0.98,
-                        "count": 4,
-                    },
-                },
-                "ragas:response_relevancy": {
-                    "pass": 4,
-                    "fail": 2,
-                    "error": 0,
-                    "pass_rate": 66.67,
-                    "fail_rate": 33.33,
-                    "error_rate": 0.0,
-                    "score_statistics": {
-                        "mean": 0.75,
-                        "median": 0.78,
-                        "std": 0.12,
-                        "min": 0.55,
-                        "max": 0.88,
-                        "count": 6,
-                    },
-                },
-            },
-        },
-        "results": [
-            {
-                "conversation_group_id": "conv1",
-                "turn_id": "turn1",
-                "metric_identifier": "ragas:faithfulness",
-                "result": "PASS",
-                "score": 0.95,
-                "threshold": 0.8,
-                "execution_time": 1.0,
-            },
-            {
-                "conversation_group_id": "conv1",
-                "turn_id": "turn2",
-                "metric_identifier": "ragas:response_relevancy",
-                "result": "PASS",
-                "score": 0.85,
-                "threshold": 0.7,
-                "execution_time": 1.2,
-            },
-        ]
-        * 5,  # Repeat to get 10 results
-    }
-
-
 class TestBestModelAnalysis:
     """Tests for best model analysis functionality."""
 
     def test_analyze_model_performance(
-        self, runner, tmp_path, sample_evaluation_summary
-    ):
+        self,
+        runner: MultiProviderEvaluationRunner,
+        tmp_path: Path,
+        sample_evaluation_summary: dict[str, Any],
+    ) -> None:
         """Test successful model performance analysis."""
         # Setup: Create evaluation summary files
         model_dir = tmp_path / "eval_output" / "openai" / "gpt-4o-mini"
@@ -753,25 +671,33 @@ class TestBestModelAnalysis:
         assert stats["overall"]["passed"] == 8
         assert 0.0 <= stats["composite_score"] <= 1.0
 
-    def test_percentage_to_decimal_conversion(self, runner, sample_evaluation_summary):
+    def test_percentage_to_decimal_conversion(
+        self, runner: MultiProviderEvaluationRunner, sample_evaluation_summary: dict
+    ) -> None:
         """Test that percentage rates (80.0) convert to decimals (0.8)."""
-        stats = runner._analyze_single_model("test/model", sample_evaluation_summary)
+        stats = runner._analyze_single_model(  # pylint: disable=protected-access
+            "test/model", sample_evaluation_summary
+        )
 
         # Verify percentage conversion
         assert abs(stats["overall"]["pass_rate"] - 0.8) < 0.01
         assert 0.0 <= stats["overall"]["pass_rate"] <= 1.0
 
-    def test_composite_score(self, runner):
+    def test_composite_score(self, runner: MultiProviderEvaluationRunner) -> None:
         """Test composite score calculation."""
         # Perfect model should get score of 1.0
-        perfect = runner._calculate_composite_score(1.0, 0.0, 1.0, 1.0)
+        perfect = runner._calculate_composite_score(  # pylint: disable=protected-access
+            1.0, 0.0, 1.0, 1.0
+        )
         assert abs(perfect - 1.0) < 0.0001
 
         # Poor model should get score of 0.0
-        poor = runner._calculate_composite_score(0.0, 1.0, 0.0, 0.0)
+        poor = runner._calculate_composite_score(  # pylint: disable=protected-access
+            0.0, 1.0, 0.0, 0.0
+        )
         assert poor == 0.0
 
-    def test_model_ranking(self, runner):
+    def test_model_ranking(self, runner: MultiProviderEvaluationRunner) -> None:
         """Test models are ranked by composite score."""
         runner.model_stats = {
             "model1": {"composite_score": 0.85},
@@ -786,7 +712,9 @@ class TestBestModelAnalysis:
         assert ranked[1][0] == "model1"  # Second: 0.85
         assert ranked[2][0] == "model3"  # Lowest: 0.70
 
-    def test_save_analysis_to_yaml(self, runner, tmp_path):
+    def test_save_analysis_to_yaml(
+        self, runner: MultiProviderEvaluationRunner, tmp_path: Path
+    ) -> None:
         """Test saving analysis results to YAML file."""
         runner.output_base = tmp_path
         runner.model_stats = {
@@ -806,7 +734,9 @@ class TestBestModelAnalysis:
         assert data["best_model"]["model"] == "model1"
         assert data["best_model"]["composite_score"] == 0.85
 
-    def test_print_report(self, runner, capsys):
+    def test_print_report(
+        self, runner: MultiProviderEvaluationRunner, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test statistical comparison report output."""
         runner.model_stats = {
             "model1": {

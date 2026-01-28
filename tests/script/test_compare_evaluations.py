@@ -7,65 +7,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+from typing import Any
 import pytest
 
-
-@pytest.fixture
-def script_path():
-    """Return the path to the compare_evaluations.py script."""
-    # Test is in tests/script/, script is in project_root/script/
-    return Path(__file__).parent.parent.parent / "script" / "compare_evaluations.py"
+from script.compare_evaluations import EvaluationComparison
 
 
-@pytest.fixture
-def sample_evaluation_data():
-    """Return sample evaluation data for testing."""
-    sample_results1 = [
-        {
-            "conversation_group_id": "conv1",
-            "turn_id": "1",
-            "metric_identifier": "ragas:faithfulness",
-            "result": "PASS",
-            "score": 0.8,
-            "threshold": 0.7,
-            "execution_time": 1.0,
-        },
-        {
-            "conversation_group_id": "conv1",
-            "turn_id": "2",
-            "metric_identifier": "ragas:faithfulness",
-            "result": "PASS",
-            "score": 0.9,
-            "threshold": 0.7,
-            "execution_time": 1.2,
-        },
-    ]
-
-    sample_results2 = [
-        {
-            "conversation_group_id": "conv1",
-            "turn_id": "1",
-            "metric_identifier": "ragas:faithfulness",
-            "result": "PASS",
-            "score": 0.85,
-            "threshold": 0.7,
-            "execution_time": 1.1,
-        },
-        {
-            "conversation_group_id": "conv1",
-            "turn_id": "2",
-            "metric_identifier": "ragas:faithfulness",
-            "result": "FAIL",
-            "score": 0.6,
-            "threshold": 0.7,
-            "execution_time": 1.0,
-        },
-    ]
-
-    return sample_results1, sample_results2
-
-
-def create_sample_summary(results, timestamp="2025-01-01T00:00:00"):
+def create_sample_summary(
+    results: list[dict[str, Any]], timestamp: str = "2025-01-01T00:00:00"
+) -> dict[str, Any]:
     """Create a sample evaluation summary."""
     return {
         "timestamp": timestamp,
@@ -97,7 +47,10 @@ def create_sample_summary(results, timestamp="2025-01-01T00:00:00"):
     }
 
 
-def test_basic_comparison(script_path, sample_evaluation_data):
+def test_basic_comparison(
+    script_path: Path,
+    sample_evaluation_data: tuple[list[dict[str, Any]], list[dict[str, Any]]],
+) -> None:
     """Test basic comparison functionality."""
     sample_results1, sample_results2 = sample_evaluation_data
 
@@ -109,9 +62,9 @@ def test_basic_comparison(script_path, sample_evaluation_data):
         file1 = Path(temp_dir) / "summary1.json"
         file2 = Path(temp_dir) / "summary2.json"
 
-        with open(file1, "w") as f:
+        with open(file1, "w", encoding="utf-8") as f:
             json.dump(summary1, f)
-        with open(file2, "w") as f:
+        with open(file2, "w", encoding="utf-8") as f:
             json.dump(summary2, f)
 
         # Test the script
@@ -119,6 +72,7 @@ def test_basic_comparison(script_path, sample_evaluation_data):
             [sys.executable, str(script_path), str(file1), str(file2)],
             capture_output=True,
             text=True,
+            check=False,
         )
 
         assert result.returncode == 0, f"Script failed with error: {result.stderr}"
@@ -128,12 +82,15 @@ def test_basic_comparison(script_path, sample_evaluation_data):
         ), "Output should contain comparison report"
 
 
-def test_invalid_arguments(script_path):
+def test_invalid_arguments(script_path: Path) -> None:
     """Test error handling for invalid arguments."""
 
     # Test with only one file
     result = subprocess.run(
-        [sys.executable, str(script_path), "file1.json"], capture_output=True, text=True
+        [sys.executable, str(script_path), "file1.json"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
     assert result.returncode != 0, "Script should fail with only one file"
@@ -146,6 +103,7 @@ def test_invalid_arguments(script_path):
         [sys.executable, str(script_path), "file1.json", "file2.json", "file3.json"],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     assert result.returncode != 0, "Script should fail with three files"
@@ -154,13 +112,14 @@ def test_invalid_arguments(script_path):
     ), f"Expected error message not found in stderr: {result.stderr}"
 
 
-def test_nonexistent_files(script_path):
+def test_nonexistent_files(script_path: Path) -> None:
     """Test error handling for nonexistent files."""
 
     result = subprocess.run(
         [sys.executable, str(script_path), "nonexistent1.json", "nonexistent2.json"],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     assert result.returncode != 0, "Script should fail with nonexistent files"
@@ -173,25 +132,21 @@ class TestEvaluationComparisonMethods:
     """Unit tests for EvaluationComparison internal methods."""
 
     @pytest.fixture
-    def comparison_instance(self):
+    def comparison_instance(self) -> EvaluationComparison:
         """Create an EvaluationComparison instance for testing."""
-        # Import here to avoid module loading issues
-        import sys
-
-        # Add project root to path (tests/script/ -> tests/ -> project_root/)
-        sys.path.append(str(Path(__file__).parent.parent.parent))
-        from script.compare_evaluations import EvaluationComparison
-
         return EvaluationComparison(alpha=0.05)
 
-    def test_compare_score_distributions_basic(self, comparison_instance):
+    def test_compare_score_distributions_basic(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _compare_score_distributions with basic score data."""
         # Test data based on normal distributions
         scores1 = [0.8, 0.9, 0.7, 0.85, 0.75, 0.88, 0.82, 0.79, 0.86, 0.81]
         scores2 = [0.6, 0.65, 0.55, 0.62, 0.58, 0.63, 0.59, 0.61, 0.64, 0.57]
 
-        result = comparison_instance._compare_score_distributions(scores1, scores2)
-
+        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
+            scores1, scores2
+        )
         # Check structure
         assert "run1_stats" in result
         assert "run2_stats" in result
@@ -216,14 +171,18 @@ class TestEvaluationComparisonMethods:
             assert "p_value" in result["tests"]["mann_whitney_u"]
             assert "significant" in result["tests"]["mann_whitney_u"]
 
-    def test_compare_score_distributions_scipy_example(self, comparison_instance):
+    def test_compare_score_distributions_scipy_example(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _compare_score_distributions using scipy documentation examples."""
         # Example inspired by scipy.stats.ttest_ind documentation
         # Two samples with different means
         scores1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         scores2 = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
 
-        result = comparison_instance._compare_score_distributions(scores1, scores2)
+        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
+            scores1, scores2
+        )
 
         # The means should be 5.5 and 6.5 respectively
         assert abs(result["run1_stats"]["mean"] - 5.5) < 0.01
@@ -234,21 +193,27 @@ class TestEvaluationComparisonMethods:
         # (though the exact p-values depend on the implementation)
         assert "tests" in result
 
-    def test_compare_score_distributions_identical_data(self, comparison_instance):
+    def test_compare_score_distributions_identical_data(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _compare_score_distributions with identical data."""
         scores1 = [0.8, 0.8, 0.8, 0.8, 0.8]
         scores2 = [0.8, 0.8, 0.8, 0.8, 0.8]
 
-        result = comparison_instance._compare_score_distributions(scores1, scores2)
+        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
+            scores1, scores2
+        )
 
         assert result["run1_stats"]["mean"] == result["run2_stats"]["mean"]
         assert result["mean_difference"] == 0.0
         assert result["relative_change"] == 0.0
 
-    def test_perform_pass_rate_tests_basic(self, comparison_instance):
+    def test_perform_pass_rate_tests_basic(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _perform_pass_rate_tests with basic contingency table data."""
         # Based on scipy.stats.chi2_contingency example
-        comparison = {"tests": {}}
+        comparison: dict = {"tests": {}}
         # Example: Run1 has 16 pass, 4 fail; Run2 has 18 pass, 2 fail
         test_data = {
             "pass_count1": 16,
@@ -259,7 +224,9 @@ class TestEvaluationComparisonMethods:
             "total2": 20,
         }
 
-        comparison_instance._perform_pass_rate_tests(comparison, test_data)
+        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
+            comparison, test_data
+        )
 
         # Check that tests were performed
         assert "tests" in comparison
@@ -269,11 +236,13 @@ class TestEvaluationComparisonMethods:
         )
         assert has_tests or "error" in comparison["tests"]
 
-    def test_perform_pass_rate_tests_scipy_chisquare_example(self, comparison_instance):
+    def test_perform_pass_rate_tests_scipy_chisquare_example(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _perform_pass_rate_tests using scipy chisquare documentation example."""
         # Based on the scipy documentation example: chisquare([16, 18, 16, 14, 12, 12])
         # Convert to pass/fail format for our function
-        comparison = {"tests": {}}
+        comparison: dict = {"tests": {}}
         test_data = {
             "pass_count1": 16,
             "fail_count1": 4,  # Making total 20
@@ -283,7 +252,9 @@ class TestEvaluationComparisonMethods:
             "total2": 20,
         }
 
-        comparison_instance._perform_pass_rate_tests(comparison, test_data)
+        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
+            comparison, test_data
+        )
 
         # Verify structure
         assert "tests" in comparison
@@ -303,10 +274,12 @@ class TestEvaluationComparisonMethods:
             assert "p_value" in fisher
             assert "significant" in fisher
 
-    def test_perform_pass_rate_tests_edge_cases(self, comparison_instance):
+    def test_perform_pass_rate_tests_edge_cases(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _perform_pass_rate_tests with edge cases."""
         # Test with zero totals
-        comparison = {"tests": {}}
+        comparison: dict = {"tests": {}}
         test_data = {
             "pass_count1": 0,
             "fail_count1": 0,
@@ -316,61 +289,80 @@ class TestEvaluationComparisonMethods:
             "total2": 15,
         }
 
-        comparison_instance._perform_pass_rate_tests(comparison, test_data)
+        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
+            comparison, test_data
+        )
 
         # Should handle gracefully (no tests performed or error recorded)
         assert "tests" in comparison
 
-    def test_check_confidence_interval_overlap_no_overlap(self, comparison_instance):
+    def test_check_confidence_interval_overlap_no_overlap(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _check_confidence_interval_overlap with non-overlapping intervals."""
         ci1 = {"low": 0.1, "high": 0.3, "mean": 0.2, "confidence_level": 0.95}
         ci2 = {"low": 0.7, "high": 0.9, "mean": 0.8, "confidence_level": 0.95}
 
-        result = comparison_instance._check_confidence_interval_overlap(ci1, ci2)
+        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
+            ci1, ci2
+        )
 
         assert "intervals_overlap" in result
         assert "significant" in result
         assert result["intervals_overlap"] is False
         assert result["significant"] is True
 
-    def test_check_confidence_interval_overlap_with_overlap(self, comparison_instance):
+    def test_check_confidence_interval_overlap_with_overlap(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _check_confidence_interval_overlap with overlapping intervals."""
         ci1 = {"low": 0.2, "high": 0.6, "mean": 0.4, "confidence_level": 0.95}
         ci2 = {"low": 0.4, "high": 0.8, "mean": 0.6, "confidence_level": 0.95}
 
-        result = comparison_instance._check_confidence_interval_overlap(ci1, ci2)
+        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
+            ci1, ci2
+        )
 
         assert "intervals_overlap" in result
         assert "significant" in result
         assert result["intervals_overlap"] is True
         assert result["significant"] is False
 
-    def test_check_confidence_interval_overlap_none_inputs(self, comparison_instance):
+    def test_check_confidence_interval_overlap_none_inputs(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _check_confidence_interval_overlap with None inputs."""
-        result = comparison_instance._check_confidence_interval_overlap(None, None)
+        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
+            None, None
+        )
 
         assert "test_performed" in result
         # Should handle None inputs gracefully - might not perform test
 
-    def test_check_confidence_interval_overlap_partial_none(self, comparison_instance):
+    def test_check_confidence_interval_overlap_partial_none(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _check_confidence_interval_overlap with one None input."""
         ci1 = {"low": 0.2, "high": 0.6, "mean": 0.4, "confidence_level": 0.95}
 
-        result = comparison_instance._check_confidence_interval_overlap(ci1, None)
-
+        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
+            ci1, None
+        )
         assert "test_performed" in result
         # Should handle partial None inputs gracefully
 
     def test_compare_score_distributions_known_statistical_results(
-        self, comparison_instance
-    ):
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _compare_score_distributions with known statistical results."""
         # Use data that should produce predictable statistical results
         # Two clearly different distributions
         scores1 = [1.0, 1.1, 1.2, 1.3, 1.4]  # Mean ≈ 1.2, low variance
         scores2 = [2.0, 2.1, 2.2, 2.3, 2.4]  # Mean ≈ 2.2, low variance
 
-        result = comparison_instance._compare_score_distributions(scores1, scores2)
+        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
+            scores1, scores2
+        )
 
         # These should be significantly different
         assert abs(result["mean_difference"] - 1.0) < 0.01
@@ -386,11 +378,13 @@ class TestEvaluationComparisonMethods:
             assert result["tests"]["mann_whitney_u"]["p_value"] < 0.05
             assert result["tests"]["mann_whitney_u"]["significant"] is True
 
-    def test_perform_pass_rate_tests_known_chi_square_result(self, comparison_instance):
+    def test_perform_pass_rate_tests_known_chi_square_result(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _perform_pass_rate_tests with data that should produce known chi-square results."""
         # Based on scipy documentation example for chi2_contingency
         # Create a 2x2 contingency table: [[16, 4], [18, 2]]
-        comparison = {"tests": {}}
+        comparison: dict = {"tests": {}}
         test_data = {
             "pass_count1": 16,
             "fail_count1": 4,
@@ -400,7 +394,9 @@ class TestEvaluationComparisonMethods:
             "total2": 20,
         }
 
-        comparison_instance._perform_pass_rate_tests(comparison, test_data)
+        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
+            comparison, test_data
+        )
 
         # Verify the chi-square test was performed and has reasonable results
         if "chi_square" in comparison["tests"]:
@@ -415,11 +411,11 @@ class TestEvaluationComparisonMethods:
             assert 0 <= chi_square["p_value"] <= 1  # p-value is a probability
 
     def test_perform_pass_rate_tests_fisher_exact_small_sample(
-        self, comparison_instance
-    ):
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _perform_pass_rate_tests with small sample sizes suitable for Fisher exact test."""
         # Small sample sizes where Fisher exact test is more appropriate
-        comparison = {"tests": {}}
+        comparison: dict = {"tests": {}}
         test_data = {
             "pass_count1": 3,
             "fail_count1": 2,
@@ -429,7 +425,9 @@ class TestEvaluationComparisonMethods:
             "total2": 5,
         }
 
-        comparison_instance._perform_pass_rate_tests(comparison, test_data)
+        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
+            comparison, test_data
+        )
 
         # Verify Fisher exact test results
         if "fisher_exact" in comparison["tests"]:
@@ -440,8 +438,8 @@ class TestEvaluationComparisonMethods:
             assert 0 <= fisher["p_value"] <= 1  # p-value is a probability
 
     def test_check_confidence_interval_overlap_exact_boundaries(
-        self, comparison_instance
-    ):
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _check_confidence_interval_overlap with exact boundary conditions."""
         # Test case where intervals just touch at boundaries
         ci1 = {"low": 0.1, "high": 0.5, "mean": 0.3, "confidence_level": 0.95}
@@ -452,7 +450,9 @@ class TestEvaluationComparisonMethods:
             "confidence_level": 0.95,
         }
 
-        result = comparison_instance._check_confidence_interval_overlap(ci1, ci2)
+        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
+            ci1, ci2
+        )
 
         # Touching at boundary might be considered overlap or not, depending on implementation
         assert "intervals_overlap" in result
@@ -460,12 +460,16 @@ class TestEvaluationComparisonMethods:
         assert isinstance(result["intervals_overlap"], bool)
         assert isinstance(result["significant"], bool)
 
-    def test_compare_score_distributions_single_values(self, comparison_instance):
+    def test_compare_score_distributions_single_values(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _compare_score_distributions with single values (edge case)."""
         scores1 = [0.8]
         scores2 = [0.6]
 
-        result = comparison_instance._compare_score_distributions(scores1, scores2)
+        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
+            scores1, scores2
+        )
 
         # Should handle single values gracefully
         assert result["run1_stats"]["count"] == 1
@@ -479,10 +483,12 @@ class TestEvaluationComparisonMethods:
         # Statistical tests might not be performed with single values
         assert "tests" in result
 
-    def test_perform_pass_rate_tests_extreme_ratios(self, comparison_instance):
+    def test_perform_pass_rate_tests_extreme_ratios(
+        self, comparison_instance: EvaluationComparison
+    ) -> None:
         """Test _perform_pass_rate_tests with extreme pass rate differences."""
         # One run with 100% pass rate, another with 0% pass rate
-        comparison = {"tests": {}}
+        comparison: dict = {"tests": {}}
         test_data = {
             "pass_count1": 10,
             "fail_count1": 0,
@@ -492,7 +498,9 @@ class TestEvaluationComparisonMethods:
             "total2": 10,
         }
 
-        comparison_instance._perform_pass_rate_tests(comparison, test_data)
+        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
+            comparison, test_data
+        )
 
         # Should handle extreme cases
         assert "tests" in comparison

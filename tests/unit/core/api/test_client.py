@@ -1,45 +1,21 @@
 """Unit tests for core API client module."""
 
+from pathlib import Path
 import pytest
+import httpx
+from pytest_mock import MockerFixture
+from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models import APIConfig, APIResponse
 from lightspeed_evaluation.core.system.exceptions import APIError
 from lightspeed_evaluation.core.api.client import APIClient
 
 
-@pytest.fixture
-def api_config():
-    """Create test API config."""
-    return APIConfig(
-        enabled=True,
-        api_base="http://localhost:8080",
-        version="v1",
-        endpoint_type="query",
-        timeout=30,
-        cache_enabled=False,
-    )
-
-
-@pytest.fixture
-def basic_api_config():
-    """Create basic API configuration for streaming."""
-    return APIConfig(
-        enabled=True,
-        api_base="http://localhost:8080",
-        endpoint_type="streaming",
-        timeout=30,
-        provider="openai",
-        model="gpt-4",
-        cache_enabled=False,
-    )
-
-
 class TestAPIClient:
     """Unit tests for APIClient."""
 
-    def test_initialization_unsupported_endpoint_type(self):
+    def test_initialization_unsupported_endpoint_type(self) -> None:
         """Test initialization fails with unsupported endpoint type."""
-        from pydantic import ValidationError
 
         # Pydantic will validate the endpoint_type, so this should raise ValidationError
         with pytest.raises(ValidationError, match="Endpoint type must be one of"):
@@ -51,7 +27,9 @@ class TestAPIClient:
                 timeout=30,
             )
 
-    def test_query_standard_endpoint_success(self, api_config, mocker):
+    def test_query_standard_endpoint_success(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test successful query to standard endpoint."""
         mock_response = mocker.Mock()
         mock_response.status_code = 200
@@ -79,7 +57,9 @@ class TestAPIClient:
         assert result.conversation_id == "conv_123"
         assert result.contexts == ["Context 1"]
 
-    def test_query_with_conversation_id(self, api_config, mocker):
+    def test_query_with_conversation_id(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query with existing conversation_id."""
         mock_response = mocker.Mock()
         mock_response.status_code = 200
@@ -107,7 +87,9 @@ class TestAPIClient:
         request_data = call_kwargs[1]["json"]
         assert request_data["conversation_id"] == "conv_123"
 
-    def test_query_with_attachments(self, api_config, mocker):
+    def test_query_with_attachments(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query with attachments."""
         mock_response = mocker.Mock()
         mock_response.status_code = 200
@@ -137,9 +119,10 @@ class TestAPIClient:
         assert request_data["attachments"][0]["content"] == "file1.txt"
         assert request_data["attachments"][1]["content"] == "file2.pdf"
 
-    def test_query_http_error(self, api_config, mocker):
+    def test_query_http_error(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query handling HTTP errors."""
-        import httpx
 
         mock_response = mocker.Mock()
         mock_response.status_code = 500
@@ -162,9 +145,10 @@ class TestAPIClient:
         with pytest.raises(APIError, match="API error: 500"):
             client.query("Test query")
 
-    def test_query_timeout_error(self, api_config, mocker):
+    def test_query_timeout_error(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query handling timeout."""
-        import httpx
 
         mock_client = mocker.Mock()
         mock_client.post.side_effect = httpx.TimeoutException("Timeout")
@@ -180,7 +164,9 @@ class TestAPIClient:
         with pytest.raises(APIError, match="timeout"):
             client.query("Test query")
 
-    def test_query_missing_response_field(self, api_config, mocker):
+    def test_query_missing_response_field(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query handling missing response field."""
         mock_response = mocker.Mock()
         mock_response.status_code = 200
@@ -203,7 +189,7 @@ class TestAPIClient:
         with pytest.raises(APIError, match="missing 'response' field"):
             client.query("Test query")
 
-    def test_query_streaming_endpoint(self, mocker):
+    def test_query_streaming_endpoint(self, mocker: MockerFixture) -> None:
         """Test query to streaming endpoint."""
         config = APIConfig(
             enabled=True,
@@ -247,9 +233,10 @@ class TestAPIClient:
         assert result.response == "Streamed response"
         assert result.conversation_id == "conv_123"
 
-    def test_handle_response_errors_non_200(self, api_config, mocker):
+    def test_handle_response_errors_non_200(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test _handle_response_errors with non-200 status."""
-        import httpx
 
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
@@ -261,9 +248,13 @@ class TestAPIClient:
         mock_response.read.return_value = b'{"detail": "Not found"}'
 
         with pytest.raises(httpx.HTTPStatusError):
-            client._handle_response_errors(mock_response)
+            client._handle_response_errors(  # pylint: disable=protected-access
+                mock_response
+            )
 
-    def test_extract_error_message_with_detail(self, api_config, mocker):
+    def test_extract_error_message_with_detail(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test _extract_error_message with detail field."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
@@ -272,10 +263,14 @@ class TestAPIClient:
         mock_response = mocker.Mock()
         mock_response.read.return_value = b'{"detail": "Error message"}'
 
-        error_msg = client._extract_error_message(mock_response)
+        error_msg = client._extract_error_message(  # pylint: disable=protected-access
+            mock_response
+        )
         assert "Error message" in error_msg
 
-    def test_extract_error_message_with_nested_detail(self, api_config, mocker):
+    def test_extract_error_message_with_nested_detail(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test _extract_error_message with nested detail."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
@@ -286,11 +281,15 @@ class TestAPIClient:
             b'{"detail": {"response": "Error", "cause": "Reason"}}'
         )
 
-        error_msg = client._extract_error_message(mock_response)
+        error_msg = client._extract_error_message(  # pylint: disable=protected-access
+            mock_response
+        )
         assert "Error" in error_msg
         assert "Reason" in error_msg
 
-    def test_standard_query_formats_tool_calls(self, api_config, mocker):
+    def test_standard_query_formats_tool_calls(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test that standard query formats tool calls correctly."""
         mock_response = mocker.Mock()
         mock_response.status_code = 200
@@ -325,7 +324,9 @@ class TestAPIClient:
 class TestAPIClientConfiguration:
     """Additional tests for APIClient configuration and initialization."""
 
-    def test_initialization_streaming_endpoint(self, basic_api_config, mocker):
+    def test_initialization_streaming_endpoint(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test client initialization with streaming endpoint."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
@@ -336,7 +337,9 @@ class TestAPIClientConfiguration:
         assert client.timeout == 30
         assert client.cache is None
 
-    def test_initialization_with_cache(self, tmp_path, mocker):
+    def test_initialization_with_cache(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test client initialization with cache enabled."""
         config = APIConfig(
             enabled=True,
@@ -357,7 +360,9 @@ class TestAPIClientConfiguration:
         assert client.cache is not None
         mock_cache.assert_called_once_with(str(tmp_path / "test_cache"))
 
-    def test_validate_endpoint_type_valid(self, basic_api_config, mocker):
+    def test_validate_endpoint_type_valid(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test validation with valid endpoint type."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
@@ -365,7 +370,9 @@ class TestAPIClientConfiguration:
         client = APIClient(basic_api_config)
         assert client.endpoint_type == "streaming"
 
-    def test_setup_client_with_api_key(self, basic_api_config, mocker):
+    def test_setup_client_with_api_key(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test client setup includes API key from environment."""
         mocker.patch.dict("os.environ", {"API_KEY": "test_secret_key"})
         mock_client = mocker.Mock()
@@ -379,7 +386,9 @@ class TestAPIClientConfiguration:
         # Verify headers were updated (should include Authorization header)
         assert mock_client.headers.update.call_count >= 1
 
-    def test_query_requires_initialized_client(self, basic_api_config, mocker):
+    def test_query_requires_initialized_client(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query fails if client not initialized."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
@@ -389,33 +398,43 @@ class TestAPIClientConfiguration:
         with pytest.raises(APIError, match="not initialized"):
             client.query("test query")
 
-    def test_prepare_request_basic(self, basic_api_config, mocker):
+    def test_prepare_request_basic(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test request preparation with basic parameters."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config)
-        request = client._prepare_request("What is Python?")
+        request = client._prepare_request(  # pylint: disable=protected-access
+            "What is Python?"
+        )
 
         assert request.query == "What is Python?"
         assert request.provider == "openai"
         assert request.model == "gpt-4"
 
-    def test_prepare_request_with_conversation_id(self, basic_api_config, mocker):
+    def test_prepare_request_with_conversation_id(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test request preparation with conversation ID."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config)
-        request = client._prepare_request("Follow-up", conversation_id="conv_123")
+        request = client._prepare_request(  # pylint: disable=protected-access
+            "Follow-up", conversation_id="conv_123"
+        )
 
         assert request.query == "Follow-up"
         assert request.conversation_id == "conv_123"
 
-    def test_prepare_request_with_attachments(self, basic_api_config, mocker):
+    def test_prepare_request_with_attachments(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test request preparation with attachments."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config)
-        request = client._prepare_request(
+        request = client._prepare_request(  # pylint: disable=protected-access
             "Analyze this", attachments=["file1.txt", "file2.pdf"]
         )
 
@@ -423,7 +442,9 @@ class TestAPIClientConfiguration:
         # Attachments may be processed, just verify they're present in some form
         assert hasattr(request, "attachments")
 
-    def test_close_client(self, basic_api_config, mocker):
+    def test_close_client(
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test closing the HTTP client."""
         mock_http_client = mocker.Mock()
         mocker.patch(
@@ -436,7 +457,9 @@ class TestAPIClientConfiguration:
 
         mock_http_client.close.assert_called_once()
 
-    def test_get_cache_key_generates_consistent_hash(self, tmp_path, mocker):
+    def test_get_cache_key_generates_consistent_hash(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test cache key generation is consistent for same request."""
         config = APIConfig(
             enabled=True,
@@ -455,11 +478,15 @@ class TestAPIClientConfiguration:
         client = APIClient(config)
 
         # Create identical requests
-        request1 = client._prepare_request("test query")
-        request2 = client._prepare_request("test query")
+        request1 = client._prepare_request(  # pylint: disable=protected-access
+            "test query"
+        )
+        request2 = client._prepare_request(  # pylint: disable=protected-access
+            "test query"
+        )
 
-        key1 = client._get_cache_key(request1)
-        key2 = client._get_cache_key(request2)
+        key1 = client._get_cache_key(request1)  # pylint: disable=protected-access
+        key2 = client._get_cache_key(request2)  # pylint: disable=protected-access
 
         # Same request should generate same cache key
         assert key1 == key2
@@ -467,8 +494,8 @@ class TestAPIClientConfiguration:
         assert len(key1) > 0
 
     def test_client_initialization_sets_content_type_header(
-        self, basic_api_config, mocker
-    ):
+        self, basic_api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test client initialization sets Content-Type header."""
         mock_client = mocker.Mock()
         mocker.patch(
@@ -485,7 +512,7 @@ class TestAPIClientConfiguration:
             for call in calls
         )
 
-    def test_standard_endpoint_initialization(self, mocker):
+    def test_standard_endpoint_initialization(self, mocker: MockerFixture) -> None:
         """Test initialization with standard (non-streaming) endpoint."""
         config = APIConfig(
             enabled=True,

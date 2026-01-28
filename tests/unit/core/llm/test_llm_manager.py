@@ -1,28 +1,18 @@
 """Unit tests for LLM Manager."""
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import LLMConfig, SystemConfig
 from lightspeed_evaluation.core.llm.manager import LLMManager
 
 
-@pytest.fixture
-def basic_llm_config():
-    """Create basic LLM configuration."""
-    return LLMConfig(
-        provider="openai",
-        model="gpt-4",
-        temperature=0.0,
-        max_tokens=512,
-        timeout=60,
-        num_retries=3,
-    )
-
-
 class TestLLMManager:
     """Tests for LLMManager."""
 
-    def test_initialization_openai(self, basic_llm_config, mocker):
+    def test_initialization_openai(
+        self, basic_llm_config: LLMConfig, mocker: MockerFixture
+    ) -> None:
         """Test initialization with OpenAI provider."""
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
 
@@ -31,7 +21,7 @@ class TestLLMManager:
         assert manager.model_name == "gpt-4"
         assert manager.config.provider == "openai"
 
-    def test_initialization_azure(self, mocker):
+    def test_initialization_azure(self, mocker: MockerFixture) -> None:
         """Test initialization with Azure provider."""
         config = LLMConfig(
             provider="azure",
@@ -45,7 +35,7 @@ class TestLLMManager:
 
         assert "azure" in manager.model_name
 
-    def test_initialization_azure_with_deployment(self, mocker):
+    def test_initialization_azure_with_deployment(self, mocker: MockerFixture) -> None:
         """Test initialization with Azure deployment name."""
         config = LLMConfig(
             provider="azure",
@@ -59,7 +49,7 @@ class TestLLMManager:
 
         assert manager.model_name == "azure/my-deployment"
 
-    def test_initialization_watsonx(self, mocker):
+    def test_initialization_watsonx(self, mocker: MockerFixture) -> None:
         """Test initialization with WatsonX provider."""
         config = LLMConfig(
             provider="watsonx",
@@ -72,7 +62,7 @@ class TestLLMManager:
 
         assert manager.model_name == "watsonx/ibm/granite-13b"
 
-    def test_initialization_anthropic(self, mocker):
+    def test_initialization_anthropic(self, mocker: MockerFixture) -> None:
         """Test initialization with Anthropic provider."""
         config = LLMConfig(
             provider="anthropic",
@@ -85,7 +75,7 @@ class TestLLMManager:
 
         assert manager.model_name == "anthropic/claude-3-opus"
 
-    def test_initialization_gemini(self, mocker):
+    def test_initialization_gemini(self, mocker: MockerFixture) -> None:
         """Test initialization with Gemini provider."""
         config = LLMConfig(
             provider="gemini",
@@ -98,7 +88,7 @@ class TestLLMManager:
 
         assert manager.model_name == "gemini/gemini-pro"
 
-    def test_initialization_vertex(self, mocker):
+    def test_initialization_vertex(self, mocker: MockerFixture) -> None:
         """Test initialization with Vertex AI provider."""
         config = LLMConfig(
             provider="vertex",
@@ -111,7 +101,7 @@ class TestLLMManager:
 
         assert manager.model_name == "gemini-pro"
 
-    def test_initialization_ollama(self, mocker):
+    def test_initialization_ollama(self, mocker: MockerFixture) -> None:
         """Test initialization with Ollama provider."""
         config = LLMConfig(
             provider="ollama",
@@ -124,7 +114,7 @@ class TestLLMManager:
 
         assert manager.model_name == "ollama/llama2"
 
-    def test_initialization_hosted_vllm(self, mocker):
+    def test_initialization_hosted_vllm(self, mocker: MockerFixture) -> None:
         """Test initialization with hosted vLLM provider."""
         config = LLMConfig(
             provider="hosted_vllm",
@@ -137,7 +127,9 @@ class TestLLMManager:
 
         assert manager.model_name == "hosted_vllm/mistral-7b"
 
-    def test_initialization_generic_provider(self, basic_llm_config, mocker, capsys):
+    def test_initialization_generic_provider(
+        self, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    ) -> None:
         """Test initialization with unknown/generic provider."""
         config = LLMConfig(
             provider="custom_provider",
@@ -155,7 +147,9 @@ class TestLLMManager:
         captured = capsys.readouterr()
         assert "generic" in captured.out.lower() or "warning" in captured.out.lower()
 
-    def test_get_model_name(self, basic_llm_config, mocker):
+    def test_get_model_name(
+        self, basic_llm_config: LLMConfig, mocker: MockerFixture
+    ) -> None:
         """Test get_model_name method."""
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
 
@@ -163,7 +157,9 @@ class TestLLMManager:
 
         assert manager.get_model_name() == "gpt-4"
 
-    def test_get_llm_params(self, basic_llm_config, mocker):
+    def test_get_llm_params(
+        self, basic_llm_config: LLMConfig, mocker: MockerFixture
+    ) -> None:
         """Test get_llm_params method."""
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
 
@@ -176,7 +172,9 @@ class TestLLMManager:
         assert params["timeout"] == 60
         assert params["num_retries"] == 3
 
-    def test_get_config(self, basic_llm_config, mocker):
+    def test_get_config(
+        self, basic_llm_config: LLMConfig, mocker: MockerFixture
+    ) -> None:
         """Test get_config method."""
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
 
@@ -187,7 +185,7 @@ class TestLLMManager:
         assert config.provider == "openai"
         assert config.model == "gpt-4"
 
-    def test_from_system_config(self, mocker):
+    def test_from_system_config(self, mocker: MockerFixture) -> None:
         """Test creating manager from SystemConfig."""
         system_config = SystemConfig()
         system_config.llm = LLMConfig(
@@ -203,7 +201,9 @@ class TestLLMManager:
         assert manager.config.model == "gpt-3.5-turbo"
         assert manager.config.temperature == 0.5
 
-    def test_from_llm_config(self, basic_llm_config, mocker):
+    def test_from_llm_config(
+        self, basic_llm_config: LLMConfig, mocker: MockerFixture
+    ) -> None:
         """Test creating manager from LLMConfig."""
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
 
@@ -211,7 +211,7 @@ class TestLLMManager:
 
         assert manager.config == basic_llm_config
 
-    def test_llm_params_with_custom_values(self, mocker):
+    def test_llm_params_with_custom_values(self, mocker: MockerFixture) -> None:
         """Test LLM params with custom configuration values."""
         config = LLMConfig(
             provider="openai",
@@ -231,7 +231,12 @@ class TestLLMManager:
         assert params["timeout"] == 120
         assert params["num_retries"] == 5
 
-    def test_initialization_prints_message(self, basic_llm_config, mocker, capsys):
+    def test_initialization_prints_message(
+        self,
+        basic_llm_config: LLMConfig,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
         """Test that initialization prints configuration message."""
         mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
 

@@ -1,8 +1,13 @@
 """Unit tests for ConversationProcessor."""
 
-import pytest
+from typing import Callable
+import logging
 
-from lightspeed_evaluation.core.metrics.manager import MetricManager
+import pytest
+from _pytest.logging import LogCaptureFixture
+from pytest_mock import MockerFixture
+
+from lightspeed_evaluation.core.metrics.manager import MetricLevel
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationRequest,
@@ -10,13 +15,8 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
-from lightspeed_evaluation.core.script import (
-    ScriptExecutionError,
-    ScriptExecutionManager,
-)
+from lightspeed_evaluation.core.script import ScriptExecutionError
 from lightspeed_evaluation.core.system.loader import ConfigLoader
-from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
-from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
     ConversationProcessor,
@@ -24,57 +24,14 @@ from lightspeed_evaluation.pipeline.evaluation.processor import (
 )
 
 
-@pytest.fixture
-def mock_config_loader(mocker):
-    """Create a mock config loader."""
-    loader = mocker.Mock(spec=ConfigLoader)
-    config = SystemConfig()
-    config.api.enabled = False
-    loader.system_config = config
-    return loader
-
-
-@pytest.fixture
-def processor_components(mocker):
-    """Create processor components."""
-    metrics_evaluator = mocker.Mock(spec=MetricsEvaluator)
-    api_amender = mocker.Mock(spec=APIDataAmender)
-    error_handler = mocker.Mock(spec=EvaluationErrorHandler)
-    metric_manager = mocker.Mock(spec=MetricManager)
-    script_manager = mocker.Mock(spec=ScriptExecutionManager)
-
-    # Default behavior for metric resolution
-    metric_manager.resolve_metrics.return_value = ["ragas:faithfulness"]
-
-    return ProcessorComponents(
-        metrics_evaluator=metrics_evaluator,
-        api_amender=api_amender,
-        error_handler=error_handler,
-        metric_manager=metric_manager,
-        script_manager=script_manager,
-    )
-
-
-@pytest.fixture
-def sample_conv_data():
-    """Create sample conversation data."""
-    turn1 = TurnData(
-        turn_id="turn1",
-        query="What is Python?",
-        response="Python is a programming language.",
-        contexts=["Context"],
-        turn_metrics=["ragas:faithfulness"],
-    )
-    return EvaluationData(
-        conversation_group_id="conv1",
-        turns=[turn1],
-    )
-
-
 class TestConversationProcessor:
     """Unit tests for ConversationProcessor."""
 
-    def test_initialization(self, mock_config_loader, processor_components):
+    def test_initialization(
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+    ) -> None:
         """Test processor initialization."""
         processor = ConversationProcessor(mock_config_loader, processor_components)
 
@@ -83,8 +40,12 @@ class TestConversationProcessor:
         assert processor.components == processor_components
 
     def test_process_conversation_skips_when_no_metrics(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test processing skips when no metrics specified."""
         # Mock metric manager to return empty lists
         processor_components.metric_manager.resolve_metrics.return_value = []
@@ -95,15 +56,16 @@ class TestConversationProcessor:
         assert len(results) == 0
 
     def test_process_conversation_turn_metrics(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test processing with turn-level metrics."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
         # Configure metric manager to return turn metrics and empty conversation metrics
-        def resolve_side_effect(metrics, level):
-            from lightspeed_evaluation.core.metrics.manager import MetricLevel
-
+        def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
             if level == MetricLevel.TURN:
                 return ["ragas:faithfulness"]
             return []
@@ -134,10 +96,12 @@ class TestConversationProcessor:
         assert all(r.result == "PASS" for r in results)
 
     def test_process_conversation_conversation_metrics(
-        self, mock_config_loader, processor_components, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test processing with conversation-level metrics."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
         turn1 = TurnData(turn_id="turn1", query="Q", response="R")
         conv_data = EvaluationData(
@@ -147,9 +111,7 @@ class TestConversationProcessor:
         )
 
         # Mock metric resolution
-        def resolve_side_effect(metrics, level):
-            from lightspeed_evaluation.core.metrics.manager import MetricLevel
-
+        def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
             if level == MetricLevel.TURN:
                 return []
             return ["deepeval:conversation_completeness"]
@@ -178,18 +140,20 @@ class TestConversationProcessor:
         assert results[0].turn_id is None  # Conversation-level
 
     def test_process_conversation_with_setup_script_success(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test processing with successful setup script."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
         sample_conv_data.setup_script = "setup.sh"
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         # Configure metric manager to return turn metrics and empty conversation metrics
-        def resolve_side_effect(metrics, level):
-            from lightspeed_evaluation.core.metrics.manager import MetricLevel
-
+        def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
             if level == MetricLevel.TURN:
                 return ["ragas:faithfulness"]
             return []
@@ -225,10 +189,15 @@ class TestConversationProcessor:
         assert len(results) > 0
 
     def test_process_conversation_with_setup_script_failure(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test processing handles setup script failure."""
         sample_conv_data.setup_script = "setup.sh"
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         processor_components.script_manager.run_script.side_effect = (
@@ -242,18 +211,20 @@ class TestConversationProcessor:
         processor_components.error_handler.mark_all_metrics_as_error.assert_called_once()
 
     def test_process_conversation_with_cleanup_script(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test cleanup script is always called."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
         sample_conv_data.cleanup_script = "cleanup.sh"
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         # Configure metric manager to return turn metrics and empty conversation metrics
-        def resolve_side_effect(metrics, level):
-            from lightspeed_evaluation.core.metrics.manager import MetricLevel
-
+        def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
             if level == MetricLevel.TURN:
                 return ["ragas:faithfulness"]
             return []
@@ -290,17 +261,19 @@ class TestConversationProcessor:
         assert any("cleanup.sh" in str(call) for call in calls)
 
     def test_process_conversation_with_api_amendment(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test API amendment during turn processing."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         # Configure metric manager to return turn metrics and empty conversation metrics
-        def resolve_side_effect(metrics, level):
-            from lightspeed_evaluation.core.metrics.manager import MetricLevel
-
+        def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
             if level == MetricLevel.TURN:
                 return ["ragas:faithfulness"]
             return []
@@ -335,9 +308,13 @@ class TestConversationProcessor:
         assert len(results) > 0
 
     def test_process_conversation_with_api_error_cascade(
-        self, mock_config_loader, processor_components, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test API error causes cascade failure."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         # Create multi-turn conversation
@@ -373,10 +350,13 @@ class TestConversationProcessor:
         processor_components.error_handler.mark_cascade_error.assert_called_once()
 
     def test_evaluate_turn(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test _evaluate_turn method."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
@@ -392,7 +372,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor._evaluate_turn(
+        results = processor._evaluate_turn(  # pylint: disable=protected-access
             sample_conv_data, 0, sample_conv_data.turns[0], ["ragas:faithfulness"]
         )
 
@@ -400,10 +380,13 @@ class TestConversationProcessor:
         assert results[0].result == "PASS"
 
     def test_evaluate_conversation(
-        self, mock_config_loader, processor_components, sample_conv_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+        mocker: MockerFixture,  # pylint: disable=unused-argument
+    ) -> None:
         """Test _evaluate_conversation method."""
-        from lightspeed_evaluation.core.models import EvaluationResult
 
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
@@ -419,7 +402,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor._evaluate_conversation(
+        results = processor._evaluate_conversation(  # pylint: disable=protected-access
             sample_conv_data, ["deepeval:conversation_completeness"]
         )
 
@@ -427,46 +410,67 @@ class TestConversationProcessor:
         assert results[0].turn_id is None
 
     def test_run_setup_script_skips_when_api_disabled(
-        self, mock_config_loader, processor_components, sample_conv_data
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+    ) -> None:
         """Test setup script is skipped when API disabled."""
         sample_conv_data.setup_script = "setup.sh"
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = False
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        error = processor._run_setup_script(sample_conv_data)
+        error = processor._run_setup_script(  # pylint: disable=protected-access
+            sample_conv_data
+        )
 
         assert error is None
         processor_components.script_manager.run_script.assert_not_called()
 
     def test_run_cleanup_script_skips_when_api_disabled(
-        self, mock_config_loader, processor_components, sample_conv_data
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+    ) -> None:
         """Test cleanup script is skipped when API disabled."""
         sample_conv_data.cleanup_script = "cleanup.sh"
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = False
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor._run_cleanup_script(sample_conv_data)
+        processor._run_cleanup_script(  # pylint: disable=protected-access
+            sample_conv_data
+        )
 
         processor_components.script_manager.run_script.assert_not_called()
 
     def test_run_cleanup_script_logs_warning_on_failure(
-        self, mock_config_loader, processor_components, sample_conv_data
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+    ) -> None:
         """Test cleanup script failure is logged as warning."""
         sample_conv_data.cleanup_script = "cleanup.sh"
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         processor_components.script_manager.run_script.return_value = False
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
         # Should not raise, just log warning
-        processor._run_cleanup_script(sample_conv_data)
+        processor._run_cleanup_script(  # pylint: disable=protected-access
+            sample_conv_data
+        )
 
     def test_get_metrics_summary(
-        self, mock_config_loader, processor_components, sample_conv_data
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        sample_conv_data: EvaluationData,
+    ) -> None:
         """Test get_metrics_summary method."""
         processor_components.metric_manager.count_metrics_for_conversation.return_value = {
             "turn_metrics": 2,
@@ -480,118 +484,12 @@ class TestConversationProcessor:
         assert summary["conversation_metrics"] == 1
 
 
-# Fixtures for TestConversationProcessorEvaluateTurn
-@pytest.fixture
-def config_loader(mocker):
-    """Create a mock config loader with system config."""
-    loader = mocker.Mock(spec=ConfigLoader)
-
-    config = SystemConfig()
-    config.default_turn_metrics_metadata = {
-        "ragas:faithfulness": {"threshold": 0.7, "default": True},
-        "custom:answer_correctness": {"threshold": 0.8, "default": False},
-    }
-    config.default_conversation_metrics_metadata = {
-        "deepeval:conversation_completeness": {"threshold": 0.6, "default": True},
-    }
-    config.api.enabled = False
-
-    loader.system_config = config
-    return loader
-
-
-@pytest.fixture
-def mock_metrics_evaluator(mocker):
-    """Create a mock metrics evaluator."""
-    evaluator = mocker.Mock(spec=MetricsEvaluator)
-
-    def evaluate_metric(request):
-        """Mock evaluate_metric that returns a result based on metric."""
-        return EvaluationResult(
-            conversation_group_id=request.conv_data.conversation_group_id,
-            turn_id=request.turn_id,
-            metric_identifier=request.metric_identifier,
-            result="PASS",
-            score=0.85,
-            reason="Test evaluation",
-            threshold=0.7,
-        )
-
-    evaluator.evaluate_metric.side_effect = evaluate_metric
-    return evaluator
-
-
-@pytest.fixture
-def mock_api_amender(mocker):
-    """Create a mock API data amender."""
-    amender = mocker.Mock(spec=APIDataAmender)
-    return amender
-
-
-@pytest.fixture
-def mock_error_handler(mocker):
-    """Create a mock error handler."""
-    handler = mocker.Mock(spec=EvaluationErrorHandler)
-
-    # Configure create_error_result to return a proper EvaluationResult
-    def create_error_result_side_effect(
-        conv_id, metric_id, reason, *, turn_id=None, query=""
-    ):
-        return EvaluationResult(
-            conversation_group_id=conv_id,
-            turn_id=turn_id,
-            metric_identifier=metric_id,
-            result="ERROR",
-            reason=reason,
-            query=query,
-        )
-
-    handler.create_error_result.side_effect = create_error_result_side_effect
-    return handler
-
-
-@pytest.fixture
-def mock_metric_manager(mocker):
-    """Create a mock metric manager."""
-    manager = mocker.Mock(spec=MetricManager)
-    return manager
-
-
-@pytest.fixture
-def mock_script_manager(mocker):
-    """Create a mock script execution manager."""
-    manager = mocker.Mock(spec=ScriptExecutionManager)
-    return manager
-
-
-@pytest.fixture
-def processor_components_pr(
-    mock_metrics_evaluator,
-    mock_api_amender,
-    mock_error_handler,
-    mock_metric_manager,
-    mock_script_manager,
-):
-    """Create processor components fixture for PR tests."""
-    return ProcessorComponents(
-        metrics_evaluator=mock_metrics_evaluator,
-        api_amender=mock_api_amender,
-        error_handler=mock_error_handler,
-        metric_manager=mock_metric_manager,
-        script_manager=mock_script_manager,
-    )
-
-
-@pytest.fixture
-def processor(config_loader, processor_components_pr):
-    """Create ConversationProcessor instance for PR tests."""
-    return ConversationProcessor(config_loader, processor_components_pr)
-
-
 class TestConversationProcessorEvaluateTurn:
     """Unit tests for ConversationProcessor._evaluate_turn method."""
 
-    def test_evaluate_turn_with_valid_metrics(self, processor, mock_metrics_evaluator):
+    def test_evaluate_turn_with_valid_metrics(
+        self, processor: ConversationProcessor, mock_metrics_evaluator: MetricsEvaluator
+    ) -> None:
         """Test _evaluate_turn with all valid metrics."""
         turn_data = TurnData(
             turn_id="1",
@@ -603,7 +501,9 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
-        results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+        results = processor._evaluate_turn(  # pylint: disable=protected-access
+            conv_data, 0, turn_data, turn_metrics
+        )
 
         # Should evaluate both metrics
         assert len(results) == 2
@@ -618,10 +518,12 @@ class TestConversationProcessorEvaluateTurn:
         assert calls[1][0][0].metric_identifier == "custom:answer_correctness"
 
     def test_evaluate_turn_with_invalid_metric(
-        self, processor, mock_metrics_evaluator, caplog
-    ):
+        self,
+        processor: ConversationProcessor,
+        mock_metrics_evaluator: MetricsEvaluator,
+        caplog: LogCaptureFixture,
+    ) -> None:
         """Test _evaluate_turn with an invalid metric - creates ERROR result and logs error."""
-        import logging
 
         turn_data = TurnData(
             turn_id="1",
@@ -637,7 +539,9 @@ class TestConversationProcessorEvaluateTurn:
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
         with caplog.at_level(logging.ERROR):
-            results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+            results = processor._evaluate_turn(  # pylint: disable=protected-access
+                conv_data, 0, turn_data, turn_metrics
+            )
 
         # Should get 2 results: 1 ERROR for invalid metric, 1 PASS for valid metric
         assert len(results) == 2
@@ -658,10 +562,12 @@ class TestConversationProcessorEvaluateTurn:
         assert "check Validation Errors" in caplog.text
 
     def test_evaluate_turn_with_all_invalid_metrics(
-        self, processor, mock_metrics_evaluator, caplog
-    ):
+        self,
+        processor: ConversationProcessor,
+        mock_metrics_evaluator: MetricsEvaluator,
+        caplog: LogCaptureFixture,
+    ) -> None:
         """Test _evaluate_turn with all metrics invalid - returns ERROR results."""
-        import logging
 
         turn_data = TurnData(
             turn_id="1",
@@ -678,7 +584,9 @@ class TestConversationProcessorEvaluateTurn:
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
         with caplog.at_level(logging.ERROR):
-            results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+            results = processor._evaluate_turn(  # pylint: disable=protected-access
+                conv_data, 0, turn_data, turn_metrics
+            )
 
         # Should return ERROR results for both invalid metrics
         assert len(results) == 2
@@ -694,10 +602,12 @@ class TestConversationProcessorEvaluateTurn:
         assert "Invalid turn metric 'custom:answer_correctness'" in caplog.text
 
     def test_evaluate_turn_with_mixed_valid_invalid_metrics(
-        self, processor, mock_metrics_evaluator, caplog
-    ):
+        self,
+        processor: ConversationProcessor,
+        mock_metrics_evaluator: MetricsEvaluator,
+        caplog: LogCaptureFixture,
+    ) -> None:
         """Test _evaluate_turn with mix of valid and invalid metrics."""
-        import logging
 
         turn_data = TurnData(
             turn_id="1",
@@ -717,7 +627,9 @@ class TestConversationProcessorEvaluateTurn:
         ]
 
         with caplog.at_level(logging.ERROR):
-            results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+            results = processor._evaluate_turn(  # pylint: disable=protected-access
+                conv_data, 0, turn_data, turn_metrics
+            )
 
         # Should get 3 results: 2 valid metrics (PASS) and 1 invalid metric (ERROR)
         assert len(results) == 3
@@ -734,7 +646,9 @@ class TestConversationProcessorEvaluateTurn:
         # Verify error was logged for invalid metric
         assert "Invalid turn metric 'custom:answer_correctness'" in caplog.text
 
-    def test_evaluate_turn_with_empty_metrics(self, processor, mock_metrics_evaluator):
+    def test_evaluate_turn_with_empty_metrics(
+        self, processor: ConversationProcessor, mock_metrics_evaluator: MetricsEvaluator
+    ) -> None:
         """Test _evaluate_turn with empty metrics list."""
         turn_data = TurnData(
             turn_id="1",
@@ -743,9 +657,11 @@ class TestConversationProcessorEvaluateTurn:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
-        turn_metrics = []
+        turn_metrics: list[str] = []
 
-        results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+        results = processor._evaluate_turn(  # pylint: disable=protected-access
+            conv_data, 0, turn_data, turn_metrics
+        )
 
         # Should return empty results
         assert len(results) == 0
@@ -754,8 +670,8 @@ class TestConversationProcessorEvaluateTurn:
         assert mock_metrics_evaluator.evaluate_metric.call_count == 0
 
     def test_evaluate_turn_creates_correct_request(
-        self, processor, mock_metrics_evaluator
-    ):
+        self, processor: ConversationProcessor, mock_metrics_evaluator: MetricsEvaluator
+    ) -> None:
         """Test _evaluate_turn creates correct EvaluationRequest."""
         turn_data = TurnData(
             turn_id="turn_123",
@@ -767,7 +683,9 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics = ["ragas:faithfulness"]
 
-        processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+        processor._evaluate_turn(  # pylint: disable=protected-access
+            conv_data, 0, turn_data, turn_metrics
+        )
 
         # Verify the request structure
         assert mock_metrics_evaluator.evaluate_metric.call_count == 1
@@ -780,8 +698,8 @@ class TestConversationProcessorEvaluateTurn:
         assert call_args.turn_idx == 0
 
     def test_evaluate_turn_handles_evaluator_returning_none(
-        self, processor, mock_metrics_evaluator
-    ):
+        self, processor: ConversationProcessor, mock_metrics_evaluator: MetricsEvaluator
+    ) -> None:
         """Test _evaluate_turn handles when evaluator returns None."""
         turn_data = TurnData(
             turn_id="1",
@@ -796,7 +714,9 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics = ["ragas:faithfulness"]
 
-        results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+        results = processor._evaluate_turn(  # pylint: disable=protected-access
+            conv_data, 0, turn_data, turn_metrics
+        )
 
         # Should return empty results when evaluator returns None
         assert len(results) == 0
@@ -805,8 +725,8 @@ class TestConversationProcessorEvaluateTurn:
         assert mock_metrics_evaluator.evaluate_metric.call_count == 1
 
     def test_evaluate_turn_multiple_turns_correct_index(
-        self, processor, mock_metrics_evaluator
-    ):
+        self, processor: ConversationProcessor, mock_metrics_evaluator: MetricsEvaluator
+    ) -> None:
         """Test _evaluate_turn uses correct turn index."""
         turn_data_1 = TurnData(turn_id="1", query="Q1", response="R1")
         turn_data_2 = TurnData(turn_id="2", query="Q2", response="R2")
@@ -820,7 +740,9 @@ class TestConversationProcessorEvaluateTurn:
         turn_metrics = ["ragas:faithfulness"]
 
         # Evaluate second turn (index 1)
-        processor._evaluate_turn(conv_data, 1, turn_data_2, turn_metrics)
+        processor._evaluate_turn(  # pylint: disable=protected-access
+            conv_data, 1, turn_data_2, turn_metrics
+        )
 
         # Verify correct turn index
         call_args = mock_metrics_evaluator.evaluate_metric.call_args[0][0]
@@ -828,8 +750,8 @@ class TestConversationProcessorEvaluateTurn:
         assert call_args.turn_id == "2"
 
     def test_evaluate_turn_preserves_metric_order(
-        self, processor, mock_metrics_evaluator
-    ):
+        self, processor: ConversationProcessor, mock_metrics_evaluator: MetricsEvaluator
+    ) -> None:
         """Test _evaluate_turn evaluates metrics in the order provided."""
         turn_data = TurnData(
             turn_id="1",
@@ -844,7 +766,9 @@ class TestConversationProcessorEvaluateTurn:
             "ragas:context_recall",
         ]
 
-        processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
+        processor._evaluate_turn(  # pylint: disable=protected-access
+            conv_data, 0, turn_data, turn_metrics
+        )
 
         # Verify metrics were evaluated in order
         assert mock_metrics_evaluator.evaluate_metric.call_count == 3
@@ -854,7 +778,7 @@ class TestConversationProcessorEvaluateTurn:
         assert calls[1][0][0].metric_identifier == "ragas:faithfulness"
         assert calls[2][0][0].metric_identifier == "ragas:context_recall"
 
-    def test_is_metric_invalid_functionality(self):
+    def test_is_metric_invalid_functionality(self) -> None:
         """Test TurnData.is_metric_invalid and add_invalid_metric methods."""
         turn_data = TurnData(turn_id="1", query="Q", response="R")
 
@@ -886,7 +810,7 @@ class TestSkipOnFailure:
     """Unit tests for skip_on_failure feature."""
 
     @pytest.fixture
-    def multi_turn_conv_data(self):
+    def multi_turn_conv_data(self) -> EvaluationData:
         """Create conversation data with multiple turns."""
         turns = [
             TurnData(
@@ -904,10 +828,12 @@ class TestSkipOnFailure:
         )
 
     @pytest.fixture
-    def config_loader_factory(self, mocker):
+    def config_loader_factory(
+        self, mocker: MockerFixture
+    ) -> Callable[[bool], ConfigLoader]:
         """Factory to create config loader with configurable skip_on_failure."""
 
-        def _create(skip_on_failure: bool):
+        def _create(skip_on_failure: bool) -> ConfigLoader:
             loader = mocker.Mock(spec=ConfigLoader)
             config = SystemConfig()
             config.api.enabled = False
@@ -926,14 +852,14 @@ class TestSkipOnFailure:
             (True, False, False),  # System enabled, conv disables
         ],
     )
-    def test_is_skip_on_failure_enabled(
+    def test_is_skip_on_failure_enabled(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
-        config_loader_factory,
-        processor_components,
-        system_skip,
-        conv_skip,
-        expected,
-    ):
+        config_loader_factory: Callable[[bool], ConfigLoader],
+        processor_components: ProcessorComponents,
+        system_skip: bool,
+        conv_skip: bool,
+        expected: bool,
+    ) -> None:
         """Test skip_on_failure resolution from system config and conversation override."""
         conv_data = EvaluationData(
             conversation_group_id="test",
@@ -943,7 +869,12 @@ class TestSkipOnFailure:
         processor = ConversationProcessor(
             config_loader_factory(system_skip), processor_components
         )
-        assert processor._is_skip_on_failure_enabled(conv_data) is expected
+        assert (
+            processor._is_skip_on_failure_enabled(  # pylint: disable=protected-access
+                conv_data
+            )
+            is expected
+        )
 
     @pytest.mark.parametrize(
         "results_status,expected",
@@ -954,8 +885,12 @@ class TestSkipOnFailure:
         ],
     )
     def test_has_failure(
-        self, mock_config_loader, processor_components, results_status, expected
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        processor_components: ProcessorComponents,
+        results_status: list[str],
+        expected: bool,
+    ) -> None:
         """Test _has_failure detection for FAIL and ERROR results."""
         processor = ConversationProcessor(mock_config_loader, processor_components)
         results = [
@@ -964,17 +899,20 @@ class TestSkipOnFailure:
             )
             for i, status in enumerate(results_status)
         ]
-        assert processor._has_failure(results) is expected
+        assert (
+            processor._has_failure(results)  # pylint: disable=protected-access
+            is expected
+        )
 
     @pytest.mark.parametrize("skip_enabled,expect_skip", [(True, True), (False, False)])
-    def test_skip_on_failure_behavior(
+    def test_skip_on_failure_behavior(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
-        config_loader_factory,
-        processor_components,
-        multi_turn_conv_data,
-        skip_enabled,
-        expect_skip,
-    ):
+        config_loader_factory: Callable[[bool], ConfigLoader],
+        processor_components: ProcessorComponents,
+        multi_turn_conv_data: EvaluationData,
+        skip_enabled: bool,
+        expect_skip: bool,
+    ) -> None:
         """Test skip_on_failure skips remaining turns when enabled, continues when disabled."""
         # Configure metric manager
         processor_components.metric_manager.resolve_metrics.side_effect = [

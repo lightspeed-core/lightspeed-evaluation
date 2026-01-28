@@ -1,53 +1,22 @@
 """Unit tests for EvaluationPipeline."""
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
-    SystemConfig,
-    TurnData,
 )
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
 
 
-@pytest.fixture
-def mock_config_loader(mocker):
-    """Create a mock config loader with system config."""
-    loader = mocker.Mock(spec=ConfigLoader)
-
-    config = SystemConfig()
-    config.api.enabled = False
-    config.output.output_dir = "/tmp/test_output"
-    config.output.base_filename = "test"
-    config.core.max_threads = 2
-
-    loader.system_config = config
-    return loader
-
-
-@pytest.fixture
-def sample_evaluation_data():
-    """Create sample evaluation data."""
-    turn1 = TurnData(
-        turn_id="turn1",
-        query="What is Python?",
-        response="Python is a programming language.",
-        contexts=["Python context"],
-        turn_metrics=["ragas:faithfulness"],
-    )
-    conv_data = EvaluationData(
-        conversation_group_id="conv1",
-        turns=[turn1],
-    )
-    return [conv_data]
-
-
 class TestEvaluationPipeline:
     """Unit tests for EvaluationPipeline."""
 
-    def test_initialization_success(self, mock_config_loader, mocker):
+    def test_initialization_success(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
         """Test successful pipeline initialization."""
         # Mock components
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
@@ -74,7 +43,7 @@ class TestEvaluationPipeline:
         assert pipeline.system_config is not None
         assert pipeline.output_dir == "/tmp/test_output"
 
-    def test_initialization_without_config(self, mocker):
+    def test_initialization_without_config(self, mocker: MockerFixture) -> None:
         """Test initialization fails without system config."""
         loader = mocker.Mock(spec=ConfigLoader)
         loader.system_config = None
@@ -82,8 +51,11 @@ class TestEvaluationPipeline:
         with pytest.raises(ValueError, match="SystemConfig must be loaded"):
             EvaluationPipeline(loader)
 
-    def test_create_api_client_when_enabled(self, mock_config_loader, mocker):
+    def test_create_api_client_when_enabled(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
         """Test API client creation when enabled."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
         mock_config_loader.system_config.api.api_base = "http://test.com"
         mock_config_loader.system_config.api.endpoint_type = "test"
@@ -113,8 +85,11 @@ class TestEvaluationPipeline:
         assert pipeline.api_client is not None
         mock_api_client.assert_called_once()
 
-    def test_create_api_client_when_disabled(self, mock_config_loader, mocker):
+    def test_create_api_client_when_disabled(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
         """Test no API client when disabled."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = False
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
@@ -139,8 +114,11 @@ class TestEvaluationPipeline:
         assert pipeline.api_client is None
 
     def test_run_evaluation_success(
-        self, mock_config_loader, sample_evaluation_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        sample_evaluation_data: list[EvaluationData],
+        mocker: MockerFixture,
+    ) -> None:
         """Test successful evaluation run."""
         # Mock all components
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
@@ -182,9 +160,13 @@ class TestEvaluationPipeline:
         assert results[0].result == "PASS"
 
     def test_run_evaluation_saves_amended_data_when_api_enabled(
-        self, mock_config_loader, sample_evaluation_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        sample_evaluation_data: list[EvaluationData],
+        mocker: MockerFixture,
+    ) -> None:
         """Test amended data is saved when API is enabled."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
@@ -220,9 +202,13 @@ class TestEvaluationPipeline:
         mock_save.assert_called_once()
 
     def test_save_amended_data_handles_exception(
-        self, mock_config_loader, sample_evaluation_data, mocker
-    ):
+        self,
+        mock_config_loader: ConfigLoader,
+        sample_evaluation_data: list[EvaluationData],
+        mocker: MockerFixture,
+    ) -> None:
         """Test save amended data handles exceptions gracefully."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
@@ -259,8 +245,11 @@ class TestEvaluationPipeline:
 
         assert results is not None
 
-    def test_close_with_api_client(self, mock_config_loader, mocker):
+    def test_close_with_api_client(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
         """Test close method with API client."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = True
         mock_config_loader.system_config.api.api_base = "http://test.com"
         mock_config_loader.system_config.api.endpoint_type = "test"
@@ -302,8 +291,11 @@ class TestEvaluationPipeline:
 
         mock_api_client.close.assert_called_once()
 
-    def test_close_without_api_client(self, mock_config_loader, mocker):
+    def test_close_without_api_client(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
         """Test close method without API client."""
+        assert mock_config_loader.system_config is not None
         mock_config_loader.system_config.api.enabled = False
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
@@ -332,7 +324,9 @@ class TestEvaluationPipeline:
         # Should not raise any errors
         pipeline.close()
 
-    def test_output_dir_override(self, mock_config_loader, mocker):
+    def test_output_dir_override(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
         """Test output directory can be overridden."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(

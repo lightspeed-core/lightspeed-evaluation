@@ -3,6 +3,9 @@
 import logging
 import os
 
+from pytest_mock import MockerFixture
+from _pytest.capture import CaptureFixture
+
 from lightspeed_evaluation.core.models import LoggingConfig
 from lightspeed_evaluation.core.system.setup import (
     setup_environment_variables,
@@ -13,9 +16,9 @@ from lightspeed_evaluation.core.system.setup import (
 class TestSetupEnvironmentVariables:
     """Tests for environment variable setup."""
 
-    def test_setup_default_environment_variables(self, mocker):
+    def test_setup_default_environment_variables(self, mocker: MockerFixture) -> None:
         """Test setting up default environment variables."""
-        config_data = {}
+        config_data: dict = {}
 
         # Use mocker to patch os.environ
         mocker.patch.dict(os.environ, {}, clear=True)
@@ -34,7 +37,7 @@ class TestSetupEnvironmentVariables:
         assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
         mock_where.assert_called_once()
 
-    def test_setup_custom_environment_variables(self, mocker):
+    def test_setup_custom_environment_variables(self, mocker: MockerFixture) -> None:
         """Test setting up custom environment variables."""
         config_data = {
             "environment": {
@@ -58,7 +61,9 @@ class TestSetupEnvironmentVariables:
         assert os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] == "YES"
         assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
 
-    def test_setup_environment_variables_override_defaults(self, mocker):
+    def test_setup_environment_variables_override_defaults(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test overriding default environment variables."""
         config_data = {"environment": {"LITELLM_LOG": "DEBUG"}}
 
@@ -74,7 +79,9 @@ class TestSetupEnvironmentVariables:
         assert os.environ["LITELLM_LOG"] == "DEBUG"
         assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
 
-    def test_setup_environment_variables_handles_key_error(self, mocker, capsys):
+    def test_setup_environment_variables_handles_key_error(
+        self, mocker: MockerFixture, capsys: CaptureFixture
+    ) -> None:
         """Test handling of KeyError during environment setup."""
         config_data = {"environment": None}  # This will cause issues
 
@@ -95,7 +102,9 @@ class TestSetupEnvironmentVariables:
         captured = capsys.readouterr()
         assert "Warning" in captured.out or "fallback" in captured.out
 
-    def test_setup_environment_variables_handles_type_error(self, mocker, capsys):
+    def test_setup_environment_variables_handles_type_error(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test handling of TypeError during environment setup."""
         config_data = {"environment": "invalid_type"}
 
@@ -111,7 +120,9 @@ class TestSetupEnvironmentVariables:
         assert os.environ["RAGAS_DO_NOT_TRACK"] == "true"
         assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
 
-    def test_setup_ssl_certifi_bundle_set_when_ssl_cert_file_is_none(self, mocker):
+    def test_setup_ssl_certifi_bundle_set_when_ssl_cert_file_is_none(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test SSL_CERTIFI_BUNDLE is still set even when ssl_cert_file is None."""
         config_data = {"llm": {"ssl_verify": True, "ssl_cert_file": None}}
         mocker.patch.dict(os.environ, {}, clear=True)
@@ -129,7 +140,7 @@ class TestSetupEnvironmentVariables:
 class TestSetupLogging:
     """Tests for logging setup."""
 
-    def test_setup_logging_basic(self):
+    def test_setup_logging_basic(self) -> None:
         """Test basic logging setup."""
         logging_config = LoggingConfig(
             source_level="INFO",
@@ -143,7 +154,7 @@ class TestSetupLogging:
         assert logger.name == "lightspeed_evaluation"
         assert logger.level == logging.INFO
 
-    def test_setup_logging_debug_level(self):
+    def test_setup_logging_debug_level(self) -> None:
         """Test logging setup with DEBUG level."""
         logging_config = LoggingConfig(
             source_level="DEBUG",
@@ -155,7 +166,7 @@ class TestSetupLogging:
 
         assert logger.level == logging.DEBUG
 
-    def test_setup_logging_with_package_overrides(self):
+    def test_setup_logging_with_package_overrides(self) -> None:
         """Test logging setup with package overrides."""
         logging_config = LoggingConfig(
             source_level="INFO",
@@ -179,7 +190,7 @@ class TestSetupLogging:
         urllib3_logger = logging.getLogger("urllib3")
         assert urllib3_logger.level == logging.CRITICAL
 
-    def test_setup_logging_sets_default_noisy_packages(self):
+    def test_setup_logging_sets_default_noisy_packages(self) -> None:
         """Test that noisy packages get default levels set."""
         logging_config = LoggingConfig(
             source_level="INFO",
@@ -193,7 +204,9 @@ class TestSetupLogging:
         matplotlib_logger = logging.getLogger("matplotlib")
         assert matplotlib_logger.level == logging.ERROR
 
-    def test_setup_logging_handles_invalid_override_level(self, capsys):
+    def test_setup_logging_handles_invalid_override_level(
+        self, capsys: CaptureFixture
+    ) -> None:
         """Test handling of invalid log level in overrides."""
         logging_config = LoggingConfig(
             source_level="INFO",
@@ -211,7 +224,7 @@ class TestSetupLogging:
         captured = capsys.readouterr()
         assert "Warning" in captured.out or "Invalid" in captured.out
 
-    def test_setup_logging_error_level(self):
+    def test_setup_logging_error_level(self) -> None:
         """Test logging setup with ERROR level."""
         logging_config = LoggingConfig(
             source_level="ERROR",
@@ -223,7 +236,7 @@ class TestSetupLogging:
 
         assert logger.level == logging.ERROR
 
-    def test_setup_logging_custom_format(self):
+    def test_setup_logging_custom_format(self) -> None:
         """Test logging with custom format."""
         custom_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         logging_config = LoggingConfig(
@@ -238,7 +251,7 @@ class TestSetupLogging:
         # Format is applied to root logger, not easy to verify directly
         # but at least verify it doesn't crash
 
-    def test_setup_logging_warning_level(self):
+    def test_setup_logging_warning_level(self) -> None:
         """Test logging setup with WARNING level."""
         logging_config = LoggingConfig(
             source_level="WARNING",
@@ -250,7 +263,7 @@ class TestSetupLogging:
 
         assert logger.level == logging.WARNING
 
-    def test_setup_logging_applies_to_all_default_packages(self):
+    def test_setup_logging_applies_to_all_default_packages(self) -> None:
         """Test that all default noisy packages get configured."""
         logging_config = LoggingConfig(
             source_level="INFO",

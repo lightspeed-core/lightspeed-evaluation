@@ -7,7 +7,7 @@ from lightspeed_evaluation.core.models import TurnData
 class TestKeywordsEval:
     """Test cases for keywords eval metric."""
 
-    def test_keywords_eval_first_list_all_matched(self):
+    def test_keywords_eval_first_list_all_matched(self) -> None:
         """Test successful keywords evaluation when first list has all keywords matched."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -25,7 +25,7 @@ class TestKeywordsEval:
         assert "Keywords eval successful: Option 1" in reason
         assert "all keywords matched: 'yes', 'openshift-monitoring'" in reason
 
-    def test_keywords_eval_first_list_fails_second_succeeds(self):
+    def test_keywords_eval_first_list_fails_second_succeeds(self) -> None:
         """Test keywords evaluation when first list fails but second list succeeds."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -46,7 +46,7 @@ class TestKeywordsEval:
         assert "Keywords eval successful: Option 2" in reason
         assert "all keywords matched: 'monitoring', 'confirmed'" in reason
 
-    def test_keywords_eval_all_lists_fail(self):
+    def test_keywords_eval_all_lists_fail(self) -> None:
         """Test keywords evaluation when all lists fail."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -70,7 +70,7 @@ class TestKeywordsEval:
             "Option 2: unmatched ['confirmed', 'monitoring'], matched [none]" in reason
         )
 
-    def test_keywords_eval_partial_match_in_failed_list(self):
+    def test_keywords_eval_partial_match_in_failed_list(self) -> None:
         """Test keywords evaluation with partial matches in failed lists."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -92,7 +92,7 @@ class TestKeywordsEval:
         assert "Option 1: unmatched ['yes', 'confirmed'], matched [none]" in reason
         assert "Option 2: unmatched ['openshift'], matched ['monitoring']" in reason
 
-    def test_keywords_eval_case_insensitive(self):
+    def test_keywords_eval_case_insensitive(self) -> None:
         """Test that keywords evaluation is case insensitive."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -109,7 +109,7 @@ class TestKeywordsEval:
         assert "Keywords eval successful: Option 1" in reason
         assert "all keywords matched: 'yes', 'openshift-monitoring'" in reason
 
-    def test_keywords_eval_substring_matching(self):
+    def test_keywords_eval_substring_matching(self) -> None:
         """Test that keywords evaluation works with substring matching."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -129,7 +129,7 @@ class TestKeywordsEval:
         assert "Keywords eval successful: Option 1" in reason
         assert "all keywords matched: 'monitoring', 'success'" in reason
 
-    def test_keywords_eval_no_expected_keywords(self):
+    def test_keywords_eval_no_expected_keywords(self) -> None:
         """Test keywords evaluation when no expected keywords provided."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -143,7 +143,7 @@ class TestKeywordsEval:
         assert score is None
         assert "No expected keywords provided" in reason
 
-    def test_keywords_eval_no_response(self):
+    def test_keywords_eval_no_response(self) -> None:
         """Test keywords evaluation when no response provided."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -157,7 +157,7 @@ class TestKeywordsEval:
         assert score == 0.0
         assert "No response provided" in reason
 
-    def test_keywords_eval_empty_response(self):
+    def test_keywords_eval_empty_response(self) -> None:
         """Test keywords evaluation with empty response."""
         # Create turn data with valid response first, then modify it
         turn_data = TurnData(
@@ -174,14 +174,14 @@ class TestKeywordsEval:
         assert score == 0.0
         assert "No response provided" in reason
 
-    def test_keywords_eval_conversation_level_error(self):
+    def test_keywords_eval_conversation_level_error(self) -> None:
         """Test that keywords_eval returns error for conversation-level evaluation."""
         score, reason = evaluate_keywords(None, None, None, True)
 
         assert score is None
         assert "Keywords eval is a turn-level metric" in reason
 
-    def test_keywords_eval_no_turn_data(self):
+    def test_keywords_eval_no_turn_data(self) -> None:
         """Test keywords evaluation when no turn data provided."""
         score, reason = evaluate_keywords(None, 0, None, False)
 
