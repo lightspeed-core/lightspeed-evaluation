@@ -7,7 +7,7 @@ from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHand
 class TestEvaluationErrorHandler:
     """Unit tests for EvaluationErrorHandler."""
 
-    def test_mark_all_metrics_as_error_with_turn_metrics(self):
+    def test_mark_all_metrics_as_error_with_turn_metrics(self) -> None:
         """Test marking all metrics as error with turn metrics."""
         handler = EvaluationErrorHandler()
 
@@ -21,7 +21,7 @@ class TestEvaluationErrorHandler:
             ["ragas:faithfulness", "custom:answer_correctness"],
             ["ragas:response_relevancy"],
         ]
-        resolved_conversation_metrics = []
+        resolved_conversation_metrics: list = []
 
         results = handler.mark_all_metrics_as_error(
             conv_data,
@@ -51,14 +51,14 @@ class TestEvaluationErrorHandler:
         assert results[2].metric_identifier == "ragas:response_relevancy"
         assert results[2].query == "Query 2"
 
-    def test_mark_all_metrics_as_error_with_conversation_metrics(self):
+    def test_mark_all_metrics_as_error_with_conversation_metrics(self) -> None:
         """Test marking conversation-level metrics as error."""
         handler = EvaluationErrorHandler()
 
         turn = TurnData(turn_id="1", query="Query", response="Response")
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        resolved_turn_metrics = [[]]
+        resolved_turn_metrics: list[list[str]] = [[]]
         resolved_conversation_metrics = [
             "deepeval:conversation_completeness",
             "deepeval:conversation_relevancy",
@@ -83,7 +83,7 @@ class TestEvaluationErrorHandler:
         assert results[1].turn_id is None
         assert results[1].metric_identifier == "deepeval:conversation_relevancy"
 
-    def test_mark_all_metrics_as_error_mixed(self):
+    def test_mark_all_metrics_as_error_mixed(self) -> None:
         """Test marking both turn and conversation metrics as error."""
         handler = EvaluationErrorHandler()
 
@@ -111,15 +111,15 @@ class TestEvaluationErrorHandler:
         assert results[1].turn_id is None
         assert results[1].metric_identifier == "deepeval:conversation_completeness"
 
-    def test_mark_all_metrics_as_error_empty_metrics(self):
+    def test_mark_all_metrics_as_error_empty_metrics(self) -> None:
         """Test marking with no metrics to mark."""
         handler = EvaluationErrorHandler()
 
         turn = TurnData(turn_id="1", query="Query", response="Response")
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        resolved_turn_metrics = [[]]
-        resolved_conversation_metrics = []
+        resolved_turn_metrics: list[list[str]] = [[]]
+        resolved_conversation_metrics: list[str] = []
 
         results = handler.mark_all_metrics_as_error(
             conv_data, "Error", resolved_turn_metrics, resolved_conversation_metrics
@@ -128,7 +128,7 @@ class TestEvaluationErrorHandler:
         # Should have no results
         assert len(results) == 0
 
-    def test_mark_turn_metrics_as_error(self):
+    def test_mark_turn_metrics_as_error(self) -> None:
         """Test marking metrics for a single turn as error."""
         handler = EvaluationErrorHandler()
 
@@ -166,7 +166,7 @@ class TestEvaluationErrorHandler:
         assert results[1].result == "ERROR"
         assert results[1].reason == error_reason
 
-    def test_mark_cascade_error(self):
+    def test_mark_cascade_error(self) -> None:
         """Test marking remaining turns and conversation metrics as error after API failure."""
         handler = EvaluationErrorHandler()
 

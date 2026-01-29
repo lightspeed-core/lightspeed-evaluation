@@ -1,3 +1,5 @@
+# pylint: disable=too-many-public-methods,protected-access
+
 """Tests for GEval metrics handler."""
 
 from unittest.mock import MagicMock, patch
@@ -13,7 +15,7 @@ class TestGEvalHandler:
     """Test cases for GEvalHandler class."""
 
     @pytest.fixture
-    def mock_llm_manager(self):
+    def mock_llm_manager(self) -> MagicMock:
         """Create a mock DeepEvalLLMManager."""
         mock_manager = MagicMock()
         mock_llm = MagicMock()
@@ -21,19 +23,23 @@ class TestGEvalHandler:
         return mock_manager
 
     @pytest.fixture
-    def mock_metric_manager(self):
+    def mock_metric_manager(self) -> MagicMock:
         """Create a mock MetricManager."""
         return MagicMock()
 
     @pytest.fixture
-    def handler(self, mock_llm_manager, mock_metric_manager):
+    def handler(
+        self, mock_llm_manager: MagicMock, mock_metric_manager: MagicMock
+    ) -> GEvalHandler:
         """Create a GEvalHandler instance with mocked dependencies."""
         return GEvalHandler(
             deepeval_llm_manager=mock_llm_manager,
             metric_manager=mock_metric_manager,
         )
 
-    def test_initialization(self, mock_llm_manager, mock_metric_manager):
+    def test_initialization(
+        self, mock_llm_manager: MagicMock, mock_metric_manager: MagicMock
+    ) -> None:
         """Test GEvalHandler initialization with required dependencies."""
         handler = GEvalHandler(
             deepeval_llm_manager=mock_llm_manager,
@@ -43,7 +49,7 @@ class TestGEvalHandler:
         assert handler.deepeval_llm_manager == mock_llm_manager
         assert handler.metric_manager == mock_metric_manager
 
-    def test_convert_evaluation_params_field_names(self, handler):
+    def test_convert_evaluation_params_field_names(self, handler: GEvalHandler) -> None:
         """Test conversion of evaluation data field names to LLMTestCaseParams enum."""
         params = ["query", "response", "expected_response"]
         result = handler._convert_evaluation_params(params)
@@ -54,7 +60,9 @@ class TestGEvalHandler:
         assert LLMTestCaseParams.ACTUAL_OUTPUT in result
         assert LLMTestCaseParams.EXPECTED_OUTPUT in result
 
-    def test_convert_evaluation_params_with_contexts(self, handler):
+    def test_convert_evaluation_params_with_contexts(
+        self, handler: GEvalHandler
+    ) -> None:
         """Test conversion including contexts and retrieval_context fields."""
         params = ["query", "response", "contexts", "retrieval_context"]
         result = handler._convert_evaluation_params(params)
@@ -66,7 +74,9 @@ class TestGEvalHandler:
         assert LLMTestCaseParams.CONTEXT in result
         assert LLMTestCaseParams.RETRIEVAL_CONTEXT in result
 
-    def test_convert_evaluation_params_enum_values_backward_compat(self, handler):
+    def test_convert_evaluation_params_enum_values_backward_compat(
+        self, handler: GEvalHandler
+    ) -> None:
         """Test conversion with direct enum value strings (backward compatibility)."""
         params = ["INPUT", "ACTUAL_OUTPUT", "EXPECTED_OUTPUT"]
         result = handler._convert_evaluation_params(params)
@@ -77,20 +87,25 @@ class TestGEvalHandler:
         assert LLMTestCaseParams.ACTUAL_OUTPUT in result
         assert LLMTestCaseParams.EXPECTED_OUTPUT in result
 
-    def test_convert_evaluation_params_invalid_returns_none(self, handler):
+    def test_convert_evaluation_params_invalid_returns_none(
+        self, handler: GEvalHandler
+    ) -> None:
         """Test that invalid params return None to allow GEval auto-detection."""
         params = ["invalid_param", "another_invalid"]
         result = handler._convert_evaluation_params(params)
 
         assert result is None
 
-    def test_convert_evaluation_params_empty_returns_none(self, handler):
+    def test_convert_evaluation_params_empty_returns_none(
+        self, handler: GEvalHandler
+    ) -> None:
         """Test that empty params list returns None."""
         result = handler._convert_evaluation_params([])
-
         assert result is None
 
-    def test_convert_evaluation_params_mixed_invalid_returns_none(self, handler):
+    def test_convert_evaluation_params_mixed_invalid_returns_none(
+        self, handler: GEvalHandler
+    ) -> None:
         """Test that any invalid param causes None return."""
         params = ["query", "invalid_param", "response"]
         result = handler._convert_evaluation_params(params)
@@ -98,7 +113,9 @@ class TestGEvalHandler:
         # Should return None because of the invalid param
         assert result is None
 
-    def test_get_geval_config_uses_metric_manager(self, handler, mock_metric_manager):
+    def test_get_geval_config_uses_metric_manager(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that _get_geval_config delegates to MetricManager."""
         expected_config = {
             "criteria": "Test criteria",
@@ -123,7 +140,9 @@ class TestGEvalHandler:
             turn_data=None,
         )
 
-    def test_get_geval_config_turn_level(self, handler, mock_metric_manager):
+    def test_get_geval_config_turn_level(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test retrieving turn-level config uses correct MetricLevel."""
         expected_config = {"criteria": "Turn criteria", "threshold": 0.9}
         mock_metric_manager.get_metric_metadata.return_value = expected_config
@@ -147,8 +166,8 @@ class TestGEvalHandler:
         )
 
     def test_get_geval_config_returns_none_when_not_found(
-        self, handler, mock_metric_manager
-    ):
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that None is returned when MetricManager finds no config."""
         mock_metric_manager.get_metric_metadata.return_value = None
 
@@ -162,7 +181,9 @@ class TestGEvalHandler:
 
         assert config is None
 
-    def test_evaluate_missing_config(self, handler, mock_metric_manager):
+    def test_evaluate_missing_config(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that evaluate returns error when config is not found."""
         mock_metric_manager.get_metric_metadata.return_value = None
 
@@ -178,7 +199,9 @@ class TestGEvalHandler:
         assert score is None
         assert "configuration not found" in reason.lower()
 
-    def test_evaluate_missing_criteria(self, handler, mock_metric_manager):
+    def test_evaluate_missing_criteria(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that evaluate requires 'criteria' in config."""
         mock_metric_manager.get_metric_metadata.return_value = {
             "threshold": 0.8,
@@ -198,7 +221,9 @@ class TestGEvalHandler:
         assert score is None
         assert "criteria" in reason.lower()
 
-    def test_evaluate_turn_missing_turn_data(self, handler, mock_metric_manager):
+    def test_evaluate_turn_missing_turn_data(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that turn-level evaluation requires turn_data."""
         mock_metric_manager.get_metric_metadata.return_value = {
             "criteria": "Test criteria"
@@ -216,7 +241,9 @@ class TestGEvalHandler:
         assert score is None
         assert "turn data required" in reason.lower()
 
-    def test_evaluate_turn_success(self, handler, mock_metric_manager):
+    def test_evaluate_turn_success(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test successful turn-level evaluation."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -256,7 +283,9 @@ class TestGEvalHandler:
             assert reason == "Test passed"
             mock_metric.measure.assert_called_once()
 
-    def test_evaluate_turn_with_optional_fields(self, handler, mock_metric_manager):
+    def test_evaluate_turn_with_optional_fields(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test turn-level evaluation includes optional fields when present."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -303,7 +332,9 @@ class TestGEvalHandler:
                 assert call_kwargs["expected_output"] == "Expected response"
                 assert call_kwargs["context"] == ["Context 1", "Context 2"]
 
-    def test_evaluate_turn_none_score_returns_zero(self, handler, mock_metric_manager):
+    def test_evaluate_turn_none_score_returns_zero(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that None score from metric is converted to 0.0."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -338,7 +369,9 @@ class TestGEvalHandler:
             assert score == 0.0
             assert reason == "Could not evaluate"
 
-    def test_evaluate_turn_handles_exceptions(self, handler, mock_metric_manager):
+    def test_evaluate_turn_handles_exceptions(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that turn evaluation handles exceptions gracefully."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -373,8 +406,8 @@ class TestGEvalHandler:
             assert "Test error" in reason
 
     def test_evaluate_turn_uses_default_params_when_none_provided(
-        self, handler, mock_metric_manager
-    ):
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that default evaluation_params are used when none provided."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -413,7 +446,9 @@ class TestGEvalHandler:
                 LLMTestCaseParams.ACTUAL_OUTPUT,
             ]
 
-    def test_evaluate_conversation_success(self, handler, mock_metric_manager):
+    def test_evaluate_conversation_success(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test successful conversation-level evaluation."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -453,7 +488,9 @@ class TestGEvalHandler:
             assert reason == "Conversation coherent"
             mock_metric.measure.assert_called_once()
 
-    def test_evaluate_conversation_aggregates_turns(self, handler, mock_metric_manager):
+    def test_evaluate_conversation_aggregates_turns(
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that conversation evaluation properly aggregates turn data."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -512,8 +549,8 @@ class TestGEvalHandler:
                 assert "Turn 3 - Assistant:" in call_kwargs["actual_output"]
 
     def test_evaluate_conversation_with_evaluation_steps(
-        self, handler, mock_metric_manager
-    ):
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that evaluation_steps are passed to GEval when provided."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
@@ -558,8 +595,8 @@ class TestGEvalHandler:
             ]
 
     def test_evaluate_conversation_handles_exceptions(
-        self, handler, mock_metric_manager
-    ):
+        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+    ) -> None:
         """Test that conversation evaluation handles exceptions gracefully."""
         with patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"

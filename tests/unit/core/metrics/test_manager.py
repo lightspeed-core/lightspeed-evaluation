@@ -1,6 +1,6 @@
-"""Unit tests for core metrics manager module."""
+# pylint: disable=too-many-public-methods
 
-import pytest
+"""Unit tests for core metrics manager module."""
 
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
 from lightspeed_evaluation.core.models import (
@@ -10,50 +10,12 @@ from lightspeed_evaluation.core.models import (
 )
 
 
-@pytest.fixture
-def system_config():
-    """Create a test system config with metrics metadata."""
-    config = SystemConfig()
-
-    # Set up test metrics metadata
-    config.default_turn_metrics_metadata = {
-        "ragas:faithfulness": {
-            "threshold": 0.7,
-            "default": True,
-            "description": "Test",
-        },
-        "ragas:response_relevancy": {
-            "threshold": 0.8,
-            "default": False,
-            "description": "Test",
-        },
-        "custom:answer_correctness": {
-            "threshold": 0.75,
-            "default": True,
-            "description": "Test",
-        },
-    }
-
-    config.default_conversation_metrics_metadata = {
-        "deepeval:conversation_completeness": {
-            "threshold": 0.6,
-            "default": True,
-            "description": "Test",
-        },
-        "deepeval:conversation_relevancy": {
-            "threshold": 0.7,
-            "default": False,
-            "description": "Test",
-        },
-    }
-
-    return config
-
-
 class TestMetricManager:
     """Unit tests for MetricManager."""
 
-    def test_resolve_metrics_with_none_uses_defaults(self, system_config):
+    def test_resolve_metrics_with_none_uses_defaults(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test that None resolves to system defaults."""
         manager = MetricManager(system_config)
 
@@ -64,16 +26,20 @@ class TestMetricManager:
         assert "custom:answer_correctness" in metrics
         assert "ragas:response_relevancy" not in metrics  # default=False
 
-    def test_resolve_metrics_with_empty_list_skips_evaluation(self, system_config):
+    def test_resolve_metrics_with_empty_list_skips_evaluation(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test that empty list skips evaluation."""
         manager = MetricManager(system_config)
 
         metrics = manager.resolve_metrics([], MetricLevel.TURN)
 
         # Should return empty list
-        assert metrics == []
+        assert not metrics
 
-    def test_resolve_metrics_with_explicit_list(self, system_config):
+    def test_resolve_metrics_with_explicit_list(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test that explicit list is returned as-is."""
         manager = MetricManager(system_config)
 
@@ -83,7 +49,9 @@ class TestMetricManager:
         # Should return the exact list provided
         assert metrics == explicit_metrics
 
-    def test_resolve_metrics_conversation_level_defaults(self, system_config):
+    def test_resolve_metrics_conversation_level_defaults(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test conversation-level default metrics."""
         manager = MetricManager(system_config)
 
@@ -93,7 +61,9 @@ class TestMetricManager:
         assert "deepeval:conversation_completeness" in metrics
         assert "deepeval:conversation_relevancy" not in metrics
 
-    def test_get_metric_metadata_from_system_defaults(self, system_config):
+    def test_get_metric_metadata_from_system_defaults(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test getting full metadata from system defaults."""
         manager = MetricManager(system_config)
 
@@ -106,7 +76,9 @@ class TestMetricManager:
         assert metadata["default"] is True
         assert metadata["description"] == "Test"
 
-    def test_get_metric_metadata_turn_level_override(self, system_config):
+    def test_get_metric_metadata_turn_level_override(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test turn-level metadata completely overrides system defaults."""
         manager = MetricManager(system_config)
 
@@ -133,7 +105,9 @@ class TestMetricManager:
         assert "default" not in metadata
         assert "description" not in metadata
 
-    def test_get_metric_metadata_conversation_level_override(self, system_config):
+    def test_get_metric_metadata_conversation_level_override(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test conversation-level metadata overrides system defaults."""
         manager = MetricManager(system_config)
 
@@ -159,7 +133,7 @@ class TestMetricManager:
         assert metadata["threshold"] == 0.85
         assert metadata["criteria"] == "Custom criteria"
 
-    def test_get_metric_metadata_not_found(self, system_config):
+    def test_get_metric_metadata_not_found(self, system_config: SystemConfig) -> None:
         """Test getting metadata for unknown metric returns None."""
         manager = MetricManager(system_config)
 
@@ -167,7 +141,7 @@ class TestMetricManager:
 
         assert metadata is None
 
-    def test_get_metric_metadata_preserves_all_fields(self, system_config):
+    def test_get_metric_metadata_preserves_all_fields(self) -> None:
         """Test that all metadata fields are preserved."""
         config = SystemConfig()
         config.default_turn_metrics_metadata = {
@@ -198,7 +172,9 @@ class TestMetricManager:
         assert metadata["default"] is True
         assert metadata["description"] == "GEval metric for technical accuracy"
 
-    def test_get_effective_threshold_from_system_defaults(self, system_config):
+    def test_get_effective_threshold_from_system_defaults(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test getting threshold from system defaults."""
         manager = MetricManager(system_config)
 
@@ -208,7 +184,9 @@ class TestMetricManager:
 
         assert threshold == 0.7
 
-    def test_get_effective_threshold_turn_level_override(self, system_config):
+    def test_get_effective_threshold_turn_level_override(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test turn-level metadata overrides system defaults."""
         manager = MetricManager(system_config)
 
@@ -226,7 +204,9 @@ class TestMetricManager:
         # Should use turn-specific threshold
         assert threshold == 0.9
 
-    def test_get_effective_threshold_conversation_level_override(self, system_config):
+    def test_get_effective_threshold_conversation_level_override(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test conversation-level metadata overrides system defaults."""
         manager = MetricManager(system_config)
 
@@ -248,7 +228,9 @@ class TestMetricManager:
         # Should use conversation-specific threshold
         assert threshold == 0.85
 
-    def test_get_effective_threshold_not_found(self, system_config):
+    def test_get_effective_threshold_not_found(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test getting threshold for unknown metric returns None."""
         manager = MetricManager(system_config)
 
@@ -256,7 +238,9 @@ class TestMetricManager:
 
         assert threshold is None
 
-    def test_get_effective_threshold_no_metadata_at_level(self, system_config):
+    def test_get_effective_threshold_no_metadata_at_level(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test threshold lookup when no metadata at level."""
         manager = MetricManager(system_config)
 
@@ -274,7 +258,9 @@ class TestMetricManager:
         # Should fall back to system defaults
         assert threshold == 0.7
 
-    def test_get_effective_threshold_metric_not_in_level_metadata(self, system_config):
+    def test_get_effective_threshold_metric_not_in_level_metadata(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test threshold for metric not in level metadata."""
         manager = MetricManager(system_config)
 
@@ -293,7 +279,9 @@ class TestMetricManager:
         # Should fall back to system defaults
         assert threshold == 0.7
 
-    def test_count_metrics_for_conversation_all_defaults(self, system_config):
+    def test_count_metrics_for_conversation_all_defaults(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test counting metrics when using all defaults."""
         manager = MetricManager(system_config)
 
@@ -313,7 +301,9 @@ class TestMetricManager:
         assert counts["conversation_metrics"] == 1
         assert counts["total_turns"] == 2
 
-    def test_count_metrics_for_conversation_explicit_metrics(self, system_config):
+    def test_count_metrics_for_conversation_explicit_metrics(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test counting with explicit metrics."""
         manager = MetricManager(system_config)
 
@@ -340,7 +330,9 @@ class TestMetricManager:
         assert counts["conversation_metrics"] == 1
         assert counts["total_turns"] == 2
 
-    def test_count_metrics_for_conversation_skip_evaluation(self, system_config):
+    def test_count_metrics_for_conversation_skip_evaluation(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test counting when evaluation is skipped."""
         manager = MetricManager(system_config)
 
@@ -359,7 +351,9 @@ class TestMetricManager:
         assert counts["conversation_metrics"] == 0
         assert counts["total_turns"] == 1
 
-    def test_count_metrics_for_conversation_mixed(self, system_config):
+    def test_count_metrics_for_conversation_mixed(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test counting with mixed default and explicit metrics."""
         manager = MetricManager(system_config)
 
@@ -383,7 +377,7 @@ class TestMetricManager:
         assert counts["conversation_metrics"] == 1
         assert counts["total_turns"] == 3
 
-    def test_extract_default_metrics_empty_metadata(self):
+    def test_extract_default_metrics_empty_metadata(self) -> None:
         """Test extracting defaults when no metrics have default=true."""
         config = SystemConfig()
         config.default_turn_metrics_metadata = {
@@ -397,7 +391,9 @@ class TestMetricManager:
         # Should return empty list when no defaults
         assert metrics == []
 
-    def test_get_effective_threshold_with_both_metadata_sources(self, system_config):
+    def test_get_effective_threshold_with_both_metadata_sources(
+        self, system_config: SystemConfig
+    ) -> None:
         """Test that level metadata takes priority over system defaults."""
         manager = MetricManager(system_config)
 

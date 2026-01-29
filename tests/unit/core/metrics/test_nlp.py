@@ -1,3 +1,5 @@
+# pylint: disable=too-many-arguments,too-many-positional-arguments,disable=too-few-public-methods
+
 """Tests for NLP metrics module.
 
 This module tests the NLP-based evaluation metrics:
@@ -15,6 +17,7 @@ in the pipeline. These tests focus on metric evaluation logic.
 import sys
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.constants import (
     ROUGE_TYPE_ROUGE1,
@@ -25,109 +28,10 @@ from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import MetricError
 
 
-# ============================================================================
-# Fixtures
-# ============================================================================
-
-
-@pytest.fixture
-def nlp_metrics():
-    """Create NLPMetrics instance."""
-    return NLPMetrics()
-
-
-@pytest.fixture
-def sample_turn_data():
-    """Create sample TurnData for testing."""
-    return TurnData(
-        turn_id="test_turn",
-        query="What is the capital of France?",
-        response="The capital of France is Paris.",
-        expected_response="The capital of France is Paris.",
-    )
-
-
-@pytest.fixture
-def sample_scope(sample_turn_data):
-    """Create sample EvaluationScope for turn-level evaluation."""
-    return EvaluationScope(
-        turn_idx=0,
-        turn_data=sample_turn_data,
-        is_conversation=False,
-    )
-
-
-@pytest.fixture
-def conversation_scope(sample_turn_data):
-    """Create sample EvaluationScope for conversation-level evaluation."""
-    return EvaluationScope(
-        turn_idx=0,
-        turn_data=sample_turn_data,
-        is_conversation=True,
-    )
-
-
-@pytest.fixture
-def mock_bleu_scorer(mocker):
-    """Mock sacrebleu BLEU with configurable return value.
-
-    Uses sys.modules injection to mock sacrebleu without requiring it to be installed.
-    """
-    mock_result = mocker.MagicMock()
-    mock_result.score = 85.0  # sacrebleu returns 0-100 scale
-
-    mock_scorer_instance = mocker.MagicMock()
-    mock_scorer_instance.corpus_score = mocker.MagicMock(return_value=mock_result)
-
-    mock_bleu_class = mocker.MagicMock(return_value=mock_scorer_instance)
-
-    # Create a fake sacrebleu module and inject it into sys.modules
-    mock_sacrebleu = mocker.MagicMock()
-    mock_sacrebleu.BLEU = mock_bleu_class
-    mocker.patch.dict(sys.modules, {"sacrebleu": mock_sacrebleu})
-
-    return mock_scorer_instance
-
-
-@pytest.fixture
-def mock_rouge_scorer(mocker):
-    """Mock RougeScore with configurable return value.
-
-    Returns different scores for precision, recall, fmeasure.
-    """
-    mock_scorer_instance = mocker.MagicMock()
-    # Return scores for precision, recall, fmeasure (called in that order)
-    mock_scorer_instance.single_turn_score = mocker.MagicMock(
-        side_effect=[0.95, 0.89, 0.92]
-    )
-    mocker.patch(
-        "lightspeed_evaluation.core.metrics.nlp.RougeScore",
-        return_value=mock_scorer_instance,
-    )
-    return mock_scorer_instance
-
-
-@pytest.fixture
-def mock_similarity_scorer(mocker):
-    """Mock NonLLMStringSimilarity with configurable return value."""
-    mock_scorer_instance = mocker.MagicMock()
-    mock_scorer_instance.single_turn_score = mocker.MagicMock(return_value=0.78)
-    mocker.patch(
-        "lightspeed_evaluation.core.metrics.nlp.NonLLMStringSimilarity",
-        return_value=mock_scorer_instance,
-    )
-    return mock_scorer_instance
-
-
-# ============================================================================
-# Tests
-# ============================================================================
-
-
 class TestNLPMetricsInit:
     """Test NLPMetrics initialization."""
 
-    def test_initialization(self, nlp_metrics):
+    def test_initialization(self, nlp_metrics: NLPMetrics) -> None:
         """Test that NLPMetrics initializes correctly."""
         assert nlp_metrics is not None
         assert "bleu" in nlp_metrics.supported_metrics
@@ -138,14 +42,18 @@ class TestNLPMetricsInit:
 class TestNLPMetricsValidation:
     """Tests for metric-level validation."""
 
-    def test_conversation_level_rejected(self, nlp_metrics, conversation_scope):
+    def test_conversation_level_rejected(
+        self, nlp_metrics: NLPMetrics, conversation_scope: EvaluationScope
+    ) -> None:
         """Test that NLP metrics reject conversation-level evaluation."""
         score, reason = nlp_metrics.evaluate("bleu", None, conversation_scope)
 
         assert score is None
         assert "turn-level metric" in reason
 
-    def test_unsupported_metric(self, nlp_metrics, sample_scope):
+    def test_unsupported_metric(
+        self, nlp_metrics: NLPMetrics, sample_scope: EvaluationScope
+    ) -> None:
         """Test evaluate with unsupported metric name."""
         score, reason = nlp_metrics.evaluate("unsupported_metric", None, sample_scope)
 
@@ -157,16 +65,22 @@ class TestBLEUScore:
     """Tests for BLEU score metric."""
 
     def test_bleu_successful_evaluation(
-        self, nlp_metrics, sample_scope, mock_bleu_scorer
-    ):
+        self,
+        nlp_metrics: NLPMetrics,
+        sample_scope: EvaluationScope,
+        mock_bleu_scorer: MockerFixture,
+    ) -> None:
         """Test BLEU score with valid inputs."""
+        assert mock_bleu_scorer is not None  # Fixture sets up the mock
         score, reason = nlp_metrics.evaluate("bleu", None, sample_scope)
 
         assert score is not None
         assert score == pytest.approx(0.85, abs=0.01)
         assert "NLP BLEU" in reason
 
-    def test_bleu_with_custom_ngram(self, nlp_metrics, mocker):
+    def test_bleu_with_custom_ngram(
+        self, nlp_metrics: NLPMetrics, mocker: MockerFixture
+    ) -> None:
         """Test BLEU score with custom max_ngram configuration."""
         mock_result = mocker.MagicMock()
         mock_result.score = 90.0
@@ -200,7 +114,9 @@ class TestBLEUScore:
         # Verify BLEU was initialized with max_ngram_order=2
         mock_bleu_class.assert_called_once_with(max_ngram_order=2)
 
-    def test_bleu_with_invalid_ngram_uses_default(self, nlp_metrics, mocker):
+    def test_bleu_with_invalid_ngram_uses_default(
+        self, nlp_metrics: NLPMetrics, mocker: MockerFixture
+    ) -> None:
         """Test BLEU score falls back to default when invalid max_ngram provided."""
         mock_result = mocker.MagicMock()
         mock_result.score = 85.0
@@ -237,9 +153,13 @@ class TestROUGEScore:
     """Tests for ROUGE score metric."""
 
     def test_rouge_successful_evaluation(
-        self, nlp_metrics, sample_scope, mock_rouge_scorer
-    ):
+        self,
+        nlp_metrics: NLPMetrics,
+        sample_scope: EvaluationScope,
+        mock_rouge_scorer: MockerFixture,
+    ) -> None:
         """Test ROUGE score with valid inputs."""
+        assert mock_rouge_scorer is not None  # Fixture sets up the mock
         score, reason = nlp_metrics.evaluate("rouge", None, sample_scope)
 
         assert score is not None
@@ -250,7 +170,9 @@ class TestROUGEScore:
         assert "recall" in reason
         assert "fmeasure" in reason
 
-    def test_rouge_with_custom_rouge_type(self, nlp_metrics, mocker):
+    def test_rouge_with_custom_rouge_type(
+        self, nlp_metrics: NLPMetrics, mocker: MockerFixture
+    ) -> None:
         """Test ROUGE score with custom rouge_type via turn_metrics_metadata."""
         mock_scorer_instance = mocker.MagicMock()
         # Return different scores for each mode (precision, recall, fmeasure)
@@ -290,9 +212,13 @@ class TestSemanticSimilarityDistance:
     """Tests for string distance similarity (NonLLMStringSimilarity) metric."""
 
     def test_semantic_similarity_distance_successful_evaluation(
-        self, nlp_metrics, sample_scope, mock_similarity_scorer
-    ):
+        self,
+        nlp_metrics: NLPMetrics,
+        sample_scope: EvaluationScope,
+        mock_similarity_scorer: MockerFixture,
+    ) -> None:
         """Test string distance similarity with valid inputs."""
+        assert mock_similarity_scorer is not None  # Fixture sets up the mock
         score, reason = nlp_metrics.evaluate(
             "semantic_similarity_distance", None, sample_scope
         )
@@ -302,8 +228,8 @@ class TestSemanticSimilarityDistance:
         assert "NLP String Distance" in reason
 
     def test_semantic_similarity_distance_with_custom_measure(
-        self, nlp_metrics, mocker
-    ):
+        self, nlp_metrics: NLPMetrics, mocker: MockerFixture
+    ) -> None:
         """Test string distance similarity with custom distance measure config."""
         mock_scorer_instance = mocker.MagicMock()
         mock_scorer_instance.single_turn_score = mocker.MagicMock(return_value=0.95)
@@ -336,7 +262,12 @@ class TestSemanticSimilarityDistance:
 class TestMetricErrorHandling:
     """Tests for error handling across all NLP metrics."""
 
-    def test_bleu_failure_raises_metric_error(self, nlp_metrics, sample_scope, mocker):
+    def test_bleu_failure_raises_metric_error(
+        self,
+        nlp_metrics: NLPMetrics,
+        sample_scope: EvaluationScope,
+        mocker: MockerFixture,
+    ) -> None:
         """Test that BLEU raises MetricError when scoring fails."""
         mock_scorer_instance = mocker.MagicMock()
         mock_scorer_instance.corpus_score = mocker.MagicMock(
@@ -364,8 +295,13 @@ class TestMetricErrorHandling:
         ],
     )
     def test_ragas_metric_failure_raises_metric_error(
-        self, nlp_metrics, sample_scope, mocker, metric_name, scorer_path
-    ):
+        self,
+        nlp_metrics: NLPMetrics,
+        sample_scope: EvaluationScope,
+        mocker: MockerFixture,
+        metric_name: str,
+        scorer_path: str,
+    ) -> None:
         """Test that Ragas-based metrics raise MetricError when scoring fails."""
         mock_scorer_instance = mocker.MagicMock()
         mock_scorer_instance.single_turn_score = mocker.MagicMock(
