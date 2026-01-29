@@ -421,7 +421,7 @@ class EvaluationComparison:
         Returns:
             Dictionary containing overlap test results
         """
-        result = {
+        result: dict[str, Any] = {
             "test_performed": False,
             "intervals_overlap": None,
             "significant": None,

@@ -13,7 +13,7 @@ from lightspeed_evaluation.core.models.data import (
 class TestTurnData:
     """General tests for TurnData model."""
 
-    def test_minimal_fields(self):
+    def test_minimal_fields(self) -> None:
         """Test TurnData with only required fields."""
         turn = TurnData(turn_id="turn1", query="Test query")
 
@@ -22,12 +22,12 @@ class TestTurnData:
         assert turn.response is None
         assert turn.contexts is None
 
-    def test_empty_turn_id_fails(self):
+    def test_empty_turn_id_fails(self) -> None:
         """Test that empty turn_id fails validation."""
         with pytest.raises(ValidationError):
             TurnData(turn_id="", query="Test")
 
-    def test_empty_query_fails(self):
+    def test_empty_query_fails(self) -> None:
         """Test that empty query fails validation."""
         with pytest.raises(ValidationError):
             TurnData(turn_id="turn1", query="")
@@ -36,13 +36,13 @@ class TestTurnData:
 class TestTurnDataToolCallsValidation:
     """Test cases for TurnData expected_tool_calls field validation and conversion."""
 
-    def test_single_set_format_conversion(self):
+    def test_single_set_format_conversion(self) -> None:
         """Test that single set format is converted to multiple sets format."""
         # Single set format (backward compatibility)
         turn_data = TurnData(
             turn_id="test_single",
             query="Test query",
-            expected_tool_calls=[
+            expected_tool_calls=[  # pyright: ignore[reportArgumentType]
                 [{"tool_name": "test_tool", "arguments": {"key": "value"}}]
             ],
         )
@@ -50,12 +50,21 @@ class TestTurnDataToolCallsValidation:
         # Should be converted to multiple sets format
         expected = turn_data.expected_tool_calls
         assert expected is not None
-        assert len(expected) == 1  # One alternative set
-        assert len(expected[0]) == 1  # One sequence in the set
-        assert len(expected[0][0]) == 1  # One tool call in the sequence
-        assert expected[0][0][0]["tool_name"] == "test_tool"
+        assert (
+            len(expected) == 1  # pylint: disable=unsubscriptable-object
+        )  # One alternative set
+        assert (
+            len(expected[0]) == 1  # pylint: disable=unsubscriptable-object
+        )  # One sequence in the set
+        assert (
+            len(expected[0][0]) == 1  # pylint: disable=unsubscriptable-object
+        )  # One tool call in the sequence
+        assert (
+            expected[0][0][0]["tool_name"]  # pylint: disable=unsubscriptable-object
+            == "test_tool"
+        )
 
-    def test_multiple_sets_format_preserved(self):
+    def test_multiple_sets_format_preserved(self) -> None:
         """Test that multiple sets format is preserved as-is."""
         # Multiple sets format
         turn_data = TurnData(
@@ -70,10 +79,16 @@ class TestTurnDataToolCallsValidation:
         expected = turn_data.expected_tool_calls
         assert expected is not None
         assert len(expected) == 2  # Two alternative sets
-        assert expected[0][0][0]["tool_name"] == "tool1"
-        assert expected[1][0][0]["tool_name"] == "tool2"
+        assert (
+            expected[0][0][0]["tool_name"]  # pylint: disable=unsubscriptable-object
+            == "tool1"
+        )
+        assert (
+            expected[1][0][0]["tool_name"]  # pylint: disable=unsubscriptable-object
+            == "tool2"
+        )
 
-    def test_empty_alternatives_allowed(self):
+    def test_empty_alternatives_allowed(self) -> None:
         """Test that empty alternatives are allowed as fallback."""
         turn_data = TurnData(
             turn_id="test_flexible",
@@ -87,10 +102,14 @@ class TestTurnDataToolCallsValidation:
         expected = turn_data.expected_tool_calls
         assert expected is not None
         assert len(expected) == 2
-        assert len(expected[0]) == 1  # First set has one sequence
-        assert len(expected[1]) == 0  # Second set is empty
+        assert (
+            len(expected[0]) == 1  # pylint: disable=unsubscriptable-object
+        )  # First set has one sequence
+        assert (
+            len(expected[1]) == 0  # pylint: disable=unsubscriptable-object
+        )  # Second set is empty
 
-    def test_complex_sequences(self):
+    def test_complex_sequences(self) -> None:
         """Test complex tool call sequences."""
         turn_data = TurnData(
             turn_id="test_complex",
@@ -107,17 +126,21 @@ class TestTurnDataToolCallsValidation:
         expected = turn_data.expected_tool_calls
         assert expected is not None
         assert len(expected) == 2
-        assert len(expected[0]) == 2  # Two sequences in first set
-        assert len(expected[1]) == 1  # One sequence in second set
+        assert (
+            len(expected[0]) == 2  # pylint: disable=unsubscriptable-object
+        )  # Two sequences in first set
+        assert (
+            len(expected[1]) == 1  # pylint: disable=unsubscriptable-object
+        )  # One sequence in second set
 
-    def test_none_expected_tool_calls(self):
+    def test_none_expected_tool_calls(self) -> None:
         """Test that None is handled correctly."""
         turn_data = TurnData(
             turn_id="test_none", query="Test query", expected_tool_calls=None
         )
         assert turn_data.expected_tool_calls is None
 
-    def test_regex_arguments_preserved(self):
+    def test_regex_arguments_preserved(self) -> None:
         """Test that regex patterns in arguments are preserved."""
         turn_data = TurnData(
             turn_id="test_regex",
@@ -129,18 +152,23 @@ class TestTurnDataToolCallsValidation:
 
         expected = turn_data.expected_tool_calls
         assert expected is not None
-        assert expected[0][0][0]["arguments"]["name"] == "web-server-[0-9]+"
+        assert (
+            expected[0][0][0]["arguments"][  # pylint: disable=unsubscriptable-object
+                "name"
+            ]
+            == "web-server-[0-9]+"
+        )
 
-    def test_invalid_format_rejected(self):
+    def test_invalid_format_rejected(self) -> None:
         """Test that non-list format is rejected."""
         with pytest.raises(ValidationError):
             TurnData(
                 turn_id="test_invalid",
                 query="Test query",
-                expected_tool_calls="not_a_list",
+                expected_tool_calls="not_a_list",  # pyright: ignore[reportArgumentType]
             )
 
-    def test_invalid_tool_call_structure_rejected(self):
+    def test_invalid_tool_call_structure_rejected(self) -> None:
         """Test that invalid tool call structure is rejected."""
         with pytest.raises(ValidationError):
             TurnData(
@@ -149,7 +177,7 @@ class TestTurnDataToolCallsValidation:
                 expected_tool_calls=[[[{"invalid": "structure"}]]],
             )
 
-    def test_empty_sequence_rejected(self):
+    def test_empty_sequence_rejected(self) -> None:
         """Test that empty sequences are rejected."""
         with pytest.raises(
             ValidationError,
@@ -161,7 +189,7 @@ class TestTurnDataToolCallsValidation:
                 expected_tool_calls=[[]],
             )
 
-    def test_empty_set_as_first_element_rejected(self):
+    def test_empty_set_as_first_element_rejected(self) -> None:
         """Test that empty set as the first element is rejected."""
         with pytest.raises(ValidationError, match="Empty set cannot be the first"):
             TurnData(
@@ -170,7 +198,7 @@ class TestTurnDataToolCallsValidation:
                 expected_tool_calls=[[], []],
             )
 
-    def test_multiple_empty_alternatives_rejected(self):
+    def test_multiple_empty_alternatives_rejected(self) -> None:
         """Test that multiple empty alternatives are rejected as redundant."""
         with pytest.raises(
             ValidationError, match="Found 2 empty alternatives.*redundant"
@@ -189,19 +217,19 @@ class TestTurnDataToolCallsValidation:
 class TestTurnDataFormatDetection:
     """Test cases for format detection logic."""
 
-    def test_empty_list_rejected(self):
+    def test_empty_list_rejected(self) -> None:
         """Test that empty list is rejected."""
         with pytest.raises(
             ValidationError, match="Empty set cannot be the only alternative"
         ):
             TurnData(turn_id="test", query="Test", expected_tool_calls=[])
 
-    def test_is_single_set_format_detection(self):
+    def test_is_single_set_format_detection(self) -> None:
         """Test detection of single set format."""
         turn_data = TurnData(
             turn_id="test",
             query="Test",
-            expected_tool_calls=[
+            expected_tool_calls=[  # pyright: ignore[reportArgumentType]
                 [{"tool_name": "tool1", "arguments": {}}],
                 [{"tool_name": "tool2", "arguments": {}}],
             ],
@@ -210,7 +238,9 @@ class TestTurnDataFormatDetection:
         expected = turn_data.expected_tool_calls
         assert expected is not None
         assert len(expected) == 1  # One alternative set
-        assert len(expected[0]) == 2  # Two sequences in that set
+        assert (
+            len(expected[0]) == 2  # pylint: disable=unsubscriptable-object
+        )  # Two sequences in that set
 
 
 class TestTurnDataExpectedResponseValidation:
@@ -220,7 +250,7 @@ class TestTurnDataExpectedResponseValidation:
         "valid_response",
         ["Single word", ["Response option 1", "Response option 2"]],
     )
-    def test_valid_expected_response(self, valid_response):
+    def test_valid_expected_response(self, valid_response: str | list[str]) -> None:
         """Test valid expected_response values."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -229,7 +259,7 @@ class TestTurnDataExpectedResponseValidation:
         )
         assert turn_data.expected_response == valid_response
 
-    def test_none_expected_response_valid(self):
+    def test_none_expected_response_valid(self) -> None:
         """Test that None is valid for expected_response."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -248,7 +278,9 @@ class TestTurnDataExpectedResponseValidation:
             (["valid", "   "], "cannot be empty or whitespace"),
         ],
     )
-    def test_invalid_expected_response(self, invalid_response, match_pattern):
+    def test_invalid_expected_response(
+        self, invalid_response: str | list[str], match_pattern: str
+    ) -> None:
         """Test that invalid expected_response values are rejected."""
         with pytest.raises(ValidationError, match=match_pattern):
             TurnData(
@@ -261,7 +293,7 @@ class TestTurnDataExpectedResponseValidation:
 class TestTurnDataKeywordsValidation:
     """Test cases for expected_keywords validation in TurnData."""
 
-    def test_valid_single_group(self):
+    def test_valid_single_group(self) -> None:
         """Test valid expected_keywords with single group."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -270,7 +302,7 @@ class TestTurnDataKeywordsValidation:
         )
         assert turn_data.expected_keywords == [["keyword1", "keyword2"]]
 
-    def test_valid_multiple_groups(self):
+    def test_valid_multiple_groups(self) -> None:
         """Test valid expected_keywords with multiple groups."""
         turn_data = TurnData(
             turn_id="test_turn",
@@ -280,23 +312,26 @@ class TestTurnDataKeywordsValidation:
                 ["monitoring", "namespace"],
             ],
         )
+        assert turn_data.expected_keywords is not None
         assert len(turn_data.expected_keywords) == 2
 
-    def test_none_is_valid(self):
+    def test_none_is_valid(self) -> None:
         """Test that None is valid for expected_keywords."""
         turn_data = TurnData(
             turn_id="test_turn", query="Test query", expected_keywords=None
         )
         assert turn_data.expected_keywords is None
 
-    def test_non_list_rejected(self):
+    def test_non_list_rejected(self) -> None:
         """Test that non-list expected_keywords is rejected."""
         with pytest.raises(ValidationError, match="Input should be a valid list"):
             TurnData(
-                turn_id="test_turn", query="Test query", expected_keywords="not_a_list"
+                turn_id="test_turn",
+                query="Test query",
+                expected_keywords="not_a_list",  # pyright: ignore[reportArgumentType]
             )
 
-    def test_empty_inner_list_rejected(self):
+    def test_empty_inner_list_rejected(self) -> None:
         """Test that empty inner lists are rejected."""
         with pytest.raises(ValidationError, match="cannot be empty"):
             TurnData(
@@ -305,7 +340,7 @@ class TestTurnDataKeywordsValidation:
                 expected_keywords=[[], ["valid_list"]],
             )
 
-    def test_empty_string_element_rejected(self):
+    def test_empty_string_element_rejected(self) -> None:
         """Test that empty string elements are rejected."""
         with pytest.raises(ValidationError, match="cannot be empty or whitespace"):
             TurnData(
@@ -318,7 +353,7 @@ class TestTurnDataKeywordsValidation:
 class TestEvaluationData:
     """Tests for EvaluationData model."""
 
-    def test_valid_creation(self):
+    def test_valid_creation(self) -> None:
         """Test EvaluationData creation with valid data."""
         turns = [
             TurnData(turn_id="turn1", query="First query"),
@@ -337,30 +372,31 @@ class TestEvaluationData:
         assert eval_data.tag == "test_tag"
         assert len(eval_data.turns) == 2
         assert eval_data.description == "Test conversation"
+        assert eval_data.conversation_metrics is not None
         assert len(eval_data.conversation_metrics) == 1
 
-    def test_default_tag_value(self):
+    def test_default_tag_value(self) -> None:
         """Test EvaluationData has correct default tag value."""
         turn = TurnData(turn_id="turn1", query="Query")
         eval_data = EvaluationData(conversation_group_id="conv1", turns=[turn])
 
         assert eval_data.tag == "eval"
 
-    def test_empty_tag_rejected(self):
+    def test_empty_tag_rejected(self) -> None:
         """Test that empty tag is rejected."""
         turn = TurnData(turn_id="turn1", query="Query")
 
         with pytest.raises(ValidationError):
             EvaluationData(conversation_group_id="conv1", turns=[turn], tag="")
 
-    def test_empty_conversation_id_rejected(self):
+    def test_empty_conversation_id_rejected(self) -> None:
         """Test that empty conversation_group_id is rejected."""
         turn = TurnData(turn_id="turn1", query="Query")
 
         with pytest.raises(ValidationError):
             EvaluationData(conversation_group_id="", turns=[turn])
 
-    def test_empty_turns_rejected(self):
+    def test_empty_turns_rejected(self) -> None:
         """Test that empty turns list is rejected."""
         with pytest.raises(ValidationError):
             EvaluationData(conversation_group_id="conv1", turns=[])
@@ -369,7 +405,7 @@ class TestEvaluationData:
 class TestEvaluationResult:
     """Tests for EvaluationResult model."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test EvaluationResult has correct default values."""
         result = EvaluationResult(
             conversation_group_id="conv1",
@@ -385,7 +421,7 @@ class TestEvaluationResult:
         assert result.reason == ""
         assert result.execution_time == 0
 
-    def test_explicit_tag_value(self):
+    def test_explicit_tag_value(self) -> None:
         """Test EvaluationResult with explicit tag value."""
         result = EvaluationResult(
             conversation_group_id="conv1",
@@ -398,7 +434,7 @@ class TestEvaluationResult:
 
         assert result.tag == "custom_tag"
 
-    def test_empty_tag_rejected(self):
+    def test_empty_tag_rejected(self) -> None:
         """Test that empty tag is rejected."""
         with pytest.raises(ValidationError):
             EvaluationResult(
@@ -410,7 +446,7 @@ class TestEvaluationResult:
                 threshold=0.7,
             )
 
-    def test_invalid_result_status_rejected(self):
+    def test_invalid_result_status_rejected(self) -> None:
         """Test that invalid result status is rejected."""
         with pytest.raises(ValidationError, match="Result must be one of"):
             EvaluationResult(
@@ -421,7 +457,7 @@ class TestEvaluationResult:
                 threshold=0.7,
             )
 
-    def test_negative_execution_time_rejected(self):
+    def test_negative_execution_time_rejected(self) -> None:
         """Test that negative execution_time is rejected."""
         with pytest.raises(ValidationError):
             EvaluationResult(
@@ -433,7 +469,7 @@ class TestEvaluationResult:
                 execution_time=-1,
             )
 
-    def test_conversation_level_metric_allows_none_turn_id(self):
+    def test_conversation_level_metric_allows_none_turn_id(self) -> None:
         """Test that turn_id can be None for conversation-level metrics."""
         result = EvaluationResult(
             conversation_group_id="conv1",

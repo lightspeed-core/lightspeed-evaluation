@@ -318,7 +318,7 @@ class MultiProviderEvaluationRunner:
         Returns:
             List of dictionaries with provider, model, and settings
         """
-        configs = []
+        configs: list[dict[str, Any]] = []
 
         # Get providers from the config
         providers = self.providers_config.get("providers", {})
@@ -781,7 +781,7 @@ class MultiProviderEvaluationRunner:
 
         # Calculate score statistics
         if all_scores:
-            score_stats = {
+            score_stats: dict[str, Any] = {
                 "mean": float(np.mean(all_scores)),
                 "median": float(np.median(all_scores)),
                 "std": float(np.std(all_scores)),
@@ -818,10 +818,10 @@ class MultiProviderEvaluationRunner:
                     logger.warning(
                         "scipy not available, skipping confidence interval calculation"
                     )
-                    score_stats["confidence_interval"] = None
+                    score_stats["confidence_interval"] = None  # type: ignore[assignment]
             else:
                 # Single score - no confidence interval
-                score_stats["confidence_interval"] = None
+                score_stats["confidence_interval"] = None  # type: ignore[assignment]
         else:
             score_stats = {
                 "mean": 0.0,

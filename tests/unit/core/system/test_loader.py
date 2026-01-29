@@ -17,7 +17,7 @@ from lightspeed_evaluation.core.models import SystemConfig
 class TestPopulateMetricMappings:
     """Unit tests for populate_metric_mappings function."""
 
-    def test_populate_metric_mappings_turn_level(self):
+    def test_populate_metric_mappings_turn_level(self) -> None:
         """Test populating turn-level metrics."""
         config = SystemConfig()
         config.default_turn_metrics_metadata = {
@@ -31,7 +31,7 @@ class TestPopulateMetricMappings:
         assert "ragas:faithfulness" in TURN_LEVEL_METRICS
         assert "custom:answer_correctness" in TURN_LEVEL_METRICS
 
-    def test_populate_metric_mappings_conversation_level(self):
+    def test_populate_metric_mappings_conversation_level(self) -> None:
         """Test populating conversation-level metrics."""
         config = SystemConfig()
         config.default_turn_metrics_metadata = {}
@@ -45,7 +45,7 @@ class TestPopulateMetricMappings:
         assert "deepeval:conversation_completeness" in CONVERSATION_LEVEL_METRICS
         assert "deepeval:conversation_relevancy" in CONVERSATION_LEVEL_METRICS
 
-    def test_populate_metric_mappings_clears_previous(self):
+    def test_populate_metric_mappings_clears_previous(self) -> None:
         """Test that populate clears previous mappings."""
         config1 = SystemConfig()
         config1.default_turn_metrics_metadata = {"metric1": {}}
@@ -70,14 +70,14 @@ class TestPopulateMetricMappings:
 class TestConfigLoader:
     """Unit tests for ConfigLoader."""
 
-    def test_load_system_config_file_not_found(self):
+    def test_load_system_config_file_not_found(self) -> None:
         """Test loading non-existent config file raises error."""
         loader = ConfigLoader()
 
         with pytest.raises(ValueError, match="file not found"):
             loader.load_system_config("/nonexistent/config.yaml")
 
-    def test_load_system_config_invalid_yaml(self):
+    def test_load_system_config_invalid_yaml(self) -> None:
         """Test loading invalid YAML raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: [[[")
@@ -90,7 +90,7 @@ class TestConfigLoader:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_empty_file(self):
+    def test_load_system_config_empty_file(self) -> None:
         """Test loading empty YAML raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("")
@@ -103,7 +103,7 @@ class TestConfigLoader:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_not_dict(self):
+    def test_load_system_config_not_dict(self) -> None:
         """Test loading YAML with non-dict root raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("- item1\n- item2\n")
@@ -116,7 +116,7 @@ class TestConfigLoader:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_minimal_valid(self):
+    def test_load_system_config_minimal_valid(self) -> None:
         """Test loading minimal valid config."""
         yaml_content = """
 llm:
@@ -148,7 +148,7 @@ metrics_metadata:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_with_all_sections(self):
+    def test_load_system_config_with_all_sections(self) -> None:
         """Test loading config with all sections."""
         yaml_content = """
 core:
@@ -215,7 +215,7 @@ metrics_metadata:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_populates_metrics(self):
+    def test_load_system_config_populates_metrics(self) -> None:
         """Test that loading config populates global metric mappings."""
         yaml_content = """
 llm:
@@ -260,7 +260,7 @@ metrics_metadata:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_with_defaults(self):
+    def test_load_system_config_with_defaults(self) -> None:
         """Test that missing sections use defaults."""
         yaml_content = """
 llm:
@@ -288,7 +288,7 @@ metrics_metadata:
         finally:
             Path(temp_path).unlink()
 
-    def test_create_system_config_missing_metrics_metadata(self):
+    def test_create_system_config_missing_metrics_metadata(self) -> None:
         """Test creating config when metrics_metadata is missing."""
         yaml_content = """
 llm:
@@ -305,12 +305,12 @@ llm:
             config = loader.load_system_config(temp_path)
 
             # Should handle missing metrics_metadata gracefully
-            assert config.default_turn_metrics_metadata == {}
-            assert config.default_conversation_metrics_metadata == {}
+            assert not config.default_turn_metrics_metadata
+            assert not config.default_conversation_metrics_metadata
         finally:
             Path(temp_path).unlink()
 
-    def test_create_system_config_partial_metrics_metadata(self):
+    def test_create_system_config_partial_metrics_metadata(self) -> None:
         """Test creating config with partial metrics_metadata."""
         yaml_content = """
 llm:
@@ -335,11 +335,11 @@ metrics_metadata:
 
             # Should handle missing conversation_level
             assert len(config.default_turn_metrics_metadata) > 0
-            assert config.default_conversation_metrics_metadata == {}
+            assert not config.default_conversation_metrics_metadata
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_empty_sections(self):
+    def test_load_system_config_empty_sections(self) -> None:
         """Test loading config with empty sections."""
         yaml_content = """
 llm:

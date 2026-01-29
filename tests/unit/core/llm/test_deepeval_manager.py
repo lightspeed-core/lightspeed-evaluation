@@ -1,25 +1,15 @@
 """Unit tests for DeepEval LLM Manager."""
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
-
-
-@pytest.fixture
-def llm_params():
-    """Create sample LLM parameters."""
-    return {
-        "temperature": 0.5,
-        "max_completion_tokens": 1024,
-        "timeout": 120,
-        "num_retries": 5,
-    }
 
 
 class TestDeepEvalLLMManager:
     """Tests for DeepEvalLLMManager."""
 
-    def test_initialization(self, llm_params, mocker):
+    def test_initialization(self, llm_params: dict, mocker: MockerFixture) -> None:
         """Test manager initialization."""
         mock_model = mocker.patch(
             "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
@@ -31,7 +21,9 @@ class TestDeepEvalLLMManager:
         assert manager.llm_params == llm_params
         mock_model.assert_called_once()
 
-    def test_initialization_with_default_temperature(self, mocker):
+    def test_initialization_with_default_temperature(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test initialization with default temperature."""
         mock_model = mocker.patch(
             "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
@@ -44,7 +36,9 @@ class TestDeepEvalLLMManager:
         call_kwargs = mock_model.call_args.kwargs
         assert call_kwargs["temperature"] == 0.0
 
-    def test_initialization_with_default_num_retries(self, mocker):
+    def test_initialization_with_default_num_retries(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test initialization with default num_retries."""
         mock_model = mocker.patch(
             "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
@@ -57,7 +51,7 @@ class TestDeepEvalLLMManager:
         call_kwargs = mock_model.call_args.kwargs
         assert call_kwargs["num_retries"] == 3
 
-    def test_get_llm(self, llm_params, mocker):
+    def test_get_llm(self, llm_params: dict, mocker: MockerFixture) -> None:
         """Test get_llm method."""
         mock_model_instance = mocker.Mock()
         mocker.patch(
@@ -70,7 +64,7 @@ class TestDeepEvalLLMManager:
 
         assert llm == mock_model_instance
 
-    def test_get_model_info(self, llm_params, mocker):
+    def test_get_model_info(self, llm_params: dict, mocker: MockerFixture) -> None:
         """Test get_model_info method."""
         mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
 
@@ -83,7 +77,9 @@ class TestDeepEvalLLMManager:
         assert info["timeout"] == 120
         assert info["num_retries"] == 5
 
-    def test_initialization_prints_message(self, llm_params, mocker, capsys):
+    def test_initialization_prints_message(
+        self, llm_params: dict, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    ) -> None:
         """Test that initialization prints configuration message."""
         mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
 

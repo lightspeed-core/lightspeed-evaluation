@@ -1,5 +1,7 @@
 """Unit tests for pipeline evaluation amender module."""
 
+from pytest_mock import MockerFixture
+
 from lightspeed_evaluation.core.models import APIResponse, TurnData
 from lightspeed_evaluation.core.system.exceptions import APIError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
@@ -8,7 +10,7 @@ from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 class TestAPIDataAmender:
     """Unit tests for APIDataAmender."""
 
-    def test_amend_single_turn_no_client(self):
+    def test_amend_single_turn_no_client(self) -> None:
         """Test amendment returns None when no API client is available."""
         amender = APIDataAmender(None)
 
@@ -20,7 +22,7 @@ class TestAPIDataAmender:
         assert conversation_id is None
         assert turn.response is None  # Not modified
 
-    def test_amend_single_turn_success(self, mocker):
+    def test_amend_single_turn_success(self, mocker: MockerFixture) -> None:
         """Test amending single turn data successfully."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
@@ -51,7 +53,9 @@ class TestAPIDataAmender:
         assert turn.conversation_id == "conv_123"
         assert turn.contexts == ["Context 1", "Context 2"]
 
-    def test_amend_single_turn_with_conversation_id(self, mocker):
+    def test_amend_single_turn_with_conversation_id(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test amending turn with existing conversation ID."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
@@ -82,7 +86,7 @@ class TestAPIDataAmender:
         assert turn.conversation_id == "conv_123"
         assert turn.contexts == ["Context 3"]
 
-    def test_amend_single_turn_with_tool_calls(self, mocker):
+    def test_amend_single_turn_with_tool_calls(self, mocker: MockerFixture) -> None:
         """Test amending turn data with tool calls."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
@@ -107,7 +111,7 @@ class TestAPIDataAmender:
         assert turn.response == "Tool response"
         assert turn.tool_calls == [[{"tool": "test_tool", "args": {"param": "value"}}]]
 
-    def test_amend_single_turn_with_attachments(self, mocker):
+    def test_amend_single_turn_with_attachments(self, mocker: MockerFixture) -> None:
         """Test amending turn data with attachments."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
@@ -144,7 +148,7 @@ class TestAPIDataAmender:
         assert turn.response == "Attachment response"
         assert turn.contexts == ["Attachment context"]
 
-    def test_amend_single_turn_api_error(self, mocker):
+    def test_amend_single_turn_api_error(self, mocker: MockerFixture) -> None:
         """Test handling API error during turn amendment."""
         mock_client = mocker.Mock()
         mock_client.query.side_effect = APIError("Connection failed")
@@ -163,7 +167,9 @@ class TestAPIDataAmender:
         assert turn.response is None
         assert turn.conversation_id is None
 
-    def test_amend_single_turn_no_contexts_in_response(self, mocker):
+    def test_amend_single_turn_no_contexts_in_response(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test amending turn when API response has no contexts."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
@@ -184,11 +190,14 @@ class TestAPIDataAmender:
         assert error_msg is None
         assert conversation_id == "conv_no_ctx"
 
-        # Turn data should be amended (contexts should remain None since API response has empty contexts)
+        # Turn data should be amended (contexts should remain None since API response
+        # has empty contexts)
         assert turn.response == "No context response"
         assert turn.contexts is None
 
-    def test_amend_single_turn_no_tool_calls_in_response(self, mocker):
+    def test_amend_single_turn_no_tool_calls_in_response(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test amending turn when API response has no tool calls."""
         mock_client = mocker.Mock()
         api_response = APIResponse(
@@ -209,6 +218,7 @@ class TestAPIDataAmender:
         assert error_msg is None
         assert conversation_id == "conv_no_tools"
 
-        # Turn data should be amended (tool_calls should remain None since API response has empty tool_calls)
+        # Turn data should be amended (tool_calls should remain None since API response
+        # has empty tool_calls)
         assert turn.response == "No tools response"
         assert turn.tool_calls is None

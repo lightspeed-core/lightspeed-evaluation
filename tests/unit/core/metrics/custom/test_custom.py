@@ -1,5 +1,6 @@
 """Tests for custom metrics module."""
 
+from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.metrics.custom.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
@@ -8,7 +9,9 @@ from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 class TestCustomMetricsToolEval:
     """Test CustomMetrics tool_eval functionality."""
 
-    def test_evaluate_tool_calls_with_none_tool_calls(self, mocker):
+    def test_evaluate_tool_calls_with_none_tool_calls(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test that None tool_calls is handled correctly."""
         # Mock LLM manager
         mock_llm_manager = mocker.Mock()
@@ -33,7 +36,7 @@ class TestCustomMetricsToolEval:
         assert score == 1.0
         assert "Alternative 2 matched" in reason
 
-    def test_default_config_uses_full_ordered(self, mocker):
+    def test_default_config_uses_full_ordered(self, mocker: MockerFixture) -> None:
         """Test that default config uses full_match=True and ordered=True."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
@@ -63,7 +66,7 @@ class TestCustomMetricsToolEval:
         assert "full" in reason
         assert "ordered" in reason
 
-    def test_config_ordered_false_from_metadata(self, mocker):
+    def test_config_ordered_false_from_metadata(self, mocker: MockerFixture) -> None:
         """Test that ordered=False is read from turn_metrics_metadata."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
@@ -93,7 +96,7 @@ class TestCustomMetricsToolEval:
         assert score == 1.0
         assert "unordered" in reason
 
-    def test_config_match_partial_from_metadata(self, mocker):
+    def test_config_match_partial_from_metadata(self, mocker: MockerFixture) -> None:
         """Test that full_match=False is read from turn_metrics_metadata."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
@@ -121,7 +124,9 @@ class TestCustomMetricsToolEval:
         assert "partial" in reason
         assert "1/1 matched" in reason
 
-    def test_config_from_system_defaults_via_metric_manager(self, mocker):
+    def test_config_from_system_defaults_via_metric_manager(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test that config is read from system.yaml via MetricManager."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
