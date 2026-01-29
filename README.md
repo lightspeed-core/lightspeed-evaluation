@@ -129,7 +129,7 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
     - [`intent_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Evaluates whether the response demonstrates the expected intent or purpose
     - [`keywords_eval`](src/lightspeed_evaluation/core/metrics/custom/keywords_eval.py) - Keywords evaluation with alternatives (ALL keywords must match, case insensitive)
   - Tool Evaluation
-    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls and arguments with regex pattern matching
+    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls, arguments, and optional results with regex pattern matching
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
@@ -284,8 +284,9 @@ The `custom:tool_eval` metric supports flexible matching with multiple alternati
 
 - **Format**: `[[[tool_calls, ...]], [[tool_calls]], ...]` (list of list of list)
 - **Matching**: Tries each alternative until one matches
-- **Use Cases**: Optional tools, multiple approaches, default arguments, skip scenarios
+- **Use Cases**: Optional tools, multiple approaches, default arguments, skip scenarios, result validation
 - **Empty Sets**: `[]` represents "no tools" and must come after primary alternatives
+- **Result Validation**: Optionally validate tool outputs with regex patterns via the `result` field
 - **Options**:
   - `ordered` (default: true) — sequence order must match when true, ignored when false
   - `full_match` (default: true) — exact 1:1 match when true, partial match when false
@@ -301,6 +302,7 @@ The `custom:tool_eval` metric supports flexible matching with multiple alternati
           arguments:
             kind: pod
             name: openshift-light*    # Regex patterns supported
+          result: ".*Running.*"       # Optional: validate tool output (regex)
       - # Sequence 2 (if multiple parallel tool calls needed)
         - tool_name: oc_describe
           arguments:
@@ -313,6 +315,33 @@ The `custom:tool_eval` metric supports flexible matching with multiple alternati
     - # Alternative 3: Skip scenario (optional)
       []  # When model has information from previous conversation
   ```
+
+#### Tool Result Validation (Optional)
+
+The `result` field allows validating the output returned by a tool call. This is useful for verifying that tools not only received the correct inputs but also produced the expected outputs.
+
+- **Optional**: If `result` is not specified, result validation is skipped (only name and arguments are checked)
+- **Regex Support**: Uses regex pattern matching for flexible validation
+- **Use Cases**: Verify command outputs, check success/failure states, validate returned data
+
+```yaml
+# Example: Validate that a pod is in Running state
+expected_tool_calls:
+  - - tool_name: oc_get
+      arguments:
+        kind: pod
+        name: nginx-.*
+        namespace: default
+      result: ".*Running.*"  # Verify pod status contains "Running"
+
+# Example: Validate resource creation succeeded
+expected_tool_calls:
+  - - tool_name: oc_create
+      arguments:
+        kind: namespace
+        name: test-ns
+      result: ".*created"    # Verify creation was successful
+```
 
 #### Script-Based Evaluations
 
