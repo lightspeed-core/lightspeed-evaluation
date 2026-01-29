@@ -1,3 +1,5 @@
+# pylint: disable=protected-access,disable=too-few-public-methods
+
 """Unit tests for custom LLM classes."""
 
 import pytest
@@ -7,7 +9,7 @@ from lightspeed_evaluation.core.llm.custom import BaseCustomLLM, TokenTracker
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
-class TestTokenTracker:  # pylint: disable=too-few-public-methods
+class TestTokenTracker:
     """Tests for TokenTracker."""
 
     def test_token_callback_accumulates_tokens(self, mocker: MockerFixture) -> None:
@@ -20,9 +22,7 @@ class TestTokenTracker:  # pylint: disable=too-few-public-methods
         mock_response.usage.prompt_tokens = 10
         mock_response.usage.completion_tokens = 20
 
-        tracker._token_callback(  # pylint: disable=protected-access
-            {}, mock_response, 0.0, 0.0
-        )
+        tracker._token_callback({}, mock_response, 0.0, 0.0)
 
         input_tokens, output_tokens = tracker.get_counts()
         assert input_tokens == 10

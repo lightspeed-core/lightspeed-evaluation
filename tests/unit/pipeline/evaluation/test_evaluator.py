@@ -1,3 +1,5 @@
+# pylint: disable=protected-access,redefined-outer-name,too-many-arguments,too-many-positional-arguments
+
 """Unit tests for pipeline evaluation evaluator module."""
 
 import pytest
@@ -428,20 +430,11 @@ class TestMetricsEvaluator:
         )
 
         # Test PASS
-        assert (
-            evaluator._determine_status(0.8, 0.7)  # pylint: disable=protected-access
-            == "PASS"
-        )
-        assert (
-            evaluator._determine_status(0.7, 0.7)  # pylint: disable=protected-access
-            == "PASS"
-        )  # Equal passes
+        assert evaluator._determine_status(0.8, 0.7) == "PASS"
+        assert evaluator._determine_status(0.7, 0.7) == "PASS"  # Equal passes
 
         # Test FAIL
-        assert (
-            evaluator._determine_status(0.6, 0.7)  # pylint: disable=protected-access
-            == "FAIL"
-        )
+        assert evaluator._determine_status(0.6, 0.7) == "FAIL"
 
     def test_determine_status_without_threshold(
         self,
@@ -471,16 +464,10 @@ class TestMetricsEvaluator:
         )
 
         # Should use 0.5 as default
-        assert (
-            evaluator._determine_status(0.6, None)  # pylint: disable=protected-access
-            == "PASS"
-        )
-        assert (
-            evaluator._determine_status(0.4, None)  # pylint: disable=protected-access
-            == "FAIL"
-        )
+        assert evaluator._determine_status(0.6, None) == "PASS"
+        assert evaluator._determine_status(0.4, None) == "FAIL"
 
-    def _setup_evaluate_test(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def _setup_evaluate_test(
         self,
         config_loader: ConfigLoader,
         mock_metric_manager: MetricManager,
@@ -558,7 +545,7 @@ class TestMetricsEvaluator:
         "metric_identifier",
         ["ragas:context_recall", "custom:answer_correctness", "nlp:rouge"],
     )
-    def test_evaluate_with_expected_response_list(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def test_evaluate_with_expected_response_list(
         self,
         config_loader: ConfigLoader,
         mock_metric_manager: MetricManager,
@@ -586,9 +573,7 @@ class TestMetricsEvaluator:
         request = EvaluationRequest.for_turn(conv_data, metric_identifier, 0, turn_data)
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        metric_result = evaluator._evaluate_wrapper(  # pylint: disable=protected-access
-            request, scope, 0.7
-        )
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
 
         assert metric_result.score == 0.85
         assert metric_result.reason == "High score"
@@ -628,9 +613,7 @@ class TestMetricsEvaluator:
         )
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        metric_result = evaluator._evaluate_wrapper(  # pylint: disable=protected-access
-            request, scope, 0.7
-        )
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
         reason_combined = "\n".join(
             [f"{score}; {reason}" for score, reason in scores_reasons]
         )
@@ -665,9 +648,7 @@ class TestMetricsEvaluator:
         )
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        metric_result = evaluator._evaluate_wrapper(  # pylint: disable=protected-access
-            request, scope, 0.7
-        )
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
 
         assert metric_result.score == 0.85
         assert metric_result.reason == "Good score"
@@ -682,7 +663,7 @@ class TestMetricsEvaluator:
         [None, "string", ["string1", "string2"]],
         ids=["none", "string", "string_list"],
     )
-    def test_evaluate_with_expected_response_not_needed(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def test_evaluate_with_expected_response_not_needed(
         self,
         config_loader: ConfigLoader,
         mock_metric_manager: MetricManager,
@@ -711,9 +692,7 @@ class TestMetricsEvaluator:
         request = EvaluationRequest.for_turn(conv_data, metric_identifier, 0, turn_data)
         scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
 
-        metric_result = evaluator._evaluate_wrapper(  # pylint: disable=protected-access
-            request, scope, 0.7
-        )
+        metric_result = evaluator._evaluate_wrapper(request, scope, 0.7)
 
         assert metric_result.score == 0.3
         assert metric_result.reason == "Low score"
@@ -753,16 +732,16 @@ class TestTokenTracker:
         """Test start and stop methods."""
         tracker = TokenTracker()
         tracker.start()
-        assert tracker._callback_registered is True  # pylint: disable=protected-access
+        assert tracker._callback_registered is True
         tracker.stop()
-        assert tracker._callback_registered is False  # pylint: disable=protected-access
+        assert tracker._callback_registered is False
 
     def test_token_tracker_double_start(self) -> None:
         """Test calling start twice doesn't register callback twice."""
         tracker = TokenTracker()
         tracker.start()
         tracker.start()  # Should not fail
-        assert tracker._callback_registered is True  # pylint: disable=protected-access
+        assert tracker._callback_registered is True
         tracker.stop()
 
     def test_token_tracker_double_stop(self) -> None:
@@ -771,7 +750,7 @@ class TestTokenTracker:
         tracker.start()
         tracker.stop()
         tracker.stop()  # Should not fail
-        assert tracker._callback_registered is False  # pylint: disable=protected-access
+        assert tracker._callback_registered is False
 
     def test_token_tracker_independent_instances(self) -> None:
         """Test multiple TokenTracker instances are independent."""

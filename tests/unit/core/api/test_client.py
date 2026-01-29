@@ -1,3 +1,5 @@
+# pylint: disable=protected-access
+
 """Unit tests for core API client module."""
 
 from pathlib import Path
@@ -248,9 +250,7 @@ class TestAPIClient:
         mock_response.read.return_value = b'{"detail": "Not found"}'
 
         with pytest.raises(httpx.HTTPStatusError):
-            client._handle_response_errors(  # pylint: disable=protected-access
-                mock_response
-            )
+            client._handle_response_errors(mock_response)
 
     def test_extract_error_message_with_detail(
         self, api_config: APIConfig, mocker: MockerFixture
@@ -263,9 +263,7 @@ class TestAPIClient:
         mock_response = mocker.Mock()
         mock_response.read.return_value = b'{"detail": "Error message"}'
 
-        error_msg = client._extract_error_message(  # pylint: disable=protected-access
-            mock_response
-        )
+        error_msg = client._extract_error_message(mock_response)
         assert "Error message" in error_msg
 
     def test_extract_error_message_with_nested_detail(
@@ -281,9 +279,7 @@ class TestAPIClient:
             b'{"detail": {"response": "Error", "cause": "Reason"}}'
         )
 
-        error_msg = client._extract_error_message(  # pylint: disable=protected-access
-            mock_response
-        )
+        error_msg = client._extract_error_message(mock_response)
         assert "Error" in error_msg
         assert "Reason" in error_msg
 
@@ -405,9 +401,7 @@ class TestAPIClientConfiguration:
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config)
-        request = client._prepare_request(  # pylint: disable=protected-access
-            "What is Python?"
-        )
+        request = client._prepare_request("What is Python?")
 
         assert request.query == "What is Python?"
         assert request.provider == "openai"
@@ -420,9 +414,7 @@ class TestAPIClientConfiguration:
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config)
-        request = client._prepare_request(  # pylint: disable=protected-access
-            "Follow-up", conversation_id="conv_123"
-        )
+        request = client._prepare_request("Follow-up", conversation_id="conv_123")
 
         assert request.query == "Follow-up"
         assert request.conversation_id == "conv_123"
@@ -434,7 +426,7 @@ class TestAPIClientConfiguration:
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config)
-        request = client._prepare_request(  # pylint: disable=protected-access
+        request = client._prepare_request(
             "Analyze this", attachments=["file1.txt", "file2.pdf"]
         )
 
@@ -478,15 +470,11 @@ class TestAPIClientConfiguration:
         client = APIClient(config)
 
         # Create identical requests
-        request1 = client._prepare_request(  # pylint: disable=protected-access
-            "test query"
-        )
-        request2 = client._prepare_request(  # pylint: disable=protected-access
-            "test query"
-        )
+        request1 = client._prepare_request("test query")
+        request2 = client._prepare_request("test query")
 
-        key1 = client._get_cache_key(request1)  # pylint: disable=protected-access
-        key2 = client._get_cache_key(request2)  # pylint: disable=protected-access
+        key1 = client._get_cache_key(request1)
+        key2 = client._get_cache_key(request2)
 
         # Same request should generate same cache key
         assert key1 == key2

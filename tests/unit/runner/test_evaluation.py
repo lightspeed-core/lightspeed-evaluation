@@ -1,3 +1,5 @@
+# pylint: disable=unused-argument
+
 """Unit tests for runner/evaluation.py."""
 
 import argparse
@@ -28,7 +30,7 @@ class TestRunEvaluation:
     def test_run_evaluation_success(
         self,
         mocker: MockerFixture,
-        capsys: pytest.CaptureFixture,  # pylint: disable=unused-argument
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """Test successful evaluation run."""
         # Mock ConfigLoader
@@ -98,7 +100,7 @@ class TestRunEvaluation:
     def test_run_evaluation_with_output_dir_override(
         self,
         mocker: MockerFixture,
-        capsys: pytest.CaptureFixture,  # pylint: disable=unused-argument
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """Test evaluation with custom output directory."""
         mock_loader = mocker.Mock()
@@ -261,7 +263,7 @@ class TestRunEvaluation:
     def test_run_evaluation_closes_pipeline_on_exception(
         self,
         mocker: MockerFixture,
-        capsys: pytest.CaptureFixture,  # pylint: disable=unused-argument
+        capsys: pytest.CaptureFixture,
     ) -> None:
         """Test pipeline is closed even if evaluation fails."""
         mock_loader = mocker.Mock()

@@ -1,3 +1,5 @@
+# pylint: disable=protected-access,too-few-public-methods
+
 """Additional tests to boost coverage towards 75%."""
 
 from pathlib import Path
@@ -97,7 +99,7 @@ class TestOutputHandlerEdgeCases:
             )
         ]
 
-        stats = handler._calculate_stats(results)  # pylint: disable=protected-access
+        stats = handler._calculate_stats(results)
 
         assert stats["basic"]["TOTAL"] == 1
         assert stats["basic"]["PASS"] == 1
@@ -123,9 +125,7 @@ class TestOutputHandlerEdgeCases:
             )
         ]
 
-        csv_file = handler._generate_csv_report(  # pylint: disable=protected-access
-            results, "test"
-        )
+        csv_file = handler._generate_csv_report(results, "test")
 
         assert csv_file.exists()
         content = csv_file.read_text()
@@ -134,7 +134,7 @@ class TestOutputHandlerEdgeCases:
         assert "PASS" in content
 
 
-class TestSystemLoaderEdgeCases:  # pylint: disable=too-few-public-methods
+class TestSystemLoaderEdgeCases:
     """Edge case tests for system loader."""
 
     def test_validate_metrics_with_mixed_valid_invalid(self) -> None:

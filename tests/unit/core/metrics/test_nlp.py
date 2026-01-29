@@ -1,3 +1,5 @@
+# pylint: disable=too-many-arguments,too-many-positional-arguments,disable=too-few-public-methods
+
 """Tests for NLP metrics module.
 
 This module tests the NLP-based evaluation metrics:
@@ -26,7 +28,7 @@ from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import MetricError
 
 
-class TestNLPMetricsInit:  # pylint: disable=too-few-public-methods
+class TestNLPMetricsInit:
     """Test NLPMetrics initialization."""
 
     def test_initialization(self, nlp_metrics: NLPMetrics) -> None:
@@ -292,7 +294,7 @@ class TestMetricErrorHandling:
             ),
         ],
     )
-    def test_ragas_metric_failure_raises_metric_error(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def test_ragas_metric_failure_raises_metric_error(
         self,
         nlp_metrics: NLPMetrics,
         sample_scope: EvaluationScope,

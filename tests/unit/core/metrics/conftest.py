@@ -1,3 +1,5 @@
+# pylint: disable=redefined-outer-name
+
 """Pytest configuration and fixtures for metrics tests."""
 
 import sys
@@ -67,7 +69,7 @@ def sample_turn_data() -> TurnData:
 
 
 @pytest.fixture
-def sample_scope(  # pylint: disable=redefined-outer-name
+def sample_scope(
     sample_turn_data: TurnData,
 ) -> EvaluationScope:
     """Create sample EvaluationScope for turn-level evaluation."""
@@ -79,7 +81,7 @@ def sample_scope(  # pylint: disable=redefined-outer-name
 
 
 @pytest.fixture
-def conversation_scope(  # pylint: disable=redefined-outer-name
+def conversation_scope(
     sample_turn_data: TurnData,
 ) -> EvaluationScope:
     """Create sample EvaluationScope for conversation-level evaluation."""

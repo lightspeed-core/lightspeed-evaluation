@@ -1,3 +1,5 @@
+# pylint: disable=too-many-public-methods
+
 """Unit tests for core metrics manager module."""
 
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
@@ -8,7 +10,7 @@ from lightspeed_evaluation.core.models import (
 )
 
 
-class TestMetricManager:  # pylint: disable=too-many-public-methods
+class TestMetricManager:
     """Unit tests for MetricManager."""
 
     def test_resolve_metrics_with_none_uses_defaults(

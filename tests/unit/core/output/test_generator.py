@@ -1,3 +1,5 @@
+# pylint: disable=protected-access
+
 """Unit tests for output generator."""
 
 import json
@@ -26,9 +28,7 @@ class TestOutputHandler:
     ) -> None:
         """Test statistics calculation."""
         handler = OutputHandler(output_dir=str(tmp_path))
-        stats = handler._calculate_stats(  # pylint: disable=protected-access
-            sample_results
-        )
+        stats = handler._calculate_stats(sample_results)
 
         assert stats["basic"]["TOTAL"] == 2
         assert stats["basic"]["PASS"] == 1
@@ -38,7 +38,7 @@ class TestOutputHandler:
     def test_calculate_stats_empty(self, tmp_path: Path) -> None:
         """Test statistics with empty results."""
         handler = OutputHandler(output_dir=str(tmp_path))
-        stats = handler._calculate_stats([])  # pylint: disable=protected-access
+        stats = handler._calculate_stats([])
 
         assert stats["basic"]["TOTAL"] == 0
         assert not stats["detailed"]["by_metric"]
@@ -55,9 +55,7 @@ class TestOutputHandler:
             system_config=mock_system_config,
         )
 
-        csv_file = handler._generate_csv_report(  # pylint: disable=protected-access
-            sample_results, "test"
-        )
+        csv_file = handler._generate_csv_report(sample_results, "test")
 
         assert csv_file.exists()
         assert csv_file.suffix == ".csv"
@@ -72,9 +70,7 @@ class TestOutputHandler:
     ) -> None:
         """Test JSON summary generation."""
         handler = OutputHandler(output_dir=str(tmp_path))
-        stats = handler._calculate_stats(  # pylint: disable=protected-access
-            sample_results
-        )
+        stats = handler._calculate_stats(sample_results)
         api_tokens = {
             "total_api_input_tokens": 100,
             "total_api_output_tokens": 200,
@@ -82,7 +78,7 @@ class TestOutputHandler:
         }
         streaming_stats: dict = {}
 
-        json_file = handler._generate_json_summary(  # pylint: disable=protected-access
+        json_file = handler._generate_json_summary(
             sample_results,
             "test",
             stats["basic"],
@@ -108,9 +104,7 @@ class TestOutputHandler:
     ) -> None:
         """Test text summary generation."""
         handler = OutputHandler(output_dir=str(tmp_path))
-        stats = handler._calculate_stats(  # pylint: disable=protected-access
-            sample_results
-        )
+        stats = handler._calculate_stats(sample_results)
         api_tokens = {
             "total_api_input_tokens": 100,
             "total_api_output_tokens": 200,
@@ -118,7 +112,7 @@ class TestOutputHandler:
         }
         streaming_stats: dict = {}
 
-        txt_file = handler._generate_text_summary(  # pylint: disable=protected-access
+        txt_file = handler._generate_text_summary(
             sample_results,
             "test",
             stats["basic"],
@@ -202,13 +196,9 @@ class TestOutputHandler:
         config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
-        stats = handler._calculate_stats(  # pylint: disable=protected-access
-            sample_results
-        )
+        stats = handler._calculate_stats(sample_results)
 
-        handler._generate_individual_reports(  # pylint: disable=protected-access
-            sample_results, "test", ["csv"], stats
-        )
+        handler._generate_individual_reports(sample_results, "test", ["csv"], stats)
 
         assert (tmp_path / "test_detailed.csv").exists()
 
@@ -225,13 +215,9 @@ class TestOutputHandler:
         config.model_fields.keys.return_value = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
-        stats = handler._calculate_stats(  # pylint: disable=protected-access
-            sample_results
-        )
+        stats = handler._calculate_stats(sample_results)
 
-        handler._generate_individual_reports(  # pylint: disable=protected-access
-            sample_results, "test", ["json"], stats
-        )
+        handler._generate_individual_reports(sample_results, "test", ["json"], stats)
 
         assert (tmp_path / "test_summary.json").exists()
 
@@ -248,12 +234,8 @@ class TestOutputHandler:
         config.model_fields.keys.return_value = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
-        stats = handler._calculate_stats(  # pylint: disable=protected-access
-            sample_results
-        )
-        handler._generate_individual_reports(  # pylint: disable=protected-access
-            sample_results, "test", ["txt"], stats
-        )
+        stats = handler._calculate_stats(sample_results)
+        handler._generate_individual_reports(sample_results, "test", ["txt"], stats)
 
         assert (tmp_path / "test_summary.txt").exists()
 
@@ -279,9 +261,7 @@ class TestOutputHandler:
         config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
-        csv_file = handler._generate_csv_report(  # pylint: disable=protected-access
-            sample_results, "test"
-        )
+        csv_file = handler._generate_csv_report(sample_results, "test")
 
         content = csv_file.read_text()
         assert "query" in content
@@ -409,9 +389,7 @@ class TestOutputHandlerInitialization:
         mocker.patch("builtins.print")
 
         handler = OutputHandler(output_dir=str(tmp_path))
-        csv_file = handler._generate_csv_report(  # pylint: disable=protected-access
-            results, "test_eval"
-        )
+        csv_file = handler._generate_csv_report(results, "test_eval")
 
         assert csv_file.exists()
         assert csv_file.suffix == ".csv"
@@ -461,9 +439,7 @@ class TestOutputHandlerInitialization:
         system_config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=system_config)
-        csv_file = handler._generate_csv_report(  # pylint: disable=protected-access
-            results, "test_eval"
-        )
+        csv_file = handler._generate_csv_report(results, "test_eval")
 
         with open(csv_file, encoding="utf-8") as f:
             reader = csv_module.reader(f)
@@ -487,9 +463,7 @@ class TestOutputHandlerInitialization:
         )
         mock_datetime.now.return_value.strftime.return_value = "20240101_120000"
 
-        csv_file = handler._generate_csv_report(  # pylint: disable=protected-access
-            results, "test_20240101_120000"
-        )
+        csv_file = handler._generate_csv_report(results, "test_20240101_120000")
 
         assert "test_20240101_120000" in csv_file.name
         assert csv_file.suffix == ".csv"

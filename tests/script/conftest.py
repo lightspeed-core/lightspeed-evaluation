@@ -1,3 +1,5 @@
+# pylint: disable=redefined-outer-name
+
 """Pytest configuration and fixtures for script tests."""
 
 from pathlib import Path
@@ -126,7 +128,7 @@ def temp_config_files(tmp_path: Path) -> dict:
 
 
 @pytest.fixture
-def runner(  # pylint: disable=redefined-outer-name
+def runner(
     temp_config_files: dict,
 ) -> MultiProviderEvaluationRunner:
     """Create a MultiProviderEvaluationRunner instance for testing."""

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# pylint: disable=protected-access,too-few-public-methods
+
 """Pytest tests for run_multi_provider_eval.py script."""
 
 import json
@@ -241,9 +243,7 @@ class TestLoadYAML:
         self, runner: MultiProviderEvaluationRunner, temp_config_files: dict[str, Path]
     ) -> None:
         """Test loading a valid YAML file."""
-        config = runner._load_yaml(  # pylint: disable=protected-access
-            temp_config_files["providers_config"]
-        )
+        config = runner._load_yaml(temp_config_files["providers_config"])
         assert isinstance(config, dict)
         assert "providers" in config
         assert "openai" in config["providers"]
@@ -259,7 +259,7 @@ class TestLoadYAML:
             f.write("invalid: yaml: content: [")
 
         with pytest.raises(ValueError, match="Error parsing YAML file"):
-            runner._load_yaml(invalid_yaml)  # pylint: disable=protected-access
+            runner._load_yaml(invalid_yaml)
 
     def test_load_yaml_non_dict_type(
         self, runner: MultiProviderEvaluationRunner, tmp_path: Path
@@ -270,19 +270,17 @@ class TestLoadYAML:
             yaml.dump(["item1", "item2", "item3"], f)
 
         with pytest.raises(ValueError, match="must be a mapping, got list"):
-            runner._load_yaml(list_yaml)  # pylint: disable=protected-access
+            runner._load_yaml(list_yaml)
 
 
-class TestCreateProviderModelConfigs:  # pylint: disable=too-few-public-methods
+class TestCreateProviderModelConfigs:
     """Tests for _create_provider_model_configs method."""
 
     def test_create_configs_multiple_providers(
         self, runner: MultiProviderEvaluationRunner
     ) -> None:
         """Test creating configs with multiple providers."""
-        configs = (
-            runner._create_provider_model_configs()  # pylint: disable=protected-access
-        )
+        configs = runner._create_provider_model_configs()
 
         assert len(configs) == 3  # 2 openai models + 1 watsonx model
 
@@ -311,11 +309,9 @@ class TestCreateModifiedSystemConfig:
         original_llm_provider = runner.system_config["llm"]["provider"]
         original_llm_model = runner.system_config["llm"]["model"]
 
-        modified = (
-            runner._create_modified_system_config(  # pylint: disable=protected-access
-                provider_id="watsonx",
-                model="ibm/granite-13b-chat-v2",
-            )
+        modified = runner._create_modified_system_config(
+            provider_id="watsonx",
+            model="ibm/granite-13b-chat-v2",
         )
 
         # LLM judge should remain unchanged
@@ -348,11 +344,9 @@ class TestCreateModifiedSystemConfig:
             eval_data_path=str(temp_config_files["eval_data"]),
         )
 
-        modified = (
-            runner._create_modified_system_config(  # pylint: disable=protected-access
-                provider_id="watsonx",
-                model="ibm/granite-13b-chat-v2",
-            )
+        modified = runner._create_modified_system_config(
+            provider_id="watsonx",
+            model="ibm/granite-13b-chat-v2",
         )
 
         # API config should be modified with provider and model only
@@ -372,11 +366,9 @@ class TestCreateTempSystemConfig:
         self, runner: MultiProviderEvaluationRunner
     ) -> None:
         """Test that a temporary config file is created."""
-        temp_path = (
-            runner._create_temp_system_config(  # pylint: disable=protected-access
-                provider_id="openai",
-                model="gpt-4o-mini",
-            )
+        temp_path = runner._create_temp_system_config(
+            provider_id="openai",
+            model="gpt-4o-mini",
         )
 
         try:
@@ -424,7 +416,7 @@ class TestCreateTempSystemConfig:
                 side_effect=Exception("YAML dump failed"),
             ):
                 with pytest.raises(Exception, match="YAML dump failed"):
-                    runner._create_temp_system_config(  # pylint: disable=protected-access
+                    runner._create_temp_system_config(
                         provider_id="openai",
                         model="gpt-4o-mini",
                     )
@@ -441,11 +433,9 @@ class TestCreateTempSystemConfig:
         self, runner: MultiProviderEvaluationRunner
     ) -> None:
         """Test that special characters in provider_id and model are sanitized."""
-        temp_path = (
-            runner._create_temp_system_config(  # pylint: disable=protected-access
-                provider_id="open..ai//test",
-                model="gpt:4o-mini/special",
-            )
+        temp_path = runner._create_temp_system_config(
+            provider_id="open..ai//test",
+            model="gpt:4o-mini/special",
         )
 
         try:
@@ -483,7 +473,7 @@ class TestPathTraversalSecurity:
             return_value={"PASS": 0, "FAIL": 0, "ERROR": 1},
         ):
             # Attempt path traversal in provider_id
-            result = runner._run_single_evaluation(  # pylint: disable=protected-access
+            result = runner._run_single_evaluation(
                 provider_name="malicious",
                 provider_id="../../etc",
                 model="test",
@@ -510,7 +500,7 @@ class TestPathTraversalSecurity:
             return_value={"PASS": 0, "FAIL": 0, "ERROR": 1},
         ):
             # Attempt path traversal in model
-            result = runner._run_single_evaluation(  # pylint: disable=protected-access
+            result = runner._run_single_evaluation(
                 provider_name="openai",
                 provider_id="openai",
                 model="../../../etc/passwd",
@@ -540,7 +530,7 @@ class TestRunSingleEvaluation:
             "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 5, "FAIL": 2, "ERROR": 0},
         ) as mock_run_eval:
-            result = runner._run_single_evaluation(  # pylint: disable=protected-access
+            result = runner._run_single_evaluation(
                 provider_name="openai",
                 provider_id="openai",
                 model="gpt-4o-mini",
@@ -560,7 +550,7 @@ class TestRunSingleEvaluation:
         """Test evaluation failure handling."""
         # Mock run_evaluation to return None (failure)
         with patch("script.run_multi_provider_eval.run_evaluation", return_value=None):
-            result = runner._run_single_evaluation(  # pylint: disable=protected-access
+            result = runner._run_single_evaluation(
                 provider_name="openai",
                 provider_id="openai",
                 model="gpt-4o-mini",
@@ -578,7 +568,7 @@ class TestRunSingleEvaluation:
             "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 5, "FAIL": 2},  # Missing ERROR key
         ):
-            result = runner._run_single_evaluation(  # pylint: disable=protected-access
+            result = runner._run_single_evaluation(
                 provider_name="openai",
                 provider_id="openai",
                 model="gpt-4o-mini",
@@ -589,7 +579,7 @@ class TestRunSingleEvaluation:
             assert "summary" not in result
 
 
-class TestRunEvaluations:  # pylint: disable=too-few-public-methods
+class TestRunEvaluations:
     """Tests for run_evaluations method."""
 
     def test_run_evaluations_sequential(
@@ -614,7 +604,7 @@ class TestRunEvaluations:  # pylint: disable=too-few-public-methods
             assert mock_single_eval.call_count == 3
 
 
-class TestGenerateSummary:  # pylint: disable=too-few-public-methods
+class TestGenerateSummary:
     """Tests for generate_summary method."""
 
     def test_generate_summary_mixed_results(
@@ -675,9 +665,7 @@ class TestBestModelAnalysis:
         self, runner: MultiProviderEvaluationRunner, sample_evaluation_summary: dict
     ) -> None:
         """Test that percentage rates (80.0) convert to decimals (0.8)."""
-        stats = runner._analyze_single_model(  # pylint: disable=protected-access
-            "test/model", sample_evaluation_summary
-        )
+        stats = runner._analyze_single_model("test/model", sample_evaluation_summary)
 
         # Verify percentage conversion
         assert abs(stats["overall"]["pass_rate"] - 0.8) < 0.01
@@ -686,15 +674,11 @@ class TestBestModelAnalysis:
     def test_composite_score(self, runner: MultiProviderEvaluationRunner) -> None:
         """Test composite score calculation."""
         # Perfect model should get score of 1.0
-        perfect = runner._calculate_composite_score(  # pylint: disable=protected-access
-            1.0, 0.0, 1.0, 1.0
-        )
+        perfect = runner._calculate_composite_score(1.0, 0.0, 1.0, 1.0)
         assert abs(perfect - 1.0) < 0.0001
 
         # Poor model should get score of 0.0
-        poor = runner._calculate_composite_score(  # pylint: disable=protected-access
-            0.0, 1.0, 0.0, 0.0
-        )
+        poor = runner._calculate_composite_score(0.0, 1.0, 0.0, 0.0)
         assert poor == 0.0
 
     def test_model_ranking(self, runner: MultiProviderEvaluationRunner) -> None:

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# pylint: disable=protected-access
+
 """Pytest tests to verify the compare_evaluations.py script works correctly."""
 
 import json
@@ -144,9 +146,7 @@ class TestEvaluationComparisonMethods:
         scores1 = [0.8, 0.9, 0.7, 0.85, 0.75, 0.88, 0.82, 0.79, 0.86, 0.81]
         scores2 = [0.6, 0.65, 0.55, 0.62, 0.58, 0.63, 0.59, 0.61, 0.64, 0.57]
 
-        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
-            scores1, scores2
-        )
+        result = comparison_instance._compare_score_distributions(scores1, scores2)
         # Check structure
         assert "run1_stats" in result
         assert "run2_stats" in result
@@ -180,9 +180,7 @@ class TestEvaluationComparisonMethods:
         scores1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         scores2 = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
 
-        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
-            scores1, scores2
-        )
+        result = comparison_instance._compare_score_distributions(scores1, scores2)
 
         # The means should be 5.5 and 6.5 respectively
         assert abs(result["run1_stats"]["mean"] - 5.5) < 0.01
@@ -200,9 +198,7 @@ class TestEvaluationComparisonMethods:
         scores1 = [0.8, 0.8, 0.8, 0.8, 0.8]
         scores2 = [0.8, 0.8, 0.8, 0.8, 0.8]
 
-        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
-            scores1, scores2
-        )
+        result = comparison_instance._compare_score_distributions(scores1, scores2)
 
         assert result["run1_stats"]["mean"] == result["run2_stats"]["mean"]
         assert result["mean_difference"] == 0.0
@@ -224,9 +220,7 @@ class TestEvaluationComparisonMethods:
             "total2": 20,
         }
 
-        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
-            comparison, test_data
-        )
+        comparison_instance._perform_pass_rate_tests(comparison, test_data)
 
         # Check that tests were performed
         assert "tests" in comparison
@@ -252,9 +246,7 @@ class TestEvaluationComparisonMethods:
             "total2": 20,
         }
 
-        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
-            comparison, test_data
-        )
+        comparison_instance._perform_pass_rate_tests(comparison, test_data)
 
         # Verify structure
         assert "tests" in comparison
@@ -289,9 +281,7 @@ class TestEvaluationComparisonMethods:
             "total2": 15,
         }
 
-        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
-            comparison, test_data
-        )
+        comparison_instance._perform_pass_rate_tests(comparison, test_data)
 
         # Should handle gracefully (no tests performed or error recorded)
         assert "tests" in comparison
@@ -303,9 +293,7 @@ class TestEvaluationComparisonMethods:
         ci1 = {"low": 0.1, "high": 0.3, "mean": 0.2, "confidence_level": 0.95}
         ci2 = {"low": 0.7, "high": 0.9, "mean": 0.8, "confidence_level": 0.95}
 
-        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
-            ci1, ci2
-        )
+        result = comparison_instance._check_confidence_interval_overlap(ci1, ci2)
 
         assert "intervals_overlap" in result
         assert "significant" in result
@@ -319,9 +307,7 @@ class TestEvaluationComparisonMethods:
         ci1 = {"low": 0.2, "high": 0.6, "mean": 0.4, "confidence_level": 0.95}
         ci2 = {"low": 0.4, "high": 0.8, "mean": 0.6, "confidence_level": 0.95}
 
-        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
-            ci1, ci2
-        )
+        result = comparison_instance._check_confidence_interval_overlap(ci1, ci2)
 
         assert "intervals_overlap" in result
         assert "significant" in result
@@ -332,9 +318,7 @@ class TestEvaluationComparisonMethods:
         self, comparison_instance: EvaluationComparison
     ) -> None:
         """Test _check_confidence_interval_overlap with None inputs."""
-        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
-            None, None
-        )
+        result = comparison_instance._check_confidence_interval_overlap(None, None)
 
         assert "test_performed" in result
         # Should handle None inputs gracefully - might not perform test
@@ -345,9 +329,7 @@ class TestEvaluationComparisonMethods:
         """Test _check_confidence_interval_overlap with one None input."""
         ci1 = {"low": 0.2, "high": 0.6, "mean": 0.4, "confidence_level": 0.95}
 
-        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
-            ci1, None
-        )
+        result = comparison_instance._check_confidence_interval_overlap(ci1, None)
         assert "test_performed" in result
         # Should handle partial None inputs gracefully
 
@@ -360,9 +342,7 @@ class TestEvaluationComparisonMethods:
         scores1 = [1.0, 1.1, 1.2, 1.3, 1.4]  # Mean ≈ 1.2, low variance
         scores2 = [2.0, 2.1, 2.2, 2.3, 2.4]  # Mean ≈ 2.2, low variance
 
-        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
-            scores1, scores2
-        )
+        result = comparison_instance._compare_score_distributions(scores1, scores2)
 
         # These should be significantly different
         assert abs(result["mean_difference"] - 1.0) < 0.01
@@ -394,9 +374,7 @@ class TestEvaluationComparisonMethods:
             "total2": 20,
         }
 
-        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
-            comparison, test_data
-        )
+        comparison_instance._perform_pass_rate_tests(comparison, test_data)
 
         # Verify the chi-square test was performed and has reasonable results
         if "chi_square" in comparison["tests"]:
@@ -425,9 +403,7 @@ class TestEvaluationComparisonMethods:
             "total2": 5,
         }
 
-        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
-            comparison, test_data
-        )
+        comparison_instance._perform_pass_rate_tests(comparison, test_data)
 
         # Verify Fisher exact test results
         if "fisher_exact" in comparison["tests"]:
@@ -450,9 +426,7 @@ class TestEvaluationComparisonMethods:
             "confidence_level": 0.95,
         }
 
-        result = comparison_instance._check_confidence_interval_overlap(  # pylint: disable=protected-access
-            ci1, ci2
-        )
+        result = comparison_instance._check_confidence_interval_overlap(ci1, ci2)
 
         # Touching at boundary might be considered overlap or not, depending on implementation
         assert "intervals_overlap" in result
@@ -467,9 +441,7 @@ class TestEvaluationComparisonMethods:
         scores1 = [0.8]
         scores2 = [0.6]
 
-        result = comparison_instance._compare_score_distributions(  # pylint: disable=protected-access
-            scores1, scores2
-        )
+        result = comparison_instance._compare_score_distributions(scores1, scores2)
 
         # Should handle single values gracefully
         assert result["run1_stats"]["count"] == 1
@@ -498,9 +470,7 @@ class TestEvaluationComparisonMethods:
             "total2": 10,
         }
 
-        comparison_instance._perform_pass_rate_tests(  # pylint: disable=protected-access
-            comparison, test_data
-        )
+        comparison_instance._perform_pass_rate_tests(comparison, test_data)
 
         # Should handle extreme cases
         assert "tests" in comparison

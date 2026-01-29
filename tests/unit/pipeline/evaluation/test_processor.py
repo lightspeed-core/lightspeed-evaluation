@@ -1,3 +1,5 @@
+# pylint: disable=unused-argument,protected-access,too-many-arguments, too-many-positional-arguments
+
 """Unit tests for ConversationProcessor."""
 
 from typing import Callable
@@ -44,7 +46,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test processing skips when no metrics specified."""
         # Mock metric manager to return empty lists
@@ -60,7 +62,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test processing with turn-level metrics."""
 
@@ -99,7 +101,7 @@ class TestConversationProcessor:
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test processing with conversation-level metrics."""
 
@@ -144,7 +146,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test processing with successful setup script."""
 
@@ -193,7 +195,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test processing handles setup script failure."""
         sample_conv_data.setup_script = "setup.sh"
@@ -215,7 +217,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test cleanup script is always called."""
 
@@ -265,7 +267,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test API amendment during turn processing."""
 
@@ -311,7 +313,7 @@ class TestConversationProcessor:
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test API error causes cascade failure."""
         assert mock_config_loader.system_config is not None
@@ -354,7 +356,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test _evaluate_turn method."""
 
@@ -372,7 +374,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor._evaluate_turn(  # pylint: disable=protected-access
+        results = processor._evaluate_turn(
             sample_conv_data, 0, sample_conv_data.turns[0], ["ragas:faithfulness"]
         )
 
@@ -384,7 +386,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
-        mocker: MockerFixture,  # pylint: disable=unused-argument
+        mocker: MockerFixture,
     ) -> None:
         """Test _evaluate_conversation method."""
 
@@ -402,7 +404,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor._evaluate_conversation(  # pylint: disable=protected-access
+        results = processor._evaluate_conversation(
             sample_conv_data, ["deepeval:conversation_completeness"]
         )
 
@@ -421,9 +423,7 @@ class TestConversationProcessor:
         mock_config_loader.system_config.api.enabled = False
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        error = processor._run_setup_script(  # pylint: disable=protected-access
-            sample_conv_data
-        )
+        error = processor._run_setup_script(sample_conv_data)
 
         assert error is None
         processor_components.script_manager.run_script.assert_not_called()
@@ -440,9 +440,7 @@ class TestConversationProcessor:
         mock_config_loader.system_config.api.enabled = False
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor._run_cleanup_script(  # pylint: disable=protected-access
-            sample_conv_data
-        )
+        processor._run_cleanup_script(sample_conv_data)
 
         processor_components.script_manager.run_script.assert_not_called()
 
@@ -461,9 +459,7 @@ class TestConversationProcessor:
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
         # Should not raise, just log warning
-        processor._run_cleanup_script(  # pylint: disable=protected-access
-            sample_conv_data
-        )
+        processor._run_cleanup_script(sample_conv_data)
 
     def test_get_metrics_summary(
         self,
@@ -501,9 +497,7 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
-        results = processor._evaluate_turn(  # pylint: disable=protected-access
-            conv_data, 0, turn_data, turn_metrics
-        )
+        results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should evaluate both metrics
         assert len(results) == 2
@@ -539,9 +533,7 @@ class TestConversationProcessorEvaluateTurn:
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
         with caplog.at_level(logging.ERROR):
-            results = processor._evaluate_turn(  # pylint: disable=protected-access
-                conv_data, 0, turn_data, turn_metrics
-            )
+            results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should get 2 results: 1 ERROR for invalid metric, 1 PASS for valid metric
         assert len(results) == 2
@@ -584,9 +576,7 @@ class TestConversationProcessorEvaluateTurn:
         turn_metrics = ["ragas:faithfulness", "custom:answer_correctness"]
 
         with caplog.at_level(logging.ERROR):
-            results = processor._evaluate_turn(  # pylint: disable=protected-access
-                conv_data, 0, turn_data, turn_metrics
-            )
+            results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should return ERROR results for both invalid metrics
         assert len(results) == 2
@@ -627,9 +617,7 @@ class TestConversationProcessorEvaluateTurn:
         ]
 
         with caplog.at_level(logging.ERROR):
-            results = processor._evaluate_turn(  # pylint: disable=protected-access
-                conv_data, 0, turn_data, turn_metrics
-            )
+            results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should get 3 results: 2 valid metrics (PASS) and 1 invalid metric (ERROR)
         assert len(results) == 3
@@ -659,9 +647,7 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics: list[str] = []
 
-        results = processor._evaluate_turn(  # pylint: disable=protected-access
-            conv_data, 0, turn_data, turn_metrics
-        )
+        results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should return empty results
         assert len(results) == 0
@@ -683,9 +669,7 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics = ["ragas:faithfulness"]
 
-        processor._evaluate_turn(  # pylint: disable=protected-access
-            conv_data, 0, turn_data, turn_metrics
-        )
+        processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Verify the request structure
         assert mock_metrics_evaluator.evaluate_metric.call_count == 1
@@ -714,9 +698,7 @@ class TestConversationProcessorEvaluateTurn:
 
         turn_metrics = ["ragas:faithfulness"]
 
-        results = processor._evaluate_turn(  # pylint: disable=protected-access
-            conv_data, 0, turn_data, turn_metrics
-        )
+        results = processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Should return empty results when evaluator returns None
         assert len(results) == 0
@@ -740,9 +722,7 @@ class TestConversationProcessorEvaluateTurn:
         turn_metrics = ["ragas:faithfulness"]
 
         # Evaluate second turn (index 1)
-        processor._evaluate_turn(  # pylint: disable=protected-access
-            conv_data, 1, turn_data_2, turn_metrics
-        )
+        processor._evaluate_turn(conv_data, 1, turn_data_2, turn_metrics)
 
         # Verify correct turn index
         call_args = mock_metrics_evaluator.evaluate_metric.call_args[0][0]
@@ -766,9 +746,7 @@ class TestConversationProcessorEvaluateTurn:
             "ragas:context_recall",
         ]
 
-        processor._evaluate_turn(  # pylint: disable=protected-access
-            conv_data, 0, turn_data, turn_metrics
-        )
+        processor._evaluate_turn(conv_data, 0, turn_data, turn_metrics)
 
         # Verify metrics were evaluated in order
         assert mock_metrics_evaluator.evaluate_metric.call_count == 3
@@ -852,7 +830,7 @@ class TestSkipOnFailure:
             (True, False, False),  # System enabled, conv disables
         ],
     )
-    def test_is_skip_on_failure_enabled(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def test_is_skip_on_failure_enabled(
         self,
         config_loader_factory: Callable[[bool], ConfigLoader],
         processor_components: ProcessorComponents,
@@ -869,12 +847,7 @@ class TestSkipOnFailure:
         processor = ConversationProcessor(
             config_loader_factory(system_skip), processor_components
         )
-        assert (
-            processor._is_skip_on_failure_enabled(  # pylint: disable=protected-access
-                conv_data
-            )
-            is expected
-        )
+        assert processor._is_skip_on_failure_enabled(conv_data) is expected
 
     @pytest.mark.parametrize(
         "results_status,expected",
@@ -899,13 +872,10 @@ class TestSkipOnFailure:
             )
             for i, status in enumerate(results_status)
         ]
-        assert (
-            processor._has_failure(results)  # pylint: disable=protected-access
-            is expected
-        )
+        assert processor._has_failure(results) is expected
 
     @pytest.mark.parametrize("skip_enabled,expect_skip", [(True, True), (False, False)])
-    def test_skip_on_failure_behavior(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def test_skip_on_failure_behavior(
         self,
         config_loader_factory: Callable[[bool], ConfigLoader],
         processor_components: ProcessorComponents,

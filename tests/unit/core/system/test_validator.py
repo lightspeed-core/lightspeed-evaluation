@@ -1,3 +1,5 @@
+# pylint: disable=protected-access
+
 """Unit tests for core system validator module."""
 
 import tempfile
@@ -55,11 +57,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is True
         assert len(validator.validation_errors) == 0
@@ -84,11 +82,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert len(validator.validation_errors) > 0
@@ -114,11 +108,7 @@ class TestDataValidator:
             conversation_metrics=["unknown:conversation_metric"],
         )
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any(
@@ -138,11 +128,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any("response" in error.lower() for error in validator.validation_errors)
@@ -160,11 +146,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any("contexts" in error.lower() for error in validator.validation_errors)
@@ -189,11 +171,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         # Should pass because API will populate response
         assert result is True
@@ -212,11 +190,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any(
@@ -238,11 +212,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any(
@@ -271,11 +241,7 @@ class TestDataValidator:
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
         # Should not validate script requirements when API disabled
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         # Should pass because script validation is skipped
         assert result is True
@@ -373,11 +339,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
         assert any("contexts" in error.lower() for error in validator.validation_errors)
@@ -394,11 +356,7 @@ class TestDataValidator:
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv_data]
-            )
-        )
+        result = validator._validate_evaluation_data([conv_data])
 
         assert result is False
 
@@ -412,11 +370,7 @@ class TestDataValidator:
         conv1 = EvaluationData(conversation_group_id="conv1", turns=[turn1])
         conv2 = EvaluationData(conversation_group_id="conv2", turns=[turn2])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv1, conv2]
-            )
-        )
+        result = validator._validate_evaluation_data([conv1, conv2])
 
         assert result is True
 
@@ -447,11 +401,7 @@ class TestDataValidator:
 
         conv = EvaluationData(conversation_group_id="test", turns=[turn1, turn2])
 
-        result = (
-            validator._validate_evaluation_data(  # pylint: disable=protected-access
-                [conv]
-            )
-        )
+        result = validator._validate_evaluation_data([conv])
 
         assert result is False
         # Should have errors for both issues
@@ -474,7 +424,7 @@ class TestFilterByScope:
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
-        result = validator._filter_by_scope(data)  # pylint: disable=protected-access
+        result = validator._filter_by_scope(data)
         assert len(result) == 2
 
     def test_filter_by_scope_tags_only(self) -> None:
@@ -497,9 +447,7 @@ class TestFilterByScope:
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
-        result = validator._filter_by_scope(  # pylint: disable=protected-access
-            data, tags=["basic"]
-        )
+        result = validator._filter_by_scope(data, tags=["basic"])
         assert len(result) == 2
         assert all(c.tag == "basic" for c in result)
 
@@ -520,9 +468,7 @@ class TestFilterByScope:
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
-        result = validator._filter_by_scope(  # pylint: disable=protected-access
-            data, conv_ids=["conv_1", "conv_3"]
-        )
+        result = validator._filter_by_scope(data, conv_ids=["conv_1", "conv_3"])
         assert len(result) == 2
         assert {c.conversation_group_id for c in result} == {"conv_1", "conv_3"}
 
@@ -546,9 +492,7 @@ class TestFilterByScope:
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
-        result = validator._filter_by_scope(  # pylint: disable=protected-access
-            data, tags=["basic"], conv_ids=["conv_3"]
-        )
+        result = validator._filter_by_scope(data, tags=["basic"], conv_ids=["conv_3"])
         assert len(result) == 2  # conv_1 (basic tag) + conv_3 (by ID)
 
     def test_filter_by_scope_no_match_returns_empty(self) -> None:
@@ -561,7 +505,5 @@ class TestFilterByScope:
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
-        result = validator._filter_by_scope(  # pylint: disable=protected-access
-            data, tags=["nonexistent"]
-        )
+        result = validator._filter_by_scope(data, tags=["nonexistent"])
         assert len(result) == 0

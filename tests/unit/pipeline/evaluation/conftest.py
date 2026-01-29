@@ -1,3 +1,5 @@
+# pylint: disable=redefined-outer-name
+
 """Pytest configuration and fixtures for evaluation tests."""
 
 import pytest
@@ -198,11 +200,11 @@ def mock_error_handler(mocker: MockerFixture) -> EvaluationErrorHandler:
 
 @pytest.fixture
 def processor_components_pr(
-    mock_metrics_evaluator: MetricsEvaluator,  # pylint: disable=redefined-outer-name
-    mock_api_amender: APIDataAmender,  # pylint: disable=redefined-outer-name
-    mock_error_handler: EvaluationErrorHandler,  # pylint: disable=redefined-outer-name
-    mock_metric_manager: MetricManager,  # pylint: disable=redefined-outer-name
-    mock_script_manager: ScriptExecutionManager,  # pylint: disable=redefined-outer-name
+    mock_metrics_evaluator: MetricsEvaluator,
+    mock_api_amender: APIDataAmender,
+    mock_error_handler: EvaluationErrorHandler,
+    mock_metric_manager: MetricManager,
+    mock_script_manager: ScriptExecutionManager,
 ) -> ProcessorComponents:
     """Create processor components fixture for PR tests."""
     return ProcessorComponents(
@@ -216,8 +218,8 @@ def processor_components_pr(
 
 @pytest.fixture
 def processor(
-    config_loader: ConfigLoader,  # pylint: disable=redefined-outer-name
-    processor_components_pr: ProcessorComponents,  # pylint: disable=redefined-outer-name
+    config_loader: ConfigLoader,
+    processor_components_pr: ProcessorComponents,
 ) -> ConversationProcessor:
     """Create ConversationProcessor instance for PR tests."""
     return ConversationProcessor(config_loader, processor_components_pr)

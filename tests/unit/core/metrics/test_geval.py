@@ -1,3 +1,5 @@
+# pylint: disable=too-many-public-methods,protected-access
+
 """Tests for GEval metrics handler."""
 
 from unittest.mock import MagicMock, patch
@@ -9,7 +11,7 @@ from lightspeed_evaluation.core.metrics.geval import GEvalHandler
 from lightspeed_evaluation.core.metrics.manager import MetricLevel
 
 
-class TestGEvalHandler:  # pylint: disable=too-many-public-methods
+class TestGEvalHandler:
     """Test cases for GEvalHandler class."""
 
     @pytest.fixture
@@ -50,9 +52,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
     def test_convert_evaluation_params_field_names(self, handler: GEvalHandler) -> None:
         """Test conversion of evaluation data field names to LLMTestCaseParams enum."""
         params = ["query", "response", "expected_response"]
-        result = handler._convert_evaluation_params(  # pylint: disable=protected-access
-            params
-        )
+        result = handler._convert_evaluation_params(params)
 
         assert result is not None
         assert len(result) == 3
@@ -65,9 +65,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
     ) -> None:
         """Test conversion including contexts and retrieval_context fields."""
         params = ["query", "response", "contexts", "retrieval_context"]
-        result = handler._convert_evaluation_params(  # pylint: disable=protected-access
-            params
-        )
+        result = handler._convert_evaluation_params(params)
 
         assert result is not None
         assert len(result) == 4
@@ -81,9 +79,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
     ) -> None:
         """Test conversion with direct enum value strings (backward compatibility)."""
         params = ["INPUT", "ACTUAL_OUTPUT", "EXPECTED_OUTPUT"]
-        result = handler._convert_evaluation_params(  # pylint: disable=protected-access
-            params
-        )
+        result = handler._convert_evaluation_params(params)
 
         assert result is not None
         assert len(result) == 3
@@ -96,9 +92,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
     ) -> None:
         """Test that invalid params return None to allow GEval auto-detection."""
         params = ["invalid_param", "another_invalid"]
-        result = handler._convert_evaluation_params(  # pylint: disable=protected-access
-            params
-        )
+        result = handler._convert_evaluation_params(params)
 
         assert result is None
 
@@ -106,9 +100,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
         self, handler: GEvalHandler
     ) -> None:
         """Test that empty params list returns None."""
-        result = handler._convert_evaluation_params(  # pylint: disable=protected-access
-            []
-        )
+        result = handler._convert_evaluation_params([])
         assert result is None
 
     def test_convert_evaluation_params_mixed_invalid_returns_none(
@@ -116,9 +108,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
     ) -> None:
         """Test that any invalid param causes None return."""
         params = ["query", "invalid_param", "response"]
-        result = handler._convert_evaluation_params(  # pylint: disable=protected-access
-            params
-        )
+        result = handler._convert_evaluation_params(params)
 
         # Should return None because of the invalid param
         assert result is None
@@ -135,7 +125,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
         mock_metric_manager.get_metric_metadata.return_value = expected_config
 
         conv_data = MagicMock()
-        config = handler._get_geval_config(  # pylint: disable=protected-access
+        config = handler._get_geval_config(
             metric_name="test_metric",
             conv_data=conv_data,
             turn_data=None,
@@ -160,7 +150,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
         conv_data = MagicMock()
         turn_data = MagicMock()
 
-        config = handler._get_geval_config(  # pylint: disable=protected-access
+        config = handler._get_geval_config(
             metric_name="turn_metric",
             conv_data=conv_data,
             turn_data=turn_data,
@@ -182,7 +172,7 @@ class TestGEvalHandler:  # pylint: disable=too-many-public-methods
         mock_metric_manager.get_metric_metadata.return_value = None
 
         conv_data = MagicMock()
-        config = handler._get_geval_config(  # pylint: disable=protected-access
+        config = handler._get_geval_config(
             metric_name="nonexistent_metric",
             conv_data=conv_data,
             turn_data=None,
