@@ -240,7 +240,15 @@ def _get_sort_key(item: Any) -> tuple[str, ...]:
 
 
 def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
-    """Compare a single tool call."""
+    """Compare a single tool call including name, arguments, and optional result.
+
+    Args:
+        expected: Expected tool call with tool_name, arguments, and optional result.
+        actual: Actual tool call from API response.
+
+    Returns:
+        True if the tool call matches (name, arguments, and result if specified).
+    """
     expected_name = expected.get("tool_name")
     actual_name = actual.get("tool_name")
 
@@ -255,7 +263,14 @@ def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) 
     expected_args = expected.get("arguments", {})
     actual_args = actual.get("arguments", {})
 
-    return _compare_tool_arguments(expected_args, actual_args)
+    if not _compare_tool_arguments(expected_args, actual_args):
+        return False
+
+    # Compare result if expected (optional field)
+    if not _compare_tool_result(expected, actual):
+        return False
+
+    return True
 
 
 def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
@@ -303,6 +318,56 @@ def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) ->
         logger.debug("Additional argument keys: %s", extra_keys)
         return False
 
+    return True
+
+
+def _compare_tool_result(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+    """Compare tool call result if expected result is specified.
+
+    The result field is optional. If not specified in expected, comparison is skipped.
+    When specified, uses regex pattern matching for flexible validation.
+
+    Args:
+        expected: Expected tool call dict with optional 'result' field.
+        actual: Actual tool call dict with optional 'result' field.
+
+    Returns:
+        True if result matches or no expected result specified.
+    """
+    expected_result = expected.get("result")
+
+    # If no expected result specified, skip comparison (pass)
+    if expected_result is None:
+        return True
+
+    actual_result = actual.get("result")
+
+    # Expected result specified but actual has no result
+    if actual_result is None:
+        logger.debug(
+            "Expected result '%s' but actual tool call has no result",
+            expected_result,
+        )
+        return False
+
+    # Convert to strings for regex matching
+    expected_str = str(expected_result)
+    actual_str = str(actual_result)
+
+    # Use regex search for flexible matching (same as arguments)
+    try:
+        if not re.search(expected_str, actual_str):
+            logger.debug(
+                "Tool result mismatch: pattern '%s' not found in '%s'",
+                expected_str,
+                actual_str,
+            )
+            return False
+    except re.error as e:
+        logger.debug("Invalid regex pattern '%s' for result: %s", expected_str, e)
+        return False
+
+    logger.debug("Tool result matched: '%s'", actual_str)
     return True
 
 

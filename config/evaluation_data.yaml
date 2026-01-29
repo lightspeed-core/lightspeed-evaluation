@@ -97,6 +97,51 @@
       turn_metrics:
         - custom:tool_eval
 
+- conversation_group_id: tool_eval_with_result
+  description: Example of tool call evaluation including result validation
+  tag: tools
+
+  turns:
+    - turn_id: turn_id1
+      query: Get the status of pod nginx-123 in the default namespace
+      tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              name: nginx-123
+              namespace: default
+            result: "pod/nginx-123 Running 1/1"
+      expected_tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              name: nginx-.*
+              namespace: default
+            result: ".*Running.*"  # Regex pattern to verify pod is running
+      turn_metrics:
+        - custom:tool_eval
+
+    - turn_id: turn_id2
+      query: Create a new namespace called test-ns
+      tool_calls:
+        -
+          - tool_name: oc_create
+            arguments:
+              kind: namespace
+              name: test-ns
+            result: "namespace/test-ns created"
+      expected_tool_calls:
+        -
+          - tool_name: oc_create
+            arguments:
+              kind: namespace
+              name: test-ns
+            result: ".*created"  # Verify creation succeeded
+      turn_metrics:
+        - custom:tool_eval
+
 - conversation_group_id: script_eval_example
   description: Example of script-based evaluation for namespace testing
   tag: infrastructure

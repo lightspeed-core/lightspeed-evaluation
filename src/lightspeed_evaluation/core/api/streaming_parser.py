@@ -180,7 +180,17 @@ def _parse_sse_line(json_data: str) -> Optional[tuple[str, dict[str, Any]]]:
 
 
 def _parse_tool_call(token: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """Parse tool call from token."""
+    """Parse tool call from token.
+
+    Extracts tool_name, arguments, and optionally result from the token.
+    The result field captures the output/response from the tool execution.
+
+    Args:
+        token: Dictionary containing tool call data from the API.
+
+    Returns:
+        Dictionary with tool_name, arguments, and optional result, or None if invalid.
+    """
     try:
         tool_name = token.get("tool_name")
         arguments = token.get("arguments")
@@ -194,7 +204,15 @@ def _parse_tool_call(token: dict[str, Any]) -> Optional[dict[str, Any]]:
             logger.debug("Tool call missing arguments field for %s", tool_name)
             return None
 
-        return {"tool_name": tool_name, "arguments": arguments}
+        tool_call: dict[str, Any] = {"tool_name": tool_name, "arguments": arguments}
+
+        # Capture tool result if present (optional field)
+        result = token.get("result")
+        if result is not None:
+            tool_call["result"] = result
+            logger.debug("Tool call '%s' has result: %s", tool_name, result)
+
+        return tool_call
 
     except (ValueError, IndexError, AttributeError) as e:
         logger.debug("Failed to parse tool call '%s': %s", token, e)
