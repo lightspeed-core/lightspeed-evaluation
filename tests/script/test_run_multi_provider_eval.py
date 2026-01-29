@@ -6,13 +6,13 @@
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 import tempfile as temp_module
 import logging
 import multiprocessing
 import shutil
 
 import pytest
+from pytest_mock import MockerFixture
 import yaml
 
 from script.run_multi_provider_eval import MultiProviderEvaluationRunner
@@ -390,6 +390,7 @@ class TestCreateTempSystemConfig:
     def test_temp_config_cleanup_on_yaml_dump_failure(
         self,
         runner: MultiProviderEvaluationRunner,
+        mocker: MockerFixture,
     ) -> None:
         """Test that temp file is cleaned up when yaml.dump() fails."""
 
@@ -406,28 +407,26 @@ class TestCreateTempSystemConfig:
             return temp_file
 
         # Mock NamedTemporaryFile to track the created file
-        with patch(
+        mocker.patch(
             "script.run_multi_provider_eval.tempfile.NamedTemporaryFile",
             side_effect=track_temp_file,
-        ):
-            # Mock yaml.dump to raise an exception
-            with patch(
-                "script.run_multi_provider_eval.yaml.dump",
-                side_effect=Exception("YAML dump failed"),
-            ):
-                with pytest.raises(Exception, match="YAML dump failed"):
-                    runner._create_temp_system_config(
-                        provider_id="openai",
-                        model="gpt-4o-mini",
-                    )
+        )
 
-                # Verify the temp file was cleaned up after the exception
-                assert (
-                    created_temp_path is not None
-                ), "Temp file should have been created"
-                assert (
-                    not created_temp_path.exists()
-                ), "Temp file should have been cleaned up"
+        # Mock yaml.dump to raise an exception
+        mocker.patch(
+            "script.run_multi_provider_eval.yaml.dump",
+            side_effect=Exception("YAML dump failed"),
+        )
+
+        with pytest.raises(Exception, match="YAML dump failed"):
+            runner._create_temp_system_config(
+                provider_id="openai",
+                model="gpt-4o-mini",
+            )
+
+        # Verify the temp file was cleaned up after the exception
+        assert created_temp_path is not None, "Temp file should have been created"
+        assert not created_temp_path.exists(), "Temp file should have been cleaned up"
 
     def test_temp_config_sanitizes_special_characters(
         self, runner: MultiProviderEvaluationRunner
@@ -465,131 +464,134 @@ class TestPathTraversalSecurity:
         )
 
     def test_path_traversal_blocked_in_provider_id(
-        self, runner: MultiProviderEvaluationRunner
+        self, runner: MultiProviderEvaluationRunner, mocker: MockerFixture
     ) -> None:
         """Test that path traversal in provider_id is sanitized."""
-        with patch(
+        mocker.patch(
             "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 0, "FAIL": 0, "ERROR": 1},
-        ):
-            # Attempt path traversal in provider_id
-            result = runner._run_single_evaluation(
-                provider_name="malicious",
-                provider_id="../../etc",
-                model="test",
-            )
+        )
 
-            # Verify that the output path is sanitized and stays within base
-            output_path = Path(result["output_dir"])
-            base_path = runner.output_base.resolve()
-            assert output_path.resolve().is_relative_to(base_path)
-            # Verify dangerous characters are removed
-            assert ".." not in str(output_path)
-            assert "/" not in str(output_path.relative_to(base_path).parts[0])
+        # Attempt path traversal in provider_id
+        result = runner._run_single_evaluation(
+            provider_name="malicious",
+            provider_id="../../etc",
+            model="test",
+        )
 
-            # Cleanup
-            if output_path.exists():
-                shutil.rmtree(output_path.parent, ignore_errors=True)
+        # Verify that the output path is sanitized and stays within base
+        output_path = Path(result["output_dir"])
+        base_path = runner.output_base.resolve()
+        assert output_path.resolve().is_relative_to(base_path)
+        # Verify dangerous characters are removed
+        assert ".." not in str(output_path)
+        assert "/" not in str(output_path.relative_to(base_path).parts[0])
+
+        # Cleanup
+        if output_path.exists():
+            shutil.rmtree(output_path.parent, ignore_errors=True)
 
     def test_path_traversal_blocked_in_model(
-        self, runner: MultiProviderEvaluationRunner
+        self, runner: MultiProviderEvaluationRunner, mocker: MockerFixture
     ) -> None:
         """Test that path traversal in model name is sanitized."""
-        with patch(
+        mocker.patch(
             "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 0, "FAIL": 0, "ERROR": 1},
-        ):
-            # Attempt path traversal in model
-            result = runner._run_single_evaluation(
-                provider_name="openai",
-                provider_id="openai",
-                model="../../../etc/passwd",
-            )
+        )
 
-            # Verify that the output path is sanitized and stays within base
-            output_path = Path(result["output_dir"])
-            base_path = runner.output_base.resolve()
-            assert output_path.resolve().is_relative_to(base_path)
-            # Verify dangerous characters are removed
-            assert ".." not in str(output_path)
+        # Attempt path traversal in model
+        result = runner._run_single_evaluation(
+            provider_name="openai",
+            provider_id="openai",
+            model="../../../etc/passwd",
+        )
 
-            # Cleanup
-            if output_path.exists():
-                shutil.rmtree(output_path.parent.parent, ignore_errors=True)
+        # Verify that the output path is sanitized and stays within base
+        output_path = Path(result["output_dir"])
+        base_path = runner.output_base.resolve()
+        assert output_path.resolve().is_relative_to(base_path)
+        # Verify dangerous characters are removed
+        assert ".." not in str(output_path)
+
+        # Cleanup
+        if output_path.exists():
+            shutil.rmtree(output_path.parent.parent, ignore_errors=True)
 
 
 class TestRunSingleEvaluation:
     """Tests for _run_single_evaluation method."""
 
     def test_run_single_evaluation_success(
-        self, runner: MultiProviderEvaluationRunner
+        self, runner: MultiProviderEvaluationRunner, mocker: MockerFixture
     ) -> None:
         """Test successful single evaluation."""
         # Mock run_evaluation to return a successful summary
-        with patch(
+        mock_run_eval = mocker.patch(
             "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 5, "FAIL": 2, "ERROR": 0},
-        ) as mock_run_eval:
-            result = runner._run_single_evaluation(
-                provider_name="openai",
-                provider_id="openai",
-                model="gpt-4o-mini",
-            )
+        )
 
-            assert result["success"] is True
-            assert result["provider_id"] == "openai"
-            assert result["model"] == "gpt-4o-mini"
-            assert result["summary"]["PASS"] == 5
-            assert result["error"] is None
-            assert "duration_seconds" in result
-            mock_run_eval.assert_called_once()
+        result = runner._run_single_evaluation(
+            provider_name="openai",
+            provider_id="openai",
+            model="gpt-4o-mini",
+        )
+
+        assert result["success"] is True
+        assert result["provider_id"] == "openai"
+        assert result["model"] == "gpt-4o-mini"
+        assert result["summary"]["PASS"] == 5
+        assert result["error"] is None
+        assert "duration_seconds" in result
+        mock_run_eval.assert_called_once()
 
     def test_run_single_evaluation_failure(
-        self, runner: MultiProviderEvaluationRunner
+        self, runner: MultiProviderEvaluationRunner, mocker: MockerFixture
     ) -> None:
         """Test evaluation failure handling."""
         # Mock run_evaluation to return None (failure)
-        with patch("script.run_multi_provider_eval.run_evaluation", return_value=None):
-            result = runner._run_single_evaluation(
-                provider_name="openai",
-                provider_id="openai",
-                model="gpt-4o-mini",
-            )
+        mocker.patch("script.run_multi_provider_eval.run_evaluation", return_value=None)
+        result = runner._run_single_evaluation(
+            provider_name="openai",
+            provider_id="openai",
+            model="gpt-4o-mini",
+        )
 
-            assert result["success"] is False
-            assert result["error"] == "Evaluation returned None (failed)"
+        assert result["success"] is False
+        assert result["error"] == "Evaluation returned None (failed)"
 
     def test_run_single_evaluation_invalid_summary(
-        self, runner: MultiProviderEvaluationRunner
+        self, runner: MultiProviderEvaluationRunner, mocker: MockerFixture
     ) -> None:
         """Test evaluation with invalid summary structure."""
         # Mock run_evaluation to return a summary missing required keys
-        with patch(
+        mocker.patch(
             "script.run_multi_provider_eval.run_evaluation",
             return_value={"PASS": 5, "FAIL": 2},  # Missing ERROR key
-        ):
-            result = runner._run_single_evaluation(
-                provider_name="openai",
-                provider_id="openai",
-                model="gpt-4o-mini",
-            )
+        )
+        result = runner._run_single_evaluation(
+            provider_name="openai",
+            provider_id="openai",
+            model="gpt-4o-mini",
+        )
 
-            assert result["success"] is False
-            assert "Invalid summary structure" in result["error"]
-            assert "summary" not in result
+        assert result["success"] is False
+        assert "Invalid summary structure" in result["error"]
+        assert "summary" not in result
 
 
 class TestRunEvaluations:
     """Tests for run_evaluations method."""
 
     def test_run_evaluations_sequential(
-        self, runner: MultiProviderEvaluationRunner
+        self, runner: MultiProviderEvaluationRunner, mocker: MockerFixture
     ) -> None:
         """Test sequential evaluation execution."""
         # Force sequential mode
         runner.max_workers = 1
 
-        with patch.object(
+        mock_single_eval = mocker.patch.object(
             runner,
             "_run_single_evaluation",
             return_value={
@@ -597,11 +599,11 @@ class TestRunEvaluations:
                 "provider_id": "test",
                 "model": "test-model",
             },
-        ) as mock_single_eval:
-            results = runner.run_evaluations()
+        )
+        results = runner.run_evaluations()
 
-            assert len(results) == 3  # 2 openai + 1 watsonx
-            assert mock_single_eval.call_count == 3
+        assert len(results) == 3  # 2 openai + 1 watsonx
+        assert mock_single_eval.call_count == 3
 
 
 class TestGenerateSummary:

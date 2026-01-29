@@ -1,10 +1,10 @@
 # pylint: disable=too-many-public-methods,protected-access
 
 """Tests for GEval metrics handler."""
-
-from unittest.mock import MagicMock, patch
+from typing import Any
 
 import pytest
+from pytest_mock import MockerFixture
 from deepeval.test_case import LLMTestCaseParams
 
 from lightspeed_evaluation.core.metrics.geval import GEvalHandler
@@ -15,22 +15,20 @@ class TestGEvalHandler:
     """Test cases for GEvalHandler class."""
 
     @pytest.fixture
-    def mock_llm_manager(self) -> MagicMock:
+    def mock_llm_manager(self, mocker: MockerFixture) -> Any:
         """Create a mock DeepEvalLLMManager."""
-        mock_manager = MagicMock()
-        mock_llm = MagicMock()
+        mock_manager = mocker.MagicMock()
+        mock_llm = mocker.MagicMock()
         mock_manager.get_llm.return_value = mock_llm
         return mock_manager
 
     @pytest.fixture
-    def mock_metric_manager(self) -> MagicMock:
+    def mock_metric_manager(self, mocker: MockerFixture) -> Any:
         """Create a mock MetricManager."""
-        return MagicMock()
+        return mocker.MagicMock()
 
     @pytest.fixture
-    def handler(
-        self, mock_llm_manager: MagicMock, mock_metric_manager: MagicMock
-    ) -> GEvalHandler:
+    def handler(self, mock_llm_manager: Any, mock_metric_manager: Any) -> GEvalHandler:
         """Create a GEvalHandler instance with mocked dependencies."""
         return GEvalHandler(
             deepeval_llm_manager=mock_llm_manager,
@@ -38,7 +36,7 @@ class TestGEvalHandler:
         )
 
     def test_initialization(
-        self, mock_llm_manager: MagicMock, mock_metric_manager: MagicMock
+        self, mock_llm_manager: Any, mock_metric_manager: Any
     ) -> None:
         """Test GEvalHandler initialization with required dependencies."""
         handler = GEvalHandler(
@@ -114,7 +112,10 @@ class TestGEvalHandler:
         assert result is None
 
     def test_get_geval_config_uses_metric_manager(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that _get_geval_config delegates to MetricManager."""
         expected_config = {
@@ -124,7 +125,7 @@ class TestGEvalHandler:
         }
         mock_metric_manager.get_metric_metadata.return_value = expected_config
 
-        conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
         config = handler._get_geval_config(
             metric_name="test_metric",
             conv_data=conv_data,
@@ -141,14 +142,17 @@ class TestGEvalHandler:
         )
 
     def test_get_geval_config_turn_level(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test retrieving turn-level config uses correct MetricLevel."""
         expected_config = {"criteria": "Turn criteria", "threshold": 0.9}
         mock_metric_manager.get_metric_metadata.return_value = expected_config
 
-        conv_data = MagicMock()
-        turn_data = MagicMock()
+        conv_data = mocker.MagicMock()
+        turn_data = mocker.MagicMock()
 
         config = handler._get_geval_config(
             metric_name="turn_metric",
@@ -166,12 +170,15 @@ class TestGEvalHandler:
         )
 
     def test_get_geval_config_returns_none_when_not_found(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that None is returned when MetricManager finds no config."""
         mock_metric_manager.get_metric_metadata.return_value = None
 
-        conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
         config = handler._get_geval_config(
             metric_name="nonexistent_metric",
             conv_data=conv_data,
@@ -182,12 +189,15 @@ class TestGEvalHandler:
         assert config is None
 
     def test_evaluate_missing_config(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that evaluate returns error when config is not found."""
         mock_metric_manager.get_metric_metadata.return_value = None
 
-        conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
         score, reason = handler.evaluate(
             metric_name="nonexistent",
             conv_data=conv_data,
@@ -200,7 +210,10 @@ class TestGEvalHandler:
         assert "configuration not found" in reason.lower()
 
     def test_evaluate_missing_criteria(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that evaluate requires 'criteria' in config."""
         mock_metric_manager.get_metric_metadata.return_value = {
@@ -209,7 +222,7 @@ class TestGEvalHandler:
             # Missing 'criteria'
         }
 
-        conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
         score, reason = handler.evaluate(
             metric_name="test_metric",
             conv_data=conv_data,
@@ -222,14 +235,17 @@ class TestGEvalHandler:
         assert "criteria" in reason.lower()
 
     def test_evaluate_turn_missing_turn_data(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that turn-level evaluation requires turn_data."""
         mock_metric_manager.get_metric_metadata.return_value = {
             "criteria": "Test criteria"
         }
 
-        conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
         score, reason = handler.evaluate(
             metric_name="test_metric",
             conv_data=conv_data,
@@ -242,389 +258,412 @@ class TestGEvalHandler:
         assert "turn data required" in reason.lower()
 
     def test_evaluate_turn_success(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test successful turn-level evaluation."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            # Mock GEval metric instance
-            mock_metric = MagicMock()
-            mock_metric.score = 0.85
-            mock_metric.reason = "Test passed"
-            mock_geval_class.return_value = mock_metric
+        )
+        # Mock GEval metric instance
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.85
+        mock_metric.reason = "Test passed"
+        mock_geval_class.return_value = mock_metric
 
-            # Setup metric manager to return config
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Test criteria",
-                "evaluation_params": ["query", "response"],
-                "evaluation_steps": ["Step 1", "Step 2"],
-                "threshold": 0.7,
-            }
+        # Setup metric manager to return config
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "evaluation_params": ["query", "response"],
+            "evaluation_steps": ["Step 1", "Step 2"],
+            "threshold": 0.7,
+        }
 
-            # Mock turn data
-            turn_data = MagicMock()
-            turn_data.query = "Test query"
-            turn_data.response = "Test response"
-            turn_data.expected_response = None
-            turn_data.contexts = None
+        # Mock turn data
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Test query"
+        turn_data.response = "Test response"
+        turn_data.expected_response = None
+        turn_data.contexts = None
 
-            conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
 
-            score, reason = handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=0,
-                turn_data=turn_data,
-                is_conversation=False,
-            )
+        score, reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
 
-            assert score == 0.85
-            assert reason == "Test passed"
-            mock_metric.measure.assert_called_once()
+        assert score == 0.85
+        assert reason == "Test passed"
+        mock_metric.measure.assert_called_once()
 
     def test_evaluate_turn_with_optional_fields(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test turn-level evaluation includes optional fields when present."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            with patch(
-                "lightspeed_evaluation.core.metrics.geval.LLMTestCase"
-            ) as mock_test_case_class:
-                mock_metric = MagicMock()
-                mock_metric.score = 0.75
-                mock_metric.reason = "Good match"
-                mock_geval_class.return_value = mock_metric
+        )
+        mock_test_case_class = mocker.patch(
+            "lightspeed_evaluation.core.metrics.geval.LLMTestCase"
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.75
+        mock_metric.reason = "Good match"
+        mock_geval_class.return_value = mock_metric
 
-                mock_test_case = MagicMock()
-                mock_test_case_class.return_value = mock_test_case
+        mock_test_case = mocker.MagicMock()
+        mock_test_case_class.return_value = mock_test_case
 
-                # Setup metric manager
-                mock_metric_manager.get_metric_metadata.return_value = {
-                    "criteria": "Compare against expected",
-                    "evaluation_params": ["query", "response", "expected_response"],
-                    "threshold": 0.7,
-                }
+        # Setup metric manager
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Compare against expected",
+            "evaluation_params": ["query", "response", "expected_response"],
+            "threshold": 0.7,
+        }
 
-                # Mock turn data with all optional fields
-                turn_data = MagicMock()
-                turn_data.query = "Test query"
-                turn_data.response = "Test response"
-                turn_data.expected_response = "Expected response"
-                turn_data.contexts = ["Context 1", "Context 2"]
+        # Mock turn data with all optional fields
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Test query"
+        turn_data.response = "Test response"
+        turn_data.expected_response = "Expected response"
+        turn_data.contexts = ["Context 1", "Context 2"]
 
-                conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
 
-                handler.evaluate(
-                    metric_name="test_metric",
-                    conv_data=conv_data,
-                    _turn_idx=0,
-                    turn_data=turn_data,
-                    is_conversation=False,
-                )
+        handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
 
-                # Verify test case was created with optional fields
-                call_kwargs = mock_test_case_class.call_args[1]
-                assert call_kwargs["input"] == "Test query"
-                assert call_kwargs["actual_output"] == "Test response"
-                assert call_kwargs["expected_output"] == "Expected response"
-                assert call_kwargs["context"] == ["Context 1", "Context 2"]
+        # Verify test case was created with optional fields
+        call_kwargs = mock_test_case_class.call_args[1]
+        assert call_kwargs["input"] == "Test query"
+        assert call_kwargs["actual_output"] == "Test response"
+        assert call_kwargs["expected_output"] == "Expected response"
+        assert call_kwargs["context"] == ["Context 1", "Context 2"]
 
     def test_evaluate_turn_none_score_returns_zero(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that None score from metric is converted to 0.0."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            mock_metric = MagicMock()
-            mock_metric.score = None
-            mock_metric.reason = "Could not evaluate"
-            mock_geval_class.return_value = mock_metric
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = None
+        mock_metric.reason = "Could not evaluate"
+        mock_geval_class.return_value = mock_metric
 
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Test criteria",
-                "threshold": 0.7,
-            }
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "threshold": 0.7,
+        }
 
-            turn_data = MagicMock()
-            turn_data.query = "Test query"
-            turn_data.response = "Test response"
-            turn_data.expected_response = None
-            turn_data.contexts = None
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Test query"
+        turn_data.response = "Test response"
+        turn_data.expected_response = None
+        turn_data.contexts = None
 
-            conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
 
-            score, reason = handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=0,
-                turn_data=turn_data,
-                is_conversation=False,
-            )
+        score, reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
 
-            # Should return 0.0 when score is None
-            assert score == 0.0
-            assert reason == "Could not evaluate"
+        # Should return 0.0 when score is None
+        assert score == 0.0
+        assert reason == "Could not evaluate"
 
     def test_evaluate_turn_handles_exceptions(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that turn evaluation handles exceptions gracefully."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            mock_metric = MagicMock()
-            mock_metric.measure.side_effect = ValueError("Test error")
-            mock_geval_class.return_value = mock_metric
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.measure.side_effect = ValueError("Test error")
+        mock_geval_class.return_value = mock_metric
 
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Test criteria",
-                "threshold": 0.7,
-            }
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "threshold": 0.7,
+        }
 
-            turn_data = MagicMock()
-            turn_data.query = "Test query"
-            turn_data.response = "Test response"
-            turn_data.expected_response = None
-            turn_data.contexts = None
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Test query"
+        turn_data.response = "Test response"
+        turn_data.expected_response = None
+        turn_data.contexts = None
 
-            conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
 
-            score, reason = handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=0,
-                turn_data=turn_data,
-                is_conversation=False,
-            )
+        score, reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
 
-            assert score is None
-            assert "evaluation error" in reason.lower()
-            assert "Test error" in reason
+        assert score is None
+        assert "evaluation error" in reason.lower()
+        assert "Test error" in reason
 
     def test_evaluate_turn_uses_default_params_when_none_provided(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that default evaluation_params are used when none provided."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            mock_metric = MagicMock()
-            mock_metric.score = 0.8
-            mock_metric.reason = "Good"
-            mock_geval_class.return_value = mock_metric
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.8
+        mock_metric.reason = "Good"
+        mock_geval_class.return_value = mock_metric
 
-            # Config with no evaluation_params
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Test criteria",
-                "threshold": 0.7,
-            }
+        # Config with no evaluation_params
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "threshold": 0.7,
+        }
 
-            turn_data = MagicMock()
-            turn_data.query = "Test query"
-            turn_data.response = "Test response"
-            turn_data.expected_response = None
-            turn_data.contexts = None
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Test query"
+        turn_data.response = "Test response"
+        turn_data.expected_response = None
+        turn_data.contexts = None
 
-            conv_data = MagicMock()
+        conv_data = mocker.MagicMock()
 
-            handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=0,
-                turn_data=turn_data,
-                is_conversation=False,
-            )
+        handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
 
-            # Verify GEval was called with default params
-            call_kwargs = mock_geval_class.call_args[1]
-            assert call_kwargs["evaluation_params"] == [
-                LLMTestCaseParams.INPUT,
-                LLMTestCaseParams.ACTUAL_OUTPUT,
-            ]
+        # Verify GEval was called with default params
+        call_kwargs = mock_geval_class.call_args[1]
+        assert call_kwargs["evaluation_params"] == [
+            LLMTestCaseParams.INPUT,
+            LLMTestCaseParams.ACTUAL_OUTPUT,
+        ]
 
     def test_evaluate_conversation_success(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test successful conversation-level evaluation."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            mock_metric = MagicMock()
-            mock_metric.score = 0.90
-            mock_metric.reason = "Conversation coherent"
-            mock_geval_class.return_value = mock_metric
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.90
+        mock_metric.reason = "Conversation coherent"
+        mock_geval_class.return_value = mock_metric
 
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Conversation criteria",
-                "evaluation_params": ["query", "response"],
-                "threshold": 0.6,
-            }
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Conversation criteria",
+            "evaluation_params": ["query", "response"],
+            "threshold": 0.6,
+        }
 
-            # Mock conversation data with multiple turns
-            turn1 = MagicMock()
-            turn1.query = "Query 1"
-            turn1.response = "Response 1"
+        # Mock conversation data with multiple turns
+        turn1 = mocker.MagicMock()
+        turn1.query = "Query 1"
+        turn1.response = "Response 1"
 
-            turn2 = MagicMock()
-            turn2.query = "Query 2"
-            turn2.response = "Response 2"
+        turn2 = mocker.MagicMock()
+        turn2.query = "Query 2"
+        turn2.response = "Response 2"
 
-            conv_data = MagicMock()
-            conv_data.turns = [turn1, turn2]
+        conv_data = mocker.MagicMock()
+        conv_data.turns = [turn1, turn2]
 
-            score, reason = handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=None,
-                turn_data=None,
-                is_conversation=True,
-            )
+        score, reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=None,
+            turn_data=None,
+            is_conversation=True,
+        )
 
-            assert score == 0.90
-            assert reason == "Conversation coherent"
-            mock_metric.measure.assert_called_once()
+        assert score == 0.90
+        assert reason == "Conversation coherent"
+        mock_metric.measure.assert_called_once()
 
     def test_evaluate_conversation_aggregates_turns(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that conversation evaluation properly aggregates turn data."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            with patch(
-                "lightspeed_evaluation.core.metrics.geval.LLMTestCase"
-            ) as mock_test_case_class:
-                mock_metric = MagicMock()
-                mock_metric.score = 0.85
-                mock_metric.reason = "Good conversation"
-                mock_geval_class.return_value = mock_metric
+        )
+        mock_test_case_class = mocker.patch(
+            "lightspeed_evaluation.core.metrics.geval.LLMTestCase"
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.85
+        mock_metric.reason = "Good conversation"
+        mock_geval_class.return_value = mock_metric
 
-                mock_test_case = MagicMock()
-                mock_test_case_class.return_value = mock_test_case
+        mock_test_case = mocker.MagicMock()
+        mock_test_case_class.return_value = mock_test_case
 
-                mock_metric_manager.get_metric_metadata.return_value = {
-                    "criteria": "Conversation flow",
-                    "threshold": 0.7,
-                }
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Conversation flow",
+            "threshold": 0.7,
+        }
 
-                # Create multiple turns including one with None response
-                turn1 = MagicMock()
-                turn1.query = "First question"
-                turn1.response = "First answer"
+        # Create multiple turns including one with None response
+        turn1 = mocker.MagicMock()
+        turn1.query = "First question"
+        turn1.response = "First answer"
 
-                turn2 = MagicMock()
-                turn2.query = "Second question"
-                turn2.response = "Second answer"
+        turn2 = mocker.MagicMock()
+        turn2.query = "Second question"
+        turn2.response = "Second answer"
 
-                turn3 = MagicMock()
-                turn3.query = "Third question"
-                turn3.response = None  # Test None response handling
+        turn3 = mocker.MagicMock()
+        turn3.query = "Third question"
+        turn3.response = None  # Test None response handling
 
-                conv_data = MagicMock()
-                conv_data.turns = [turn1, turn2, turn3]
+        conv_data = mocker.MagicMock()
+        conv_data.turns = [turn1, turn2, turn3]
 
-                handler.evaluate(
-                    metric_name="test_metric",
-                    conv_data=conv_data,
-                    _turn_idx=None,
-                    turn_data=None,
-                    is_conversation=True,
-                )
+        handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=None,
+            turn_data=None,
+            is_conversation=True,
+        )
 
-                # Verify test case was created with aggregated input/output
-                call_kwargs = mock_test_case_class.call_args[1]
-                assert "Turn 1 - User: First question" in call_kwargs["input"]
-                assert "Turn 2 - User: Second question" in call_kwargs["input"]
-                assert "Turn 3 - User: Third question" in call_kwargs["input"]
-                assert (
-                    "Turn 1 - Assistant: First answer" in call_kwargs["actual_output"]
-                )
-                assert (
-                    "Turn 2 - Assistant: Second answer" in call_kwargs["actual_output"]
-                )
-                assert "Turn 3 - Assistant:" in call_kwargs["actual_output"]
+        # Verify test case was created with aggregated input/output
+        call_kwargs = mock_test_case_class.call_args[1]
+        assert "Turn 1 - User: First question" in call_kwargs["input"]
+        assert "Turn 2 - User: Second question" in call_kwargs["input"]
+        assert "Turn 3 - User: Third question" in call_kwargs["input"]
+        assert "Turn 1 - Assistant: First answer" in call_kwargs["actual_output"]
+        assert "Turn 2 - Assistant: Second answer" in call_kwargs["actual_output"]
+        assert "Turn 3 - Assistant:" in call_kwargs["actual_output"]
 
     def test_evaluate_conversation_with_evaluation_steps(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that evaluation_steps are passed to GEval when provided."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            mock_metric = MagicMock()
-            mock_metric.score = 0.88
-            mock_metric.reason = "Follows steps"
-            mock_geval_class.return_value = mock_metric
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.88
+        mock_metric.reason = "Follows steps"
+        mock_geval_class.return_value = mock_metric
 
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Multi-step evaluation",
-                "evaluation_params": ["query", "response"],
-                "evaluation_steps": [
-                    "Check coherence",
-                    "Verify context",
-                    "Assess relevance",
-                ],
-                "threshold": 0.7,
-            }
-
-            turn1 = MagicMock()
-            turn1.query = "Query 1"
-            turn1.response = "Response 1"
-
-            conv_data = MagicMock()
-            conv_data.turns = [turn1]
-
-            handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=None,
-                turn_data=None,
-                is_conversation=True,
-            )
-
-            # Verify evaluation_steps were passed to GEval
-            call_kwargs = mock_geval_class.call_args[1]
-            assert call_kwargs["evaluation_steps"] == [
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Multi-step evaluation",
+            "evaluation_params": ["query", "response"],
+            "evaluation_steps": [
                 "Check coherence",
                 "Verify context",
                 "Assess relevance",
-            ]
+            ],
+            "threshold": 0.7,
+        }
+
+        turn1 = mocker.MagicMock()
+        turn1.query = "Query 1"
+        turn1.response = "Response 1"
+
+        conv_data = mocker.MagicMock()
+        conv_data.turns = [turn1]
+
+        handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=None,
+            turn_data=None,
+            is_conversation=True,
+        )
+
+        # Verify evaluation_steps were passed to GEval
+        call_kwargs = mock_geval_class.call_args[1]
+        assert call_kwargs["evaluation_steps"] == [
+            "Check coherence",
+            "Verify context",
+            "Assess relevance",
+        ]
 
     def test_evaluate_conversation_handles_exceptions(
-        self, handler: GEvalHandler, mock_metric_manager: MagicMock
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
     ) -> None:
         """Test that conversation evaluation handles exceptions gracefully."""
-        with patch(
+        mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
-        ) as mock_geval_class:
-            mock_metric = MagicMock()
-            mock_metric.measure.side_effect = RuntimeError("API error")
-            mock_geval_class.return_value = mock_metric
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.measure.side_effect = RuntimeError("API error")
+        mock_geval_class.return_value = mock_metric
 
-            mock_metric_manager.get_metric_metadata.return_value = {
-                "criteria": "Test criteria",
-                "threshold": 0.7,
-            }
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "threshold": 0.7,
+        }
 
-            turn1 = MagicMock()
-            turn1.query = "Query 1"
-            turn1.response = "Response 1"
+        turn1 = mocker.MagicMock()
+        turn1.query = "Query 1"
+        turn1.response = "Response 1"
 
-            conv_data = MagicMock()
-            conv_data.turns = [turn1]
+        conv_data = mocker.MagicMock()
+        conv_data.turns = [turn1]
 
-            score, reason = handler.evaluate(
-                metric_name="test_metric",
-                conv_data=conv_data,
-                _turn_idx=None,
-                turn_data=None,
-                is_conversation=True,
-            )
+        score, reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=None,
+            turn_data=None,
+            is_conversation=True,
+        )
 
-            assert score is None
-            assert "evaluation error" in reason.lower()
-            assert "API error" in reason
+        assert score is None
+        assert "evaluation error" in reason.lower()
+        assert "API error" in reason
