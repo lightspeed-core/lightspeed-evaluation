@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.runner.evaluation import main, run_evaluation
+from lightspeed_evaluation.runner.evaluation import _clear_caches, main, run_evaluation
 
 
 def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
@@ -19,6 +19,7 @@ def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
         "output_dir": None,
         "tags": None,
         "conv_ids": None,
+        "cache_warmup": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -388,6 +389,265 @@ class TestRunEvaluation:
         )
 
 
+class TestClearCaches:
+    """Unit tests for _clear_caches function."""
+
+    def test_clear_caches_with_all_caches_enabled(self, tmp_path, mocker, capsys):
+        """Test clearing all cache directories when all caches are enabled."""
+        # Create test cache directories with files
+        llm_cache = tmp_path / "llm_cache"
+        api_cache = tmp_path / "api_cache"
+        embedding_cache = tmp_path / "embedding_cache"
+
+        llm_cache.mkdir()
+        api_cache.mkdir()
+        embedding_cache.mkdir()
+
+        (llm_cache / "test1.db").write_text("test")
+        (api_cache / "test2.db").write_text("test")
+        (embedding_cache / "test3.db").write_text("test")
+
+        # Mock system config
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(llm_cache)
+        mock_config.api.enabled = True
+        mock_config.api.cache_enabled = True
+        mock_config.api.cache_dir = str(api_cache)
+        mock_config.embedding.cache_enabled = True
+        mock_config.embedding.cache_dir = str(embedding_cache)
+
+        # Call clear caches
+        _clear_caches(mock_config)
+
+        # Verify directories were cleared and recreated
+        assert llm_cache.exists()
+        assert api_cache.exists()
+        assert embedding_cache.exists()
+        assert not (llm_cache / "test1.db").exists()
+        assert not (api_cache / "test2.db").exists()
+        assert not (embedding_cache / "test3.db").exists()
+
+        # Verify output messages
+        captured = capsys.readouterr()
+        assert "Cleared LLM Judge cache" in captured.out
+        assert "Cleared API cache" in captured.out
+        assert "Cleared Embedding cache" in captured.out
+
+    def test_clear_caches_with_only_llm_cache_enabled(self, tmp_path, mocker, capsys):
+        """Test clearing only LLM cache when others are disabled."""
+        llm_cache = tmp_path / "llm_cache"
+        llm_cache.mkdir()
+        (llm_cache / "test.db").write_text("test")
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(llm_cache)
+        mock_config.api.enabled = False
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        _clear_caches(mock_config)
+
+        assert llm_cache.exists()
+        assert not (llm_cache / "test.db").exists()
+
+        captured = capsys.readouterr()
+        assert "Cleared LLM Judge cache" in captured.out
+        assert "Cleared API cache" not in captured.out
+        assert "Cleared Embedding cache" not in captured.out
+
+    def test_clear_caches_when_no_caches_enabled(self, mocker, capsys):
+        """Test clearing caches when none are enabled."""
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = False
+        mock_config.api.enabled = False
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        _clear_caches(mock_config)
+
+        captured = capsys.readouterr()
+        assert "No caches enabled to clear" in captured.out
+
+    def test_clear_caches_creates_nonexistent_directories(
+        self, tmp_path, mocker, capsys
+    ):
+        """Test that cache directories are created if they don't exist."""
+        llm_cache = tmp_path / "new_llm_cache"
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(llm_cache)
+        mock_config.api.enabled = False
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        # Directory doesn't exist yet
+        assert not llm_cache.exists()
+
+        _clear_caches(mock_config)
+
+        # Directory should be created
+        assert llm_cache.exists()
+        assert llm_cache.is_dir()
+
+
+class TestRunEvaluationCacheWarmup:
+    """Unit tests for run_evaluation with cache warmup."""
+
+    def test_run_evaluation_with_cache_warmup_flag(self, tmp_path, mocker, capsys):
+        """Test that cache warmup clears caches before evaluation."""
+        # Setup cache directories
+        llm_cache = tmp_path / "llm_cache"
+        llm_cache.mkdir()
+        (llm_cache / "old_cache.db").write_text("old data")
+
+        # Mock ConfigLoader
+        mock_loader = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_config.llm.provider = "openai"
+        mock_config.llm.model = "gpt-4"
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(llm_cache)
+        mock_config.api.enabled = False
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+        mock_config.output.output_dir = "/tmp/output"
+        mock_config.output.base_filename = "test"
+        mock_loader.system_config = mock_config
+        mock_loader.load_system_config.return_value = mock_config
+
+        mock_config_loader_class = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
+        )
+        mock_config_loader_class.return_value = mock_loader
+
+        # Mock evaluation data
+        mock_eval_data = [mocker.Mock()]
+        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
+
+        # Mock pipeline
+        mock_pipeline = mocker.Mock()
+        mock_result = mocker.Mock()
+        mock_result.result = "PASS"
+        mock_pipeline.run_evaluation.return_value = [mock_result]
+        mock_pipeline_class = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
+        )
+        mock_pipeline_class.return_value = mock_pipeline
+
+        # Mock output handler
+        mock_output_handler = mocker.Mock()
+        mock_output_handler.output_dir = "/tmp/output"
+        mock_output_class = mocker.patch(
+            "lightspeed_evaluation.core.output.OutputHandler"
+        )
+        mock_output_class.return_value = mock_output_handler
+
+        # Mock stats
+        mock_stats = mocker.patch(
+            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+        )
+        mock_stats.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+            "total_judge_llm_input_tokens": 100,
+            "total_judge_llm_output_tokens": 50,
+            "total_judge_llm_tokens": 150,
+        }
+
+        # Run evaluation with cache warmup flag
+        result = run_evaluation(_make_eval_args(cache_warmup=True))
+
+        # Verify cache was cleared
+        assert not (llm_cache / "old_cache.db").exists()
+        assert llm_cache.exists()
+
+        # Verify output contains warmup message
+        captured = capsys.readouterr()
+        assert "Cache warmup mode: Clearing existing caches" in captured.out
+        assert "Cleared LLM Judge cache" in captured.out
+
+        # Verify evaluation still ran successfully
+        assert result is not None
+        assert result["PASS"] == 1
+
+    def test_run_evaluation_without_cache_warmup_flag(self, tmp_path, mocker, capsys):
+        """Test that caches are NOT cleared when warmup flag is false."""
+        # Setup cache directory with existing file
+        llm_cache = tmp_path / "llm_cache"
+        llm_cache.mkdir()
+        (llm_cache / "existing_cache.db").write_text("existing data")
+
+        # Mock ConfigLoader
+        mock_loader = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_config.llm.provider = "openai"
+        mock_config.llm.model = "gpt-4"
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(llm_cache)
+        mock_config.api.enabled = False
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+        mock_config.output.output_dir = "/tmp/output"
+        mock_config.output.base_filename = "test"
+        mock_loader.system_config = mock_config
+        mock_loader.load_system_config.return_value = mock_config
+
+        mock_config_loader_class = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
+        )
+        mock_config_loader_class.return_value = mock_loader
+
+        mock_eval_data = [mocker.Mock()]
+        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
+
+        mock_pipeline = mocker.Mock()
+        mock_pipeline.run_evaluation.return_value = []
+        mock_pipeline_class = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
+        )
+        mock_pipeline_class.return_value = mock_pipeline
+
+        mock_output_handler = mocker.Mock()
+        mock_output_handler.output_dir = "/tmp/output"
+        mock_output_class = mocker.patch(
+            "lightspeed_evaluation.core.output.OutputHandler"
+        )
+        mock_output_class.return_value = mock_output_handler
+
+        mock_stats = mocker.patch(
+            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+        )
+        mock_stats.return_value = {
+            "TOTAL": 0,
+            "PASS": 0,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+            "total_judge_llm_input_tokens": 0,
+            "total_judge_llm_output_tokens": 0,
+            "total_judge_llm_tokens": 0,
+        }
+
+        # Run evaluation WITHOUT cache warmup flag
+        run_evaluation(_make_eval_args(cache_warmup=False))
+
+        # Verify cache was NOT cleared
+        assert (llm_cache / "existing_cache.db").exists()
+
+        # Verify no warmup message in output
+        captured = capsys.readouterr()
+        assert "Cache warmup mode" not in captured.out
+        assert "Cleared LLM Judge cache" not in captured.out
+
+
 class TestMain:
     """Unit tests for main CLI function."""
 
@@ -509,3 +769,87 @@ class TestMain:
         eval_args = mock_run.call_args[0][0]
         assert eval_args.tags == expected_tags
         assert eval_args.conv_ids == expected_conv_ids
+
+    def test_main_with_cache_warmup_flag(self, mocker):
+        """Test main with --cache-warmup flag."""
+        mocker.patch(
+            "sys.argv",
+            ["lightspeed-eval", "--cache-warmup"],
+        )
+
+        mock_run = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.run_evaluation"
+        )
+        mock_run.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+        }
+
+        exit_code = main()
+
+        assert exit_code == 0
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args.cache_warmup is True
+
+    def test_main_without_cache_warmup_flag(self, mocker):
+        """Test main without --cache-warmup flag defaults to False."""
+        mocker.patch(
+            "sys.argv",
+            ["lightspeed-eval"],
+        )
+
+        mock_run = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.run_evaluation"
+        )
+        mock_run.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+        }
+
+        exit_code = main()
+
+        assert exit_code == 0
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args.cache_warmup is False
+
+    def test_main_with_cache_warmup_and_filters(self, mocker):
+        """Test main with both --cache-warmup and filter flags."""
+        mocker.patch(
+            "sys.argv",
+            [
+                "lightspeed-eval",
+                "--cache-warmup",
+                "--tags",
+                "basic",
+                "--conv-ids",
+                "conv_1",
+            ],
+        )
+
+        mock_run = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.run_evaluation"
+        )
+        mock_run.return_value = {
+            "TOTAL": 1,
+            "PASS": 1,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
+        }
+
+        exit_code = main()
+
+        assert exit_code == 0
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args.cache_warmup is True
+        assert args.tags == ["basic"]
+        assert args.conv_ids == ["conv_1"]
