@@ -131,6 +131,48 @@ class TestParseStreamingResponse:
         assert result["tool_calls"][0][0]["tool_name"] == "search"
         assert result["tool_calls"][1][0]["tool_name"] == "calculate"
 
+    def test_parse_response_with_new_format_tool_calls(self, mock_response):
+        """Test parsing tool calls with new format (name/args directly in data)."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_new"}}',
+            'data: {"event": "tool_call", "data": {"id": "tc_1", "name": "pods_list", "args": {"namespace": "default"}}}',
+            'data: {"event": "tool_result", "data": {"id": "tc_1", "status": "success", "content": "pod/nginx Running"}}',
+            'data: {"event": "turn_complete", "data": {"token": "Found pods"}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert result["response"] == "Found pods"
+        assert len(result["tool_calls"]) == 1
+        assert result["tool_calls"][0][0]["tool_name"] == "pods_list"
+        assert result["tool_calls"][0][0]["arguments"]["namespace"] == "default"
+        # Tool result should be associated with the tool call
+        assert result["tool_calls"][0][0]["result"] == "pod/nginx Running"
+
+    def test_parse_response_with_multiple_new_format_tool_calls(self, mock_response):
+        """Test parsing multiple tool calls with new format and results."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_multi"}}',
+            'data: {"event": "tool_call", "data": {"id": "tc_1", "name": "mcp_list_tools", "args": {"server_label": "kube"}}}',
+            'data: {"event": "tool_result", "data": {"id": "tc_1", "status": "success", "content": "[tools list]"}}',
+            'data: {"event": "tool_call", "data": {"id": "tc_2", "name": "pods_list_in_namespace", "args": {"namespace": "openshift-aladdin"}}}',
+            'data: {"event": "tool_result", "data": {"id": "tc_2", "status": "success", "content": "pod list output"}}',
+            'data: {"event": "turn_complete", "data": {"token": "Done"}}',
+            'data: {"event": "end", "data": {"input_tokens": 100, "output_tokens": 50}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert len(result["tool_calls"]) == 2
+        assert result["tool_calls"][0][0]["tool_name"] == "mcp_list_tools"
+        assert result["tool_calls"][0][0]["result"] == "[tools list]"
+        assert result["tool_calls"][1][0]["tool_name"] == "pods_list_in_namespace"
+        assert result["tool_calls"][1][0]["result"] == "pod list output"
+        assert result["input_tokens"] == 100
+        assert result["output_tokens"] == 50
+
 
 class TestParseSSELine:
     """Unit tests for _parse_sse_line."""
@@ -180,7 +222,7 @@ class TestParseToolCall:
     """Unit tests for _parse_tool_call."""
 
     def test_parse_valid_tool_call(self):
-        """Test parsing valid tool call."""
+        """Test parsing valid tool call with legacy format."""
         token = {"tool_name": "search", "arguments": {"query": "test"}}
 
         result = _parse_tool_call(token)
@@ -188,6 +230,16 @@ class TestParseToolCall:
         assert result is not None
         assert result["tool_name"] == "search"
         assert result["arguments"]["query"] == "test"
+
+    def test_parse_valid_tool_call_new_format(self):
+        """Test parsing valid tool call with new name/args format."""
+        token = {"name": "pods_list", "args": {"namespace": "default"}}
+
+        result = _parse_tool_call(token)
+
+        assert result is not None
+        assert result["tool_name"] == "pods_list"
+        assert result["arguments"]["namespace"] == "default"
 
     def test_parse_tool_call_missing_tool_name(self):
         """Test parsing tool call without tool_name."""
