@@ -1,9 +1,11 @@
 """Unit tests for runner/evaluation.py."""
 
 import argparse
+import os
 
 import pytest
 
+from lightspeed_evaluation.core.system.exceptions import DataValidationError
 from lightspeed_evaluation.runner.evaluation import _clear_caches, main, run_evaluation
 
 
@@ -465,6 +467,131 @@ class TestClearCaches:
         # Directory should be created
         assert llm_cache.exists()
         assert llm_cache.is_dir()
+
+    def test_clear_caches_refuses_root_directory(self, mocker):
+        """Test that clearing root directory raises DataValidationError."""
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = "/"  # Dangerous: root directory
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        # Should raise DataValidationError
+        with pytest.raises(
+            DataValidationError, match="Refusing to delete unsafe cache directory"
+        ):
+            _clear_caches(mock_config)
+
+        # Verify root directory still exists
+        assert os.path.exists("/")
+
+    def test_clear_caches_refuses_current_directory_relative(self, mocker):
+        """Test that clearing current directory (.) raises DataValidationError."""
+        cwd = os.getcwd()
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = "."  # Dangerous: current directory
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        # Should raise DataValidationError
+        with pytest.raises(
+            DataValidationError, match="Refusing to delete unsafe cache directory"
+        ):
+            _clear_caches(mock_config)
+
+        # Verify current directory still exists
+        assert os.path.exists(cwd)
+        assert os.path.exists(__file__)
+
+    def test_clear_caches_refuses_current_directory_absolute(self, mocker):
+        """Test that clearing current directory (absolute path) raises error."""
+        cwd = os.getcwd()
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = cwd  # Dangerous: current directory as absolute path
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        # Should raise DataValidationError
+        with pytest.raises(
+            DataValidationError, match="Refusing to delete unsafe cache directory"
+        ):
+            _clear_caches(mock_config)
+
+        # Verify current directory still exists
+        assert os.path.exists(cwd)
+
+    def test_clear_caches_refuses_symlink_to_current_directory(self, tmp_path, mocker):
+        """Test that symlink to current directory is blocked."""
+        cwd = os.getcwd()
+
+        # Create a symlink pointing to current directory
+        symlink = tmp_path / "link_to_cwd"
+        symlink.symlink_to(cwd)
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(symlink)  # Symlink to current directory
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        # Should raise DataValidationError (resolved path equals cwd)
+        with pytest.raises(
+            DataValidationError, match="Refusing to delete unsafe cache directory"
+        ):
+            _clear_caches(mock_config)
+
+        # Verify current directory still exists
+        assert os.path.exists(cwd)
+
+    def test_clear_caches_refuses_symlink_to_root(self, tmp_path, mocker):
+        """Test that symlink to root directory is blocked."""
+        # Create a symlink pointing to root
+        symlink = tmp_path / "link_to_root"
+        symlink.symlink_to("/")
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = True
+        mock_config.llm.cache_dir = str(symlink)  # Symlink to root
+        mock_config.api.cache_enabled = False
+        mock_config.embedding.cache_enabled = False
+
+        # Should raise DataValidationError (resolved path equals /)
+        with pytest.raises(
+            DataValidationError, match="Refusing to delete unsafe cache directory"
+        ):
+            _clear_caches(mock_config)
+
+        # Verify root directory still exists
+        assert os.path.exists("/")
+
+    def test_clear_caches_with_api_cache_enabled_but_api_disabled(
+        self, tmp_path, mocker, capsys
+    ):
+        """Test that API cache IS cleared even when API is disabled."""
+        # This changed in evaluation.py line 29:
+        # "We clear the api cache even if the Lightspeed core api is disabled"
+        api_cache = tmp_path / "api_cache"
+        api_cache.mkdir()
+        (api_cache / "test.db").write_text("test")
+
+        mock_config = mocker.Mock()
+        mock_config.llm.cache_enabled = False
+        mock_config.api.cache_enabled = True  # Cache enabled
+        mock_config.api.cache_dir = str(api_cache)
+        mock_config.embedding.cache_enabled = False
+
+        _clear_caches(mock_config)
+
+        # API cache SHOULD be cleared (even though api.enabled might be False)
+        assert api_cache.exists()
+        assert not (api_cache / "test.db").exists()
+
+        captured = capsys.readouterr()
+        assert "Cleared API cache" in captured.out
 
 
 class TestRunEvaluationCacheWarmup:
