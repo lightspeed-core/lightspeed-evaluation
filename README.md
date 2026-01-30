@@ -42,12 +42,26 @@ By default, lightspeed-evaluation uses remote embedding providers (OpenAI, Gemin
 ```bash
 # Using pip
 pip install 'lightspeed-evaluation[local-embeddings]'
-
+```
+or 
+```bash
 # Using uv (from already cloned repo for local development)
 uv sync --extra local-embeddings
 ```
 
 > **Note**: Local embeddings require PyTorch and related packages (~6GB). Only install if you need `embedding.provider: huggingface` in your configuration.
+
+#### Optional: NLP metrics
+If you want to install Ragas NLP metrics like ROUGE or Bleu install additional dependencies with:
+```bash
+# Using pip
+pip install 'lightspeed-evaluation[nlp-metrics]'
+```
+or 
+```bash
+# Using uv (from already cloned repo for local development)
+uv sync --extra nlp-metrics
+```
 
 ### Basic Usage
 
@@ -65,6 +79,9 @@ lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --out
 lightspeed-eval --tags basic advanced              # Filter by tags
 lightspeed-eval --conv-ids conv_1 conv_2           # Filter by conversation IDs
 lightspeed-eval --tags basic --conv-ids special    # Filter by either (OR logic)
+
+# Cache warmup mode (empty the current caches)
+lightspeed-eval --cache-warmup                     # Rebuild caches from scratch
 ```
 
 ### Usage Scenarios
