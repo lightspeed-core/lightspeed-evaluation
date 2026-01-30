@@ -56,7 +56,7 @@ METRIC_REQUIREMENTS = {
         "required_fields": ["tool_calls", "expected_tool_calls"],
         "description": (
             "requires 'tool_calls' and 'expected_tool_calls' fields "
-            "with 'tool_name' and 'arguments'"
+            "with 'tool_name', 'arguments', and optional 'result'"
         ),
     },
     "script:action_eval": {

@@ -146,7 +146,7 @@ class APIClient:
                 # Convert list[dict] to list[list[dict]] format
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
-                        formatted_tool = {
+                        formatted_tool: dict[str, object] = {
                             "tool_name": tool_call.get("tool_name")
                             or tool_call.get("name")  # Current OLS
                             or "",
@@ -154,6 +154,10 @@ class APIClient:
                             or tool_call.get("args")  # Current OLS
                             or {},
                         }
+                        # Capture tool result if present (optional field)
+                        result = tool_call.get("result")
+                        if result is not None:
+                            formatted_tool["result"] = result
                         formatted_tool_calls.append([formatted_tool])
 
                 response_data["tool_calls"] = formatted_tool_calls
