@@ -38,6 +38,11 @@ def _clear_caches(system_config: SystemConfig) -> None:
     # Clear each cache directory
     for cache_name, cache_dir in cache_dirs:
         path = Path(cache_dir)
+        resolved_path = path.resolve()
+        if resolved_path in {Path("/"), Path.cwd()}:
+            raise DataValidationError(
+                f"Refusing to delete unsafe cache directory: '{resolved_path}'"
+            )
         if path.exists():
             shutil.rmtree(path)
             print(f"   Cleared {cache_name} cache: {cache_dir}")

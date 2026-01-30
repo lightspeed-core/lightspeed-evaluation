@@ -76,6 +76,9 @@ generate_answers = "generate_answers.generate_answers:main"
 # Note: torch[cpu] variant configuration removed for uv compatibility
 # Modern PyTorch versions are available on PyPI directly
 
+[tool.isort]
+src_paths = ["src", "tests"]
+
 [tool.black]
 line-length = 88
 

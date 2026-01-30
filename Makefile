@@ -82,7 +82,7 @@ docstyle:
 	uv run pydocstyle -v .
 
 ruff:
-	uv run ruff check . --per-file-ignores=tests/*:S101 --per-file-ignores=scripts/*:S101 --per-file-ignores=lsc_agent_eval/tests/*:S101
+	uv run ruff check .
 
 bandit: ## Security scanning with Bandit
 	uv run bandit -r src/lightspeed_evaluation -ll
