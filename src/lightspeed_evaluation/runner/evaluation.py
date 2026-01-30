@@ -1,13 +1,48 @@
 """LightSpeed Evaluation Framework - Main Evaluation Runner."""
 
 import argparse
+import shutil
 import sys
 import traceback
+from pathlib import Path
 from typing import Any, Optional
+
+from lightspeed_evaluation.core.models.system import SystemConfig
 
 # Import only lightweight modules at top level
 from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
+
+
+def _clear_caches(system_config: SystemConfig) -> None:
+    """Clear all cache directories for warmup mode.
+
+    Args:
+        system_config: System configuration containing cache directory paths
+    """
+    cache_dirs = []
+
+    # Collect all enabled cache directories
+    if system_config.llm.cache_enabled:
+        cache_dirs.append(("LLM Judge", system_config.llm.cache_dir))
+    # We clear the api cache even if the Lightspeed core api is disabled
+    if system_config.api.cache_enabled:
+        cache_dirs.append(("API", system_config.api.cache_dir))
+    if system_config.embedding.cache_enabled:
+        cache_dirs.append(("Embedding", system_config.embedding.cache_dir))
+
+    if not cache_dirs:
+        print("   No caches enabled to clear")
+        return
+
+    # Clear each cache directory
+    for cache_name, cache_dir in cache_dirs:
+        path = Path(cache_dir)
+        if path.exists():
+            shutil.rmtree(path)
+            print(f"   Cleared {cache_name} cache: {cache_dir}")
+        # Recreate empty directory
+        path.mkdir(parents=True, exist_ok=True)
 
 
 def _print_summary(
@@ -56,6 +91,11 @@ def run_evaluation(  # pylint: disable=too-many-locals
         print("🔧 Loading Configuration & Setting up environment...")
         loader = ConfigLoader()
         system_config = loader.load_system_config(eval_args.system_config)
+
+        # Clear caches if cache warmup mode is enabled
+        if eval_args.cache_warmup:
+            print("\n🔥 Cache warmup mode: Clearing existing caches...")
+            _clear_caches(system_config)
 
         # Import heavy modules after environment is configured
         print("\n📋 Loading Heavy Modules...")
@@ -164,6 +204,11 @@ def main() -> int:
         nargs="+",
         default=None,
         help="Filter by conversation group IDs (run only specified conversations)",
+    )
+    parser.add_argument(
+        "--cache-warmup",
+        action="store_true",
+        help="Enable cache warmup mode - rebuild caches without reading existing entries",
     )
 
     eval_args = parser.parse_args()
