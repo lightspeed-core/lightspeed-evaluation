@@ -38,12 +38,17 @@ dependencies = [
 #   pip install torch --index-url https://download.pytorch.org/whl/cpu
 #   pip install 'lightspeed-evaluation[local-embeddings]' --no-deps
 #   pip install sentence-transformers --no-deps
+# or
+#   uv sync --extra local-embeddings
 local-embeddings = [
     "sentence-transformers>=5.1.0",
 ]
 
 # NLP metrics dependencies - required for nlp:bleu, nlp:rouge, nlp:semantic_similarity_distance
-# Install with: pip install 'lightspeed-evaluation[nlp-metrics]'
+# Install with:
+#   pip install 'lightspeed-evaluation[nlp-metrics]'
+# or
+#   uv sync --extra nlp-metrics
 nlp-metrics = [
     "sacrebleu>=2.0.0",      # Required for BLEU score
     "rouge-score>=0.1.2",    # Required for ROUGE score
@@ -70,6 +75,9 @@ generate_answers = "generate_answers.generate_answers:main"
 
 # Note: torch[cpu] variant configuration removed for uv compatibility
 # Modern PyTorch versions are available on PyPI directly
+
+[tool.isort]
+src_paths = ["src", "tests"]
 
 [tool.black]
 line-length = 88
