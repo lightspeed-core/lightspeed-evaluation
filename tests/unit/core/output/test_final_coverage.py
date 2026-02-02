@@ -1,16 +1,23 @@
+# pylint: disable=protected-access,too-few-public-methods
+
 """Additional tests to boost coverage towards 75%."""
 
+from pathlib import Path
+
+from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.output.statistics import (
     calculate_basic_stats,
     calculate_detailed_stats,
 )
+from lightspeed_evaluation.core.system.loader import validate_metrics
 
 
 class TestStatisticsEdgeCases:
     """Edge case tests for statistics module."""
 
-    def test_stats_with_mixed_results(self):
+    def test_stats_with_mixed_results(self) -> None:
         """Test statistics with all result types."""
         results = [
             EvaluationResult(
@@ -32,7 +39,7 @@ class TestStatisticsEdgeCases:
         assert len(detailed["by_metric"]) > 0
         assert len(detailed["by_conversation"]) == 2
 
-    def test_detailed_stats_single_conversation_multiple_metrics(self):
+    def test_detailed_stats_single_conversation_multiple_metrics(self) -> None:
         """Test detailed stats with one conversation, multiple metrics."""
         results = [
             EvaluationResult(
@@ -52,7 +59,7 @@ class TestStatisticsEdgeCases:
         assert len(detailed["by_metric"]) == 10
         assert detailed["by_conversation"]["conv1"]["pass"] == 10
 
-    def test_detailed_stats_multiple_conversations_single_metric(self):
+    def test_detailed_stats_multiple_conversations_single_metric(self) -> None:
         """Test detailed stats with multiple conversations, one metric."""
         results = [
             EvaluationResult(
@@ -77,9 +84,8 @@ class TestStatisticsEdgeCases:
 class TestOutputHandlerEdgeCases:
     """Edge case tests for output handler."""
 
-    def test_calculate_stats_with_single_result(self, tmp_path):
+    def test_calculate_stats_with_single_result(self, tmp_path: Path) -> None:
         """Test stats calculation with exactly one result."""
-        from lightspeed_evaluation.core.output.generator import OutputHandler
 
         handler = OutputHandler(output_dir=str(tmp_path))
         results = [
@@ -99,9 +105,10 @@ class TestOutputHandlerEdgeCases:
         assert stats["basic"]["PASS"] == 1
         assert stats["basic"]["pass_rate"] == 100.0
 
-    def test_generate_csv_with_minimal_columns(self, tmp_path, mocker):
+    def test_generate_csv_with_minimal_columns(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test CSV generation with minimal column set."""
-        from lightspeed_evaluation.core.output.generator import OutputHandler
 
         config = mocker.Mock()
         config.output.csv_columns = ["conversation_group_id", "result"]
@@ -130,9 +137,8 @@ class TestOutputHandlerEdgeCases:
 class TestSystemLoaderEdgeCases:
     """Edge case tests for system loader."""
 
-    def test_validate_metrics_with_mixed_valid_invalid(self):
+    def test_validate_metrics_with_mixed_valid_invalid(self) -> None:
         """Test validating mix of valid and invalid metrics."""
-        from lightspeed_evaluation.core.system.loader import validate_metrics
 
         turn_metrics = [
             "ragas:faithfulness",

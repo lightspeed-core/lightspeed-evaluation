@@ -1,64 +1,21 @@
+# pylint: disable=protected-access
+
 """Unit tests for output generator."""
 
 import json
+from pathlib import Path
 
-import pytest
+import csv as csv_module
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import EvaluationResult
 from lightspeed_evaluation.core.output.generator import OutputHandler
 
 
-@pytest.fixture
-def sample_results():
-    """Create sample evaluation results."""
-    return [
-        EvaluationResult(
-            conversation_group_id="conv1",
-            turn_id="turn1",
-            metric_identifier="ragas:faithfulness",
-            score=0.85,
-            result="PASS",
-            threshold=0.7,
-            reason="Good",
-            query="What is Python?",
-            response="Python is a programming language",
-        ),
-        EvaluationResult(
-            conversation_group_id="conv1",
-            turn_id="turn2",
-            metric_identifier="ragas:answer_relevancy",
-            score=0.60,
-            result="FAIL",
-            threshold=0.7,
-            reason="Low score",
-            query="How?",
-            response="It works",
-        ),
-    ]
-
-
-@pytest.fixture
-def mock_system_config(mocker):
-    """Create mock system config."""
-    config = mocker.Mock()
-    config.output.enabled_outputs = ["csv", "json", "txt"]
-    config.output.csv_columns = [
-        "conversation_group_id",
-        "turn_id",
-        "metric_identifier",
-        "result",
-        "score",
-    ]
-    config.visualization.enabled_graphs = []
-    # Mock model_fields to support iteration in _write_config_params and _build_config_dict
-    config.model_fields.keys.return_value = []
-    return config
-
-
 class TestOutputHandler:
     """Tests for OutputHandler."""
 
-    def test_initialization(self, tmp_path):
+    def test_initialization(self, tmp_path: Path) -> None:
         """Test handler initialization."""
         handler = OutputHandler(output_dir=str(tmp_path), base_filename="test")
 
@@ -66,7 +23,9 @@ class TestOutputHandler:
         assert handler.base_filename == "test"
         assert tmp_path.exists()
 
-    def test_calculate_stats_with_results(self, tmp_path, sample_results):
+    def test_calculate_stats_with_results(
+        self, tmp_path: Path, sample_results: list[EvaluationResult]
+    ) -> None:
         """Test statistics calculation."""
         handler = OutputHandler(output_dir=str(tmp_path))
         stats = handler._calculate_stats(sample_results)
@@ -76,15 +35,20 @@ class TestOutputHandler:
         assert stats["basic"]["FAIL"] == 1
         assert "detailed" in stats
 
-    def test_calculate_stats_empty(self, tmp_path):
+    def test_calculate_stats_empty(self, tmp_path: Path) -> None:
         """Test statistics with empty results."""
         handler = OutputHandler(output_dir=str(tmp_path))
         stats = handler._calculate_stats([])
 
         assert stats["basic"]["TOTAL"] == 0
-        assert stats["detailed"]["by_metric"] == {}
+        assert not stats["detailed"]["by_metric"]
 
-    def test_generate_csv_report(self, tmp_path, sample_results, mock_system_config):
+    def test_generate_csv_report(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mock_system_config: MockerFixture,
+    ) -> None:
         """Test CSV generation."""
         handler = OutputHandler(
             output_dir=str(tmp_path),
@@ -101,7 +65,9 @@ class TestOutputHandler:
         assert "conversation_group_id" in content
         assert "conv1" in content
 
-    def test_generate_json_summary(self, tmp_path, sample_results):
+    def test_generate_json_summary(
+        self, tmp_path: Path, sample_results: list[EvaluationResult]
+    ) -> None:
         """Test JSON summary generation."""
         handler = OutputHandler(output_dir=str(tmp_path))
         stats = handler._calculate_stats(sample_results)
@@ -110,7 +76,7 @@ class TestOutputHandler:
             "total_api_output_tokens": 200,
             "total_api_tokens": 300,
         }
-        streaming_stats = {}
+        streaming_stats: dict = {}
 
         json_file = handler._generate_json_summary(
             sample_results,
@@ -124,7 +90,7 @@ class TestOutputHandler:
         assert json_file.exists()
 
         # Verify structure
-        with open(json_file) as f:
+        with open(json_file, encoding="utf-8") as f:
             data = json.load(f)
 
         assert "summary_stats" in data or "results" in data
@@ -133,7 +99,9 @@ class TestOutputHandler:
         assert "summary_stats" in data
         assert data["summary_stats"]["overall"]["total_api_tokens"] == 300
 
-    def test_generate_text_summary(self, tmp_path, sample_results):
+    def test_generate_text_summary(
+        self, tmp_path: Path, sample_results: list[EvaluationResult]
+    ) -> None:
         """Test text summary generation."""
         handler = OutputHandler(output_dir=str(tmp_path))
         stats = handler._calculate_stats(sample_results)
@@ -142,7 +110,7 @@ class TestOutputHandler:
             "total_api_output_tokens": 200,
             "total_api_tokens": 300,
         }
-        streaming_stats = {}
+        streaming_stats: dict = {}
 
         txt_file = handler._generate_text_summary(
             sample_results,
@@ -160,15 +128,19 @@ class TestOutputHandler:
         # Verify API token usage is included
         assert "Token Usage (API Calls)" in content
 
-    def test_get_output_directory(self, tmp_path):
+    def test_get_output_directory(self, tmp_path: Path) -> None:
         """Test get output directory."""
         handler = OutputHandler(output_dir=str(tmp_path))
 
         assert handler.get_output_directory() == tmp_path
 
     def test_generate_reports_creates_files(
-        self, tmp_path, sample_results, mock_system_config, mocker
-    ):
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mock_system_config: MockerFixture,
+        mocker: MockerFixture,
+    ) -> None:
         """Test that generate_reports creates output files."""
         mock_now = mocker.Mock()
         mock_now.strftime.return_value = "20250101_120000"
@@ -192,8 +164,8 @@ class TestOutputHandler:
         assert (tmp_path / "eval_20250101_120000_summary.txt").exists()
 
     def test_generate_reports_with_empty_results(
-        self, tmp_path, mock_system_config, mocker
-    ):
+        self, tmp_path: Path, mock_system_config: MockerFixture, mocker: MockerFixture
+    ) -> None:
         """Test generating reports with no results."""
         mock_now = mocker.Mock()
         mock_now.strftime.return_value = "20250101_120000"
@@ -212,8 +184,11 @@ class TestOutputHandler:
         handler.generate_reports([])
 
     def test_generate_individual_reports_csv_only(
-        self, tmp_path, sample_results, mocker
-    ):
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
         """Test generating only CSV."""
         config = mocker.Mock()
         config.output.enabled_outputs = ["csv"]
@@ -228,8 +203,11 @@ class TestOutputHandler:
         assert (tmp_path / "test_detailed.csv").exists()
 
     def test_generate_individual_reports_json_only(
-        self, tmp_path, sample_results, mocker
-    ):
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
         """Test generating only JSON."""
         config = mocker.Mock()
         config.output.enabled_outputs = ["json"]
@@ -244,8 +222,11 @@ class TestOutputHandler:
         assert (tmp_path / "test_summary.json").exists()
 
     def test_generate_individual_reports_txt_only(
-        self, tmp_path, sample_results, mocker
-    ):
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
         """Test generating only TXT."""
         config = mocker.Mock()
         config.output.enabled_outputs = ["txt"]
@@ -254,12 +235,16 @@ class TestOutputHandler:
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
         stats = handler._calculate_stats(sample_results)
-
         handler._generate_individual_reports(sample_results, "test", ["txt"], stats)
 
         assert (tmp_path / "test_summary.txt").exists()
 
-    def test_csv_with_all_columns(self, tmp_path, sample_results, mocker):
+    def test_csv_with_all_columns(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
         """Test CSV with all available columns."""
         config = mocker.Mock()
         config.output.csv_columns = [
@@ -283,7 +268,12 @@ class TestOutputHandler:
         assert "response" in content
         assert "Python" in content
 
-    def test_generate_reports_without_config(self, tmp_path, sample_results, mocker):
+    def test_generate_reports_without_config(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
         """Test generating reports without system config."""
         mock_now = mocker.Mock()
         mock_now.strftime.return_value = "20250101_120000"
@@ -303,7 +293,9 @@ class TestOutputHandler:
 class TestOutputHandlerInitialization:
     """Additional tests for OutputHandler initialization and configuration."""
 
-    def test_output_handler_initialization_default(self, tmp_path, mocker):
+    def test_output_handler_initialization_default(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test OutputHandler initialization with default parameters."""
         mock_print = mocker.patch("builtins.print")
 
@@ -316,7 +308,9 @@ class TestOutputHandlerInitialization:
 
         mock_print.assert_called_with(f"✅ Output handler initialized: {tmp_path}")
 
-    def test_output_handler_initialization_custom(self, tmp_path, mocker):
+    def test_output_handler_initialization_custom(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test OutputHandler initialization with custom parameters."""
         system_config = mocker.Mock()
         system_config.llm.provider = "openai"
@@ -333,7 +327,9 @@ class TestOutputHandlerInitialization:
         assert handler.base_filename == "custom_eval"
         assert handler.system_config == system_config
 
-    def test_output_handler_creates_directory(self, tmp_path, mocker):
+    def test_output_handler_creates_directory(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test that OutputHandler creates output directory if it doesn't exist."""
         output_path = tmp_path / "new_output_dir"
 
@@ -344,7 +340,9 @@ class TestOutputHandlerInitialization:
         assert handler.output_dir.exists()
         assert handler.output_dir.is_dir()
 
-    def test_generate_csv_with_specific_results(self, tmp_path, mocker):
+    def test_generate_csv_with_specific_results(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test CSV report generation with specific results."""
         results = [
             EvaluationResult(
@@ -396,9 +394,6 @@ class TestOutputHandlerInitialization:
         assert csv_file.exists()
         assert csv_file.suffix == ".csv"
 
-        # Read and verify CSV content
-        import csv as csv_module
-
         with open(csv_file, encoding="utf-8") as f:
             reader = csv_module.DictReader(f)
             rows = list(reader)
@@ -420,7 +415,9 @@ class TestOutputHandlerInitialization:
         assert rows[2]["query"] == "Create namespace"
         assert rows[2]["contexts"] == ""
 
-    def test_csv_columns_configuration(self, tmp_path, mocker):
+    def test_csv_columns_configuration(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test that CSV uses configured columns."""
         results = [
             EvaluationResult(
@@ -444,18 +441,17 @@ class TestOutputHandlerInitialization:
         handler = OutputHandler(output_dir=str(tmp_path), system_config=system_config)
         csv_file = handler._generate_csv_report(results, "test_eval")
 
-        # Read CSV headers
-        import csv as csv_module
-
         with open(csv_file, encoding="utf-8") as f:
             reader = csv_module.reader(f)
             headers = next(reader)
 
         assert headers == ["conversation_group_id", "result", "score"]
 
-    def test_filename_timestamp_format(self, tmp_path, mocker):
+    def test_filename_timestamp_format(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
         """Test that generated filenames include proper timestamps."""
-        results = []
+        results: list = []
 
         mocker.patch("builtins.print")
 

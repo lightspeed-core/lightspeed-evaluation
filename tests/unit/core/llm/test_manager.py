@@ -12,12 +12,12 @@ from lightspeed_evaluation.core.models import LLMConfig, SystemConfig
 class TestLLMError:
     """Unit tests for LLMError exception."""
 
-    def test_llm_error_creation(self):
+    def test_llm_error_creation(self) -> None:
         """Test creating LLMError exception."""
         error = LLMError("Test error message")
         assert str(error) == "Test error message"
 
-    def test_llm_error_inheritance(self):
+    def test_llm_error_inheritance(self) -> None:
         """Test that LLMError inherits from Exception."""
         error = LLMError("Test error")
         assert isinstance(error, Exception)
@@ -26,7 +26,7 @@ class TestLLMError:
 class TestLLMManager:
     """Unit tests for LLMManager class."""
 
-    def test_llm_manager_initialization_openai(self, mocker: MockerFixture):
+    def test_llm_manager_initialization_openai(self, mocker: MockerFixture) -> None:
         """Test LLMManager initialization with OpenAI provider."""
         config = LLMConfig(provider="openai", model="gpt-4")
 
@@ -38,7 +38,9 @@ class TestLLMManager:
         assert manager.model_name == "gpt-4"
         mock_print.assert_called_with("✅ LLM Manager: openai/gpt-4 -> gpt-4")
 
-    def test_llm_manager_initialization_generic_provider(self, mocker: MockerFixture):
+    def test_llm_manager_initialization_generic_provider(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test LLMManager initialization with unknown/generic provider."""
         config = LLMConfig(provider="custom", model="custom-model")
 
@@ -48,7 +50,7 @@ class TestLLMManager:
         assert manager.model_name == "custom/custom-model"
         mock_print.assert_any_call("⚠️ Using generic provider format for custom")
 
-    def test_llm_manager_openai_missing_api_key(self, mocker: MockerFixture):
+    def test_llm_manager_openai_missing_api_key(self, mocker: MockerFixture) -> None:
         """Test LLMManager with OpenAI provider but missing API key."""
         config = LLMConfig(provider="openai", model="gpt-4")
 
@@ -58,7 +60,7 @@ class TestLLMManager:
         ):
             LLMManager(config)
 
-    def test_get_model_name(self, mocker: MockerFixture):
+    def test_get_model_name(self, mocker: MockerFixture) -> None:
         """Test get_model_name method."""
         config = LLMConfig(provider="openai", model="gpt-4")
 
@@ -66,7 +68,7 @@ class TestLLMManager:
         manager = LLMManager(config)
         assert manager.get_model_name() == "gpt-4"
 
-    def test_get_llm_params(self, mocker: MockerFixture):
+    def test_get_llm_params(self, mocker: MockerFixture) -> None:
         """Test get_llm_params method."""
         config = LLMConfig(
             provider="openai",
@@ -91,7 +93,7 @@ class TestLLMManager:
         }
         assert params == expected
 
-    def test_get_llm_params_with_ssl_verify_false(self, mocker: MockerFixture):
+    def test_get_llm_params_with_ssl_verify_false(self, mocker: MockerFixture) -> None:
         """Test get_llm_params method with ssl_verify set to False."""
         config = LLMConfig(
             provider="openai",
@@ -117,7 +119,7 @@ class TestLLMManager:
         }
         assert params == expected
 
-    def test_get_config(self, mocker: MockerFixture):
+    def test_get_config(self, mocker: MockerFixture) -> None:
         """Test get_config method."""
         config = LLMConfig(provider="openai", model="gpt-4")
 
@@ -125,7 +127,7 @@ class TestLLMManager:
         manager = LLMManager(config)
         assert manager.get_config() == config
 
-    def test_from_system_config(self, mocker: MockerFixture):
+    def test_from_system_config(self, mocker: MockerFixture) -> None:
         """Test from_system_config class method."""
         system_config = SystemConfig.model_validate(
             {
@@ -146,7 +148,7 @@ class TestLLMManager:
         assert manager.config.temperature == 0.5
         assert manager.config.max_tokens == 2000
 
-    def test_provider_case_insensitive(self, mocker: MockerFixture):
+    def test_provider_case_insensitive(self, mocker: MockerFixture) -> None:
         """Test that provider names are handled case-insensitively."""
         config = LLMConfig(provider="OpenAI", model="gpt-4")
 
@@ -154,7 +156,7 @@ class TestLLMManager:
         manager = LLMManager(config)
         assert manager.model_name == "gpt-4"
 
-    def test_multiple_providers_in_sequence(self, mocker: MockerFixture):
+    def test_multiple_providers_in_sequence(self, mocker: MockerFixture) -> None:
         """Test creating managers for different providers in sequence."""
         providers_data = [
             ("openai", "gpt-4", {"OPENAI_API_KEY": "test-key"}, "gpt-4"),

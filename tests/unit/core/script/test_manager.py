@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+import os
 
 import pytest
 
@@ -12,7 +13,7 @@ from lightspeed_evaluation.core.system.exceptions import ScriptExecutionError
 class TestScriptExecutionManager:
     """Unit tests for ScriptExecutionManager."""
 
-    def test_run_script_success(self):
+    def test_run_script_success(self) -> None:
         """Test running a successful script."""
         # Create a simple script that exits successfully
         script_content = "#!/bin/bash\nexit 0\n"
@@ -32,7 +33,7 @@ class TestScriptExecutionManager:
         finally:
             script_path.unlink()
 
-    def test_run_script_failure(self):
+    def test_run_script_failure(self) -> None:
         """Test running a script that fails."""
         # Create a script that exits with error code
         script_content = "#!/bin/bash\nexit 1\n"
@@ -51,14 +52,14 @@ class TestScriptExecutionManager:
         finally:
             script_path.unlink()
 
-    def test_run_script_not_found(self):
+    def test_run_script_not_found(self) -> None:
         """Test running non-existent script raises error."""
         manager = ScriptExecutionManager()
 
         with pytest.raises(ScriptExecutionError, match="not found"):
             manager.run_script("/nonexistent/script.sh")
 
-    def test_run_script_not_executable(self):
+    def test_run_script_not_executable(self) -> None:
         """Test running non-executable file raises error."""
         script_content = "#!/bin/bash\nexit 0\n"
 
@@ -77,7 +78,7 @@ class TestScriptExecutionManager:
         finally:
             script_path.unlink()
 
-    def test_run_script_not_a_file(self):
+    def test_run_script_not_a_file(self) -> None:
         """Test running a directory raises error."""
         with tempfile.TemporaryDirectory() as tmpdir:
             manager = ScriptExecutionManager()
@@ -85,7 +86,7 @@ class TestScriptExecutionManager:
             with pytest.raises(ScriptExecutionError, match="not a file"):
                 manager.run_script(tmpdir)
 
-    def test_run_script_with_output(self):
+    def test_run_script_with_output(self) -> None:
         """Test script with stdout output."""
         script_content = '#!/bin/bash\necho "Test output"\nexit 0\n'
 
@@ -103,7 +104,7 @@ class TestScriptExecutionManager:
         finally:
             script_path.unlink()
 
-    def test_run_script_with_stderr(self):
+    def test_run_script_with_stderr(self) -> None:
         """Test script with stderr output."""
         script_content = '#!/bin/bash\necho "Error message" >&2\nexit 1\n'
 
@@ -121,7 +122,7 @@ class TestScriptExecutionManager:
         finally:
             script_path.unlink()
 
-    def test_run_script_accepts_string_path(self):
+    def test_run_script_accepts_string_path(self) -> None:
         """Test that run_script accepts string path."""
         script_content = "#!/bin/bash\nexit 0\n"
 
@@ -139,7 +140,7 @@ class TestScriptExecutionManager:
         finally:
             Path(script_path).unlink()
 
-    def test_run_script_resolves_relative_path(self):
+    def test_run_script_resolves_relative_path(self) -> None:
         """Test that relative paths are resolved."""
         script_content = "#!/bin/bash\nexit 0\n"
 
@@ -149,8 +150,6 @@ class TestScriptExecutionManager:
             script_path.chmod(0o755)
 
             # Use relative path
-            import os
-
             original_cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
@@ -160,7 +159,7 @@ class TestScriptExecutionManager:
             finally:
                 os.chdir(original_cwd)
 
-    def test_run_script_timeout(self):
+    def test_run_script_timeout(self) -> None:
         """Test script timeout raises error."""
         # Create a script that sleeps
         script_content = "#!/bin/bash\nsleep 10\nexit 0\n"

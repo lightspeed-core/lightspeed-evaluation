@@ -1,74 +1,33 @@
+# pylint: disable=protected-access,redefined-outer-name,too-many-arguments,too-many-positional-arguments
+
 """Unit tests for pipeline evaluation evaluator module."""
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.llm.custom import TokenTracker
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationRequest,
     EvaluationScope,
-    SystemConfig,
     TurnData,
 )
 from lightspeed_evaluation.core.system.loader import ConfigLoader
+from lightspeed_evaluation.core.metrics.manager import MetricManager
+from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
-
-
-@pytest.fixture
-def config_loader(mocker):
-    """Create a mock config loader with system config."""
-    loader = mocker.Mock(spec=ConfigLoader)
-
-    config = SystemConfig()
-    config.default_turn_metrics_metadata = {
-        "ragas:faithfulness": {"threshold": 0.7, "default": True},
-        "custom:answer_correctness": {"threshold": 0.8, "default": False},
-    }
-    config.default_conversation_metrics_metadata = {
-        "deepeval:conversation_completeness": {"threshold": 0.6, "default": True},
-    }
-    config.api.enabled = True
-
-    loader.system_config = config
-    return loader
-
-
-@pytest.fixture
-def mock_metric_manager(mocker):
-    """Create a mock metric manager."""
-    from lightspeed_evaluation.core.metrics.manager import MetricManager
-
-    manager = mocker.Mock(spec=MetricManager)
-
-    def get_threshold(metric_id, level, conv_data=None, turn_data=None):
-        thresholds = {
-            "ragas:faithfulness": 0.7,
-            "custom:answer_correctness": 0.8,
-            "deepeval:conversation_completeness": 0.6,
-        }
-        return thresholds.get(metric_id, 0.5)
-
-    manager.get_effective_threshold.side_effect = get_threshold
-    # Mock get_metric_metadata to return None (no metadata) to support iteration in _extract_metadata_for_csv
-    manager.get_metric_metadata.return_value = None
-    return manager
-
-
-@pytest.fixture
-def mock_script_manager(mocker):
-    """Create a mock script execution manager."""
-    from lightspeed_evaluation.core.script import ScriptExecutionManager
-
-    manager = mocker.Mock(spec=ScriptExecutionManager)
-    return manager
 
 
 class TestMetricsEvaluator:
     """Unit tests for MetricsEvaluator."""
 
     def test_initialization(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test evaluator initialization."""
         # Mock the metric handlers
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
@@ -98,8 +57,10 @@ class TestMetricsEvaluator:
         )  # ragas, deepeval, geval, custom, script, nlp
 
     def test_initialization_raises_error_without_config(
-        self, mock_metric_manager, mock_script_manager
-    ):
+        self,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+    ) -> None:
         """Test initialization fails without system config."""
         loader = ConfigLoader()
         loader.system_config = None
@@ -108,8 +69,12 @@ class TestMetricsEvaluator:
             MetricsEvaluator(loader, mock_metric_manager, mock_script_manager)
 
     def test_evaluate_metric_turn_level_pass(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test evaluating turn-level metric that passes."""
         # Mock the handlers
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
@@ -165,8 +130,12 @@ class TestMetricsEvaluator:
         assert result.contexts == '["Context"]'
 
     def test_evaluate_metric_turn_level_fail(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test evaluating turn-level metric that fails."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -210,8 +179,12 @@ class TestMetricsEvaluator:
         assert result.threshold == 0.7
 
     def test_evaluate_metric_conversation_level(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test evaluating conversation-level metric."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -250,8 +223,12 @@ class TestMetricsEvaluator:
         assert result.turn_id is None  # Conversation-level
 
     def test_evaluate_metric_unsupported_framework(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test evaluating metric with unsupported framework."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -285,8 +262,12 @@ class TestMetricsEvaluator:
         assert "Unsupported framework" in result.reason
 
     def test_evaluate_metric_returns_none_score(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test handling when metric evaluation returns None score."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -328,8 +309,12 @@ class TestMetricsEvaluator:
         assert result.reason == "Evaluation failed"
 
     def test_evaluate_metric_exception_handling(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test exception handling during metric evaluation."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -376,9 +361,14 @@ class TestMetricsEvaluator:
         assert result.expected_response is None
 
     def test_evaluate_metric_skip_script_when_api_disabled(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test script metrics are skipped when API is disabled."""
+        assert config_loader.system_config is not None
         config_loader.system_config.api.enabled = False
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
@@ -413,8 +403,12 @@ class TestMetricsEvaluator:
         assert result is None
 
     def test_determine_status_with_threshold(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test _determine_status method."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -443,8 +437,12 @@ class TestMetricsEvaluator:
         assert evaluator._determine_status(0.6, 0.7) == "FAIL"
 
     def test_determine_status_without_threshold(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test _determine_status uses default 0.5 when threshold is None."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
         mocker.patch(
@@ -471,12 +469,12 @@ class TestMetricsEvaluator:
 
     def _setup_evaluate_test(
         self,
-        config_loader,
-        mock_metric_manager,
-        mock_script_manager,
-        mocker,
-        mock_return,
-    ):
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+        mock_return: tuple[float, str] | list[tuple[float, str]],
+    ) -> tuple[MetricsEvaluator, dict]:
         """Helper to setup common mocks for _evaluate_wrapper() tests.
 
         Returns:
@@ -489,7 +487,10 @@ class TestMetricsEvaluator:
         )
 
         # Create a helper to setup mock with return values
-        def create_mock_handler(mocker, mock_return):
+        def create_mock_handler(  # type: ignore[no-untyped-def]
+            mocker: MockerFixture,
+            mock_return: tuple[float, str] | list[tuple[float, str]],
+        ):
             mock = mocker.Mock()
             if isinstance(mock_return, list):
                 mock.evaluate.side_effect = mock_return
@@ -546,12 +547,12 @@ class TestMetricsEvaluator:
     )
     def test_evaluate_with_expected_response_list(
         self,
-        config_loader,
-        mock_metric_manager,
-        mock_script_manager,
-        mocker,
-        metric_identifier,
-    ):
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+        metric_identifier: str,
+    ) -> None:
         """Test _evaluate_wrapper() with list expected_response for metric that requires it."""
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
@@ -583,8 +584,12 @@ class TestMetricsEvaluator:
         assert mock_handlers[framework].evaluate.call_count == 2
 
     def test_evaluate_with_expected_response_list_fail(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test _evaluate_wrapper() with list expected_response for metric that requires it."""
         scores_reasons = [(0.3, "Score 1"), (0.65, "Score 2"), (0.45, "Score 3")]
         evaluator, mock_handlers = self._setup_evaluate_test(
@@ -619,8 +624,12 @@ class TestMetricsEvaluator:
         assert mock_handlers["ragas"].evaluate.call_count == 3
 
     def test_evaluate_with_expected_response_string(
-        self, config_loader, mock_metric_manager, mock_script_manager, mocker
-    ):
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
         """Test _evaluate_wrapper() with string expected_response."""
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
@@ -656,13 +665,13 @@ class TestMetricsEvaluator:
     )
     def test_evaluate_with_expected_response_not_needed(
         self,
-        config_loader,
-        mock_metric_manager,
-        mock_script_manager,
-        mocker,
-        metric_identifier,
-        expected_response,
-    ):
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+        metric_identifier: str,
+        expected_response: str | list[str] | None,
+    ) -> None:
         """Test _evaluate_wrapper() with metric that does not require expected_response."""
         evaluator, mock_handlers = self._setup_evaluate_test(
             config_loader,
@@ -697,21 +706,21 @@ class TestMetricsEvaluator:
 class TestTokenTracker:
     """Unit tests for TokenTracker class."""
 
-    def test_token_tracker_initialization(self):
+    def test_token_tracker_initialization(self) -> None:
         """Test TokenTracker initializes with zero counts."""
         tracker = TokenTracker()
         input_tokens, output_tokens = tracker.get_counts()
         assert input_tokens == 0
         assert output_tokens == 0
 
-    def test_token_tracker_get_counts_returns_tuple(self):
+    def test_token_tracker_get_counts_returns_tuple(self) -> None:
         """Test get_counts returns a tuple."""
         tracker = TokenTracker()
         result = tracker.get_counts()
         assert isinstance(result, tuple)
         assert len(result) == 2
 
-    def test_token_tracker_reset(self):
+    def test_token_tracker_reset(self) -> None:
         """Test reset clears token counts."""
         tracker = TokenTracker()
         tracker.input_tokens = 100
@@ -719,7 +728,7 @@ class TestTokenTracker:
         tracker.reset()
         assert tracker.get_counts() == (0, 0)
 
-    def test_token_tracker_start_stop(self):
+    def test_token_tracker_start_stop(self) -> None:
         """Test start and stop methods."""
         tracker = TokenTracker()
         tracker.start()
@@ -727,7 +736,7 @@ class TestTokenTracker:
         tracker.stop()
         assert tracker._callback_registered is False
 
-    def test_token_tracker_double_start(self):
+    def test_token_tracker_double_start(self) -> None:
         """Test calling start twice doesn't register callback twice."""
         tracker = TokenTracker()
         tracker.start()
@@ -735,7 +744,7 @@ class TestTokenTracker:
         assert tracker._callback_registered is True
         tracker.stop()
 
-    def test_token_tracker_double_stop(self):
+    def test_token_tracker_double_stop(self) -> None:
         """Test calling stop twice doesn't fail."""
         tracker = TokenTracker()
         tracker.start()
@@ -743,7 +752,7 @@ class TestTokenTracker:
         tracker.stop()  # Should not fail
         assert tracker._callback_registered is False
 
-    def test_token_tracker_independent_instances(self):
+    def test_token_tracker_independent_instances(self) -> None:
         """Test multiple TokenTracker instances are independent."""
         tracker1 = TokenTracker()
         tracker2 = TokenTracker()

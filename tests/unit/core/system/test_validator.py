@@ -1,9 +1,14 @@
+# pylint: disable=protected-access
+
 """Unit tests for core system validator module."""
 
 import tempfile
 from pathlib import Path
 
 import pytest
+from pytest_mock import MockerFixture
+
+from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models import EvaluationData, TurnData
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
@@ -11,13 +16,12 @@ from lightspeed_evaluation.core.system.validator import (
     DataValidator,
     format_pydantic_error,
 )
-from pydantic import ValidationError
 
 
 class TestFormatPydanticError:
     """Unit tests for format_pydantic_error helper function."""
 
-    def test_format_single_error(self):
+    def test_format_single_error(self) -> None:
         """Test formatting a single Pydantic validation error."""
         try:
             TurnData(turn_id="1", query="", response="Valid")
@@ -26,7 +30,7 @@ class TestFormatPydanticError:
             assert "query" in formatted
             assert "at least 1 character" in formatted
 
-    def test_format_multiple_errors(self):
+    def test_format_multiple_errors(self) -> None:
         """Test formatting multiple validation errors."""
         try:
             TurnData(turn_id="", query="", response="")
@@ -40,7 +44,7 @@ class TestFormatPydanticError:
 class TestDataValidator:
     """Unit tests for DataValidator."""
 
-    def test_validate_evaluation_data_valid(self):
+    def test_validate_evaluation_data_valid(self) -> None:
         """Test validation passes with valid data."""
         validator = DataValidator(api_enabled=False)
 
@@ -58,7 +62,9 @@ class TestDataValidator:
         assert result is True
         assert len(validator.validation_errors) == 0
 
-    def test_validate_metrics_availability_unknown_turn_metric(self, mocker):
+    def test_validate_metrics_availability_unknown_turn_metric(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test validation fails for unknown turn metric."""
         # Mock the global metrics sets
         mocker.patch(
@@ -84,7 +90,9 @@ class TestDataValidator:
             "Unknown turn metric" in error for error in validator.validation_errors
         )
 
-    def test_validate_metrics_availability_unknown_conversation_metric(self, mocker):
+    def test_validate_metrics_availability_unknown_conversation_metric(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test validation fails for unknown conversation metric."""
         mocker.patch(
             "lightspeed_evaluation.core.system.validator.CONVERSATION_LEVEL_METRICS",
@@ -108,7 +116,7 @@ class TestDataValidator:
             for error in validator.validation_errors
         )
 
-    def test_validate_metric_requirements_missing_response(self):
+    def test_validate_metric_requirements_missing_response(self) -> None:
         """Test validation fails when required response field is missing."""
         validator = DataValidator(api_enabled=False)
 
@@ -125,7 +133,7 @@ class TestDataValidator:
         assert result is False
         assert any("response" in error.lower() for error in validator.validation_errors)
 
-    def test_validate_metric_requirements_missing_contexts(self):
+    def test_validate_metric_requirements_missing_contexts(self) -> None:
         """Test validation fails when required contexts are missing."""
         validator = DataValidator(api_enabled=False)
 
@@ -144,8 +152,8 @@ class TestDataValidator:
         assert any("contexts" in error.lower() for error in validator.validation_errors)
 
     def test_validate_metric_requirements_api_enabled_allows_missing_response(
-        self, mocker
-    ):
+        self, mocker: MockerFixture
+    ) -> None:
         """Test that missing response is allowed when API is enabled."""
         # Mock the global metrics sets
         mocker.patch(
@@ -168,7 +176,7 @@ class TestDataValidator:
         # Should pass because API will populate response
         assert result is True
 
-    def test_validate_metric_requirements_expected_response_missing(self):
+    def test_validate_metric_requirements_expected_response_missing(self) -> None:
         """Test validation fails when expected_response is required but missing."""
         validator = DataValidator(api_enabled=False)
 
@@ -190,7 +198,7 @@ class TestDataValidator:
             for error in validator.validation_errors
         )
 
-    def test_validate_metric_requirements_tool_eval_missing_fields(self):
+    def test_validate_metric_requirements_tool_eval_missing_fields(self) -> None:
         """Test validation fails when tool_eval required fields are missing."""
         validator = DataValidator(api_enabled=False)
 
@@ -211,7 +219,9 @@ class TestDataValidator:
             "tool_calls" in error.lower() for error in validator.validation_errors
         )
 
-    def test_validate_metric_requirements_skip_script_when_api_disabled(self, mocker):
+    def test_validate_metric_requirements_skip_script_when_api_disabled(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test script metrics validation is skipped when API is disabled."""
         # Mock the global metrics sets
         mocker.patch(
@@ -236,14 +246,14 @@ class TestDataValidator:
         # Should pass because script validation is skipped
         assert result is True
 
-    def test_load_evaluation_data_file_not_found(self):
+    def test_load_evaluation_data_file_not_found(self) -> None:
         """Test loading non-existent file raises error."""
         validator = DataValidator()
 
         with pytest.raises(DataValidationError, match="file not found"):
             validator.load_evaluation_data("/nonexistent/file.yaml")
 
-    def test_load_evaluation_data_invalid_yaml(self):
+    def test_load_evaluation_data_invalid_yaml(self) -> None:
         """Test loading invalid YAML raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: content: [")
@@ -256,7 +266,7 @@ class TestDataValidator:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_evaluation_data_empty_file(self):
+    def test_load_evaluation_data_empty_file(self) -> None:
         """Test loading empty YAML file raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("")
@@ -269,7 +279,7 @@ class TestDataValidator:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_evaluation_data_not_list(self):
+    def test_load_evaluation_data_not_list(self) -> None:
         """Test loading YAML with non-list root raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("conversation_group_id: test\n")
@@ -282,7 +292,7 @@ class TestDataValidator:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_evaluation_data_valid(self, mocker):
+    def test_load_evaluation_data_valid(self, mocker: MockerFixture) -> None:
         """Test loading valid evaluation data file."""
         yaml_content = """
 - conversation_group_id: test_conv
@@ -290,7 +300,7 @@ class TestDataValidator:
     - turn_id: "1"
       query: "What is Python?"
       response: "Python is a programming language."
-"""
+            """
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -316,7 +326,7 @@ class TestDataValidator:
         finally:
             Path(temp_path).unlink()
 
-    def test_check_metric_requirements_missing_contexts(self):
+    def test_check_metric_requirements_missing_contexts(self) -> None:
         """Test validation fails for missing contexts when required."""
         validator = DataValidator(api_enabled=False)
 
@@ -334,7 +344,7 @@ class TestDataValidator:
         assert result is False
         assert any("contexts" in error.lower() for error in validator.validation_errors)
 
-    def test_check_metric_requirements_whitespace_only_string(self):
+    def test_check_metric_requirements_whitespace_only_string(self) -> None:
         """Test validation fails for whitespace-only required string."""
         validator = DataValidator(api_enabled=False)
 
@@ -350,7 +360,7 @@ class TestDataValidator:
 
         assert result is False
 
-    def test_validate_multiple_conversations(self):
+    def test_validate_multiple_conversations(self) -> None:
         """Test validating multiple conversations."""
         validator = DataValidator(api_enabled=False)
 
@@ -364,7 +374,9 @@ class TestDataValidator:
 
         assert result is True
 
-    def test_validate_evaluation_data_accumulates_errors(self, mocker):
+    def test_validate_evaluation_data_accumulates_errors(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test that validation accumulates multiple errors."""
         mocker.patch(
             "lightspeed_evaluation.core.system.validator.TURN_LEVEL_METRICS",
@@ -399,7 +411,7 @@ class TestDataValidator:
 class TestFilterByScope:
     """Unit test for filter by scope."""
 
-    def test_filter_by_scope_no_filter(self):
+    def test_filter_by_scope_no_filter(self) -> None:
         """Test no filtering when both tags and conv_ids are None."""
         validator = DataValidator()
         data = [
@@ -415,7 +427,7 @@ class TestFilterByScope:
         result = validator._filter_by_scope(data)
         assert len(result) == 2
 
-    def test_filter_by_scope_tags_only(self):
+    def test_filter_by_scope_tags_only(self) -> None:
         """Test filtering by tags only."""
         validator = DataValidator()
         data = [
@@ -439,7 +451,7 @@ class TestFilterByScope:
         assert len(result) == 2
         assert all(c.tag == "basic" for c in result)
 
-    def test_filter_by_scope_conv_ids_only(self):
+    def test_filter_by_scope_conv_ids_only(self) -> None:
         """Test filtering by conversation IDs only."""
         validator = DataValidator()
         data = [
@@ -460,7 +472,7 @@ class TestFilterByScope:
         assert len(result) == 2
         assert {c.conversation_group_id for c in result} == {"conv_1", "conv_3"}
 
-    def test_filter_by_scope_tags_and_conv_ids(self):
+    def test_filter_by_scope_tags_and_conv_ids(self) -> None:
         """Test filtering by both tags and conv_ids uses OR logic."""
         validator = DataValidator()
         data = [
@@ -483,7 +495,7 @@ class TestFilterByScope:
         result = validator._filter_by_scope(data, tags=["basic"], conv_ids=["conv_3"])
         assert len(result) == 2  # conv_1 (basic tag) + conv_3 (by ID)
 
-    def test_filter_by_scope_no_match_returns_empty(self):
+    def test_filter_by_scope_no_match_returns_empty(self) -> None:
         """Test filtering with no matching criteria returns empty list."""
         validator = DataValidator()
         data = [

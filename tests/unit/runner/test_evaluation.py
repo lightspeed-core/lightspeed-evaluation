@@ -1,13 +1,17 @@
+# pylint: disable=unused-argument
+
 """Unit tests for runner/evaluation.py."""
 
 import argparse
+from typing import Any
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.runner.evaluation import main, run_evaluation
 
 
-def _make_eval_args(**kwargs) -> argparse.Namespace:
+def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
     """Helper to create eval_args namespace with defaults."""
     defaults = {
         "system_config": "config/system.yaml",
@@ -23,7 +27,11 @@ def _make_eval_args(**kwargs) -> argparse.Namespace:
 class TestRunEvaluation:
     """Unit tests for run_evaluation function."""
 
-    def test_run_evaluation_success(self, mocker, capsys):
+    def test_run_evaluation_success(
+        self,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
         """Test successful evaluation run."""
         # Mock ConfigLoader
         mock_loader = mocker.Mock()
@@ -89,7 +97,11 @@ class TestRunEvaluation:
         assert result["PASS"] == 1
         mock_pipeline.close.assert_called_once()
 
-    def test_run_evaluation_with_output_dir_override(self, mocker, capsys):
+    def test_run_evaluation_with_output_dir_override(
+        self,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
         """Test evaluation with custom output directory."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
@@ -145,7 +157,9 @@ class TestRunEvaluation:
         call_args = mock_pipeline_class.call_args
         assert call_args[0][1] == "/custom/output"
 
-    def test_run_evaluation_file_not_found(self, mocker, capsys):
+    def test_run_evaluation_file_not_found(
+        self, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    ) -> None:
         """Test evaluation handles FileNotFoundError."""
         mock_config_loader = mocker.patch(
             "lightspeed_evaluation.runner.evaluation.ConfigLoader"
@@ -160,7 +174,9 @@ class TestRunEvaluation:
         captured = capsys.readouterr()
         assert "Evaluation failed" in captured.out
 
-    def test_run_evaluation_value_error(self, mocker, capsys):
+    def test_run_evaluation_value_error(
+        self, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    ) -> None:
         """Test evaluation handles ValueError."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
@@ -186,7 +202,9 @@ class TestRunEvaluation:
         captured = capsys.readouterr()
         assert "Evaluation failed" in captured.out
 
-    def test_run_evaluation_with_errors_in_results(self, mocker, capsys):
+    def test_run_evaluation_with_errors_in_results(
+        self, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    ) -> None:
         """Test evaluation reports errors in results."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
@@ -237,11 +255,16 @@ class TestRunEvaluation:
 
         result = run_evaluation(_make_eval_args())
 
+        assert result is not None
         assert result["ERROR"] == 3
         captured = capsys.readouterr()
         assert "3 evaluations had errors" in captured.out
 
-    def test_run_evaluation_closes_pipeline_on_exception(self, mocker, capsys):
+    def test_run_evaluation_closes_pipeline_on_exception(
+        self,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
         """Test pipeline is closed even if evaluation fails."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
@@ -275,7 +298,9 @@ class TestRunEvaluation:
         mock_pipeline.close.assert_called_once()
         assert result is None
 
-    def test_run_evaluation_with_empty_filter_result(self, mocker, capsys):
+    def test_run_evaluation_with_empty_filter_result(
+        self, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    ) -> None:
         """Test evaluation returns empty result when filter matches nothing."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
@@ -295,6 +320,7 @@ class TestRunEvaluation:
 
         result = run_evaluation(_make_eval_args(tags=["nonexistent"]))
 
+        assert result is not None
         assert result["TOTAL"] == 0
         mock_validator.return_value.load_evaluation_data.assert_called_once_with(
             "config/evaluation_data.yaml", tags=["nonexistent"], conv_ids=None
@@ -304,7 +330,7 @@ class TestRunEvaluation:
         captured = capsys.readouterr()
         assert "No conversation groups matched the filter criteria" in captured.out
 
-    def test_run_evaluation_with_filter_parameters(self, mocker):
+    def test_run_evaluation_with_filter_parameters(self, mocker: MockerFixture) -> None:
         """Test that filter parameters are correctly passed to DataValidator."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
@@ -365,7 +391,7 @@ class TestRunEvaluation:
 class TestMain:
     """Unit tests for main CLI function."""
 
-    def test_main_default_args(self, mocker):
+    def test_main_default_args(self, mocker: MockerFixture) -> None:
         """Test main with default arguments."""
         mocker.patch(
             "sys.argv",
@@ -392,7 +418,7 @@ class TestMain:
         assert args.eval_data == "config/evaluation_data.yaml"
         assert args.output_dir is None
 
-    def test_main_custom_args(self, mocker):
+    def test_main_custom_args(self, mocker: MockerFixture) -> None:
         """Test main with custom arguments."""
         mocker.patch(
             "sys.argv",
@@ -427,7 +453,7 @@ class TestMain:
         assert args.eval_data == "custom/eval.yaml"
         assert args.output_dir == "/custom/output"
 
-    def test_main_returns_error_on_failure(self, mocker):
+    def test_main_returns_error_on_failure(self, mocker: MockerFixture) -> None:
         """Test main returns error code on failure."""
         mocker.patch(
             "sys.argv",
@@ -455,7 +481,13 @@ class TestMain:
             ),
         ],
     )
-    def test_main_with_filters(self, mocker, args, expected_tags, expected_conv_ids):
+    def test_main_with_filters(
+        self,
+        mocker: MockerFixture,
+        args: list[str],
+        expected_tags: list[str] | None,
+        expected_conv_ids: list[str] | None,
+    ) -> None:
         """Test main with filter arguments."""
         mocker.patch("sys.argv", ["lightspeed-eval"] + args)
 

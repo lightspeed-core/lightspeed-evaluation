@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from pytest_mock import MockerFixture
+
 from lightspeed_evaluation.core.system.ssl_certifi import (
     create_ssl_certifi_bundle,
     get_ssl_cert_files_paths_from_system_yaml,
@@ -13,7 +15,7 @@ from lightspeed_evaluation.core.system.ssl_certifi import (
 class TestGetSslCertFilesPathsFromSystemYaml:
     """Tests for extracting SSL cert paths from config data."""
 
-    def test_extracts_cert_when_ssl_verify_true(self):
+    def test_extracts_cert_when_ssl_verify_true(self) -> None:
         """Test extracting SSL cert when ssl_verify is True."""
         config = {
             "ssl_verify": True,
@@ -24,7 +26,7 @@ class TestGetSslCertFilesPathsFromSystemYaml:
 
         assert result == ["/path/to/cert.pem"]
 
-    def test_ignores_cert_when_ssl_verify_false(self):
+    def test_ignores_cert_when_ssl_verify_false(self) -> None:
         """Test that ssl_cert_file is ignored when ssl_verify is False."""
         config = {
             "ssl_verify": False,
@@ -33,9 +35,9 @@ class TestGetSslCertFilesPathsFromSystemYaml:
 
         result = get_ssl_cert_files_paths_from_system_yaml(config)
 
-        assert result == []
+        assert not result
 
-    def test_nested_configs(self):
+    def test_nested_configs(self) -> None:
         """Test extracting SSL certs from nested configuration."""
         config = {
             "service_a": {
@@ -67,7 +69,7 @@ class TestGetSslCertFilesPathsFromSystemYaml:
 class TestGetSystemSslCertFile:
     """Tests for getting system SSL cert file from environment."""
 
-    def test_returns_cert_file_when_env_set(self, mocker):
+    def test_returns_cert_file_when_env_set(self, mocker: MockerFixture) -> None:
         """Test when SSL_CERT_FILE environment variable is set."""
         mocker.patch.dict("os.environ", {"SSL_CERT_FILE": "/system/cert.pem"})
 
@@ -75,19 +77,19 @@ class TestGetSystemSslCertFile:
 
         assert result == ["/system/cert.pem"]
 
-    def test_returns_empty_when_env_not_set(self, mocker):
+    def test_returns_empty_when_env_not_set(self, mocker: MockerFixture) -> None:
         """Test when SSL_CERT_FILE environment variable is not set."""
         mocker.patch.dict("os.environ", {}, clear=True)
 
         result = get_system_ssl_cert_file()
 
-        assert result == []
+        assert not result
 
 
 class TestGetUniqueSslCertPaths:
     """Tests for getting unique SSL certificate paths."""
 
-    def test_returns_unique_paths(self):
+    def test_returns_unique_paths(self) -> None:
         """Test that duplicate paths are removed."""
         cert_paths = [
             "/path/to/cert_a.pem",
@@ -99,17 +101,19 @@ class TestGetUniqueSslCertPaths:
 
         assert set(result) == {"/path/to/cert_a.pem", "/path/to/cert_b.pem"}
 
-    def test_returns_empty_list_when_no_paths(self):
+    def test_returns_empty_list_when_no_paths(self) -> None:
         """Test that an empty list is returned when no paths are provided."""
         result = _get_unique_ssl_cert_paths([])
 
-        assert result == []
+        assert not result
 
 
 class TestCreateSslCertifiBundle:
     """Tests for creating combined SSL certificate bundle."""
 
-    def test_returns_certifi_bundle_when_no_custom_certs(self, mocker):
+    def test_returns_certifi_bundle_when_no_custom_certs(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test that certifi bundle is returned when no custom certs exist."""
         mocker.patch.dict("os.environ", {}, clear=True)
 
@@ -122,7 +126,9 @@ class TestCreateSslCertifiBundle:
 
         assert result == "/path/to/certifi/cacert.pem"
 
-    def test_combines_certifi_with_custom_cert(self, mocker, tmp_path):
+    def test_combines_certifi_with_custom_cert(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
         """Test combining certifi bundle with custom cert from config."""
         mocker.patch.dict("os.environ", {}, clear=True)
 
@@ -143,12 +149,14 @@ class TestCreateSslCertifiBundle:
         mock_where.return_value = str(certifi_bundle)
 
         result = create_ssl_certifi_bundle(config)
-        content = Path(result).read_text()
+        content = Path(result).read_text(encoding="utf-8")
 
         assert "CERTIFI BUNDLE" in content
         assert "CUSTOM CERT" in content
 
-    def test_combines_config_and_env_certs(self, mocker, tmp_path):
+    def test_combines_config_and_env_certs(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
         """Test combining certs from both config and environment."""
         certifi_bundle = tmp_path / "certifi.pem"
         certifi_bundle.write_text("CERTIFI BUNDLE\n")
@@ -172,13 +180,15 @@ class TestCreateSslCertifiBundle:
         mock_where.return_value = str(certifi_bundle)
 
         result = create_ssl_certifi_bundle(config)
-        content = Path(result).read_text()
+        content = Path(result).read_text(encoding="utf-8")
 
         assert "CERTIFI BUNDLE" in content
         assert "CONFIG CERT" in content
         assert "ENV CERT" in content
 
-    def test_registers_atexit_cleanup(self, mocker, tmp_path):
+    def test_registers_atexit_cleanup(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
         """Test that atexit cleanup is registered for temp bundle."""
         mocker.patch.dict("os.environ", {})
 

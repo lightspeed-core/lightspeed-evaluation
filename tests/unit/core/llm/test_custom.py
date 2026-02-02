@@ -1,6 +1,9 @@
+# pylint: disable=protected-access,disable=too-few-public-methods
+
 """Unit tests for custom LLM classes."""
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM, TokenTracker
 from lightspeed_evaluation.core.system.exceptions import LLMError
@@ -9,7 +12,7 @@ from lightspeed_evaluation.core.system.exceptions import LLMError
 class TestTokenTracker:
     """Tests for TokenTracker."""
 
-    def test_token_callback_accumulates_tokens(self, mocker):
+    def test_token_callback_accumulates_tokens(self, mocker: MockerFixture) -> None:
         """Test that token callback accumulates token counts."""
         tracker = TokenTracker()
 
@@ -29,7 +32,7 @@ class TestTokenTracker:
 class TestBaseCustomLLM:
     """Tests for BaseCustomLLM."""
 
-    def test_setup_ssl_verify_enabled(self, mocker):
+    def test_setup_ssl_verify_enabled(self, mocker: MockerFixture) -> None:
         """Test SSL verification enabled by default."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {"SSL_CERTIFI_BUNDLE": "/path/to/bundle.pem"})
@@ -38,7 +41,7 @@ class TestBaseCustomLLM:
 
         assert mock_litellm.ssl_verify == "/path/to/bundle.pem"
 
-    def test_setup_ssl_verify_disabled(self, mocker):
+    def test_setup_ssl_verify_disabled(self, mocker: MockerFixture) -> None:
         """Test SSL verification can be disabled."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})
@@ -47,7 +50,7 @@ class TestBaseCustomLLM:
 
         assert mock_litellm.ssl_verify is False
 
-    def test_call_returns_single_response(self, mocker):
+    def test_call_returns_single_response(self, mocker: MockerFixture) -> None:
         """Test call returns single string when n=1."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})
@@ -64,7 +67,7 @@ class TestBaseCustomLLM:
 
         assert result == "Test response"
 
-    def test_call_with_temperature_override(self, mocker):
+    def test_call_with_temperature_override(self, mocker: MockerFixture) -> None:
         """Test call with temperature override."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})
@@ -81,7 +84,7 @@ class TestBaseCustomLLM:
         call_args = mock_litellm.completion.call_args[1]
         assert call_args["temperature"] == 0.9
 
-    def test_call_raises_llm_error_on_failure(self, mocker):
+    def test_call_raises_llm_error_on_failure(self, mocker: MockerFixture) -> None:
         """Test call raises LLMError on failure."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
         mocker.patch.dict("os.environ", {})

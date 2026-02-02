@@ -1,0 +1,12 @@
+{
+  "reportAttributeAccessIssue": "warning",
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "reportAttributeAccessIssue": "none",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ]
+}
