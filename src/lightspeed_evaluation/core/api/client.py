@@ -248,7 +248,7 @@ class APIClient:
     def _get_cache_key(self, request: APIRequest) -> str:
         """Get cache key for the query."""
         # Note, python hash is initialized randomly so can't be used here
-        request_dict = request.dict()
+        request_dict = request.model_dump()
         keys_to_hash = [
             "query",
             "provider",
