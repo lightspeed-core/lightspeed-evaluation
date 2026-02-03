@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     )
     from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 _LAZY_IMPORTS = {
     # Main pipeline
