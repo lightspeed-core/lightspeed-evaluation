@@ -357,9 +357,9 @@ about OpenShift. How can I assist you today?"
 
 #### Tool Evaluation
 
-**What it measures:** Does the AI call the right tools with correct parameters?
+**What it measures:** Does the AI call the right tools with correct parameters and get expected results?
 
-**Plain English:** "When the AI needs to use a tool, did it use the right one with the right settings?"
+**Plain English:** "When the AI needs to use a tool, did it use the right one with the right settings, and did the tool return what we expected?"
 
 **Score:** Binary (0 or 1)
 
@@ -367,6 +367,7 @@ about OpenShift. How can I assist you today?"
 - Compares expected tool calls against actual tool calls
 - Validates tool names match exactly
 - Checks parameters (supports regex patterns)
+- Optionally validates tool call results (supports regex patterns)
 
 **Example:**
 ```
@@ -393,7 +394,24 @@ expected_tool_calls:
         namespace: "openshift-light.*"  # Matches openshift-lightspeed
 ```
 
-**When to use:** Function calling AI applications, tool-using agents
+**Result Validation (Optional):**
+```yaml
+# Validate tool call results using regex patterns
+expected_tool_calls:
+  - - tool_name: oc_get
+      arguments:
+        kind: pod
+        namespace: default
+      result: ".*Running.*"  # Verify pod is in Running state
+
+  - - tool_name: oc_create
+      arguments:
+        kind: namespace
+        name: test-ns
+      result: ".*created"  # Verify creation succeeded
+```
+
+**When to use:** Function calling AI applications, tool-using agents, validating tool outputs
 
 **Threshold:** 1 (must be exact)
 
@@ -1463,7 +1481,7 @@ lightspeed-eval --eval-data config/eval_batch2.yaml
 | **ragas:context_precision_*** | 0-1 | Retrieved info is useful | 0.7 | query, contexts, response |
 | **custom:answer_correctness** | 0-1 | Matches expected answer | 0.75 | query, response, expected_response |
 | **custom:intent_eval** | 0/1 | Has right intent | 1 | query, response, expected_intent |
-| **custom:tool_eval** | 0/1 | Called correct tools | 1 | expected_tool_calls, tool_calls |
+| **custom:tool_eval** | 0/1 | Called correct tools with expected results | 1 | expected_tool_calls, tool_calls |
 | **script:action_eval** | 0/1 | Real action verified | 1 | verify_script |
 | **deepeval:conversation_completeness** | 0-1 | User's goals achieved | 0.8 | Full conversation |
 | **deepeval:conversation_relevancy** | 0-1 | Stayed on topic | 0.7 | Full conversation |

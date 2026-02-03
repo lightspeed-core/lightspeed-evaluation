@@ -232,6 +232,42 @@ class TestParseToolCall:
 
         assert result is None
 
+    def test_parse_tool_call_with_result(self) -> None:
+        """Test parsing tool call with result field."""
+        token = {
+            "tool_name": "oc_get",
+            "arguments": {"kind": "pod"},
+            "result": "pod/nginx-123 Running 1/1",
+        }
+
+        result = _parse_tool_call(token)
+
+        assert result is not None
+        assert result["tool_name"] == "oc_get"
+        assert result["arguments"]["kind"] == "pod"
+        assert result["result"] == "pod/nginx-123 Running 1/1"
+
+    def test_parse_tool_call_without_result(self) -> None:
+        """Test parsing tool call without result field (result is optional)."""
+        token = {"tool_name": "search", "arguments": {"query": "test"}}
+
+        result = _parse_tool_call(token)
+
+        assert result is not None
+        assert result["tool_name"] == "search"
+        assert "result" not in result
+
+    def test_parse_tool_call_with_none_result(self) -> None:
+        """Test parsing tool call with None result value."""
+        token = {"tool_name": "search", "arguments": {"query": "test"}, "result": None}
+
+        result = _parse_tool_call(token)
+
+        assert result is not None
+        assert result["tool_name"] == "search"
+        # None result should not be included
+        assert "result" not in result
+
 
 class TestFormatToolSequences:
     """Unit tests for _format_tool_sequences."""

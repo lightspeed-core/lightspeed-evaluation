@@ -6,6 +6,7 @@ from lightspeed_evaluation.core.metrics.custom.tool_eval import (
     _compare_tool_call_sequence,
     _compare_single_tool_call,
     _compare_tool_arguments,
+    _compare_tool_result,
 )
 
 
@@ -538,3 +539,206 @@ class TestMatchParameter:
         assert success is True
         assert "2/2 matched" in details
         assert "0 unmatched" in details
+
+
+class TestCompareToolResult:
+    """Test cases for _compare_tool_result function."""
+
+    def test_no_expected_result_passes(self) -> None:
+        """Test that missing expected result is treated as optional (passes)."""
+        expected = {"tool_name": "test_tool", "arguments": {}}
+        actual = {"tool_name": "test_tool", "arguments": {}, "result": "some output"}
+
+        result = _compare_tool_result(expected, actual)
+        assert result is True
+
+    def test_exact_result_match(self) -> None:
+        """Test exact result matching."""
+        expected = {"tool_name": "test_tool", "arguments": {}, "result": "success"}
+        actual = {"tool_name": "test_tool", "arguments": {}, "result": "success"}
+
+        result = _compare_tool_result(expected, actual)
+        assert result is True
+
+    def test_regex_result_match(self) -> None:
+        """Test regex pattern matching in result."""
+        expected = {
+            "tool_name": "oc_get",
+            "arguments": {},
+            "result": "pod/nginx-[0-9]+ Running",
+        }
+        actual = {
+            "tool_name": "oc_get",
+            "arguments": {},
+            "result": "pod/nginx-123 Running 1/1",
+        }
+
+        result = _compare_tool_result(expected, actual)
+        assert result is True
+
+    def test_result_mismatch(self) -> None:
+        """Test result mismatch fails."""
+        expected = {
+            "tool_name": "oc_create",
+            "arguments": {},
+            "result": ".*created",
+        }
+        actual = {
+            "tool_name": "oc_create",
+            "arguments": {},
+            "result": "Error: already exists",
+        }
+
+        result = _compare_tool_result(expected, actual)
+        assert result is False
+
+    def test_expected_result_but_no_actual_result(self) -> None:
+        """Test expected result specified but actual has no result."""
+        expected = {
+            "tool_name": "test_tool",
+            "arguments": {},
+            "result": "expected output",
+        }
+        actual = {"tool_name": "test_tool", "arguments": {}}
+
+        result = _compare_tool_result(expected, actual)
+        assert result is False
+
+    def test_invalid_regex_in_result(self) -> None:
+        """Test invalid regex pattern in result fails."""
+        expected = {
+            "tool_name": "test_tool",
+            "arguments": {},
+            "result": "[invalid_regex",
+        }
+        actual = {"tool_name": "test_tool", "arguments": {}, "result": "any output"}
+
+        result = _compare_tool_result(expected, actual)
+        assert result is False
+
+    def test_result_with_special_characters(self) -> None:
+        """Test result matching with special regex characters."""
+        expected = {
+            "tool_name": "test_tool",
+            "arguments": {},
+            "result": r"namespace/test-ns created",
+        }
+        actual = {
+            "tool_name": "test_tool",
+            "arguments": {},
+            "result": "namespace/test-ns created successfully",
+        }
+
+        result = _compare_tool_result(expected, actual)
+        assert result is True
+
+
+class TestToolCallWithResult:
+    """Test cases for tool call evaluation with result field."""
+
+    def test_single_tool_call_with_result_match(self) -> None:
+        """Test single tool call comparison with matching result."""
+        expected = {
+            "tool_name": "oc_get",
+            "arguments": {"kind": "pod"},
+            "result": ".*Running.*",
+        }
+        actual = {
+            "tool_name": "oc_get",
+            "arguments": {"kind": "pod"},
+            "result": "pod/nginx-123 Running 1/1",
+        }
+
+        result = _compare_single_tool_call(expected, actual)
+        assert result is True
+
+    def test_single_tool_call_with_result_mismatch(self) -> None:
+        """Test single tool call comparison with mismatched result."""
+        expected = {
+            "tool_name": "oc_get",
+            "arguments": {"kind": "pod"},
+            "result": ".*Running.*",
+        }
+        actual = {
+            "tool_name": "oc_get",
+            "arguments": {"kind": "pod"},
+            "result": "pod/nginx-123 Pending 0/1",
+        }
+
+        result = _compare_single_tool_call(expected, actual)
+        assert result is False
+
+    def test_evaluate_tool_calls_with_result(self) -> None:
+        """Test full evaluation with result validation."""
+        expected = [
+            [
+                [
+                    {
+                        "tool_name": "oc_create",
+                        "arguments": {"kind": "namespace", "name": "test-ns"},
+                        "result": ".*created",
+                    }
+                ]
+            ]
+        ]
+        actual = [
+            [
+                {
+                    "tool_name": "oc_create",
+                    "arguments": {"kind": "namespace", "name": "test-ns"},
+                    "result": "namespace/test-ns created",
+                }
+            ]
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual)
+        assert success is True
+        assert "Primary pattern matched" in details
+
+    def test_evaluate_tool_calls_result_failure(self) -> None:
+        """Test evaluation fails when result doesn't match."""
+        expected = [
+            [
+                [
+                    {
+                        "tool_name": "oc_create",
+                        "arguments": {"kind": "namespace"},
+                        "result": ".*created",
+                    }
+                ]
+            ]
+        ]
+        actual = [
+            [
+                {
+                    "tool_name": "oc_create",
+                    "arguments": {"kind": "namespace"},
+                    "result": "Error: namespace already exists",
+                }
+            ]
+        ]
+
+        success, _ = evaluate_tool_calls(expected, actual)
+        assert success is False
+
+    def test_mixed_tools_with_and_without_result(self) -> None:
+        """Test evaluation with some tools having result and some not."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],  # No result expected
+                [
+                    {
+                        "tool_name": "tool2",
+                        "arguments": {},
+                        "result": "success",
+                    }
+                ],  # Result expected
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}, "result": "any output"}],
+            [{"tool_name": "tool2", "arguments": {}, "result": "success"}],
+        ]
+
+        success, _ = evaluate_tool_calls(expected, actual)
+        assert success is True
