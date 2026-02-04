@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 logger = logging.getLogger(__name__)
 
 DATA_PREFIX = "data: "
-CONTENT_EVENTS = ("token", "tool_call", "turn_complete")
+CONTENT_EVENTS = ("token", "tool_call", "tool_result", "turn_complete")
 
 
 class _PerformanceTracker(BaseModel):
@@ -47,6 +47,7 @@ class StreamingContext(BaseModel):
     conversation_id: str = Field(default="")
     final_response: str = Field(default="")
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    tool_calls_by_id: dict[str, dict[str, Any]] = Field(default_factory=dict)
     input_tokens: int = Field(default=0)
     output_tokens: int = Field(default=0)
     perf: _PerformanceTracker = Field(default_factory=_PerformanceTracker)
@@ -149,11 +150,20 @@ def _process_event(ctx: StreamingContext, event: str, event_data: dict) -> None:
     elif event == "turn_complete" and "token" in event_data:
         ctx.final_response = event_data["token"].strip()
         logger.debug("Found final response (%d characters)", len(ctx.final_response))
-    elif event == "tool_call" and "token" in event_data:
-        tool_call = _parse_tool_call(event_data["token"])
+    elif event == "tool_call":
+        # Support both formats:
+        # - Legacy: {"event": "tool_call", "data": {"token": {"tool_name": ..., "arguments": ...}}}
+        # - New: {"event": "tool_call", "data": {"name": ..., "args": ..., "id": ...}}
+        tool_data = event_data.get("token", event_data)
+        tool_call = _parse_tool_call(tool_data)
         if tool_call:
+            tool_id = event_data.get("id")
             ctx.tool_calls.append(tool_call)
+            if tool_id:
+                ctx.tool_calls_by_id[tool_id] = tool_call
             logger.debug("Found tool call: %s", tool_call)
+    elif event == "tool_result":
+        _process_tool_result(ctx, event_data)
     elif event == "end":
         ctx.input_tokens = event_data.get("input_tokens", 0)
         ctx.output_tokens = event_data.get("output_tokens", 0)
@@ -179,35 +189,38 @@ def _parse_sse_line(json_data: str) -> Optional[tuple[str, dict[str, Any]]]:
         return None
 
 
-def _parse_tool_call(token: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """Parse tool call from token.
+def _parse_tool_call(event_data: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """Parse tool call from event data.
 
-    Extracts tool_name, arguments, and optionally result from the token.
-    The result field captures the output/response from the tool execution.
+    Extracts tool_name, arguments, and optionally result from the event data.
+    Supports both formats:
+    - New format: {name: "...", args: {...}}
+    - Legacy format: {tool_name: "...", arguments: {...}}
 
     Args:
-        token: Dictionary containing tool call data from the API.
+        event_data: Dictionary containing tool call data from the API.
 
     Returns:
         Dictionary with tool_name, arguments, and optional result, or None if invalid.
     """
     try:
-        tool_name = token.get("tool_name")
-        arguments = token.get("arguments")
+        # Support both "name"/"args" (new format) and "tool_name"/"arguments" (legacy)
+        tool_name = event_data.get("name") or event_data.get("tool_name") or ""
+        arguments = event_data.get("args") or event_data.get("arguments") or {}
 
         if not tool_name:
-            logger.debug("Tool call missing tool_name field")
+            logger.debug("Tool call missing name/tool_name field")
             return None
 
-        # Only process tool calls that explicitly have arguments field
+        # Arguments can be empty dict, but field should exist
         if arguments is None:
-            logger.debug("Tool call missing arguments field for %s", tool_name)
+            logger.debug("Tool call missing args/arguments field for %s", tool_name)
             return None
 
         tool_call: dict[str, Any] = {"tool_name": tool_name, "arguments": arguments}
 
         # Capture tool result if present (optional field)
-        result = token.get("result")
+        result = event_data.get("result")
         if result is not None:
             tool_call["result"] = result
             logger.debug("Tool call '%s' has result: %s", tool_name, result)
@@ -215,8 +228,30 @@ def _parse_tool_call(token: dict[str, Any]) -> Optional[dict[str, Any]]:
         return tool_call
 
     except (ValueError, IndexError, AttributeError) as e:
-        logger.debug("Failed to parse tool call '%s': %s", token, e)
+        logger.debug("Failed to parse tool call '%s': %s", event_data, e)
         return None
+
+
+def _process_tool_result(ctx: StreamingContext, event_data: dict[str, Any]) -> None:
+    """Process tool result event and associate with corresponding tool call.
+
+    Args:
+        ctx: The streaming context to update.
+        event_data: Dictionary containing tool result data with id and content.
+    """
+    tool_id = event_data.get("id")
+    content = event_data.get("content")
+
+    if not tool_id or content is None:
+        logger.debug("Tool result missing id or content: %s", event_data)
+        return
+
+    # Find and update the corresponding tool call
+    if tool_id in ctx.tool_calls_by_id:
+        ctx.tool_calls_by_id[tool_id]["result"] = content
+        logger.debug("Associated result with tool call %s", tool_id)
+    else:
+        logger.debug("No matching tool call found for result id: %s", tool_id)
 
 
 def _format_tool_sequences(
