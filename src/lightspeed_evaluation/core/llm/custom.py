@@ -79,6 +79,8 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
 
         self.setup_ssl_verify()
 
+        self.setup_drop_params()
+
     def setup_ssl_verify(self) -> None:
         """Setup SSL verification based on LLM parameters."""
         ssl_verify = self.llm_params.get("ssl_verify", True)
@@ -89,6 +91,11 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
         else:
             # Explicitly disable SSL verification
             litellm.ssl_verify = False
+
+    def setup_drop_params(self) -> None:
+        """Setup drop_params for unsupported provider parameters."""
+        drop_params = self.llm_params.get("drop_params", True)
+        litellm.drop_params = drop_params
 
     def call(
         self,
