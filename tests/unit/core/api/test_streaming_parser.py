@@ -1,7 +1,6 @@
 """Unit tests for streaming parser."""
 
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 
@@ -16,7 +15,7 @@ from lightspeed_evaluation.core.api.streaming_parser import (
 class TestParseStreamingResponse:
     """Unit tests for parse_streaming_response."""
 
-    def test_parse_complete_response(self, mock_response: Mock) -> None:
+    def test_parse_complete_response(self, mock_response: Any) -> None:
         """Test parsing a complete streaming response."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -34,7 +33,7 @@ class TestParseStreamingResponse:
         assert "streaming_duration" in result
         assert "tokens_per_second" in result
 
-    def test_parse_response_with_tool_calls(self, mock_response: Mock) -> None:
+    def test_parse_response_with_tool_calls(self, mock_response: Any) -> None:
         """Test parsing response with tool calls."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_456"}}',
@@ -51,7 +50,7 @@ class TestParseStreamingResponse:
         assert len(result["tool_calls"]) == 1
         assert result["tool_calls"][0][0]["tool_name"] == "search"
 
-    def test_parse_response_missing_final_response(self, mock_response: Mock) -> None:
+    def test_parse_response_missing_final_response(self, mock_response: Any) -> None:
         """Test parsing fails when final response is missing."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_789"}}',
@@ -61,7 +60,7 @@ class TestParseStreamingResponse:
         with pytest.raises(ValueError, match="No final response found"):
             parse_streaming_response(mock_response)
 
-    def test_parse_response_missing_conversation_id(self, mock_response: Mock) -> None:
+    def test_parse_response_missing_conversation_id(self, mock_response: Any) -> None:
         """Test parsing fails when conversation ID is missing."""
         lines = [
             'data: {"event": "turn_complete", "data": {"token": "Response"}}',
@@ -71,7 +70,7 @@ class TestParseStreamingResponse:
         with pytest.raises(ValueError, match="No Conversation ID found"):
             parse_streaming_response(mock_response)
 
-    def test_parse_response_with_error_event(self, mock_response: Mock) -> None:
+    def test_parse_response_with_error_event(self, mock_response: Any) -> None:
         """Test parsing handles error events."""
         lines = [
             'data: {"event": "error", "data": {"token": "API Error occurred"}}',
@@ -81,7 +80,7 @@ class TestParseStreamingResponse:
         with pytest.raises(ValueError, match="Streaming API error: API Error occurred"):
             parse_streaming_response(mock_response)
 
-    def test_parse_response_skips_empty_lines(self, mock_response: Mock) -> None:
+    def test_parse_response_skips_empty_lines(self, mock_response: Any) -> None:
         """Test parser skips empty lines."""
         lines = [
             "",
@@ -97,7 +96,7 @@ class TestParseStreamingResponse:
         assert result["response"] == "Response"
         assert result["conversation_id"] == "conv_123"
 
-    def test_parse_response_skips_non_data_lines(self, mock_response: Mock) -> None:
+    def test_parse_response_skips_non_data_lines(self, mock_response: Any) -> None:
         """Test parser skips lines without 'data:' prefix."""
         lines = [
             "event: start",
@@ -112,7 +111,7 @@ class TestParseStreamingResponse:
         assert result["response"] == "Response"
         assert result["conversation_id"] == "conv_123"
 
-    def test_parse_response_with_multiple_tool_calls(self, mock_response: Mock) -> None:
+    def test_parse_response_with_multiple_tool_calls(self, mock_response: Any) -> None:
         """Test parsing multiple tool calls."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -131,7 +130,7 @@ class TestParseStreamingResponse:
         assert result["tool_calls"][1][0]["tool_name"] == "calculate"
 
     def test_parse_response_with_new_format_tool_calls(
-        self, mock_response: Mock
+        self, mock_response: Any
     ) -> None:
         """Test parsing tool calls with new format (name/args directly in data)."""
         lines = [
@@ -154,7 +153,7 @@ class TestParseStreamingResponse:
         assert result["tool_calls"][0][0]["result"] == "pod/nginx Running"
 
     def test_parse_response_with_multiple_new_format_tool_calls(
-        self, mock_response: Mock
+        self, mock_response: Any
     ) -> None:
         """Test parsing multiple tool calls with new format and results."""
         lines = [
@@ -324,7 +323,7 @@ class TestFormatToolSequences:
 class TestStreamingPerformanceMetrics:
     """Unit tests for streaming performance metrics (TTFT, tokens per second)."""
 
-    def test_time_to_first_token_captured(self, mock_response: Mock) -> None:
+    def test_time_to_first_token_captured(self, mock_response: Any) -> None:
         """Test that time to first token is captured on first content event."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -338,7 +337,7 @@ class TestStreamingPerformanceMetrics:
         assert result["time_to_first_token"] is not None
         assert result["time_to_first_token"] >= 0
 
-    def test_streaming_duration_captured(self, mock_response: Mock) -> None:
+    def test_streaming_duration_captured(self, mock_response: Any) -> None:
         """Test that streaming duration is captured."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -354,7 +353,7 @@ class TestStreamingPerformanceMetrics:
         # Duration should be >= TTFT
         assert result["streaming_duration"] >= result["time_to_first_token"]
 
-    def test_tokens_per_second_with_token_counts(self, mock_response: Mock) -> None:
+    def test_tokens_per_second_with_token_counts(self, mock_response: Any) -> None:
         """Test tokens per second calculation when token counts are provided."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -372,7 +371,7 @@ class TestStreamingPerformanceMetrics:
         assert result["tokens_per_second"] is not None
         assert result["tokens_per_second"] > 0
 
-    def test_tokens_per_second_without_token_counts(self, mock_response: Mock) -> None:
+    def test_tokens_per_second_without_token_counts(self, mock_response: Any) -> None:
         """Test tokens per second is None when no output tokens."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -386,7 +385,7 @@ class TestStreamingPerformanceMetrics:
         assert result["output_tokens"] == 0
         assert result["tokens_per_second"] is None
 
-    def test_ttft_captured_on_token_event(self, mock_response: Mock) -> None:
+    def test_ttft_captured_on_token_event(self, mock_response: Any) -> None:
         """Test TTFT is captured on first token event (not just turn_complete)."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -401,7 +400,7 @@ class TestStreamingPerformanceMetrics:
         assert result["time_to_first_token"] is not None
         assert result["time_to_first_token"] >= 0
 
-    def test_ttft_captured_on_tool_call_event(self, mock_response: Mock) -> None:
+    def test_ttft_captured_on_tool_call_event(self, mock_response: Any) -> None:
         """Test TTFT is captured on tool_call event."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_123"}}',
@@ -417,7 +416,7 @@ class TestStreamingPerformanceMetrics:
         assert result["time_to_first_token"] is not None
         assert result["time_to_first_token"] >= 0
 
-    def test_performance_metrics_with_complete_flow(self, mock_response: Mock) -> None:
+    def test_performance_metrics_with_complete_flow(self, mock_response: Any) -> None:
         """Test complete streaming flow with all performance metrics."""
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_perf_test"}}',
