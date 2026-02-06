@@ -88,3 +88,12 @@ class TestDeepEvalLLMManager:
         captured = capsys.readouterr()
         assert "DeepEval LLM Manager" in captured.out
         assert "gpt-4" in captured.out
+
+    def test_drop_params_always_enabled(self, mocker: MockerFixture) -> None:
+        """Test drop_params is always enabled for cross-provider compatibility."""
+        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.deepeval.litellm")
+        mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
+
+        DeepEvalLLMManager("gpt-4", {})
+
+        assert mock_litellm.drop_params is True
