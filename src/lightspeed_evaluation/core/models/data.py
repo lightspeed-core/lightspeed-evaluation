@@ -339,6 +339,9 @@ class TurnData(StreamingMetricsMixin):
                     "tool_name": tool_call["tool_name"],
                     "arguments": tool_call.get("arguments", {}),
                 }
+                # Preserve optional result field for result validation
+                if "result" in tool_call:
+                    validated_tool_call["result"] = tool_call["result"]
                 tool_calls.append(validated_tool_call)
 
             validated_sequences.append(tool_calls)
