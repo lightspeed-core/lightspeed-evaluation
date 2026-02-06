@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import litellm
 from deepeval.models import LiteLLMModel
 
 
@@ -15,6 +16,9 @@ class DeepEvalLLMManager:
         """Initialize with LLM parameters from LLMManager."""
         self.model_name = model_name
         self.llm_params = llm_params
+
+        # Always drop unsupported parameters for cross-provider compatibility
+        litellm.drop_params = True
 
         # Create DeepEval's LLM model with provided parameters
         self.llm_model = LiteLLMModel(

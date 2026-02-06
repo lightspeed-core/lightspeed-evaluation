@@ -50,6 +50,15 @@ class TestBaseCustomLLM:
 
         assert mock_litellm.ssl_verify is False
 
+    def test_drop_params_always_enabled(self, mocker: MockerFixture) -> None:
+        """Test drop_params is always enabled for cross-provider compatibility."""
+        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
+        mocker.patch.dict("os.environ", {})
+
+        BaseCustomLLM("gpt-4", {})
+
+        assert mock_litellm.drop_params is True
+
     def test_call_returns_single_response(self, mocker: MockerFixture) -> None:
         """Test call returns single string when n=1."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
