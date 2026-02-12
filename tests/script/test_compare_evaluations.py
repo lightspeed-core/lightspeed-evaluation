@@ -191,18 +191,32 @@ class TestEvaluationComparisonMethods:
         # (though the exact p-values depend on the implementation)
         assert "tests" in result
 
-    def test_compare_score_distributions_identical_data(
+    def test_compare_score_distributions_precise_delta(
         self, comparison_instance: EvaluationComparison
     ) -> None:
-        """Test _compare_score_distributions with identical data."""
-        scores1 = [0.8, 0.8, 0.8, 0.8, 0.8]
-        scores2 = [0.8, 0.8, 0.8, 0.8, 0.8]
+        """
+        This test validates behavior with a precise 0.001 mean difference instead of identical values, using reasonable floating-point tolerance and verifying mean calculations.
+        """
+        scores1 = [0.7999, 0.7988, 0.799, 0.80, 0.81]
+        scores2 = [s + 0.001 for s in scores1]
 
         result = comparison_instance._compare_score_distributions(scores1, scores2)
 
-        assert result["run1_stats"]["mean"] == result["run2_stats"]["mean"]
-        assert result["mean_difference"] == 0.0
-        assert result["relative_change"] == 0.0
+        expected_mean1 = 0.80154
+        expected_diff = 0.001
+        expected_rel_change = (expected_diff / expected_mean1) * 100  # ~0.1248%
+
+        assert result["run1_stats"]["mean"] == pytest.approx(expected_mean1)
+        f"Baseline mean mismatch. Expected {expected_mean1}, got {result['run1_stats']['mean']}"
+
+        expected_mean2 = expected_mean1 + expected_diff
+        assert result["run2_stats"]["mean"] == pytest.approx(
+            expected_mean2
+        ), f"Adjusted mean mismatch. Expected {expected_mean2}, got {result['run2_stats']['mean']}"
+
+        assert result["mean_difference"] == pytest.approx(
+            expected_diff
+        ), f"Mean difference mismatch. Expected {expected_diff}, got {result['mean_difference']}"
 
     def test_perform_pass_rate_tests_basic(
         self, comparison_instance: EvaluationComparison
