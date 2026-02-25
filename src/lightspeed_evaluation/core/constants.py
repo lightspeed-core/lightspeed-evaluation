@@ -58,6 +58,8 @@ DEFAULT_ENDPOINT_TYPE = "streaming"
 SUPPORTED_ENDPOINT_TYPES = ["streaming", "query"]
 DEFAULT_API_CACHE_DIR = ".caches/api_cache"
 
+DEFAULT_API_RETRY_ATTEMPTS = 10
+
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
 DEFAULT_SSL_VERIFY = True

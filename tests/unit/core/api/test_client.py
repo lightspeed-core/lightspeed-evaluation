@@ -328,9 +328,9 @@ class TestAPIClientConfiguration:
 
         client = APIClient(basic_api_config)
 
-        assert client.api_base == "http://localhost:8080"
-        assert client.endpoint_type == "streaming"
-        assert client.timeout == 30
+        assert client.config.api_base == "http://localhost:8080"
+        assert client.config.endpoint_type == "streaming"
+        assert client.config.timeout == 30
         assert client.cache is None
 
     def test_initialization_with_cache(
@@ -364,7 +364,7 @@ class TestAPIClientConfiguration:
 
         # Should not raise error
         client = APIClient(basic_api_config)
-        assert client.endpoint_type == "streaming"
+        assert client.config.endpoint_type == "streaming"
 
     def test_setup_client_with_api_key(
         self, basic_api_config: APIConfig, mocker: MockerFixture
@@ -515,4 +515,4 @@ class TestAPIClientConfiguration:
 
         client = APIClient(config)
 
-        assert client.endpoint_type == "query"
+        assert client.config.endpoint_type == "query"
