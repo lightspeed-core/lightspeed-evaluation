@@ -76,6 +76,52 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         self.evaluation_data: Optional[list[EvaluationData]] = None
         self.logger: Optional[logging.Logger] = None
 
+    @classmethod
+    def from_config(cls, system_config: SystemConfig) -> "ConfigLoader":
+        """Create a fully-initialized ConfigLoader from an existing SystemConfig.
+
+        This allows programmatic use of the evaluation pipeline without
+        loading configuration from a YAML file.
+
+        Args:
+            system_config: A pre-built SystemConfig instance.
+
+        Returns:
+            A fully-initialized ConfigLoader ready for pipeline use.
+        """
+        loader = cls()
+        loader.system_config = system_config
+
+        config_data = cls._build_config_data_from_system_config(system_config)
+        setup_environment_variables(config_data)
+        loader.logger = setup_logging(system_config.logging)
+
+        populate_metric_mappings(system_config)
+
+        return loader
+
+    @staticmethod
+    def _build_config_data_from_system_config(
+        system_config: SystemConfig,
+    ) -> dict[str, Any]:
+        """Build the minimal config dict needed by setup_environment_variables.
+
+        Extracts SSL-related fields so that ``create_ssl_certifi_bundle``
+        can discover custom certificate paths.
+
+        Args:
+            system_config: The SystemConfig to extract SSL fields from.
+
+        Returns:
+            A dict suitable for ``setup_environment_variables``.
+        """
+        return {
+            "llm": {
+                "ssl_verify": system_config.llm.ssl_verify,
+                "ssl_cert_file": system_config.llm.ssl_cert_file,
+            },
+        }
+
     def load_system_config(self, config_path: str) -> SystemConfig:
         """Load system configuration from YAML file."""
         try:

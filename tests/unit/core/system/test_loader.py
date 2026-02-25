@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.core.system.loader import (
@@ -400,3 +401,84 @@ metrics_metadata:
             )
         finally:
             Path(temp_path).unlink()
+
+
+class TestConfigLoaderFromConfig:
+    """Unit tests for ConfigLoader.from_config classmethod."""
+
+    def test_from_config_sets_system_config(self) -> None:
+        """Test that from_config sets the system_config attribute."""
+        config = SystemConfig()
+        loader = ConfigLoader.from_config(config)
+
+        assert loader.system_config is config
+
+    def test_from_config_calls_setup_logging(self, mocker: MockerFixture) -> None:
+        """Test that from_config calls setup_logging."""
+        mock_setup_logging = mocker.patch(
+            "lightspeed_evaluation.core.system.loader.setup_logging"
+        )
+        config = SystemConfig()
+
+        ConfigLoader.from_config(config)
+
+        mock_setup_logging.assert_called_once_with(config.logging)
+
+    def test_from_config_calls_setup_environment_variables(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that from_config calls setup_environment_variables."""
+        mock_setup_env = mocker.patch(
+            "lightspeed_evaluation.core.system.loader.setup_environment_variables"
+        )
+        config = SystemConfig()
+
+        ConfigLoader.from_config(config)
+
+        mock_setup_env.assert_called_once()
+
+    def test_from_config_populates_metric_mappings(self, mocker: MockerFixture) -> None:
+        """Test that from_config calls populate_metric_mappings."""
+        mock_populate = mocker.patch(
+            "lightspeed_evaluation.core.system.loader.populate_metric_mappings"
+        )
+        config = SystemConfig()
+
+        ConfigLoader.from_config(config)
+
+        mock_populate.assert_called_once_with(config)
+
+    def test_from_config_builds_ssl_config_data(self, mocker: MockerFixture) -> None:
+        """Test that from_config builds config data with SSL fields for env setup."""
+        mock_setup_env = mocker.patch(
+            "lightspeed_evaluation.core.system.loader.setup_environment_variables"
+        )
+        config = SystemConfig()
+        config.llm.ssl_verify = True
+        config.llm.ssl_cert_file = "/path/to/cert.pem"
+
+        ConfigLoader.from_config(config)
+
+        config_data = mock_setup_env.call_args[0][0]
+        assert config_data["llm"]["ssl_verify"] is True
+        assert config_data["llm"]["ssl_cert_file"] == "/path/to/cert.pem"
+
+    def test_from_config_sets_logger(self, mocker: MockerFixture) -> None:
+        """Test that from_config sets the logger attribute."""
+        mock_logger = mocker.Mock()
+        mocker.patch(
+            "lightspeed_evaluation.core.system.loader.setup_logging",
+            return_value=mock_logger,
+        )
+        config = SystemConfig()
+
+        loader = ConfigLoader.from_config(config)
+
+        assert loader.logger is mock_logger
+
+    def test_from_config_returns_config_loader_instance(self) -> None:
+        """Test that from_config returns a ConfigLoader instance."""
+        config = SystemConfig()
+        loader = ConfigLoader.from_config(config)
+
+        assert isinstance(loader, ConfigLoader)

@@ -105,13 +105,13 @@ def run_evaluation(  # pylint: disable=too-many-locals
         # Import heavy modules after environment is configured
         print("\n📋 Loading Heavy Modules...")
         # pylint: disable=import-outside-toplevel
+        from lightspeed_evaluation.api import evaluate
         from lightspeed_evaluation.core.output import OutputHandler
         from lightspeed_evaluation.core.output.statistics import (
             calculate_api_token_usage,
             calculate_basic_stats,
         )
         from lightspeed_evaluation.core.system import DataValidator
-        from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
         # pylint: enable=import-outside-toplevel
         print("✅ Configuration loaded & Setup is done !")
@@ -138,13 +138,11 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Run evaluation pipeline
         print("\n⚙️ Initializing Evaluation Pipeline...")
-        pipeline = EvaluationPipeline(loader, eval_args.output_dir)
 
         print("\n🔄 Running Evaluation...")
-        try:
-            results = pipeline.run_evaluation(evaluation_data, eval_args.eval_data)
-        finally:
-            pipeline.close()
+        results = evaluate(
+            system_config, evaluation_data, output_dir=eval_args.output_dir
+        )
 
         # Generate reports
         print("\n📊 Generating Reports...")
