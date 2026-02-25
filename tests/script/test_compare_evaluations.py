@@ -195,9 +195,13 @@ class TestEvaluationComparisonMethods:
         self, comparison_instance: EvaluationComparison
     ) -> None:
         """
-        This test validates behavior with a precise 0.001 mean difference.
+        Test _compare_score_distributions with a precise mean difference of 0.001.
 
-        Uses reasonable floating-point tolerance and verifies mean calculations.
+        Validates that small differences are calculated correctly but not detected
+        as statistically significant with small sample sizes. This test ensures
+        the implementation correctly handles:
+        1. Accurate calculation of mean differences
+        2. Relative change percentage calculation
         """
         scores1 = [0.7999, 0.7988, 0.799, 0.80, 0.81]
         scores2 = [s + 0.001 for s in scores1]
@@ -206,6 +210,7 @@ class TestEvaluationComparisonMethods:
 
         expected_mean1 = 0.80154
         expected_diff = 0.001
+        expected_rel_change = (expected_diff / expected_mean1) * 100  # ~0.1248%
 
         assert result["run1_stats"]["mean"] == pytest.approx(
             expected_mean1
@@ -219,6 +224,17 @@ class TestEvaluationComparisonMethods:
         assert result["mean_difference"] == pytest.approx(
             expected_diff
         ), f"Mean difference mismatch. Expected {expected_diff}, got {result['mean_difference']}"
+
+        assert result["relative_change"] == pytest.approx(
+            expected_rel_change, rel=1e-3
+        ), (
+            f"Relative change mismatch. Expected {expected_rel_change:.4f}%, "
+            f"got {result['relative_change']:.4f}%"
+        )
+
+        # Verify statistical tests show non-significance for this tiny shift
+        assert not result["tests"]["t_test"]["significant"]
+        assert not result["tests"]["mann_whitney_u"]["significant"]
 
     def test_perform_pass_rate_tests_basic(
         self, comparison_instance: EvaluationComparison
