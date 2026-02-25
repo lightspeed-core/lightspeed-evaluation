@@ -195,7 +195,9 @@ class TestEvaluationComparisonMethods:
         self, comparison_instance: EvaluationComparison
     ) -> None:
         """
-        This test validates behavior with a precise 0.001 mean difference instead of identical values, using reasonable floating-point tolerance and verifying mean calculations.
+        This test validates behavior with a precise 0.001 mean difference.
+
+        Uses reasonable floating-point tolerance and verifies mean calculations.
         """
         scores1 = [0.7999, 0.7988, 0.799, 0.80, 0.81]
         scores2 = [s + 0.001 for s in scores1]
@@ -204,10 +206,10 @@ class TestEvaluationComparisonMethods:
 
         expected_mean1 = 0.80154
         expected_diff = 0.001
-        expected_rel_change = (expected_diff / expected_mean1) * 100  # ~0.1248%
 
-        assert result["run1_stats"]["mean"] == pytest.approx(expected_mean1)
-        f"Baseline mean mismatch. Expected {expected_mean1}, got {result['run1_stats']['mean']}"
+        assert result["run1_stats"]["mean"] == pytest.approx(
+            expected_mean1
+        ), f"Baseline mean mismatch. Expected {expected_mean1}, got {result['run1_stats']['mean']}"
 
         expected_mean2 = expected_mean1 + expected_diff
         assert result["run2_stats"]["mean"] == pytest.approx(
