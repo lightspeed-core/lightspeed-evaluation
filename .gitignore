@@ -192,3 +192,10 @@ wip*/
 
 # Used in e2e tests local testing
 .secrets
+
+# dashboard
+dashboard/node_modules
+dashboard/.vite
+dashboard/eval.yaml
+dashboard/system.yaml
+dashboard/results/*
