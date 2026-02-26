@@ -63,7 +63,9 @@ class APIClient:
     def _create_retry_decorator(self) -> Any:
         return retry(
             retry=retry_if_exception(_is_too_many_requests_error),
-            stop=stop_after_attempt(self.config.retry_attempts),
+            stop=stop_after_attempt(
+                self.config.retry_attempts + 1
+            ),  # +1 to account for the initial attempt
             wait=wait_exponential(multiplier=1, min=4, max=100),  # multiplier * 2^x
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=False,  # If all retry attempts are exhausted, RetryError is raised
