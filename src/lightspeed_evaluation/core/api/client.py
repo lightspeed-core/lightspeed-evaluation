@@ -94,7 +94,10 @@ class APIClient:
             # Use API_KEY environment variable for authentication
             api_key = os.getenv("API_KEY")
             if api_key and self.client:
-                self.client.headers.update({"Authorization": f"Bearer {api_key}"})
+                mcp_headers = {
+                    "filesystem-tools": {"Authorization": f"Bearer {api_key}"}
+                }
+                self.client.headers.update({"MCP-HEADERS": json.dumps(mcp_headers)})
 
         except Exception as e:
             raise APIError(f"Failed to setup API client: {e}") from e
