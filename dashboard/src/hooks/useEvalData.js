@@ -33,6 +33,7 @@ export function useEvalData() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(null)
   const [reportsDir, setReportsDir] = useState({ path: '', exists: true })
+  const [modelMap, setModelMap] = useState({})
   const [reloadKey, setReloadKey] = useState(0)
 
   const refresh = useCallback(() => setReloadKey(k => k + 1), [])
@@ -43,7 +44,10 @@ export function useEvalData() {
     if (isRefresh) setRefreshing(true)
     async function load() {
       try {
-        const manifest = await fetchManifest()
+        const [manifest, summaries] = await Promise.all([
+          fetchManifest(),
+          fetch('/api/eval-summaries').then(r => r.json()).catch(() => ({})),
+        ])
         const files = manifest.files || manifest
         if (!cancelled) {
           setReportsDir({
@@ -52,10 +56,15 @@ export function useEvalData() {
           })
         }
         const allEntries = []
+        const newModelMap = {}
 
         for (const file of files) {
           const date = parseDateFromFilename(file)
           if (!date) continue
+          const tsMatch = file.match(/(\d{8}_\d{6})/)
+          if (tsMatch && summaries[tsMatch[1]]?.model) {
+            newModelMap[date.toISOString()] = summaries[tsMatch[1]].model
+          }
           const rows = await fetchAndParseCsv(file)
           for (const row of rows) {
             const scoreRaw = (row.score || '').trim()
@@ -79,6 +88,7 @@ export function useEvalData() {
 
         if (!cancelled) {
           setEntries(allEntries)
+          setModelMap(newModelMap)
           setLoading(false)
           setRefreshing(false)
         }
@@ -102,5 +112,5 @@ export function useEvalData() {
     return { dates, metrics, groups, turns }
   }, [entries])
 
-  return { entries, loading, refreshing, error, metadata, reportsDir, refresh }
+  return { entries, loading, refreshing, error, metadata, reportsDir, refresh, modelMap }
 }

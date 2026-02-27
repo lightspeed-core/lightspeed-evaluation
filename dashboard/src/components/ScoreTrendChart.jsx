@@ -56,7 +56,7 @@ export default function ScoreTrendChart({ entries, onDataClick }) {
         tension: 0.3,
         pointRadius: 5,
         pointHoverRadius: 8,
-        spanGaps: false,
+        spanGaps: true,
       }
     })
 

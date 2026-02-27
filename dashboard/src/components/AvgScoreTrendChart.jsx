@@ -3,16 +3,24 @@ import { Line, getElementAtEvent } from 'react-chartjs-2'
 import { COLORS, ZOOM_OPTIONS, soloLegendClick, formatDateLabel, createHtmlLegendPlugin } from './ChartSetup'
 import { useChartTheme } from '../hooks/useTheme'
 
-export default function AvgScoreTrendChart({ entries, onDataClick }) {
+export default function AvgScoreTrendChart({ entries, modelMap, onDataClick }) {
   const ct = useChartTheme()
   const chartRef = useRef(null)
   const [zoomed, setZoomed] = useState(false)
   const legendId = 'avg-score-legend'
 
   const { data, options, plugins, allDates, conversationList } = useMemo(() => {
-    const conversations = [...new Set(entries.map(e => e.conversationGroupId).filter(Boolean))].sort()
+    // Build series keys combining conversation + model
+    const seriesSet = new Set()
+    entries.forEach(e => {
+      if (!e.conversationGroupId || e.score === null) return
+      const model = modelMap?.[e.date]
+      const key = model ? `${e.conversationGroupId} (${model})` : e.conversationGroupId
+      seriesSet.add(key)
+    })
+    const seriesKeys = [...seriesSet].sort()
 
-    // Build shared date axis across all conversations
+    // Build shared date axis
     const dateSet = new Set()
     entries.forEach(e => {
       if (e.score !== null) dateSet.add(e.date)
@@ -20,16 +28,19 @@ export default function AvgScoreTrendChart({ entries, onDataClick }) {
     const sortedDates = [...dateSet].sort()
     const labels = sortedDates.map(formatDateLabel)
 
-    const datasets = conversations.map((conversation, i) => {
+    const datasets = seriesKeys.map((seriesKey, i) => {
       const byDate = {}
       entries.forEach(e => {
-        if (e.conversationGroupId === conversation && e.score !== null) {
+        if (e.score === null || !e.conversationGroupId) return
+        const model = modelMap?.[e.date]
+        const key = model ? `${e.conversationGroupId} (${model})` : e.conversationGroupId
+        if (key === seriesKey) {
           if (!byDate[e.date]) byDate[e.date] = []
           byDate[e.date].push(e.score)
         }
       })
       return {
-        label: conversation,
+        label: seriesKey,
         data: sortedDates.map(d =>
           byDate[d] ? (byDate[d].reduce((a, b) => a + b, 0) / byDate[d].length) * 100 : null
         ),
@@ -39,13 +50,13 @@ export default function AvgScoreTrendChart({ entries, onDataClick }) {
         tension: 0.3,
         pointRadius: 5,
         pointHoverRadius: 8,
-        spanGaps: false,
+        spanGaps: true,
       }
     })
 
     return {
       allDates: sortedDates,
-      conversationList: conversations,
+      conversationList: seriesKeys,
       data: { labels, datasets },
       plugins: [createHtmlLegendPlugin(legendId, {})],
       options: {
@@ -115,7 +126,7 @@ export default function AvgScoreTrendChart({ entries, onDataClick }) {
         },
       },
     }
-  }, [entries, ct])
+  }, [entries, modelMap, ct])
 
   const resetZoom = () => {
     chartRef.current?.resetZoom()

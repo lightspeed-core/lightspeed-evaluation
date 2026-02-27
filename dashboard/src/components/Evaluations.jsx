@@ -437,6 +437,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
   const [viewerConversationFilter, setViewerConversationFilter] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [summaryMap, setSummaryMap] = useState({})
 
 
   useEffect(() => {
@@ -445,8 +446,9 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
       fetch('/api/amended-files').then(r => r.json()),
       fetch('/api/eval-data').then(r => r.json()),
       fetch('/api/eval-graphs').then(r => r.json()),
+      fetch('/api/eval-summaries').then(r => r.json()).catch(() => ({})),
     ])
-      .then(([manifest, amendedFiles, evalData, graphs]) => {
+      .then(([manifest, amendedFiles, evalData, graphs, summaries]) => {
         const csvFiles = manifest.files || manifest
         setFiles(csvFiles.sort().reverse())
         const map = {}
@@ -457,6 +459,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
         setAmendedMap(map)
         setEvalDataGroups(evalData.groups || [])
         setGraphMap(graphs)
+        setSummaryMap(summaries)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -862,6 +865,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
         if (ts) {
           setAmendedMap(prev => { const next = { ...prev }; delete next[ts]; return next })
           setGraphMap(prev => { const next = { ...prev }; delete next[ts]; return next })
+          setSummaryMap(prev => { const next = { ...prev }; delete next[ts]; return next })
         }
       }
     } catch { /* ignore */ }
@@ -965,7 +969,12 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
             Back to file list
           </button>
           <h3>{formatFilename(selectedFile)}</h3>
-          <span className="viewer-meta">{totalRows} rows &middot; {columns.length} columns</span>
+          <span className="viewer-meta">
+            {totalRows} rows &middot; {columns.length} columns
+            {summaryMap[extractTimestamp(selectedFile)]?.model && (
+              <span className="model-tag">{summaryMap[extractTimestamp(selectedFile)].model}</span>
+            )}
+          </span>
           {viewerConversations.length > 1 && (
             <div className="date-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <label>Conversation</label>
@@ -1236,6 +1245,9 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
                         </div>
                       )}
                     </div>
+                    {summaryMap[extractTimestamp(file)]?.model && (
+                      <span className="model-tag">{summaryMap[extractTimestamp(file)].model}</span>
+                    )}
                     <button
                       className="delete-eval-btn"
                       onClick={(e) => { e.stopPropagation(); setDeleteConfirm(file) }}

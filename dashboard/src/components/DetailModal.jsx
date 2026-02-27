@@ -2,10 +2,12 @@ import Markdown from 'react-markdown'
 
 const MD_PATTERN = /[*_`#\-|>\[\]]/
 
-export default function DetailModal({ date, metric, entries, onClose }) {
+export default function DetailModal({ date, metric, entries, modelMap, onClose }) {
   const matching = metric
     ? entries.filter(e => e.date === date && e.metric === metric)
     : entries.filter(e => e.date === date)
+
+  const model = modelMap?.[date]
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -15,6 +17,7 @@ export default function DetailModal({ date, metric, entries, onClose }) {
             <h2>Evaluation Details</h2>
             <div className="modal-subtitle">
               {new Date(date).toLocaleString()}
+              {model && <span className="model-tag">{model}</span>}
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
