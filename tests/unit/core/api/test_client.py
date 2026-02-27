@@ -496,6 +496,45 @@ class TestAPIClientConfiguration:
 
         assert client.config.endpoint_type == "query"
 
+    def test_get_cached_response_zeros_token_counts(
+        self, api_config: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test that _get_cached_response zeros out token counts."""
+        api_config.cache_enabled = True
+
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        # Create a mock cache with a cached response that has token counts
+        mock_cache = mocker.Mock()
+        cached_response = APIResponse(
+            response="Cached response",
+            conversation_id="conv_123",
+            input_tokens=50,
+            output_tokens=100,
+        )
+        mock_cache.get.return_value = cached_response
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.Cache", return_value=mock_cache
+        )
+
+        client = APIClient(api_config)
+
+        # Prepare a request
+        request = client._prepare_request("Test query")
+
+        # Get cached response
+        result = client._get_cached_response(request)
+
+        # Verify token counts were zeroed
+        assert result is not None
+        assert result.input_tokens == 0
+        assert result.output_tokens == 0
+
+        # Verify other fields remain unchanged
+        assert result.response == "Cached response"
+        assert result.conversation_id == "conv_123"
+
 
 class TestRetryLogic:
     """Unit tests for retry logic in APIClient."""
@@ -606,3 +645,4 @@ class TestRetryLogic:
             client.query("Test query")
 
         assert mock_client.post.call_count == 4  # 3 retries + 1 initial attempt
+        assert client.endpoint_type == "query"

@@ -321,7 +321,14 @@ class APIClient:
         if self.cache is None:
             raise RuntimeError("cache is None, but used")
         key = self._get_cache_key(request)
-        return cast(APIResponse | None, self.cache.get(key))
+        cached_response = cast(APIResponse | None, self.cache.get(key))
+
+        # Zero out token counts for cached responses since no API call was made
+        if cached_response is not None:
+            cached_response.input_tokens = 0
+            cached_response.output_tokens = 0
+
+        return cached_response
 
     def close(self) -> None:
         """Close API client."""
