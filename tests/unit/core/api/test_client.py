@@ -547,7 +547,7 @@ class TestRetryLogic:
     def test_streaming_query_retries_on_429_then_succeeds(
         self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
-        """Test streaming query retries on 429 error and than succeeds on retry."""
+        """Test streaming query retries on 429 error and then succeeds on retry."""
         mock_stream_429 = mocker.Mock(status_code=429, request=mocker.Mock())
         mock_context_429 = mocker.MagicMock()
         mock_context_429.__enter__.return_value = mock_stream_429
@@ -582,7 +582,7 @@ class TestRetryLogic:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query raises APIError after exhausting retry attempts."""
-        basic_api_config_query_endpoint.retry_attempts = 3
+        basic_api_config_query_endpoint.num_retries = 3
 
         mock_response_429 = mocker.Mock(status_code=429)
         mock_response_429.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -601,7 +601,7 @@ class TestRetryLogic:
         client = APIClient(basic_api_config_query_endpoint)
 
         with pytest.raises(
-            APIError, match=str(basic_api_config_query_endpoint.retry_attempts)
+            APIError, match=str(basic_api_config_query_endpoint.num_retries)
         ):
             client.query("Test query")
 

@@ -64,9 +64,9 @@ class APIClient:
         return retry(
             retry=retry_if_exception(_is_too_many_requests_error),
             stop=stop_after_attempt(
-                self.config.retry_attempts + 1
+                self.config.num_retries + 1
             ),  # +1 to account for the initial attempt
-            wait=wait_exponential(multiplier=1, min=4, max=100),  # multiplier * 2^x
+            wait=wait_exponential(multiplier=1, min=4, max=60),  # multiplier * 2^x
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=False,  # If all retry attempts are exhausted, RetryError is raised
         )
@@ -137,7 +137,7 @@ class APIClient:
             return response
         except RetryError as e:
             raise APIError(
-                f"Maximum retry attempts ({self.config.retry_attempts}) reached "
+                f"Maximum retry attempts ({self.config.num_retries}) reached "
                 "due to persistent rate limiting (HTTP 429)."
             ) from e
 

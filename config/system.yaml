@@ -49,7 +49,7 @@ api:
   # Authentication via API_KEY environment variable only for MCP server
 
   # Retry configuration for 429 Too Many Requests API errors
-  retry_attempts: 10  # Number of retry attempts (default 10)
+  num_retries: 3  # Number of retry attempts (default 3)
 
 # Default metrics metadata
 metrics_metadata:

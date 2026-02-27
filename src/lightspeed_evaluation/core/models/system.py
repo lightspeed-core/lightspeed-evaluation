@@ -18,7 +18,7 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_API_CACHE_DIR,
     DEFAULT_API_TIMEOUT,
     DEFAULT_API_VERSION,
-    DEFAULT_API_RETRY_ATTEMPTS,
+    DEFAULT_API_NUM_RETRIES,
     DEFAULT_BASE_FILENAME,
     DEFAULT_EMBEDDING_CACHE_DIR,
     DEFAULT_EMBEDDING_MODEL,
@@ -196,8 +196,8 @@ class APIConfig(BaseModel):
     cache_enabled: bool = Field(
         default=True, description="Is caching of lightspeed-stack queries enabled?"
     )
-    retry_attempts: int = Field(
-        default=DEFAULT_API_RETRY_ATTEMPTS,
+    num_retries: int = Field(
+        default=DEFAULT_API_NUM_RETRIES,
         ge=0,
         description=(
             "Maximum number of retry attempts for API calls on "
