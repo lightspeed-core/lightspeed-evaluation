@@ -25,7 +25,7 @@ function evalDataPlugin() {
         const filePath = path.join(evalOutputDir, decodeURIComponent(req.url))
         if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
           const ext = path.extname(filePath)
-          const types = { '.csv': 'text/csv', '.yaml': 'text/yaml', '.yml': 'text/yaml', '.png': 'image/png' }
+          const types = { '.csv': 'text/csv', '.yaml': 'text/yaml', '.yml': 'text/yaml', '.png': 'image/png', '.json': 'application/json' }
           res.setHeader('Content-Type', types[ext] || 'application/octet-stream')
           fs.createReadStream(filePath).pipe(res)
         } else {
@@ -65,6 +65,24 @@ function evalDataPlugin() {
             if (m) {
               if (!map[m[1]]) map[m[1]] = []
               map[m[1]].push(f)
+            }
+          }
+        } catch { /* ignore if dir doesn't exist */ }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(map))
+      })
+
+      server.middlewares.use('/api/eval-summaries', (_req, res) => {
+        const map = {}
+        try {
+          for (const f of fs.readdirSync(evalOutputDir)) {
+            const m = f.match(/^evaluation_(\d{8}_\d{6})_summary\.json$/)
+            if (m) {
+              try {
+                const content = JSON.parse(fs.readFileSync(path.join(evalOutputDir, f), 'utf-8'))
+                const model = content?.configuration?.api?.model
+                if (model) map[m[1]] = { model }
+              } catch { /* skip malformed JSON */ }
             }
           }
         } catch { /* ignore if dir doesn't exist */ }
@@ -295,8 +313,9 @@ function evalDataPlugin() {
             content = fs.readFileSync(resolved, 'utf-8')
           } catch { /* ignore */ }
         }
+        const runEnabled = ['true', '1'].includes((process.env.LS_EVAL_DASHBOARD_RUN_ENABLED || '').toLowerCase())
         res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ set: !!cfgPath, path: cfgPath, content }))
+        res.end(JSON.stringify({ set: !!cfgPath, path: cfgPath, content, runEnabled }))
       })
 
       server.middlewares.use('/api/eval-data', (_req, res) => {
@@ -379,7 +398,7 @@ function evalDataPlugin() {
             if (ts) {
               try {
               for (const f of fs.readdirSync(evalOutputDir)) {
-                if (f.includes(ts) && /\.ya?ml$/.test(f)) {
+                if (f.includes(ts) && (/\.ya?ml$/.test(f) || /\.json$/.test(f))) {
                   fs.unlinkSync(path.join(evalOutputDir, f))
                   deleted.push(f)
                 }

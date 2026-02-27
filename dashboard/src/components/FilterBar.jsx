@@ -15,18 +15,20 @@ export default function FilterBar({ availableOptions, filters, setters, reset, A
           {availableOptions.turns.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
+      {availableOptions.models.length > 0 && (
+        <div className="filter-group">
+          <label>Model</label>
+          <select value={filters.model} onChange={e => setters.setModel(e.target.value)}>
+            <option value={ALL}>All Models</option>
+            {availableOptions.models.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      )}
       <div className="filter-group">
         <label>Metric</label>
         <select value={filters.metric} onChange={e => setters.setMetric(e.target.value)}>
           <option value={ALL}>All Metrics</option>
           {availableOptions.metrics.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-      </div>
-      <div className="filter-group">
-        <label>Result</label>
-        <select value={filters.result} onChange={e => setters.setResult(e.target.value)}>
-          <option value={ALL}>All</option>
-          {availableOptions.results.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
       <div className="filter-group">
