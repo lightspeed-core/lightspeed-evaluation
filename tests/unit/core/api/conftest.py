@@ -9,8 +9,8 @@ from lightspeed_evaluation.core.models import APIConfig
 
 
 @pytest.fixture
-def api_config() -> APIConfig:
-    """Create test API config."""
+def basic_api_config_query_endpoint() -> APIConfig:
+    """Create test API config for query endpoint."""
     return APIConfig(
         enabled=True,
         api_base="http://localhost:8080",
@@ -22,8 +22,8 @@ def api_config() -> APIConfig:
 
 
 @pytest.fixture
-def basic_api_config() -> APIConfig:
-    """Create basic API configuration for streaming."""
+def basic_api_config_streaming_endpoint() -> APIConfig:
+    """Create basic API configuration for streaming endpoint."""
     return APIConfig(
         enabled=True,
         api_base="http://localhost:8080",

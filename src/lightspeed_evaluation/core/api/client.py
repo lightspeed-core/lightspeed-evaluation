@@ -4,10 +4,18 @@ import hashlib
 import json
 import logging
 import os
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 import httpx
 from diskcache import Cache
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+    RetryError,
+)
 
 from lightspeed_evaluation.core.api.streaming_parser import parse_streaming_response
 from lightspeed_evaluation.core.constants import (
@@ -19,6 +27,14 @@ from lightspeed_evaluation.core.system.exceptions import APIError
 logger = logging.getLogger(__name__)
 
 
+def _is_too_many_requests_error(exception: BaseException) -> bool:
+    """Check if exception is a 429 error."""
+    return (
+        isinstance(exception, httpx.HTTPStatusError)
+        and exception.response.status_code == 429
+    )
+
+
 class APIClient:
     """API client for actual data generation."""
 
@@ -28,10 +44,6 @@ class APIClient:
     ):
         """Initialize the client with configuration."""
         self.config = config
-        self.api_base = config.api_base
-        self.version = config.version
-        self.endpoint_type = config.endpoint_type
-        self.timeout = config.timeout
 
         self.client: Optional[httpx.Client] = None
 
@@ -43,11 +55,27 @@ class APIClient:
         self._validate_endpoint_type()
         self._setup_client()
 
+        # Wrap methods with retry decorator for handling 429 Too Many Requests errors
+        retry_decorator = self._create_retry_decorator()
+        self._standard_query_with_retry = retry_decorator(self._standard_query)
+        self._streaming_query_with_retry = retry_decorator(self._streaming_query)
+
+    def _create_retry_decorator(self) -> Any:
+        return retry(
+            retry=retry_if_exception(_is_too_many_requests_error),
+            stop=stop_after_attempt(
+                self.config.num_retries + 1
+            ),  # +1 to account for the initial attempt
+            wait=wait_exponential(multiplier=1, min=4, max=60),  # multiplier * 2^x
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=False,  # If all retry attempts are exhausted, RetryError is raised
+        )
+
     def _validate_endpoint_type(self) -> None:
         """Validate endpoint type is supported."""
-        if self.endpoint_type not in SUPPORTED_ENDPOINT_TYPES:
+        if self.config.endpoint_type not in SUPPORTED_ENDPOINT_TYPES:
             raise APIError(
-                f"Unsupported endpoint type: {self.endpoint_type}. "
+                f"Unsupported endpoint type: {self.config.endpoint_type}. "
                 f"Must be one of {SUPPORTED_ENDPOINT_TYPES}"
             )
 
@@ -57,7 +85,9 @@ class APIClient:
             # Enable verify, currently for eval it is set to False
             verify = False
             self.client = httpx.Client(
-                base_url=self.api_base, verify=verify, timeout=self.timeout
+                base_url=self.config.api_base,
+                verify=verify,
+                timeout=self.config.timeout,
             )
             self.client.headers.update({"Content-Type": "application/json"})
 
@@ -88,22 +118,28 @@ class APIClient:
         if not self.client:
             raise APIError("API client not initialized")
 
-        api_request = self._prepare_request(query, conversation_id, attachments)
-        if self.config.cache_enabled:
-            cached_response = self._get_cached_response(api_request)
-            if cached_response is not None:
-                logger.debug("Returning cached response for query: '%s'", query)
-                return cached_response
+        try:
+            api_request = self._prepare_request(query, conversation_id, attachments)
+            if self.config.cache_enabled:
+                cached_response = self._get_cached_response(api_request)
+                if cached_response is not None:
+                    logger.debug("Returning cached response for query: '%s'", query)
+                    return cached_response
 
-        if self.endpoint_type == "streaming":
-            response = self._streaming_query(api_request)
-        else:
-            response = self._standard_query(api_request)
+            if self.config.endpoint_type == "streaming":
+                response = self._streaming_query_with_retry(api_request)
+            else:
+                response = self._standard_query_with_retry(api_request)
 
-        if self.config.cache_enabled:
-            self._add_response_to_cache(api_request, response)
+            if self.config.cache_enabled:
+                self._add_response_to_cache(api_request, response)
 
-        return response
+            return response
+        except RetryError as e:
+            raise APIError(
+                f"Maximum retry attempts ({self.config.num_retries}) reached "
+                "due to persistent rate limiting (HTTP 429)."
+            ) from e
 
     def _prepare_request(
         self,
@@ -123,12 +159,12 @@ class APIClient:
         )
 
     def _standard_query(self, api_request: APIRequest) -> APIResponse:
-        """Query the API using non-streaming endpoint."""
+        """Query the API using non-streaming endpoint with retry on 429."""
         if not self.client:
             raise APIError("HTTP client not initialized")
         try:
             response = self.client.post(
-                f"/{self.version}/query",
+                f"/{self.config.version}/query",
                 json=api_request.model_dump(exclude_none=True),
             )
             response.raise_for_status()
@@ -165,8 +201,11 @@ class APIClient:
             return APIResponse.from_raw_response(response_data)
 
         except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("standard", self.timeout) from e
+            raise self._handle_timeout_error("standard", self.config.timeout) from e
         except httpx.HTTPStatusError as e:
+            # Re-raise 429 errors without conversion to allow retry decorator to handle them
+            if e.response.status_code == 429:
+                raise
             raise self._handle_http_error(e) from e
         except ValueError as e:
             raise self._handle_validation_error(e) from e
@@ -182,7 +221,7 @@ class APIClient:
         try:
             with self.client.stream(
                 "POST",
-                f"/{self.version}/streaming_query",
+                f"/{self.config.version}/streaming_query",
                 json=api_request.model_dump(exclude_none=True),
             ) as response:
                 self._handle_response_errors(response)
@@ -190,9 +229,12 @@ class APIClient:
                 return APIResponse.from_raw_response(raw_data)
 
         except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("streaming", self.timeout) from e
+            raise self._handle_timeout_error("streaming", self.config.timeout) from e
         except httpx.HTTPStatusError as e:
-            raise APIError(str(e)) from e
+            # Re-raise 429 errors without conversion to allow retry decorator to handle them
+            if e.response.status_code == 429:
+                raise
+            raise self._handle_http_error(e) from e
         except ValueError as e:
             raise self._handle_validation_error(e) from e
         except APIError:

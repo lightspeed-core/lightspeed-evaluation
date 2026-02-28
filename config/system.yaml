@@ -48,6 +48,9 @@ api:
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
   # Authentication via API_KEY environment variable only for MCP server
 
+  # Retry configuration for 429 Too Many Requests API errors
+  num_retries: 3  # Number of retry attempts (default 3)
+
 # Default metrics metadata
 metrics_metadata:
   # Turn-level metrics metadata

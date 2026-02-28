@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models import APIConfig, APIResponse
 from lightspeed_evaluation.core.system.exceptions import APIError
-from lightspeed_evaluation.core.api.client import APIClient
+from lightspeed_evaluation.core.api.client import APIClient, _is_too_many_requests_error
 
 
 class TestAPIClient:
@@ -30,7 +30,7 @@ class TestAPIClient:
             )
 
     def test_query_standard_endpoint_success(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test successful query to standard endpoint."""
         mock_response = mocker.Mock()
@@ -51,7 +51,7 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
         result = client.query("Test query")
 
         assert isinstance(result, APIResponse)
@@ -60,7 +60,7 @@ class TestAPIClient:
         assert result.contexts == ["Context 1"]
 
     def test_query_with_conversation_id(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query with existing conversation_id."""
         mock_response = mocker.Mock()
@@ -79,7 +79,7 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
         result = client.query("Follow-up query", conversation_id="conv_123")
 
         assert result.conversation_id == "conv_123"
@@ -90,7 +90,7 @@ class TestAPIClient:
         assert request_data["conversation_id"] == "conv_123"
 
     def test_query_with_attachments(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query with attachments."""
         mock_response = mocker.Mock()
@@ -109,7 +109,7 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
         result = client.query("Query", attachments=["file1.txt", "file2.pdf"])
 
         assert result.response == "Response with attachments"
@@ -122,7 +122,7 @@ class TestAPIClient:
         assert request_data["attachments"][1]["content"] == "file2.pdf"
 
     def test_query_http_error(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query handling HTTP errors."""
 
@@ -142,13 +142,13 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
 
         with pytest.raises(APIError, match="API error: 500"):
             client.query("Test query")
 
     def test_query_timeout_error(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query handling timeout."""
 
@@ -161,13 +161,13 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
 
         with pytest.raises(APIError, match="timeout"):
             client.query("Test query")
 
     def test_query_missing_response_field(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query handling missing response field."""
         mock_response = mocker.Mock()
@@ -186,22 +186,15 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
 
         with pytest.raises(APIError, match="missing 'response' field"):
             client.query("Test query")
 
-    def test_query_streaming_endpoint(self, mocker: MockerFixture) -> None:
+    def test_query_streaming_endpoint(
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test query to streaming endpoint."""
-        config = APIConfig(
-            enabled=True,
-            api_base="http://localhost:8080",
-            version="v1",
-            endpoint_type="streaming",
-            timeout=30,
-            cache_enabled=False,
-        )
-
         # Mock streaming response
         mock_stream_response = mocker.Mock()
         mock_stream_response.status_code = 200
@@ -229,20 +222,20 @@ class TestAPIClient:
             "conversation_id": "conv_123",
         }
 
-        client = APIClient(config)
+        client = APIClient(basic_api_config_streaming_endpoint)
         result = client.query("Test query")
 
         assert result.response == "Streamed response"
         assert result.conversation_id == "conv_123"
 
     def test_handle_response_errors_non_200(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test _handle_response_errors with non-200 status."""
 
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
 
         mock_response = mocker.Mock()
         mock_response.status_code = 404
@@ -253,12 +246,12 @@ class TestAPIClient:
             client._handle_response_errors(mock_response)
 
     def test_extract_error_message_with_detail(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test _extract_error_message with detail field."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
 
         mock_response = mocker.Mock()
         mock_response.read.return_value = b'{"detail": "Error message"}'
@@ -267,12 +260,12 @@ class TestAPIClient:
         assert "Error message" in error_msg
 
     def test_extract_error_message_with_nested_detail(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test _extract_error_message with nested detail."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
 
         mock_response = mocker.Mock()
         mock_response.read.return_value = (
@@ -284,7 +277,7 @@ class TestAPIClient:
         assert "Reason" in error_msg
 
     def test_standard_query_formats_tool_calls(
-        self, api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test that standard query formats tool calls correctly."""
         mock_response = mocker.Mock()
@@ -307,7 +300,7 @@ class TestAPIClient:
             return_value=mock_client,
         )
 
-        client = APIClient(api_config)
+        client = APIClient(basic_api_config_query_endpoint)
         result = client.query("Test query")
 
         # Tool calls should be formatted as list of lists
@@ -321,53 +314,49 @@ class TestAPIClientConfiguration:
     """Additional tests for APIClient configuration and initialization."""
 
     def test_initialization_streaming_endpoint(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test client initialization with streaming endpoint."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(basic_api_config)
+        client = APIClient(basic_api_config_streaming_endpoint)
 
-        assert client.api_base == "http://localhost:8080"
-        assert client.endpoint_type == "streaming"
-        assert client.timeout == 30
+        assert client.config.api_base == "http://localhost:8080"
+        assert client.config.endpoint_type == "streaming"
+        assert client.config.timeout == 30
         assert client.cache is None
 
     def test_initialization_with_cache(
-        self, tmp_path: Path, mocker: MockerFixture
+        self,
+        basic_api_config_streaming_endpoint: APIConfig,
+        tmp_path: Path,
+        mocker: MockerFixture,
     ) -> None:
         """Test client initialization with cache enabled."""
-        config = APIConfig(
-            enabled=True,
-            api_base="http://localhost:8080",
-            endpoint_type="streaming",
-            timeout=30,
-            provider="openai",
-            model="gpt-4",
-            cache_enabled=True,
-            cache_dir=str(tmp_path / "test_cache"),
-        )
+        # Enable cache in config and set cache directory
+        basic_api_config_streaming_endpoint.cache_enabled = True
+        basic_api_config_streaming_endpoint.cache_dir = str(tmp_path / "test_cache")
 
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
         mock_cache = mocker.patch("lightspeed_evaluation.core.api.client.Cache")
 
-        client = APIClient(config)
+        client = APIClient(basic_api_config_streaming_endpoint)
 
         assert client.cache is not None
         mock_cache.assert_called_once_with(str(tmp_path / "test_cache"))
 
     def test_validate_endpoint_type_valid(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test validation with valid endpoint type."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         # Should not raise error
-        client = APIClient(basic_api_config)
-        assert client.endpoint_type == "streaming"
+        client = APIClient(basic_api_config_streaming_endpoint)
+        assert client.config.endpoint_type == "streaming"
 
     def test_setup_client_with_api_key(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test client setup includes API key from environment."""
         mocker.patch.dict("os.environ", {"API_KEY": "test_secret_key"})
@@ -377,30 +366,30 @@ class TestAPIClientConfiguration:
             return_value=mock_client,
         )
 
-        APIClient(basic_api_config)
+        APIClient(basic_api_config_streaming_endpoint)
 
         # Verify headers were updated (should include Authorization header)
         assert mock_client.headers.update.call_count >= 1
 
     def test_query_requires_initialized_client(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query fails if client not initialized."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(basic_api_config)
+        client = APIClient(basic_api_config_streaming_endpoint)
         client.client = None  # Simulate uninitialized client
 
         with pytest.raises(APIError, match="not initialized"):
             client.query("test query")
 
     def test_prepare_request_basic(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test request preparation with basic parameters."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(basic_api_config)
+        client = APIClient(basic_api_config_streaming_endpoint)
         request = client._prepare_request("What is Python?")
 
         assert request.query == "What is Python?"
@@ -408,24 +397,24 @@ class TestAPIClientConfiguration:
         assert request.model == "gpt-4"
 
     def test_prepare_request_with_conversation_id(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test request preparation with conversation ID."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(basic_api_config)
+        client = APIClient(basic_api_config_streaming_endpoint)
         request = client._prepare_request("Follow-up", conversation_id="conv_123")
 
         assert request.query == "Follow-up"
         assert request.conversation_id == "conv_123"
 
     def test_prepare_request_with_attachments(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test request preparation with attachments."""
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(basic_api_config)
+        client = APIClient(basic_api_config_streaming_endpoint)
         request = client._prepare_request(
             "Analyze this", attachments=["file1.txt", "file2.pdf"]
         )
@@ -435,7 +424,7 @@ class TestAPIClientConfiguration:
         assert hasattr(request, "attachments")
 
     def test_close_client(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test closing the HTTP client."""
         mock_http_client = mocker.Mock()
@@ -444,30 +433,26 @@ class TestAPIClientConfiguration:
             return_value=mock_http_client,
         )
 
-        client = APIClient(basic_api_config)
+        client = APIClient(basic_api_config_streaming_endpoint)
         client.close()
 
         mock_http_client.close.assert_called_once()
 
     def test_get_cache_key_generates_consistent_hash(
-        self, tmp_path: Path, mocker: MockerFixture
+        self,
+        basic_api_config_streaming_endpoint: APIConfig,
+        tmp_path: Path,
+        mocker: MockerFixture,
     ) -> None:
         """Test cache key generation is consistent for same request."""
-        config = APIConfig(
-            enabled=True,
-            api_base="http://localhost:8080",
-            endpoint_type="streaming",
-            timeout=30,
-            provider="openai",
-            model="gpt-4",
-            cache_enabled=True,
-            cache_dir=str(tmp_path / "cache"),
-        )
+        # Enable cache in config and set cache directory
+        basic_api_config_streaming_endpoint.cache_enabled = True
+        basic_api_config_streaming_endpoint.cache_dir = str(tmp_path / "cache")
 
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
         mocker.patch("lightspeed_evaluation.core.api.client.Cache")
 
-        client = APIClient(config)
+        client = APIClient(basic_api_config_streaming_endpoint)
 
         # Create identical requests
         request1 = client._prepare_request("test query")
@@ -482,7 +467,7 @@ class TestAPIClientConfiguration:
         assert len(key1) > 0
 
     def test_client_initialization_sets_content_type_header(
-        self, basic_api_config: APIConfig, mocker: MockerFixture
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test client initialization sets Content-Type header."""
         mock_client = mocker.Mock()
@@ -491,7 +476,7 @@ class TestAPIClientConfiguration:
             return_value=mock_client,
         )
 
-        APIClient(basic_api_config)
+        APIClient(basic_api_config_streaming_endpoint)
 
         # Verify Content-Type header was set
         calls = mock_client.headers.update.call_args_list
@@ -500,19 +485,124 @@ class TestAPIClientConfiguration:
             for call in calls
         )
 
-    def test_standard_endpoint_initialization(self, mocker: MockerFixture) -> None:
+    def test_standard_endpoint_initialization(
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
         """Test initialization with standard (non-streaming) endpoint."""
-        config = APIConfig(
-            enabled=True,
-            api_base="http://localhost:8080",
-            endpoint_type="query",
-            timeout=30,
-            provider="openai",
-            model="gpt-4",
-        )
 
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
-        client = APIClient(config)
+        client = APIClient(basic_api_config_query_endpoint)
 
-        assert client.endpoint_type == "query"
+        assert client.config.endpoint_type == "query"
+
+
+class TestRetryLogic:
+    """Unit tests for retry logic in APIClient."""
+
+    def test_is_too_many_requests_error(self, mocker: MockerFixture) -> None:
+        """Test _is_too_many_requests_error identifies 429 errors."""
+        # Test with 429 status code
+        resp_429 = mocker.Mock(status_code=429)
+        assert _is_too_many_requests_error(
+            httpx.HTTPStatusError("", request=mocker.Mock(), response=resp_429)
+        )
+
+        # Test with non-429 status code
+        resp_500 = mocker.Mock(status_code=500)
+        assert not _is_too_many_requests_error(
+            httpx.HTTPStatusError("", request=mocker.Mock(), response=resp_500)
+        )
+
+    def test_standard_query_retries_on_429_then_succeeds(
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test standard query retries on 429 error and then succeeds on retry."""
+        mock_response_429 = mocker.Mock(status_code=429)
+        mock_response_429.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "429 error", request=mocker.Mock(), response=mock_response_429
+        )
+
+        mock_response_success = mocker.Mock(status_code=200)
+        mock_response_success.json.return_value = {
+            "response": "Success after retry",
+            "conversation_id": "conv_123",
+        }
+
+        mock_client = mocker.Mock()
+        mock_client.post.side_effect = [mock_response_429, mock_response_success]
+        mock_client.headers = {}
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        client = APIClient(basic_api_config_query_endpoint)
+        result = client.query("Test standard query")
+
+        assert result.response == "Success after retry"
+        assert mock_client.post.call_count == 2
+
+    def test_streaming_query_retries_on_429_then_succeeds(
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test streaming query retries on 429 error and then succeeds on retry."""
+        mock_stream_429 = mocker.Mock(status_code=429, request=mocker.Mock())
+        mock_context_429 = mocker.MagicMock()
+        mock_context_429.__enter__.return_value = mock_stream_429
+
+        mock_stream_success = mocker.Mock(status_code=200)
+        mock_context_success = mocker.MagicMock()
+        mock_context_success.__enter__.return_value = mock_stream_success
+
+        mock_client = mocker.Mock(headers={})
+        mock_client.stream.side_effect = [mock_context_429, mock_context_success]
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.parse_streaming_response",
+            return_value={
+                "response": "Success after retry",
+                "conversation_id": "conv_123",
+            },
+        )
+
+        client = APIClient(basic_api_config_streaming_endpoint)
+        result = client.query("Test streaming query")
+
+        assert result.response == "Success after retry"
+        assert mock_client.stream.call_count == 2
+
+    def test_query_raises_api_error_after_max_retries(
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test query raises APIError after exhausting retry attempts."""
+        basic_api_config_query_endpoint.num_retries = 3
+
+        mock_response_429 = mocker.Mock(status_code=429)
+        mock_response_429.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "429 error", request=mocker.Mock(), response=mock_response_429
+        )
+
+        mock_client = mocker.Mock()
+        mock_client.post.return_value = mock_response_429
+        mock_client.headers = {}
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        client = APIClient(basic_api_config_query_endpoint)
+
+        with pytest.raises(
+            APIError, match=str(basic_api_config_query_endpoint.num_retries)
+        ):
+            client.query("Test query")
+
+        assert mock_client.post.call_count == 4  # 3 retries + 1 initial attempt
