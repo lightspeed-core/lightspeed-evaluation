@@ -46,6 +46,16 @@ api:
 
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
+  
+  # MCP Server Authentication Configuration
+  mcp_headers:
+    enabled: true                      # Enable MCP headers functionality
+    servers:                          # MCP server configurations
+      filesystem-tools:
+        auth_type: bearer              # Authentication type: bearer, api_key, custom
+        env_var: API_KEY              # Environment variable containing the token/key
+
+  # Legacy authentication (fallback when mcp_headers.enabled is false)
   # Authentication via API_KEY environment variable only for MCP server
 
   # Retry configuration for 429 Too Many Requests API errors
