@@ -194,3 +194,11 @@ class TestEvaluateTurn:
 
         # Original turn should be unchanged
         assert turn.turn_metrics is None
+
+    def test_invalid_metrics_format_rejected(self) -> None:
+        """Test that metrics with invalid format are rejected by validators."""
+        config = SystemConfig()
+        turn = TurnData(turn_id="t1", query="hello")
+
+        with pytest.raises(ValueError, match="must be in format"):
+            evaluate_turn(config, turn, metrics=["bad_format"])

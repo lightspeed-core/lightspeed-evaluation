@@ -101,7 +101,7 @@ def evaluate_turn(
         List of EvaluationResult objects.
     """
     if metrics is not None:
-        turn = turn.model_copy(update={"turn_metrics": metrics})
+        turn = TurnData.model_validate({**turn.model_dump(), "turn_metrics": metrics})
 
     data = EvaluationData(
         conversation_group_id=conversation_group_id,
