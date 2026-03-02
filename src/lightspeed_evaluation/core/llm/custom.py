@@ -108,7 +108,7 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             # Explicitly disable SSL verification
             litellm.ssl_verify = False
 
-    def call(  # pylint: disable=too-many-locals
+    def call(
         self,
         prompt: str,
         n: int = 1,
@@ -180,19 +180,22 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             raise LLMError(f"LLM call failed: {str(e)}") from e
 
         finally:
-            # Token Tracking
             # Track tokens even if the call failed - tokens may have been consumed
-            # Only track token counts if response exists and is NOT from cache
-            tracker = TokenTracker.get_active()
-            if tracker and response is not None:
-                cache_hit = getattr(
-                    response, "_hidden_params", {}
-                ).get(  # pylint: disable=protected-access
-                    "cache_hit", False
+            self._track_tokens(response)
+
+    def _track_tokens(self, response: Any) -> None:
+        """Track JudgeLLM tokens if a tracker is active."""
+        # Only track token counts if response exists and is NOT from cache
+        tracker = TokenTracker.get_active()
+        if tracker and response is not None:
+            cache_hit = getattr(
+                response, "_hidden_params", {}
+            ).get(  # pylint: disable=protected-access
+                "cache_hit", False
+            )
+            # Only add tokens if this response was not retrieved from cache
+            if not cache_hit and hasattr(response, "usage") and response.usage:
+                tracker.add_tokens(
+                    getattr(response.usage, "prompt_tokens", 0),
+                    getattr(response.usage, "completion_tokens", 0),
                 )
-                # Only add tokens if this response was not retrieved from cache
-                if not cache_hit and hasattr(response, "usage") and response.usage:
-                    tracker.add_tokens(
-                        getattr(response.usage, "prompt_tokens", 0),
-                        getattr(response.usage, "completion_tokens", 0),
-                    )
