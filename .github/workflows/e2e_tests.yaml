@@ -1,0 +1,154 @@
+# E2E integration tests with Lightspeed Core
+name: E2E Lightspeed Evaluation Integration Tests
+
+on: [push, pull_request]
+
+jobs:
+  ##########
+  e2e_tests:
+    runs-on: ubuntu-latest
+
+    #name: "Lightspeed-stack setup"
+
+    strategy:
+      # For local testing use matrix with just one variant, "act" doesn't separate runs
+      matrix:
+        mode: ["query", "streaming"]
+        eval-data: ["tests/integration/test_evaluation_data.yaml"]
+        lsc_image_path: ["quay.io/lightspeed-core/lightspeed-stack:latest"]
+    
+    name: "E2E Lightspeed Evaluation Test, mode: ${{ matrix.mode }}"
+
+    env:
+      LSC_IMAGE_NAME: "lightspeed-stack-test-mode-${{ matrix.mode }}"
+
+    steps:
+      # Stolen from lightspeed-stack
+      - uses: actions/checkout@v4
+        with:
+          # On PR_TARGET → the fork (or same repo) that opened the PR.
+          # On push      → falls back to the current repository.
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+          # On PR_TARGET → the PR head *commit* (reproducible).
+          # On push      → the pushed commit that triggered the workflow.
+          ref: ${{ github.event.pull_request.head.ref || github.sha }}
+
+          # Don’t keep credentials when running untrusted PR code under PR_TARGET.
+          persist-credentials: ${{ github.event_name != 'pull_request_target' }}
+
+      - name: Verify actual git checkout result
+        run: |
+          echo "=== Git Status After Checkout ==="
+          echo "Remote URLs:"
+          git remote -v
+          echo ""
+          echo "Current branch: $(git branch --show-current 2>/dev/null || echo 'detached HEAD')"
+          echo "Current commit: $(git rev-parse HEAD)"
+          echo "Current commit message: $(git log -1 --oneline)"
+          echo ""
+          echo "=== Recent commits ==="
+          git log --oneline -5
+
+      # Run LSC
+      # Can't be in onetime separate job -- networking is not shared between jobs
+      - name: Run Lightspeed Stack (LSC)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "==========Running Lightspeed Core======="
+          docker run \
+            --name $LSC_IMAGE_NAME \
+            -p 8080:8080 \
+            -v $(pwd)/tests/integration/lightspeed-stack.yaml:/app-root/lightspeed-stack.yaml:Z \
+            -v $(pwd)/tests/integration/run.yaml:/app-root/run.yaml:Z \
+            -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+            --detach \
+            ${{ matrix.lsc_image_path }}
+          echo "==========Running Lightspeed Core Done======="
+
+      - name: Show logs from the LSC
+        run: |
+          sleep 2
+          docker container ls -a
+          docker logs $LSC_IMAGE_NAME
+
+      # Wait for LSC
+      - name: Wait for the LSC
+        run: |
+          echo "Waiting for service on port 8080..."
+          for i in {1..30}; do
+            if curl --output /dev/null --fail http://localhost:8080/v1/models ; then
+              echo "Service is up!"
+              exit 0
+            fi
+            docker logs -n 10 $LSC_IMAGE_NAME
+            echo "Still waiting..."
+            sleep 2
+          done
+
+          echo "Service did not start in time"
+          exit 1
+
+      # Query mode
+      - name: Set query mode
+        if: matrix.mode == 'query'
+        run: |
+          echo "CONFIG=./tests/integration/system-config-query.yaml" >> $GITHUB_ENV
+
+      - name: Set streaming mode
+        if: matrix.mode == 'streaming'
+        run: |
+          echo "CONFIG=./tests/integration/system-config-streaming.yaml" >> $GITHUB_ENV
+
+      # Dependencies
+      - name: Install dependencies for Lightspeed Evaluation
+        env:
+          TERM: xterm-256color
+          FORCE_COLOR: 1
+        run: |
+          echo "Installing e2e tests dependencies"
+          pip install --break-system-packages uv
+          uv sync
+      
+      # Run the tests
+      - name: Run the tests
+        env:
+          TERM: xterm-256color
+          FORCE_COLOR: 1
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "============================="
+          echo "Running..."
+          echo "  config: ${CONFIG}" 
+          echo "  LSC image: ${{ matrix.lsc_image_path }}"
+          echo "============================="
+          uv run lightspeed-eval --system-config "${CONFIG}" --eval-data "${{ matrix.eval-data }}"
+      
+      # Check the result
+      - name: Check test result
+        run: |
+          OUT_FILES=( eval_output/evaluation_*_summary.json )
+          if [ ${#OUT_FILES[@]} != 1 ] ; then
+            echo "Multiple output files: " eval_output/evaluation_*_summary.json
+            exit 1
+          fi
+          OUT_FILE=${OUT_FILES[0]}
+          PASS=$( jq .summary_stats.overall.PASS $OUT_FILE )
+          EXPECTED="1"
+          if [ ${PASS} != ${EXPECTED} ] ; then
+            echo "============"
+            echo "Wrong PASS number in ${OUT_FILE}: got ${PASS}, expected ${EXPECTED}"
+            echo "============"
+            exit 1
+          fi
+
+
+      # Cleanup
+      - name: Stop the LSC if in local devel
+        if: ${{ always() && env.ACT }}
+        run: |
+          echo "Stopping LSC container $LSC_IMAGE_NAME"
+          echo "++++++++++++++++++++++"
+          docker stop $LSC_IMAGE_NAME || true
+          docker rm $LSC_IMAGE_NAME || true

@@ -189,3 +189,6 @@ eval_output*/
 wip*/
 
 .history/
+
+# Used in e2e tests local testing
+.secrets

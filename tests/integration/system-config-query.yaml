@@ -1,0 +1,132 @@
+# LightSpeed Evaluation Framework Configuration
+
+# Core evaluation parameters
+core:
+  max_threads: 1              # Maximum number of threads, set to null for Python default. 50 is OK for bigger datasets
+  fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
+  skip_on_failure: true       # If True, skip remaining turns when a turn evaluation fails (can be overridden per conversation)
+
+# LLM as a judge configuration
+llm:
+  provider: "openai"                  # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+  model: "gpt-4o-mini"                # Model name for the provider
+  ssl_verify: true                    # Verify SSL certificates for specified provider
+  ssl_cert_file: null                 # Path to custom CA
+  temperature: 0.0                    # Generation temperature
+  max_tokens: 512                     # Maximum tokens in response
+  timeout: 300                        # Request timeout in seconds
+  num_retries: 3                      # Retry attempts
+  cache_dir: ".caches/llm_cache"      # Directory with LLM cache
+  cache_enabled: false                # Is LLM cache enabled?
+
+# Default embedding (for LLM as a judge) configuration:
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+  provider_kwargs: {}
+  cache_dir: ".caches/embedding_cache"
+  cache_enabled: false
+
+# Lightspeed-stack API Configuration
+# To get real time data. Currently it supports lightspeed-stack API.
+# But can be easily integrated with other APIs with minimal change.
+api:
+  enabled: true                        # Enable API calls instead of using pre-filled data
+  api_base: http://localhost:8080      # Base API URL (without version)
+  version: v1                          # API version (e.g., v1, v2)
+  endpoint_type: query                # Use "streaming" or "query" endpoint
+  timeout: 300                         # API request timeout in seconds
+
+  # API input configuration
+  provider: "openai"                   # LLM provider for queries
+  model: "gpt-4o-mini"                 # Model to use for queries
+  no_tools: null                       # Whether to bypass tools and MCP servers (optional)
+  system_prompt: null                  # System prompt (default None)
+
+  cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
+  cache_enabled: false                 # Is lightspeed-stack cache enabled?
+
+# Default metrics metadata
+metrics_metadata:
+  # Turn-level metrics metadata
+  turn_level:
+    # Ragas Response Evaluation metrics
+    "ragas:response_relevancy":
+      threshold: 0.8
+      description: "How relevant the response is to the question"
+      default: true  # This metric is applied by default when no turn_metrics specified
+
+# Output Configuration
+output:
+  output_dir: "./eval_output"
+  base_filename: "evaluation"
+  enabled_outputs:          # Enable specific output types
+    - csv                   # Detailed results CSV
+    - json                  # Summary JSON with statistics
+    - txt                   # Human-readable summary
+
+  # CSV columns to include
+  csv_columns:
+    - "conversation_group_id"
+    - "turn_id"
+    - "metric_identifier"
+    - "result"
+    - "score"
+    - "threshold"
+    - "metric_metadata"
+    - "reason"
+    - "execution_time"
+    - "query"
+    - "response"
+    - "api_input_tokens"
+    - "api_output_tokens"
+    # Streaming performance metrics (only populated when using streaming endpoint)
+    - "time_to_first_token"    # Time to first token in seconds
+    - "streaming_duration"      # Total streaming duration in seconds
+    - "tokens_per_second"       # Output tokens per second throughput
+    - "judge_llm_input_tokens"
+    - "judge_llm_output_tokens"
+    - "tool_calls"
+    - "contexts"
+    - "expected_response"
+    - "expected_intent"
+    - "expected_keywords"
+    - "expected_tool_calls"
+  summary_config_sections:
+      - llm           # Default
+      - embedding     # Default
+      - api           # Default
+
+visualization:
+  # Graph types to generate
+  enabled_graphs: []
+    
+
+# Environment Variables - Automatically get set before any imports
+environment:
+  DEEPEVAL_TELEMETRY_OPT_OUT: "YES"        # Disable DeepEval telemetry
+  DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"     # Disable DeepEval progress bars
+
+  LITELLM_LOG: ERROR                       # Suppress LiteLLM verbose logging
+
+# Logging Configuration
+logging:
+  # Source code logging level
+  source_level: INFO          # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+  # Package logging level (imported libraries)
+  package_level: ERROR
+
+  # Log format and display options
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  show_timestamps: true
+
+  # Specific package log levels (override package_level for specific libraries)
+  package_overrides:
+    httpx: ERROR
+    urllib3: ERROR
+    requests: ERROR
+    matplotlib: ERROR
+    LiteLLM: WARNING
+    DeepEval: WARNING
+    ragas: WARNING
