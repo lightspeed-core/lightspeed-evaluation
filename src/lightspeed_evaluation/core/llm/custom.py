@@ -145,16 +145,9 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             **kwargs,
         }
 
+        response = None
         try:
             response = litellm.completion(**call_params)
-
-            # Direct token extraction - capture tokens synchronously from response
-            tracker = TokenTracker.get_active()
-            if tracker and hasattr(response, "usage") and response.usage:
-                tracker.add_tokens(
-                    getattr(response.usage, "prompt_tokens", 0),
-                    getattr(response.usage, "completion_tokens", 0),
-                )
 
             # Extract content from all choices
             results = []
@@ -185,3 +178,24 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
 
         except Exception as e:
             raise LLMError(f"LLM call failed: {str(e)}") from e
+
+        finally:
+            # Track tokens even if the call failed - tokens may have been consumed
+            self._track_tokens(response)
+
+    def _track_tokens(self, response: Any) -> None:
+        """Track JudgeLLM tokens if a tracker is active."""
+        # Only track token counts if response exists and is NOT from cache
+        tracker = TokenTracker.get_active()
+        if tracker and response is not None:
+            cache_hit = getattr(
+                response, "_hidden_params", {}
+            ).get(  # pylint: disable=protected-access
+                "cache_hit", False
+            )
+            # Only add tokens if this response was not retrieved from cache
+            if not cache_hit and hasattr(response, "usage") and response.usage:
+                tracker.add_tokens(
+                    getattr(response.usage, "prompt_tokens", 0),
+                    getattr(response.usage, "completion_tokens", 0),
+                )
