@@ -154,6 +154,11 @@ class APIClient:
 
                 mcp_headers[server_name] = {header_name: header_value}
 
+            if not mcp_headers:
+                raise APIError(
+                    "MCP headers are enabled, but no valid server credentials were resolved. "
+                    "Check mcp_headers.servers and required environment variables."
+                )
             return mcp_headers
 
         # Fallback to legacy API_KEY behavior for backward compatibility

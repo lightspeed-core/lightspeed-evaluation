@@ -188,6 +188,15 @@ class MCPServerConfig(BaseModel):
             raise ValueError(f"auth_type must be one of {allowed}")
         return v
 
+    @model_validator(mode="after")
+    def validate_custom_header_name(self) -> "MCPServerConfig":
+        """Validate custom auth has an explicit header name."""
+        if self.auth_type == "custom" and not self.header_name:
+            raise ConfigurationError(
+                "For auth_type='custom', 'header_name' must be provided."
+            )
+        return self
+
 
 class MCPHeadersConfig(BaseModel):
     """Configuration for MCP headers functionality."""
