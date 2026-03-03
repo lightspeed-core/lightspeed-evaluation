@@ -1,7 +1,7 @@
 # E2E integration tests with Lightspeed Core
 name: E2E Lightspeed Evaluation Integration Tests
 
-on: [push, pull_request]
+on: [push, pull_request_target]
 
 jobs:
   ##########
@@ -60,8 +60,8 @@ jobs:
           docker run \
             --name $LSC_IMAGE_NAME \
             -p 8080:8080 \
-            -v $(pwd)/tests/integration/lightspeed-stack.yaml:/app-root/lightspeed-stack.yaml:Z \
-            -v $(pwd)/tests/integration/run.yaml:/app-root/run.yaml:Z \
+            -v $(pwd)/tests/integration/lightspeed-stack.yaml:/app-root/lightspeed-stack.yaml:z \
+            -v $(pwd)/tests/integration/run.yaml:/app-root/run.yaml:z \
             -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
             --detach \
             ${{ matrix.lsc_image_path }}
