@@ -12,6 +12,7 @@ import ResultsPieChart from './components/ResultsPieChart'
 import MetricBarChart from './components/MetricBarChart'
 import StackedBarChart from './components/StackedBarChart'
 import ScoreTrendChart from './components/ScoreTrendChart'
+import OverallAvgChart from './components/OverallAvgChart'
 import AvgScoreTrendChart from './components/AvgScoreTrendChart'
 import ExecTimeTrendChart from './components/ExecTimeTrendChart'
 import CollapsiblePanel from './components/CollapsiblePanel'
@@ -305,6 +306,9 @@ export default function App() {
 
           {activeTab === 'trends' && (
             <div className="charts">
+              <CollapsiblePanel title="Overall Average Score">
+                <OverallAvgChart entries={entries} />
+              </CollapsiblePanel>
               <CollapsiblePanel title="Average Score Over Time" tooltip="Click on a datapoint to view full evaluation details">
                 <AvgScoreTrendChart entries={filteredNoMetric} modelMap={modelMap} onDataClick={setDetailView} />
               </CollapsiblePanel>
