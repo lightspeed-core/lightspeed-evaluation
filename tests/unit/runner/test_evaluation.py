@@ -59,16 +59,12 @@ class TestRunEvaluation:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
 
-        # Mock EvaluationPipeline (imported inside function)
-        mock_pipeline = mocker.Mock()
+        # Mock evaluate() API function (imported inside function)
         mock_result = mocker.Mock()
         mock_result.result = "PASS"
-        mock_pipeline.run_evaluation.return_value = [mock_result]
-
-        mock_pipeline_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
+        mock_evaluate = mocker.patch(
+            "lightspeed_evaluation.api.evaluate", return_value=[mock_result]
         )
-        mock_pipeline_class.return_value = mock_pipeline
 
         # Mock OutputHandler (imported inside function)
         mock_output_handler = mocker.Mock()
@@ -98,7 +94,9 @@ class TestRunEvaluation:
         assert result is not None
         assert result["TOTAL"] == 1
         assert result["PASS"] == 1
-        mock_pipeline.close.assert_called_once()
+        mock_evaluate.assert_called_once_with(
+            mock_config, mock_eval_data, output_dir=None
+        )
 
     def test_run_evaluation_with_output_dir_override(
         self,
@@ -125,12 +123,9 @@ class TestRunEvaluation:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
 
-        mock_pipeline = mocker.Mock()
-        mock_pipeline.run_evaluation.return_value = []
-        mock_pipeline_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
+        mock_evaluate = mocker.patch(
+            "lightspeed_evaluation.api.evaluate", return_value=[]
         )
-        mock_pipeline_class.return_value = mock_pipeline
 
         mock_output_handler = mocker.Mock()
         mock_output_handler.output_dir = "/custom/output"
@@ -155,10 +150,10 @@ class TestRunEvaluation:
 
         run_evaluation(_make_eval_args(output_dir="/custom/output"))
 
-        # Verify custom output dir was used
-        mock_pipeline_class.assert_called_once()
-        call_args = mock_pipeline_class.call_args
-        assert call_args[0][1] == "/custom/output"
+        # Verify custom output dir was passed to evaluate()
+        mock_evaluate.assert_called_once_with(
+            mock_config, mock_eval_data, output_dir="/custom/output"
+        )
 
     def test_run_evaluation_file_not_found(
         self, mocker: MockerFixture, capsys: pytest.CaptureFixture
@@ -228,12 +223,7 @@ class TestRunEvaluation:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
 
-        mock_pipeline = mocker.Mock()
-        mock_pipeline.run_evaluation.return_value = []
-        mock_pipeline_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
-        )
-        mock_pipeline_class.return_value = mock_pipeline
+        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[])
 
         mock_output_handler = mocker.Mock()
         mock_output_handler.output_dir = "/tmp/output"
@@ -263,12 +253,12 @@ class TestRunEvaluation:
         captured = capsys.readouterr()
         assert "3 evaluations had errors" in captured.out
 
-    def test_run_evaluation_closes_pipeline_on_exception(
+    def test_run_evaluation_handles_evaluate_exception(
         self,
         mocker: MockerFixture,
         capsys: pytest.CaptureFixture,
     ) -> None:
-        """Test pipeline is closed even if evaluation fails."""
+        """Test that RuntimeError from evaluate() is caught by the CLI handler."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
@@ -288,17 +278,13 @@ class TestRunEvaluation:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
 
-        mock_pipeline = mocker.Mock()
-        mock_pipeline.run_evaluation.side_effect = RuntimeError("Processing error")
-        mock_pipeline_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
+        mocker.patch(
+            "lightspeed_evaluation.api.evaluate",
+            side_effect=RuntimeError("Processing error"),
         )
-        mock_pipeline_class.return_value = mock_pipeline
 
         result = run_evaluation(_make_eval_args())
 
-        # Should close pipeline even on error
-        mock_pipeline.close.assert_called_once()
         assert result is None
 
     def test_run_evaluation_with_empty_filter_result(
@@ -354,12 +340,7 @@ class TestRunEvaluation:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = [mock_eval_data]
 
-        mock_pipeline = mocker.Mock()
-        mock_pipeline.run_evaluation.return_value = []
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline",
-            return_value=mock_pipeline,
-        )
+        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[])
 
         mock_output_handler = mocker.Mock()
         mock_output_handler.output_dir = "/tmp/output"
@@ -640,7 +621,6 @@ class TestRunEvaluationCacheWarmup:
     def test_run_evaluation_with_cache_warmup_flag(
         self, tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture
     ) -> None:
-        # pylint: disable=too-many-locals
         """Test that cache warmup clears caches before evaluation."""
         # Setup cache directories
         llm_cache = tmp_path / "llm_cache"
@@ -671,15 +651,10 @@ class TestRunEvaluationCacheWarmup:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = [mocker.Mock()]
 
-        # Mock pipeline
-        mock_pipeline = mocker.Mock()
+        # Mock evaluate() API function
         mock_result = mocker.Mock()
         mock_result.result = "PASS"
-        mock_pipeline.run_evaluation.return_value = [mock_result]
-        mock_pipeline_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
-        )
-        mock_pipeline_class.return_value = mock_pipeline
+        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[mock_result])
 
         # Mock output handler
         mock_output_handler = mocker.Mock()
@@ -723,7 +698,6 @@ class TestRunEvaluationCacheWarmup:
     def test_run_evaluation_without_cache_warmup_flag(
         self, tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture
     ) -> None:
-        # pylint: disable=too-many-locals
         """Test that caches are NOT cleared when warmup flag is false."""
         # Setup cache directory with existing file
         llm_cache = tmp_path / "llm_cache"
@@ -754,12 +728,7 @@ class TestRunEvaluationCacheWarmup:
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
 
-        mock_pipeline = mocker.Mock()
-        mock_pipeline.run_evaluation.return_value = []
-        mock_pipeline_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.EvaluationPipeline"
-        )
-        mock_pipeline_class.return_value = mock_pipeline
+        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[])
 
         mock_output_handler = mocker.Mock()
         mock_output_handler.output_dir = "/tmp/output"

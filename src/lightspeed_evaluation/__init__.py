@@ -12,6 +12,7 @@ from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
 
 if TYPE_CHECKING:
     # ruff: noqa: F401
+    from lightspeed_evaluation.api import evaluate, evaluate_conversation, evaluate_turn
     from lightspeed_evaluation.core.api import APIClient
     from lightspeed_evaluation.core.llm import LLMManager
     from lightspeed_evaluation.core.models import (
@@ -42,6 +43,10 @@ if TYPE_CHECKING:
 __version__ = "0.5.0"
 
 _LAZY_IMPORTS = {
+    # Programmatic API
+    "evaluate": ("lightspeed_evaluation.api", "evaluate"),
+    "evaluate_conversation": ("lightspeed_evaluation.api", "evaluate_conversation"),
+    "evaluate_turn": ("lightspeed_evaluation.api", "evaluate_turn"),
     # Main pipeline
     "EvaluationPipeline": (
         "lightspeed_evaluation.pipeline.evaluation",
