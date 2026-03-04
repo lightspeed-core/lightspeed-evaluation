@@ -107,8 +107,6 @@ embedding:
 This section configures the inference API for generating the responses. It can be any Lightspeed-Core compatible API.
 Note that it can be easily integrated with other APIs with a minimal change.
 
-Authentication via `API_KEY` environment variable only for MCP server.
-
 | Setting (api.) | Default | Description |
 |----------------|---------|-------------|
 | enabled | `"true"` |  Enable/disable API calls |
@@ -121,6 +119,30 @@ Authentication via `API_KEY` environment variable only for MCP server.
 | system_prompt | `null` | Custom system prompt (optional) |
 | cache_dir | `".caches/api_cache"` | Directory with cached API responses |
 | cache_enabled | `true` | Is API cache enabled? |
+| mcp_headers | `null` | MCP headers configuration for authentication (see below) |
+| num_retries | `3` | Maximum number of retry attempts for API calls on 429 errors |
+
+### MCP Server Authentication
+
+The framework supports two methods for MCP server authentication:
+
+#### 1. New MCP Headers Configuration (Recommended)
+The `mcp_headers` configuration provides a flexible way to configure authentication for individual MCP servers:
+
+| Setting (api.mcp_headers.) | Default | Description |
+|----------------------------|---------|-------------|
+| enabled | `true` | Enable/disable MCP headers functionality |
+| servers | `{}` | Dictionary of MCP server configurations |
+
+For each server in `servers`, you can configure:
+
+| Setting (api.mcp_headers.servers.<server_name>.) | Default | Description |
+|---------------------------------------------------|---------|-------------|
+| auth_type | `"bearer"` | Authentication type (currently only "bearer" is supported) |
+| env_var | required | Environment variable containing the authentication token |
+
+#### 2. Legacy Authentication (Fallback)
+When `mcp_headers.enabled` is `false`, the system falls back to using the `API_KEY` environment variable for all MCP server authentication.
 
 ### API Modes
 
@@ -137,6 +159,8 @@ Authentication via `API_KEY` environment variable only for MCP server.
 - **Reproducible results**: Same response data used across runs
 ### Example
 
+#### Example Configuration
+
 ```yaml
 api:
   enabled: true
@@ -150,7 +174,36 @@ api:
   system_prompt: null
   cache_dir: ".caches/api_cache"
   cache_enabled: true
+  num_retries: 3
+  
+  # MCP Server Authentication Configuration
+  mcp_headers:
+    enabled: true                      # Enable MCP headers functionality
+    servers:                          # MCP server configurations
+      filesystem-tools:
+        auth_type: bearer              # Authentication type: only bearer is supported
+        env_var: API_KEY              # Environment variable containing the token/key
+      another-mcp-server:
+        auth_type: bearer
+        env_var: ANOTHER_API_KEY      # Use a different environment variable
 ```
+
+#### Lightspeed Stack API Compatibility
+
+**Important Note for lightspeed-stack API users**: To use the MCP headers functionality with the lightspeed-stack API, you need to modify the `llama_stack_api/openai_responses.py` file in your lightspeed-stack installation:
+
+In the `OpenAIResponsesToolMCP` class, change the `authorization` parameter's `exclude` field from `True` to `False`:
+
+```python
+# In llama_stack_api/openai_responses.py
+class OpenAIResponsesToolMCP:
+    authorization: Optional[str] = Field(
+        default=None,
+        exclude=False  # Change this from True to False
+    )
+```
+
+This change allows the authorization headers to be properly passed through to MCP servers.
 
 ## Metrics
 Metrics are enabled globally (as described below) or within the input data for each individual conversation or individual turn (question/answer pair). To enable a metrics globally you need to set `default` meta data attribute to `true`
