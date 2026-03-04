@@ -127,30 +127,9 @@ class APIClient:
                     )
                     continue
 
-                # Determine header name and value based on auth_type
-                if server_config.auth_type == "bearer":
-                    header_name = server_config.header_name or "Authorization"
-                    header_value = f"Bearer {token}"
-                elif server_config.auth_type == "api_key":
-                    header_name = server_config.header_name or "X-API-Key"
-                    header_value = token
-                elif server_config.auth_type == "custom":
-                    if not server_config.header_name:
-                        logger.warning(
-                            "Custom auth_type for server '%s' requires "
-                            "header_name to be specified. Skipping.",
-                            server_name,
-                        )
-                        continue
-                    header_name = server_config.header_name
-                    header_value = token
-                else:
-                    logger.warning(
-                        "Unknown auth_type '%s' for server '%s'. Skipping.",
-                        server_config.auth_type,
-                        server_name,
-                    )
-                    continue
+                # Set up bearer auth headers
+                header_name = server_config.header_name or "Authorization"
+                header_value = f"Bearer {token}"
 
                 mcp_headers[server_name] = {header_name: header_value}
 

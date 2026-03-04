@@ -166,8 +166,8 @@ class MCPServerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     auth_type: str = Field(
-        ...,
-        description="Authentication type: bearer, api_key",
+        default="bearer",
+        description="Authentication type: only bearer is supported",
     )
     env_var: str = Field(
         ...,
@@ -183,19 +183,9 @@ class MCPServerConfig(BaseModel):
     @classmethod
     def validate_auth_type(cls, v: str) -> str:
         """Validate auth_type is supported."""
-        allowed = {"bearer", "api_key", "custom"}
-        if v not in allowed:
-            raise ValueError(f"auth_type must be one of {allowed}")
+        if v != "bearer":
+            raise ValueError("auth_type must be 'bearer'")
         return v
-
-    @model_validator(mode="after")
-    def validate_custom_header_name(self) -> "MCPServerConfig":
-        """Validate custom auth has an explicit header name."""
-        if self.auth_type == "custom" and not self.header_name:
-            raise ConfigurationError(
-                "For auth_type='custom', 'header_name' must be provided."
-            )
-        return self
 
 
 class MCPHeadersConfig(BaseModel):
