@@ -6,7 +6,7 @@ import time
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
-from lightspeed_evaluation.core.llm.custom import TokenTracker
+from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics

@@ -2,11 +2,15 @@
 
 from typing import TYPE_CHECKING
 
+# Apply litellm patching globally before any litellm usage in this package
+import lightspeed_evaluation.core.llm.litellm_patch  # noqa: F401
+
 from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
 
 if TYPE_CHECKING:
     # ruff: noqa: F401
-    from lightspeed_evaluation.core.llm.custom import BaseCustomLLM, TokenTracker
+    from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
+    from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
     from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
     from lightspeed_evaluation.core.llm.manager import LLMManager
     from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
@@ -19,7 +23,7 @@ _LAZY_IMPORTS = {
     "LLMError": ("lightspeed_evaluation.core.system.exceptions", "LLMError"),
     "LLMManager": ("lightspeed_evaluation.core.llm.manager", "LLMManager"),
     "BaseCustomLLM": ("lightspeed_evaluation.core.llm.custom", "BaseCustomLLM"),
-    "TokenTracker": ("lightspeed_evaluation.core.llm.custom", "TokenTracker"),
+    "TokenTracker": ("lightspeed_evaluation.core.llm.token_tracker", "TokenTracker"),
     "DeepEvalLLMManager": (
         "lightspeed_evaluation.core.llm.deepeval",
         "DeepEvalLLMManager",

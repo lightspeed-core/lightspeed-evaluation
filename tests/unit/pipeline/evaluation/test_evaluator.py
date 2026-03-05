@@ -7,7 +7,7 @@ from typing import Optional
 import pytest
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.llm.custom import TokenTracker
+from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationRequest,
