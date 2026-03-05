@@ -1,5 +1,7 @@
 """Tests for tool_eval module."""
 
+from typing import Any
+
 from lightspeed_evaluation.core.metrics.custom.tool_eval import (
     evaluate_tool_calls,
     compare_tool_calls,
@@ -453,6 +455,31 @@ class TestMatchParameter:
         success, _ = evaluate_tool_calls(expected, actual, full_match=False)
         assert success is False
 
+    def test_partial_match_failure_reports_detailed_stats(self) -> None:
+        """Test partial match failure message includes detailed statistics."""
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool3", "arguments": {}}],  # tool2 not found, tool3 extra
+            [{"tool_name": "tool4", "arguments": {}}],  # extra
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is False
+        assert "1/2 expected matched" in details
+        assert "1 unmatched" in details
+        assert "tool2" in details  # Unmatched expected tool name shown
+        assert "2 extra in response" in details
+        assert "tool3" in details  # Extra actual tool name shown
+        assert "tool4" in details  # Extra actual tool name shown
+        assert "partial" in details
+        assert "ordered" in details
+
     def test_partial_match_ordered_reports_statistics(self) -> None:
         """Test full_match=False with ordered=True reports match statistics."""
         expected = [
@@ -472,8 +499,10 @@ class TestMatchParameter:
             expected, actual, full_match=False, ordered=True
         )
         assert success is True
-        assert "2/2 matched" in details
+        assert "2/2 expected matched" in details
         assert "0 unmatched" in details
+        assert "1 extra in response" in details
+        assert "tool2" in details
 
     def test_partial_match_ordered_finds_all_items(self) -> None:
         """Test full_match=False ordered finds all items using greedy matching."""
@@ -496,7 +525,9 @@ class TestMatchParameter:
         # Greedy matching finds tool1 at index 2, tool3 at index 0
         # Both expected items are found, regardless of positions
         assert success is True
-        assert "2/2 matched" in details
+        assert "2/2 expected matched" in details
+        assert "1 extra in response" in details
+        assert "tool2" in details
 
     def test_partial_match_unordered_ignores_order(self) -> None:
         """Test full_match=False with ordered=False ignores order."""
@@ -519,7 +550,9 @@ class TestMatchParameter:
         assert success is True
         assert "partial" in details
         assert "unordered" in details
-        assert "2/2 matched" in details
+        assert "2/2 expected matched" in details
+        assert "1 extra in response" in details
+        assert "tool2" in details
 
     def test_partial_match_all_matched_reports_correctly(self) -> None:
         """Test full_match=False reports all matched correctly."""
@@ -537,8 +570,65 @@ class TestMatchParameter:
 
         success, details = evaluate_tool_calls(expected, actual, full_match=False)
         assert success is True
-        assert "2/2 matched" in details
+        assert "2/2 expected matched" in details
         assert "0 unmatched" in details
+        assert "1 extra in response" in details
+        assert "tool3" in details
+
+    def test_partial_match_empty_expected_with_actual_tools(self) -> None:
+        """Test empty expected alternative with actual tools shows clear message."""
+        expected: list[list[list[dict[str, Any]]]] = [
+            []  # Empty expected - skip scenario (no sequences expected)
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool2", "arguments": {}}],
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is True
+        assert "No expected tool calls" in details
+        assert "skip scenario" in details
+        assert "2 actual" in details
+        assert "tool1" in details
+        assert "tool2" in details
+
+    def test_partial_match_empty_expected_no_actual_tools(self) -> None:
+        """Test empty expected with no actual tools shows skip scenario."""
+        expected: list[list[list[dict[str, Any]]]] = [
+            []  # Empty expected - skip scenario (no sequences expected)
+        ]
+        actual: list[list[dict[str, Any]]] = []
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is True
+        assert "No expected tool calls" in details
+        assert "skip scenario" in details
+
+    def test_partial_match_best_result_reported_on_failure(self) -> None:
+        """Test that best matching alternative is reported when all fail."""
+        # Alternative 1: expects tool1, tool2 (will match 1/2)
+        # Alternative 2: expects tool3, tool4 (will match 0/2)
+        expected = [
+            [
+                [{"tool_name": "tool1", "arguments": {}}],
+                [{"tool_name": "tool2", "arguments": {}}],
+            ],
+            [
+                [{"tool_name": "tool3", "arguments": {}}],
+                [{"tool_name": "tool4", "arguments": {}}],
+            ],
+        ]
+        actual = [
+            [{"tool_name": "tool1", "arguments": {}}],
+            [{"tool_name": "tool5", "arguments": {}}],
+        ]
+
+        success, details = evaluate_tool_calls(expected, actual, full_match=False)
+        assert success is False
+        # Should report best match (1/2 from alt 1), not last checked (0/2 from alt 2)
+        assert "1/2 expected matched" in details
+        assert "tool2" in details  # Unmatched expected from best alternative
 
 
 class TestCompareToolResult:

@@ -26,7 +26,10 @@ def evaluate_tool_calls(
         tuple: (success: bool, details: str)
     """
     try:
-        # Try each set until one matches
+        # Try each set until one matches, track best result for failure reporting
+        best_result: dict[str, Any] = {}
+        best_matched = -1
+
         for i, expected_set in enumerate(expected):
             result = compare_tool_calls(
                 expected_set, actual, ordered=ordered, full_match=full_match
@@ -40,8 +43,21 @@ def evaluate_tool_calls(
                     match_stats=result.get("stats"),
                 )
 
-        # If all sets fail, return failure status & message
-        return _create_failure_message(expected, actual)
+            # Track the best matching alternative (most matched tools)
+            stats = result.get("stats", {})
+            matched = stats.get("matched", 0)
+            if matched > best_matched:
+                best_matched = matched
+                best_result = result
+
+        # If all sets fail, return failure with best match stats
+        return _create_failure_message(
+            expected,
+            actual,
+            ordered=ordered,
+            full_match=full_match,
+            best_stats=best_result.get("stats"),
+        )
 
     except (AttributeError, TypeError, ValueError) as e:
         logger.error("Error during tool evaluation: %s", e)
@@ -82,12 +98,20 @@ def compare_tool_calls(
     mismatch_message = "Tool calls count mismatch: expected %d, got %d"
 
     if not full_match:
-        matched, total = _compare_partial(expected_normalized, actual_normalized)
+        matched, total, extra_tools, unmatched_expected = _compare_partial(
+            expected_normalized, actual_normalized
+        )
         # Partial match succeeds if all expected tools matched (subset matching)
         success = matched == total
         return {
             "success": success,
-            "stats": {"matched": matched, "total": total, "unmatched": total - matched},
+            "stats": {
+                "matched": matched,
+                "total": total,
+                "unmatched": total - matched,
+                "extra_actual_tools": extra_tools,
+                "unmatched_expected_tools": unmatched_expected,
+            },
         }
 
     # Full match (default)
@@ -121,7 +145,7 @@ def _normalize_sequences(
 def _compare_partial(
     expected: list[list[dict[str, Any]]],
     actual: list[list[dict[str, Any]]],
-) -> tuple[int, int]:
+) -> tuple[int, int, list[str], list[str]]:
     """Compare tool calls with partial matching.
 
     Counts how many expected sequences are found in actual.
@@ -136,29 +160,50 @@ def _compare_partial(
         actual: Actual tool call sequences (pre-normalized)
 
     Returns:
-        Tuple of (matched_count, total_expected)
+        Tuple of (matched_count, total_expected, extra_actual_tools, unmatched_expected_tools)
     """
     if not expected:
-        return (0, 0)
+        extra_tools = [_get_sequence_tool_names(seq) for seq in actual]
+        return (0, 0, extra_tools, [])
 
     matched = 0
     used_indices: set[int] = set()
+    matched_expected_indices: set[int] = set()
 
-    for expected_seq in expected:
+    for i, expected_seq in enumerate(expected):
         for j, actual_seq in enumerate(actual):
             if j not in used_indices and _compare_tool_call_sequence(
                 expected_seq, actual_seq
             ):
                 matched += 1
                 used_indices.add(j)
+                matched_expected_indices.add(i)
                 break
 
+    extra_tools = [
+        _get_sequence_tool_names(actual[i])
+        for i in range(len(actual))
+        if i not in used_indices
+    ]
+    unmatched_expected = [
+        _get_sequence_tool_names(expected[i])
+        for i in range(len(expected))
+        if i not in matched_expected_indices
+    ]
     logger.debug(
-        "Partial match: %d/%d expected sequences found",
+        "Partial match: %d/%d expected sequences found, extra: %s, unmatched: %s",
         matched,
         len(expected),
+        extra_tools,
+        unmatched_expected,
     )
-    return (matched, len(expected))
+    return (matched, len(expected), extra_tools, unmatched_expected)
+
+
+def _get_sequence_tool_names(sequence: list[dict[str, Any]]) -> str:
+    """Get tool names from a sequence as a comma-separated string."""
+    names = [tc.get("tool_name", "unknown") for tc in sequence]
+    return ", ".join(names) if len(names) > 1 else (names[0] if names else "unknown")
 
 
 def _compare_tool_call_sequence(
@@ -371,12 +416,77 @@ def _compare_tool_result(expected: dict[str, Any], actual: dict[str, Any]) -> bo
     return True
 
 
+def _get_mode_suffix(ordered: bool, full_match: bool) -> str:
+    """Get the mode suffix string for messages.
+
+    Args:
+        ordered: Whether ordered matching was used
+        full_match: Whether full or partial matching was used
+
+    Returns:
+        Mode suffix like "(partial, ordered)"
+    """
+    match_mode = "full" if full_match else "partial"
+    order_mode = "ordered" if ordered else "unordered"
+    return f"({match_mode}, {order_mode})"
+
+
+def _format_match_stats(
+    match_stats: dict[str, Any],
+    ordered: bool,
+    full_match: bool,
+) -> str:
+    """Format match statistics into a human-readable string.
+
+    Args:
+        match_stats: Dict with matched/total/unmatched/extra_actual_tools/unmatched_expected_tools
+        ordered: Whether ordered matching was used
+        full_match: Whether full or partial matching was used
+
+    Returns:
+        Formatted statistics string
+    """
+    matched = match_stats["matched"]
+    total = match_stats["total"]
+    unmatched = match_stats["unmatched"]
+
+    # Extra actual tools (from actual that weren't used)
+    extra_tools: list[str] = match_stats.get("extra_actual_tools", [])
+    extra_count = len(extra_tools)
+    extra_info = f"[{', '.join(extra_tools)}]" if extra_tools else "none"
+
+    # Handle empty expected (no tool calls expected for this alternative)
+    if total == 0:
+        if extra_count > 0:
+            return (
+                f"No expected tool calls (skip scenario), "
+                f"but {extra_count} actual: {extra_info} "
+                f"{_get_mode_suffix(ordered, full_match)}"
+            )
+        return (
+            f"No expected tool calls (skip scenario) "
+            f"{_get_mode_suffix(ordered, full_match)}"
+        )
+
+    # Unmatched expected tools (from expected that didn't match)
+    unmatched_expected: list[str] = match_stats.get("unmatched_expected_tools", [])
+    unmatched_info = (
+        f"[{', '.join(unmatched_expected)}]" if unmatched_expected else "none"
+    )
+
+    return (
+        f"{matched}/{total} expected matched, {unmatched} unmatched: {unmatched_info}, "
+        f"{extra_count} extra in response: {extra_info} "
+        f"{_get_mode_suffix(ordered, full_match)}"
+    )
+
+
 def _create_success_message(
     index: int,
     expected_set: list[list[dict[str, Any]]],
     ordered: bool = True,
     full_match: bool = True,
-    match_stats: dict[str, int] | None = None,
+    match_stats: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
     """Create success message based on match type.
 
@@ -385,53 +495,64 @@ def _create_success_message(
         expected_set: The matched expected tool call set
         ordered: Whether ordered matching was used
         full_match: Whether full or partial matching was used
-        match_stats: Optional dict with matched/total/unmatched counts for partial match
+        match_stats: Optional dict with matched/total/unmatched/extra_actual_tools
 
     Returns:
         Tuple of (True, success message)
     """
     pattern_type = "Primary pattern" if index == 0 else f"Alternative {index + 1}"
-    order_mode = "ordered" if ordered else "unordered"
-    match_mode = "full" if full_match else "partial"
 
-    # Determine message based on what matched
-    if len(expected_set) == 0:
-        # Empty alternative matched - index 0 can never be empty due to constraints
+    # Check match_stats first to include extra tools info (for partial match mode)
+    if match_stats:
+        message = f"Tool calls: {_format_match_stats(match_stats, ordered, full_match)}"
+    elif len(expected_set) == 0:
         message = "No tool calls made (valid alternate skip scenario)"
-    elif match_stats:
-        # Include match statistics for partial match
-        matched = match_stats["matched"]
-        total = match_stats["total"]
-        unmatched = match_stats["unmatched"]
-        message = (
-            f"Tool calls: {matched}/{total} matched, {unmatched} unmatched "
-            f"({match_mode}, {order_mode})"
-        )
     else:
         message = (
             f"Tool calls match expected structure and arguments "
-            f"({match_mode}, {order_mode})"
+            f"{_get_mode_suffix(ordered, full_match)}"
         )
 
     return True, f"{pattern_type} matched: {message}"
 
 
 def _create_failure_message(
-    expected: list[list[list[dict[str, Any]]]], actual: list[list[dict[str, Any]]]
+    expected: list[list[list[dict[str, Any]]]],
+    actual: list[list[dict[str, Any]]],
+    ordered: bool = True,
+    full_match: bool = True,
+    best_stats: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
-    """Create failure message with helpful context."""
-    # If we reach here, none of the alternatives matched
+    """Create failure message with helpful context.
 
+    Args:
+        expected: Expected tool call patterns (with alternatives)
+        actual: Actual tool calls from API response
+        ordered: Whether ordered matching was used
+        full_match: Whether full or partial matching was used
+        best_stats: Stats from best matching alternative (most matched tools)
+
+    Returns:
+        Tuple of (False, failure message)
+    """
     if len(actual) == 0:
         return (
             False,
             "No actual tool calls made and this is not set as an expected alternative",
         )
 
-    return (
-        False,
-        f"Tool calls made but didn't match any of the {len(expected)} expected pattern(s)",
+    base_msg = (
+        f"Tool calls made but didn't match any of the {len(expected)} "
+        f"expected pattern(s)"
     )
+
+    if best_stats and not full_match:
+        return (
+            False,
+            f"{base_msg}: {_format_match_stats(best_stats, ordered, full_match)}",
+        )
+
+    return (False, base_msg)
 
 
 def format_tool_calls_for_logging(tool_calls: list[list[dict[str, Any]]]) -> str:

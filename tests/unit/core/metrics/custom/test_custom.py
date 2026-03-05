@@ -122,7 +122,7 @@ class TestCustomMetricsToolEval:
 
         assert score == 1.0
         assert "partial" in reason
-        assert "1/1 matched" in reason
+        assert "1/1 expected matched" in reason
 
     def test_config_from_system_defaults_via_metric_manager(
         self, mocker: MockerFixture
