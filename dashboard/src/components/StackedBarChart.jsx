@@ -11,7 +11,7 @@ export default function StackedBarChart({ entries }) {
       if (!byDate[e.date]) byDate[e.date] = { pass: 0, fail: 0, error: 0 }
       if (e.result === 'PASS') byDate[e.date].pass++
       else if (e.result === 'FAIL') byDate[e.date].fail++
-      else byDate[e.date].error++
+      else if (e.result === 'ERROR') byDate[e.date].error++
     })
     const dates = Object.keys(byDate).sort()
     const labels = dates.map(d => {

@@ -16,6 +16,7 @@ export default function RunPage() {
   const [selectedTag, setSelectedTag] = useState('__all__')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState(null)
 
   const [runs, setRuns] = useState([])
   const [selectedRunId, setSelectedRunId] = useState(null)
@@ -29,21 +30,32 @@ export default function RunPage() {
 
   useEffect(() => {
     fetch('/api/run-config')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`run-config: ${r.status}`)
+        return r.json()
+      })
       .then(data => {
         setSystemConfig(data.systemConfig || '')
         setApiKeySet(!!data.apiKey)
         setTags(data.tags || [])
-        setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(err => {
+        console.error('Failed to load run config:', err)
+        setStartError('Failed to load run configuration')
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
     const poll = () => {
       fetch('/api/running-evals')
-        .then(r => r.json())
-        .then(setRuns)
+        .then(r => {
+          if (!r.ok) throw new Error(`running-evals: ${r.status}`)
+          return r.json()
+        })
+        .then(data => {
+          if (Array.isArray(data)) setRuns(data)
+        })
         .catch(() => {})
     }
     poll()
@@ -129,18 +141,28 @@ export default function RunPage() {
 
   const startRun = async () => {
     setStarting(true)
+    setStartError(null)
     try {
       const res = await fetch('/api/run-eval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ systemConfig, tag: selectedTag }),
       })
+      if (!res.ok) {
+        let msg
+        try { msg = (await res.json()).message } catch { msg = await res.text() }
+        setStartError(msg || `Failed to start evaluation (${res.status})`)
+        return
+      }
       const { id } = await res.json()
       setSelectedRunId(id)
       const runsRes = await fetch('/api/running-evals')
-      setRuns(await runsRes.json())
-    } catch { /* ignore */ }
-    setStarting(false)
+      if (runsRes.ok) setRuns(await runsRes.json())
+    } catch (err) {
+      setStartError(err.message || 'Network error while starting evaluation')
+    } finally {
+      setStarting(false)
+    }
   }
 
   const stopRun = async (e, id) => {
@@ -221,6 +243,11 @@ export default function RunPage() {
           </svg>
           {starting ? 'Starting...' : 'Start'}
         </button>
+        {startError && (
+          <div className="run-warning" style={{ marginTop: 8 }}>
+            <span>{startError}</span>
+          </div>
+        )}
       </div>
 
       <div className="run-card">
@@ -236,12 +263,16 @@ export default function RunPage() {
         {runs.length === 0 ? (
           <p className="run-no-evals">No evaluation pipelines detected. Start one above or run lightspeed-eval from the command line.</p>
         ) : (
-          <div className="run-eval-list">
+          <div className="run-eval-list" role="listbox" aria-label="Running evaluations">
             {runs.map(run => (
               <div
                 key={run.id}
                 className={`run-eval-item${selectedRunId === run.id ? ' selected' : ''}`}
+                role="option"
+                aria-selected={selectedRunId === run.id}
+                tabIndex={0}
                 onClick={() => setSelectedRunId(run.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedRunId(run.id) } }}
               >
                 <div className="run-eval-info">
                   <span className="run-eval-conversation">{run.tag === 'all' ? 'All' : run.tag}</span>
@@ -254,7 +285,7 @@ export default function RunPage() {
                     <>
                       <span className="run-eval-status running">running</span>
                       {run.source === 'web' && (
-                        <button className="run-eval-stop" onClick={(e) => stopRun(e, run.id)}>
+                        <button className="run-eval-stop" onClick={(e) => stopRun(e, run.id)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); } }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="6" y="6" width="12" height="12" rx="2" />
                           </svg>

@@ -2,38 +2,38 @@ export default function FilterBar({ availableOptions, filters, setters, reset, A
   return (
     <div className="filters">
       <div className="filter-group">
-        <label>Conversation</label>
-        <select value={filters.group} onChange={e => setters.setGroup(e.target.value)}>
+        <label htmlFor="filter-group">Conversation</label>
+        <select id="filter-group" value={filters.group} onChange={e => setters.setGroup(e.target.value)}>
           <option value={ALL}>All Conversations</option>
           {availableOptions.groups.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
       </div>
       <div className="filter-group">
-        <label>Turn</label>
-        <select value={filters.turn} onChange={e => setters.setTurn(e.target.value)}>
+        <label htmlFor="filter-turn">Turn</label>
+        <select id="filter-turn" value={filters.turn} onChange={e => setters.setTurn(e.target.value)}>
           <option value={ALL}>All Turns</option>
           {availableOptions.turns.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       {availableOptions.models.length > 0 && (
         <div className="filter-group">
-          <label>Model</label>
-          <select value={filters.model} onChange={e => setters.setModel(e.target.value)}>
+          <label htmlFor="filter-model">Model</label>
+          <select id="filter-model" value={filters.model} onChange={e => setters.setModel(e.target.value)}>
             <option value={ALL}>All Models</option>
             {availableOptions.models.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
       )}
       <div className="filter-group">
-        <label>Metric</label>
-        <select value={filters.metric} onChange={e => setters.setMetric(e.target.value)}>
+        <label htmlFor="filter-metric">Metric</label>
+        <select id="filter-metric" value={filters.metric} onChange={e => setters.setMetric(e.target.value)}>
           <option value={ALL}>All Metrics</option>
           {availableOptions.metrics.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
       </div>
       <div className="filter-group">
-        <label>Time Window</label>
-        <select value={filters.timeWindow} onChange={e => setters.setTimeWindow(e.target.value)}>
+        <label htmlFor="filter-timeWindow">Time Window</label>
+        <select id="filter-timeWindow" value={filters.timeWindow} onChange={e => setters.setTimeWindow(e.target.value)}>
           <option value="all">All Time</option>
           <option value="5">Last 5 Min</option>
           <option value="30">Last 30 Min</option>

@@ -364,7 +364,7 @@ function CompareModal({ data, onClose }) {
 }
 
 
-function DeleteConfirmModal({ filename, onConfirm, onCancel, deleting }) {
+function DeleteConfirmModal({ filename, onConfirm, onCancel, deleting, deleteError }) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
@@ -381,6 +381,7 @@ function DeleteConfirmModal({ filename, onConfirm, onCancel, deleting }) {
           <p style={{ marginBottom: 10 }}>Are you sure you want to permanently delete this evaluation and all related files (YAML config, graphs)?</p>
           <p style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text2)', wordBreak: 'break-all', marginBottom: 12 }}>{filename}</p>
           <p style={{ color: 'var(--red)', fontSize: 13, fontWeight: 600 }}>This action cannot be undone.</p>
+          {deleteError && <p style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{deleteError}</p>}
         </div>
         <div className="sc-footer">
           <button className="sc-btn sc-btn-ghost" onClick={onCancel} disabled={deleting}>Cancel</button>
@@ -407,7 +408,7 @@ function fileToDate(filename) {
 
 const LIST_PAGE_SIZE = 10
 
-export default function Evaluations({ reportsDir, view = 'evaluations' }) {
+export default function Evaluations({ reportsDir, view = 'evaluations', refreshKey }) {
   const [files, setFiles] = useState([])
   const [amendedMap, setAmendedMap] = useState({})
   const [loading, setLoading] = useState(true)
@@ -433,37 +434,70 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
   const [compareSelection, setCompareSelection] = useState([])
   const [compareData, setCompareData] = useState(null)
   const [compareLoading, setCompareLoading] = useState(false)
+  const [compareError, setCompareError] = useState(null)
   const [conversationFilter, setConversationFilter] = useState('')
   const [viewerConversationFilter, setViewerConversationFilter] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
   const [summaryMap, setSummaryMap] = useState({})
+  const [bootstrapError, setBootstrapError] = useState(null)
 
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/manifest').then(r => r.json()),
-      fetch('/api/amended-files').then(r => r.json()),
-      fetch('/api/eval-data').then(r => r.json()),
-      fetch('/api/eval-graphs').then(r => r.json()),
-      fetch('/api/eval-summaries').then(r => r.json()).catch(() => ({})),
+    setBootstrapError(null)
+    Promise.allSettled([
+      fetch('/api/manifest').then(r => { if (!r.ok) throw new Error(`manifest: ${r.status}`); return r.json() }),
+      fetch('/api/amended-files').then(r => { if (!r.ok) throw new Error(`amended-files: ${r.status}`); return r.json() }),
+      fetch('/api/eval-data').then(r => { if (!r.ok) throw new Error(`eval-data: ${r.status}`); return r.json() }),
+      fetch('/api/eval-graphs').then(r => { if (!r.ok) throw new Error(`eval-graphs: ${r.status}`); return r.json() }),
+      fetch('/api/eval-summaries').then(r => { if (!r.ok) throw new Error(`eval-summaries: ${r.status}`); return r.json() }),
     ])
-      .then(([manifest, amendedFiles, evalData, graphs, summaries]) => {
-        const csvFiles = manifest.files || manifest
-        setFiles(csvFiles.sort().reverse())
-        const map = {}
-        for (const af of amendedFiles) {
-          const ts = extractTimestamp(af)
-          if (ts) map[ts] = af
+      .then(([manifestResult, amendedResult, evalDataResult, graphsResult, summariesResult]) => {
+        const errors = []
+
+        if (manifestResult.status === 'fulfilled') {
+          const manifest = manifestResult.value
+          const csvFiles = manifest.files || manifest
+          setFiles(csvFiles.sort().reverse())
+        } else {
+          errors.push(manifestResult.reason.message)
         }
-        setAmendedMap(map)
-        setEvalDataGroups(evalData.groups || [])
-        setGraphMap(graphs)
-        setSummaryMap(summaries)
+
+        if (amendedResult.status === 'fulfilled') {
+          const map = {}
+          for (const af of amendedResult.value) {
+            const ts = extractTimestamp(af)
+            if (ts) map[ts] = af
+          }
+          setAmendedMap(map)
+        } else {
+          errors.push(amendedResult.reason.message)
+        }
+
+        if (evalDataResult.status === 'fulfilled') {
+          setEvalDataGroups(evalDataResult.value.groups || [])
+        } else {
+          errors.push(evalDataResult.reason.message)
+        }
+
+        if (graphsResult.status === 'fulfilled') {
+          setGraphMap(graphsResult.value)
+        } else {
+          errors.push(graphsResult.reason.message)
+        }
+
+        if (summariesResult.status === 'fulfilled') {
+          setSummaryMap(summariesResult.value)
+        }
+
+        if (errors.length > 0) {
+          setBootstrapError(`Failed to load: ${errors.join(', ')}`)
+        }
+
         setLoading(false)
       })
-      .catch(() => setLoading(false))
-  }, [])
+  }, [refreshKey])
 
   useEffect(() => {
     if (!files.length) return
@@ -511,6 +545,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
   const handleCompare = async () => {
     if (compareSelection.length !== 2) return
     setCompareLoading(true)
+    setCompareError(null)
     try {
       const sorted = [...compareSelection].sort((a, b) =>
         (extractTimestamp(a) || '').localeCompare(extractTimestamp(b) || '')
@@ -550,12 +585,18 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
       })
       setCompareMode(false)
       setCompareSelection([])
-    } catch { /* ignore */ }
-    setCompareLoading(false)
+    } catch (err) {
+      console.error('Compare failed:', err)
+      setCompareError('Failed to compare files. Please try again.')
+      setCompareSelection([])
+    } finally {
+      setCompareLoading(false)
+    }
   }
 
   const openFile = async (filename) => {
     setSelectedFile(filename)
+    setExpandedRows(new Set())
     setCsvLoading(true)
     try {
       const res = await fetch(`/results/${filename}`)
@@ -852,6 +893,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
   const handleDelete = async () => {
     if (!deleteConfirm) return
     setDeleting(true)
+    setDeleteError(null)
     try {
       const res = await fetch('/api/delete-evaluation', {
         method: 'POST',
@@ -867,10 +909,20 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
           setGraphMap(prev => { const next = { ...prev }; delete next[ts]; return next })
           setSummaryMap(prev => { const next = { ...prev }; delete next[ts]; return next })
         }
+        setDeleteConfirm(null)
+      } else {
+        let msg
+        try {
+          const json = await res.json()
+          msg = json.error || json.message
+        } catch { try { msg = await res.text() } catch { /* ignore */ } }
+        setDeleteError(msg || `Delete failed (${res.status})`)
       }
-    } catch { /* ignore */ }
-    setDeleting(false)
-    setDeleteConfirm(null)
+    } catch (err) {
+      setDeleteError(err.message || 'Network error while deleting')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const allConversations = useMemo(() => {
@@ -948,6 +1000,14 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
       <div className="explorer-loading">
         <div className="spinner" />
         <p>Loading file list...</p>
+      </div>
+    )
+  }
+
+  if (bootstrapError) {
+    return (
+      <div className="explorer-loading">
+        <p className="error-msg">{bootstrapError}</p>
       </div>
     )
   }
@@ -1036,7 +1096,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
               </thead>
               <tbody>
                 {pageRows.map((row, i) => {
-                  const rowKey = start + i
+                  const rowKey = `${row.conversation_group_id || ''}||${row.turn_id || ''}||${row.metric_identifier || ''}`
                   const isRowExpanded = expandedRows.has(rowKey)
                   return (
                     <tr key={rowKey} className={`expandable-row${isRowExpanded ? ' expanded' : ''}`} onClick={() => {
@@ -1046,7 +1106,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
                         return next
                       })
                     }}>
-                      <td className="row-num">{rowKey + 1}</td>
+                      <td className="row-num">{start + i + 1}</td>
                       {columns.map(col => {
                         const val = row[col] || ''
                         const isMd = (col === 'reason' || col === 'response') && val
@@ -1114,7 +1174,8 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
   }
 
   const listTotalPages = Math.max(1, Math.ceil(filteredFiles.length / LIST_PAGE_SIZE))
-  const listStart = listPage * LIST_PAGE_SIZE
+  const safeListPage = Math.min(listPage, Math.max(0, listTotalPages - 1))
+  const listStart = safeListPage * LIST_PAGE_SIZE
   const pageFiles = filteredFiles.slice(listStart, listStart + LIST_PAGE_SIZE)
 
   return (
@@ -1136,7 +1197,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
             <div className="compare-actions">
               <button
                 className={`compare-toggle-btn${compareMode ? (compareSelection.length === 2 ? ' cancel' : ' active') : ''}`}
-                onClick={() => { setCompareMode(m => !m); setCompareSelection([]) }}
+                onClick={() => { setCompareMode(m => !m); setCompareSelection([]); setCompareError(null) }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="4" width="8" height="16" rx="1" />
@@ -1153,6 +1214,7 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
                   )}
                 </button>
               )}
+              {compareError && <span className="compare-error">{compareError}</span>}
             </div>
             <div className="date-filters">
               {allConversations.length > 0 && (
@@ -1190,7 +1252,10 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
                     && !compareSelection.includes(file)
                     && compatibleFiles !== null && !compatibleFiles.has(file)
                   return (
-                  <div key={file} className={`explorer-file-card${compareMode && compareSelection.includes(file) ? ' compare-selected' : ''}${isIncompatible ? ' compare-incompatible' : ''}`} onClick={() => {
+                  <div key={file} className={`explorer-file-card${compareMode && compareSelection.includes(file) ? ' compare-selected' : ''}${isIncompatible ? ' compare-incompatible' : ''}`}
+                    tabIndex="0"
+                    role="button"
+                    onClick={() => {
                     if (compareMode) {
                       if (isIncompatible) return
                       setCompareSelection(prev => {
@@ -1201,13 +1266,38 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
                     } else {
                       openFile(file)
                     }
-                  }}>
+                  }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        if (compareMode) {
+                          if (isIncompatible) return
+                          setCompareSelection(prev => {
+                            if (prev.includes(file)) return prev.filter(f => f !== file)
+                            if (prev.length >= 2) return prev
+                            return [...prev, file]
+                          })
+                        } else {
+                          openFile(file)
+                        }
+                      }
+                    }}
+                  >
                     {compareMode && (
                       <input
                         type="checkbox"
                         className="compare-checkbox"
                         checked={compareSelection.includes(file)}
-                        readOnly
+                        onClick={e => e.stopPropagation()}
+                        onKeyDown={e => e.stopPropagation()}
+                        onChange={() => {
+                          if (isIncompatible) return
+                          setCompareSelection(prev => {
+                            if (prev.includes(file)) return prev.filter(f => f !== file)
+                            if (prev.length >= 2) return prev
+                            return [...prev, file]
+                          })
+                        }}
                       />
                     )}
                     <div className="explorer-file-icon" style={{ fontSize: '24px' }}>
@@ -1266,11 +1356,11 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
               </div>
               {listTotalPages > 1 && (
                 <div className="pager">
-                  <button onClick={() => setListPage(0)} disabled={listPage === 0}>&#171;</button>
-                  <button onClick={() => setListPage(p => p - 1)} disabled={listPage === 0}>&#8249;</button>
-                  <span className="pager-info">Page {listPage + 1} of {listTotalPages}</span>
-                  <button onClick={() => setListPage(p => p + 1)} disabled={listPage >= listTotalPages - 1}>&#8250;</button>
-                  <button onClick={() => setListPage(listTotalPages - 1)} disabled={listPage >= listTotalPages - 1}>&#187;</button>
+                  <button onClick={() => setListPage(0)} disabled={safeListPage === 0}>&#171;</button>
+                  <button onClick={() => setListPage(p => p - 1)} disabled={safeListPage === 0}>&#8249;</button>
+                  <span className="pager-info">Page {safeListPage + 1} of {listTotalPages}</span>
+                  <button onClick={() => setListPage(p => p + 1)} disabled={safeListPage >= listTotalPages - 1}>&#8250;</button>
+                  <button onClick={() => setListPage(listTotalPages - 1)} disabled={safeListPage >= listTotalPages - 1}>&#187;</button>
                 </div>
               )}
             </>
@@ -1341,8 +1431,9 @@ export default function Evaluations({ reportsDir, view = 'evaluations' }) {
         <DeleteConfirmModal
           filename={deleteConfirm}
           onConfirm={handleDelete}
-          onCancel={() => setDeleteConfirm(null)}
+          onCancel={() => { setDeleteConfirm(null); setDeleteError(null) }}
           deleting={deleting}
+          deleteError={deleteError}
         />
       )}
     </div>

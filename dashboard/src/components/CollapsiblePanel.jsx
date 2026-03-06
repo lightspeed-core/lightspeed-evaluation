@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 export default function CollapsiblePanel({ title, children, defaultOpen = true, tooltip }) {
   const [open, setOpen] = useState(defaultOpen)
+  const contentId = useId()
 
   return (
     <div className="chart-card collapsible">
-      <div className="collapsible-header" onClick={() => setOpen(o => !o)}>
+      <button type="button" className="collapsible-header" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-controls={contentId}>
         <div className="collapsible-title-row">
           <h3>{title}</h3>
           {tooltip && (
@@ -42,8 +43,8 @@ export default function CollapsiblePanel({ title, children, defaultOpen = true, 
         >
           <polyline points="18 15 12 9 6 15" />
         </svg>
-      </div>
-      {open && children}
+      </button>
+      {open && <div id={contentId}>{children}</div>}
     </div>
   )
 }

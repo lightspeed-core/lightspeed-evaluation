@@ -30,7 +30,7 @@ export function useFilters(entries, modelMap) {
 
     const afterTurn = turn === ALL
       ? afterGroup
-      : afterGroup.filter(e => !e.turnId || e.turnId === turn)
+      : afterGroup.filter(e => e.turnId === turn)
     const models = [...new Set(afterTurn.map(e => modelMap?.[e.date]).filter(Boolean))].sort()
 
     const afterModel = model === ALL
@@ -82,7 +82,7 @@ export function useFilters(entries, modelMap) {
     return entries.filter(e =>
       (model === ALL || modelMap?.[e.date] === model) &&
       (group === ALL || e.conversationGroupId === group) &&
-      (turn === ALL || !e.turnId || e.turnId === turn) &&
+      (turn === ALL || e.turnId === turn) &&
       (metric === ALL || e.metric === metric) &&
       (result === ALL || e.result === result) &&
       (!cutoff || new Date(e.date) >= cutoff)
@@ -100,7 +100,7 @@ export function useFilters(entries, modelMap) {
     return entries.filter(e =>
       (model === ALL || modelMap?.[e.date] === model) &&
       (group === ALL || e.conversationGroupId === group) &&
-      (turn === ALL || !e.turnId || e.turnId === turn) &&
+      (turn === ALL || e.turnId === turn) &&
       (!cutoff || new Date(e.date) >= cutoff)
     )
   }, [entries, modelMap, model, group, turn, timeWindow])
