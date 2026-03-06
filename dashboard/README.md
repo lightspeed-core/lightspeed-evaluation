@@ -5,14 +5,14 @@ A web-based dashboard for visualizing, comparing, and managing lightspeed-evalua
 ## Quick Start
 
 ```bash
-# Prerequisites: oc, Node.js 18+, lightspeed-eval Python package installed
+# Prerequisites: oc, Node.js 20.19+ or 22.12+, lightspeed-eval Python package installed
 make install
 
 # Start development server with default values
 make dev
 
 # Start development server with desired values
-LS_EVAL_SYSTEM_CFG_PATH=<path_to_system.yaml> LS_EVAL_DATA_PATH=<path_to_eval.yaml.> LS_EVAL_REPORTS_PATH=<path_to_reports_dir.yaml> LS_EVAL_DASHBOARD_RUN_ENABLED=<true|false> API_KEY=$(API_KEY) npx vite
+LS_EVAL_SYSTEM_CFG_PATH=<path_to_system.yaml> LS_EVAL_DATA_PATH=<path_to_eval.yaml> LS_EVAL_REPORTS_PATH=<path_to_reports_dir> LS_EVAL_DASHBOARD_RUN_ENABLED=<true|false> API_KEY="$API_KEY" npx vite
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
@@ -32,7 +32,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### Prerequisites
 
-- **Node.js 18+**
+- **Node.js 20.19+ or 22.12+**
 - **Python 3.11+** with `lightspeed-eval` installed (for running evaluations)
 - **OLS service** running at the endpoint configured in `system.yaml`
 

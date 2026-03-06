@@ -33,6 +33,7 @@ function getValue(e, key) {
 }
 
 function compare(a, b) {
+  if ((a === null || a === undefined) && (b === null || b === undefined)) return 0
   if (a === null || a === undefined) return 1
   if (b === null || b === undefined) return -1
   if (typeof a === 'number' && typeof b === 'number') return a - b
@@ -101,8 +102,9 @@ export default function ResultsTable({ entries }) {
       return <td key={col.key}>{new Date(val).toLocaleString()}</td>
     }
     if (col.type === 'number') {
-      const formatted = val !== null && val !== undefined
-        ? (col.key === 'score' ? val.toFixed(4) : val.toFixed(3))
+      const num = Number(val)
+      const formatted = Number.isFinite(num)
+        ? (col.key === 'score' ? num.toFixed(4) : num.toFixed(3))
         : '-'
       return <td key={col.key}>{formatted}</td>
     }
@@ -184,11 +186,21 @@ export default function ResultsTable({ entries }) {
           </thead>
           <tbody>
             {pageEntries.map((e, i) => {
-              const rowKey = safePage * PAGE_SIZE + i
-              const isExpanded = expandedRows.has(rowKey)
+              const displayNum = safePage * PAGE_SIZE + i + 1
+              const stableId = `${e.date || ''}||${e.conversationGroupId || ''}||${e.turnId || ''}||${e.metric || ''}`
+              const isExpanded = expandedRows.has(stableId)
               return (
-                <tr key={rowKey} className={`expandable-row${isExpanded ? ' expanded' : ''}`} onClick={() => toggleRow(rowKey)}>
-                  <td className="row-num">{rowKey + 1}</td>
+                <tr key={stableId} className={`expandable-row${isExpanded ? ' expanded' : ''}`}>
+                  <td className="row-num">
+                    <button
+                      className="row-toggle"
+                      aria-expanded={isExpanded}
+                      aria-label={`${isExpanded ? 'Collapse' : 'Expand'} row ${displayNum}`}
+                      onClick={() => toggleRow(stableId)}
+                    >
+                      {isExpanded ? '\u25BC' : '\u25B6'} {displayNum}
+                    </button>
+                  </td>
                   {COLUMNS.map(col => renderCell(e, col, isExpanded))}
                 </tr>
               )

@@ -88,6 +88,7 @@ export function createHtmlLegendPlugin(containerId, metricMetadataOrRef = {}) {
     id: `htmlLegend-${containerId}`,
     afterUpdate(chart) {
       const ul = getOrCreateLegendList(chart, containerId)
+      if (!ul) return
 
       // Remove old legend items
       while (ul.firstChild) {
@@ -113,30 +114,12 @@ export function createHtmlLegendPlugin(containerId, metricMetadataOrRef = {}) {
           const { type } = chart.config
           if (type === 'pie' || type === 'doughnut') {
             chart.toggleDataVisibility(item.index)
+            chart.update()
           } else {
-            // Solo legend click behavior
-            const clickedIndex = item.datasetIndex
             const allIndices = items.map(i => i.datasetIndex)
-            const visibleIndices = allIndices.filter(i => chart.isDatasetVisible(i))
-            const allVisible = visibleIndices.length === allIndices.length
-            const clickedIsVisible = chart.isDatasetVisible(clickedIndex)
-
-            if (allVisible) {
-              // All visible: hide all except clicked
-              for (const i of allIndices) {
-                chart.setDatasetVisibility(i, i === clickedIndex)
-              }
-            } else if (clickedIsVisible && visibleIndices.length === 1) {
-              // Only clicked is visible: show all
-              for (const i of allIndices) {
-                chart.setDatasetVisibility(i, true)
-              }
-            } else {
-              // Toggle clicked item
-              chart.setDatasetVisibility(clickedIndex, !clickedIsVisible)
-            }
+            const legendItems = allIndices.map(i => ({ datasetIndex: i }))
+            soloLegendClick(null, item, { chart, legendItems })
           }
-          chart.update()
         }
 
         // Color box
@@ -180,6 +163,12 @@ export function createHtmlLegendPlugin(containerId, metricMetadataOrRef = {}) {
 
 function getOrCreateLegendList(chart, id) {
   const legendContainer = document.getElementById(id)
+  if (!legendContainer) {
+    console.warn(`Legend container with id "${id}" not found`)
+    return null
+  }
+
+
   let listContainer = legendContainer.querySelector('ul')
 
   if (!listContainer) {

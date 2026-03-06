@@ -10,11 +10,13 @@ function parseDateFromFilename(filename) {
 
 async function fetchManifest() {
   const res = await fetch('/api/manifest')
+  if (!res.ok) throw new Error(`Failed to fetch manifest (${res.status} ${res.statusText})`)
   return res.json()
 }
 
 async function fetchAndParseCsv(filename) {
   const res = await fetch(`/results/${filename}`)
+  if (!res.ok) throw new Error(`Failed to fetch ${filename} (${res.status} ${res.statusText})`)
   const text = await res.text()
   return new Promise((resolve, reject) => {
     Papa.parse(text, {
@@ -43,6 +45,7 @@ export function useEvalData() {
     const isRefresh = reloadKey > 0
     if (isRefresh) setRefreshing(true)
     async function load() {
+      if (!cancelled) setError(null)
       try {
         const [manifest, summaries] = await Promise.all([
           fetchManifest(),

@@ -40,6 +40,7 @@ const TAB_GROUPS = [
   [
     { id: 'evaluations', label: 'Evaluations' },
     { id: 'conversations', label: 'Conversations' },
+    { id: 'details', label: 'Details' },
   ],
 ]
 
@@ -151,6 +152,7 @@ export default function App() {
   const { entries, loading, refreshing, error, reportsDir, refresh, modelMap } = useEvalData()
   const { filters, setters, filtered, filteredNoMetric, availableOptions, reset, ALL } = useFilters(entries, modelMap)
   const [activeTab, setActiveTab] = useState('trends')
+  const [refreshKey, setRefreshKey] = useState(0)
   const [detailView, setDetailView] = useState(null)
   const [systemConfig, setSystemConfig] = useState({ set: false, path: '', content: '' })
   const [showSystemConfig, setShowSystemConfig] = useState(false)
@@ -167,12 +169,18 @@ export default function App() {
     setEvalDataLoading(true)
     try {
       const res = await fetch('/api/eval-data-content')
+      if (!res.ok) {
+        console.error('Failed to load eval data:', res.status)
+        setEvalDataConfig(null)
+        return
+      }
       const data = await res.json()
       setEvalDataConfig({ path: data.path, content: data.content })
     } catch {
       setEvalDataConfig(null)
+    } finally {
+      setEvalDataLoading(false)
     }
-    setEvalDataLoading(false)
   }
 
 
@@ -230,25 +238,44 @@ export default function App() {
       </header>
 
       <div className="container">
-        <div className="tabs">
+        <div className="tabs" role="tablist">
           {TAB_GROUPS.map((group, gi) => (
             <div key={gi} className="tab-group">
               {gi > 0 && <div className="tab-divider" />}
               {group.map(t => (
-                <div
+                <button
                   key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === t.id}
+                  tabIndex={activeTab === t.id ? 0 : -1}
                   className={`tab ${activeTab === t.id ? 'active' : ''}`}
                   onClick={() => setActiveTab(t.id)}
+                  onKeyDown={(e) => {
+                    const allTabs = TAB_GROUPS.flat()
+                    const idx = allTabs.findIndex(tab => tab.id === t.id)
+                    let nextIdx = -1
+                    if (e.key === 'ArrowRight') nextIdx = (idx + 1) % allTabs.length
+                    else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + allTabs.length) % allTabs.length
+                    else if (e.key === 'Home') nextIdx = 0
+                    else if (e.key === 'End') nextIdx = allTabs.length - 1
+                    if (nextIdx >= 0) {
+                      e.preventDefault()
+                      setActiveTab(allTabs[nextIdx].id)
+                      e.currentTarget.parentElement.closest('[role="tablist"]')
+                        ?.querySelectorAll('[role="tab"]')[nextIdx]?.focus()
+                    }
+                  }}
                 >
                   {TAB_ICONS[t.id]}{t.label}
-                </div>
+                </button>
               ))}
             </div>
           ))}
           <div className="tab-spacer" />
           <button
             className={`refresh-btn${refreshing ? ' spinning' : ''}`}
-            onClick={refresh}
+            onClick={() => { refresh(); setRefreshKey(k => k + 1) }}
             disabled={refreshing}
             title="Refresh data"
             aria-label="Refresh data"
@@ -297,11 +324,11 @@ export default function App() {
           )}
 
           {activeTab === 'evaluations' && (
-            <Evaluations reportsDir={reportsDir} view="evaluations" />
+            <Evaluations reportsDir={reportsDir} view="evaluations" refreshKey={refreshKey} />
           )}
 
           {activeTab === 'conversations' && (
-            <Evaluations view="conversations" />
+            <Evaluations view="conversations" refreshKey={refreshKey} />
           )}
 
           {activeTab === 'trends' && (

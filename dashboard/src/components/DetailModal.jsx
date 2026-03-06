@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef } from 'react'
 import Markdown from 'react-markdown'
 
 const MD_PATTERN = /[*_`#\-|>\[\]]/
@@ -8,13 +9,33 @@ export default function DetailModal({ date, metric, entries, modelMap, onClose }
     : entries.filter(e => e.date === date)
 
   const model = modelMap?.[date]
+  const headingId = useId()
+  const dialogRef = useRef(null)
+
+  useEffect(() => {
+    dialogRef.current?.focus()
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        ref={dialogRef}
+        tabIndex={-1}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h2>Evaluation Details</h2>
+            <h2 id={headingId}>Evaluation Details</h2>
             <div className="modal-subtitle">
               {new Date(date).toLocaleString()}
               {model && <span className="model-tag">{model}</span>}
