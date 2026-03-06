@@ -59,6 +59,9 @@ distribution-archives: ## Generate distribution archives to be uploaded into Pyt
 test: install-deps-test ## Execute tests with Pytest
 	uv run pytest tests lsc_agent_eval/tests
 
+e2e_tests: install-deps-test
+	uv run pytest tests/integration -v -m integration
+
 pre-commit: black-check docstyle pyright pylint ruff check-types bandit
 	@echo "All checks successful"
 

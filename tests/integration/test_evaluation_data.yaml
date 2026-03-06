@@ -9,6 +9,7 @@
   turns:
     - turn_id: turn_id1
       query: What is the capital of France?
+      response: null  # Force API call by explicitly setting to null
       expected_response: Paris
       expected_tool_calls: null
       turn_metrics:
