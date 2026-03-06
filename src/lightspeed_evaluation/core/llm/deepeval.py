@@ -1,4 +1,8 @@
-"""DeepEval LLM Manager - DeepEval-specific LLM wrapper."""
+"""DeepEval LLM Manager - DeepEval-specific LLM wrapper.
+
+Note: litellm patching is applied at package level (__init__.py) before any imports.
+This ensures DeepEval's LiteLLMModel uses the patched completion functions.
+"""
 
 import os
 from typing import Any
@@ -10,7 +14,8 @@ from deepeval.models import LiteLLMModel
 class DeepEvalLLMManager:
     """DeepEval LLM Manager - Takes LLM parameters directly.
 
-    This manager focuses solely on DeepEval-specific LLM integration.
+    This manager focuses solely on DeepEval-specific LLM integration
+    with token tracking support.
     """
 
     def __init__(self, model_name: str, llm_params: dict[str, Any]):
@@ -23,7 +28,10 @@ class DeepEvalLLMManager:
         # Always drop unsupported parameters for cross-provider compatibility
         litellm.drop_params = True
 
-        # Create DeepEval's LLM model with provided parameters
+        # Note: Token tracking is handled by the patched litellm.completion/acompletion
+        # No additional setup needed - the patch was applied at module import time
+
+        # Create standard LiteLLMModel - it will use our patched completion functions
         self.llm_model = LiteLLMModel(
             model=self.model_name,
             temperature=llm_params.get("temperature", 0.0),
