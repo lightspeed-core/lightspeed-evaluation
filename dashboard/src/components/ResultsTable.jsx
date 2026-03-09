@@ -102,7 +102,12 @@ export default function ResultsTable({ entries }) {
       return <td key={col.key}>{new Date(val).toLocaleString()}</td>
     }
     if (col.type === 'number') {
-      const num = Number(val)
+      const num = 
+        val === null ||
+        val === undefined ||
+        (typeof val === 'string' && val.trim() === '')
+          ? NaN
+          : Number(val)
       const formatted = Number.isFinite(num)
         ? (col.key === 'score' ? num.toFixed(4) : num.toFixed(3))
         : '-'
