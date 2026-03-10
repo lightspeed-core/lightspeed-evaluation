@@ -8,9 +8,10 @@ from lightspeed_evaluation.core.models.api import (
 from lightspeed_evaluation.core.models.data import (
     EvaluationData,
     EvaluationRequest,
-    MetricResult,
     EvaluationResult,
     EvaluationScope,
+    JudgeScore,
+    MetricResult,
     TurnData,
 )
 from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
@@ -34,6 +35,7 @@ __all__ = [
     "TurnData",
     "EvaluationData",
     "EvaluationRequest",
+    "JudgeScore",
     "MetricResult",
     "EvaluationResult",
     "EvaluationScope",

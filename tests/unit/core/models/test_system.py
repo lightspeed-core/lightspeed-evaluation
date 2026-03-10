@@ -308,7 +308,7 @@ class TestJudgePanelConfig:
         panel = JudgePanelConfig(judges=["gpt-4o-mini"])
         assert len(panel.judges) == 1
         assert panel.enabled_metrics is None
-        assert panel.aggregation_strategy == "average"
+        assert panel.aggregation_strategy == "max"  # Default is max
 
         # Multiple judges with metrics
         panel = JudgePanelConfig(
@@ -320,7 +320,7 @@ class TestJudgePanelConfig:
         assert panel.enabled_metrics is not None
         assert len(panel.enabled_metrics) == 2
 
-        # All aggregation strategies
+        # All aggregation strategies accepted (runtime warning for non-max)
         for strategy in ["max", "average", "majority_vote"]:
             panel = JudgePanelConfig(
                 judges=["gpt-4o-mini"], aggregation_strategy=strategy
@@ -386,14 +386,22 @@ class TestSystemConfigWithLLMPoolAndJudgePanel:
         assert config.llm_pool is not None
         assert config.judge_panel is not None
 
-        # get_judge_configs returns resolved configs
+        # get_judge_configs returns tuples of (pool_key, resolved_config)
         judge_configs = config.get_judge_configs()
         assert len(judge_configs) == 2
-        assert all(isinstance(c, LLMConfig) for c in judge_configs)
-        assert judge_configs[0].model == "gpt-4o-mini"
-        assert judge_configs[0].cache_dir.endswith("judge_0")
-        assert judge_configs[1].max_tokens == 1024
-        assert judge_configs[1].cache_dir.endswith("judge_1")
+        # Each entry is a tuple of (pool_key, LLMConfig)
+        assert all(
+            isinstance(entry, tuple) and len(entry) == 2 for entry in judge_configs
+        )
+        assert all(isinstance(entry[1], LLMConfig) for entry in judge_configs)
+        # Check pool keys match the judge panel judges list
+        assert judge_configs[0][0] == "gpt-4o-mini"
+        assert judge_configs[1][0] == "gpt-4o"
+        # Check configs
+        assert judge_configs[0][1].model == "gpt-4o-mini"
+        assert judge_configs[0][1].cache_dir.endswith("judge_0")
+        assert judge_configs[1][1].max_tokens == 1024
+        assert judge_configs[1][1].cache_dir.endswith("judge_1")
 
         # get_llm_config works
         llm_config = config.get_llm_config("gpt-4o-mini")

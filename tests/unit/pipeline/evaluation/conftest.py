@@ -2,6 +2,8 @@
 
 """Pytest configuration and fixtures for evaluation tests."""
 
+from typing import Any
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -21,6 +23,29 @@ from lightspeed_evaluation.pipeline.evaluation.processor import (
     ProcessorComponents,
     ConversationProcessor,
 )
+
+
+def create_mock_llm_manager(mocker: MockerFixture) -> Any:
+    """Create a properly configured mock LLMManager for tests without judge panel.
+
+    Returns a mock that simulates a single-judge scenario (no panel configured).
+    """
+    mock_llm_manager_class = mocker.patch(
+        "lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager"
+    )
+    mock_instance = mocker.MagicMock()
+    # Configure for single-judge mode (no panel)
+    mock_instance.should_use_panel_for_metric.return_value = False
+    mock_instance.has_judge_panel.return_value = False
+    mock_instance.get_judge_managers.return_value = [mock_instance]
+    mock_instance.get_primary_judge.return_value = mock_instance
+    # Return list with single judge for any metric
+    mock_instance.get_judges_for_metric.return_value = [mock_instance]
+    # Set config.model and judge_id for judge_scores
+    mock_instance.config.model = "gpt-4o-mini-mock"
+    mock_instance.judge_id = "primary"
+    mock_llm_manager_class.from_system_config.return_value = mock_instance
+    return mock_llm_manager_class
 
 
 @pytest.fixture

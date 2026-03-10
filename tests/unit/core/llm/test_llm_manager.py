@@ -387,3 +387,48 @@ class TestLLMManagerJudgePanel:
             "Judge panel" in record.message and "2 judges" in record.message
             for record in caplog.records
         )
+
+
+class TestLLMManagerBackwardCompatibility:
+    """Tests for backward compatibility with existing llm config (no llm_pool)."""
+
+    def test_from_system_config_without_llm_pool(self, mocker: MockerFixture) -> None:
+        """Test that from_system_config works without llm_pool or judge_panel."""
+        mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
+
+        # Create SystemConfig with only llm field (no llm_pool, no judge_panel)
+        system_config = SystemConfig(
+            llm=LLMConfig(provider="openai", model="gpt-4o-mini")
+        )
+        manager = LLMManager.from_system_config(system_config)
+
+        # Should work as single-judge mode
+        assert not manager.has_judge_panel()
+        assert len(manager.judge_managers) == 0
+        assert manager.get_primary_judge() is manager
+        assert manager.config.model == "gpt-4o-mini"
+
+    def test_get_judge_managers_returns_self_when_no_panel(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that get_judge_managers returns [self] when no panel configured."""
+        mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
+
+        system_config = SystemConfig()  # Uses default llm config
+        manager = LLMManager.from_system_config(system_config)
+
+        judges = manager.get_judge_managers()
+        assert len(judges) == 1
+        assert judges[0] is manager
+
+    def test_should_use_panel_returns_false_when_no_panel(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that should_use_panel_for_metric returns False without panel."""
+        mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
+
+        system_config = SystemConfig()
+        manager = LLMManager.from_system_config(system_config)
+
+        assert not manager.should_use_panel_for_metric("ragas:faithfulness")
+        assert not manager.should_use_panel_for_metric("custom:answer_correctness")

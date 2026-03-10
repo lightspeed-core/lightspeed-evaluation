@@ -60,6 +60,9 @@ DEFAULT_API_CACHE_DIR = ".caches/api_cache"
 
 DEFAULT_API_NUM_RETRIES = 3
 
+# Frameworks that don't require judge LLM (NLP, script-based evaluations)
+NON_LLM_FRAMEWORKS = frozenset({"nlp", "script"})
+
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
 DEFAULT_SSL_VERIFY = True
@@ -96,6 +99,8 @@ SUPPORTED_CSV_COLUMNS = [
     "api_output_tokens",
     "judge_llm_input_tokens",
     "judge_llm_output_tokens",
+    # Per-judge scores (JSON array with one entry for single judge)
+    "judge_scores",
     # Streaming performance metrics
     "time_to_first_token",
     "streaming_duration",

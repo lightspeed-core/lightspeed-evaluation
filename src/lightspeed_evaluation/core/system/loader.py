@@ -16,6 +16,10 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     VisualizationConfig,
 )
+from lightspeed_evaluation.core.models.system import (
+    JudgePanelConfig,
+    LLMPoolConfig,
+)
 from lightspeed_evaluation.core.system.setup import (
     setup_environment_variables,
     setup_logging,
@@ -156,6 +160,14 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
     def _create_system_config(self, config_data: dict[str, Any]) -> SystemConfig:
         """Create SystemConfig object from validated configuration data."""
         metrics_metadata = config_data.get("metrics_metadata", {})
+
+        # Parse llm_pool and judge_panel if present (Optional sections)
+        llm_pool_data = config_data.get("llm_pool")
+        llm_pool = LLMPoolConfig(**llm_pool_data) if llm_pool_data else None
+
+        judge_panel_data = config_data.get("judge_panel")
+        judge_panel = JudgePanelConfig(**judge_panel_data) if judge_panel_data else None
+
         return SystemConfig(
             core=CoreConfig(**config_data.get("core", {})),
             llm=LLMConfig(**config_data.get("llm", {})),
@@ -164,6 +176,8 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
             output=OutputConfig(**config_data.get("output", {})),
             logging=LoggingConfig(**config_data.get("logging", {})),
             visualization=VisualizationConfig(**config_data.get("visualization", {})),
+            llm_pool=llm_pool,
+            judge_panel=judge_panel,
             default_turn_metrics_metadata=metrics_metadata.get("turn_level", {}),
             default_conversation_metrics_metadata=metrics_metadata.get(
                 "conversation_level", {}

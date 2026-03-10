@@ -24,16 +24,20 @@ class LLMManager:
         self,
         config: LLMConfig,
         system_config: Optional[SystemConfig] = None,
+        judge_id: Optional[str] = None,
     ):
         """Initialize with validated environment and constructed model name.
 
         Args:
             config: Primary LLM configuration (also used as fallback)
             system_config: Optional full system config for judge panel support
+            judge_id: Optional identifier for this judge (pool key). If not provided,
+                defaults to "primary" for single LLM or the pool key for panel judges.
         """
         self.config = config
         self.system_config = system_config
         self.model_name = self._construct_model_name_and_validate(config)
+        self.judge_id = judge_id or "primary"
 
         # Initialize judge panel if available
         self.judge_managers: list["LLMManager"] = []
@@ -43,9 +47,9 @@ class LLMManager:
             # Create LLM managers for each judge using resolved configs from llms pool
             try:
                 judge_configs = system_config.get_judge_configs()
-                for resolved_config in judge_configs:
+                for pool_key, resolved_config in judge_configs:
                     # Create child manager without system_config to avoid recursion
-                    judge_manager = LLMManager(resolved_config)
+                    judge_manager = LLMManager(resolved_config, judge_id=pool_key)
                     self.judge_managers.append(judge_manager)
             except ValueError as e:
                 logger.error("Failed to resolve judge panel: %s", e)
@@ -162,6 +166,22 @@ class LLMManager:
         if self.judge_managers:
             return self.judge_managers[0]
         return self
+
+    def get_judges_for_metric(self, metric_identifier: str) -> list["LLMManager"]:
+        """Get list of judges to use for a specific metric.
+
+        Returns all judges if metric should use panel, otherwise returns
+        list with single primary judge. Always returns a list.
+
+        Args:
+            metric_identifier: Metric identifier (e.g., "ragas:faithfulness")
+
+        Returns:
+            List of LLMManager instances to use for this metric
+        """
+        if self.should_use_panel_for_metric(metric_identifier):
+            return self.get_judge_managers()
+        return [self.get_primary_judge()]
 
     def should_use_panel_for_metric(self, metric_identifier: str) -> bool:
         """Determine if a metric should use judge panel based on enabled_metrics.

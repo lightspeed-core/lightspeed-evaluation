@@ -581,11 +581,11 @@ class JudgePanelConfig(BaseModel):
         ),
     )
     aggregation_strategy: str = Field(
-        default="average",
+        default="max",
         description=(
             "Strategy for aggregating scores from multiple judges. "
             "Options: 'max', 'average', 'majority_vote'. "
-            "Note: Currently unused - will be implemented later."
+            "Note: Currently only 'max' is implemented; others coming soon."
         ),
     )
 
@@ -817,16 +817,16 @@ class SystemConfig(BaseModel):
                     ) from e
         return v
 
-    def get_judge_configs(self) -> list[LLMConfig]:
-        """Get resolved LLMConfig for all judges.
+    def get_judge_configs(self) -> list[tuple[str, LLMConfig]]:
+        """Get resolved LLMConfig for all judges with their pool keys.
 
         Returns:
-            List of LLMConfig objects for each judge.
+            List of (pool_key, LLMConfig) tuples for each judge.
             If judge_panel is configured, resolves from llm_pool.
-            Otherwise, returns single llm config.
+            Otherwise, returns single entry with "primary" as key.
         """
         if not self.judge_panel:
-            return [self.llm]
+            return [("primary", self.llm)]
 
         if not self.llm_pool:
             raise ConfigurationError(
@@ -840,7 +840,7 @@ class SystemConfig(BaseModel):
             config = self.llm_pool.resolve_llm_config(
                 judge_id, cache_suffix=cache_suffix
             )
-            configs.append(config)
+            configs.append((judge_id, config))
         return configs
 
     def get_llm_config(
