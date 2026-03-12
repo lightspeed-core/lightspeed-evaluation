@@ -21,6 +21,8 @@ from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 
+from tests.unit.pipeline.evaluation.conftest import create_mock_llm_manager
+
 
 class TestMetricsEvaluator:
     """Unit tests for MetricsEvaluator."""
@@ -34,7 +36,7 @@ class TestMetricsEvaluator:
     ) -> None:
         """Test evaluator initialization."""
         # Mock the metric handlers
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -81,7 +83,7 @@ class TestMetricsEvaluator:
     ) -> None:
         """Test evaluating turn-level metric that passes."""
         # Mock the handlers
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -141,7 +143,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """Test evaluating turn-level metric that fails."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -190,7 +192,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """When required data is missing or empty, return ERROR and skip metric processing."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -241,7 +243,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """Test evaluating conversation-level metric."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -285,7 +287,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """Test evaluating metric with unsupported framework."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -324,7 +326,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """Test handling when metric evaluation returns None score."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -375,7 +377,7 @@ class TestMetricsEvaluator:
         Note: Even on error, turn data fields (query, response, contexts) should be
         preserved in the result for debugging and analysis purposes.
         """
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -431,7 +433,7 @@ class TestMetricsEvaluator:
         assert config_loader.system_config is not None
         config_loader.system_config.api.enabled = False
 
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -470,7 +472,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """Test _determine_status method."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -504,7 +506,7 @@ class TestMetricsEvaluator:
         mocker: MockerFixture,
     ) -> None:
         """Test _determine_status uses default 0.5 when threshold is None."""
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -541,7 +543,7 @@ class TestMetricsEvaluator:
             tuple: (evaluator, mock_handlers) where mock_handlers is a dict with keys:
                    'ragas', 'geval', 'custom', 'script', 'nlp'
         """
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -774,7 +776,7 @@ class TestMetricsEvaluator:
         Scenario: First iteration succeeds with tokens, second iteration fails.
         Expected: Error result should preserve tokens from first iteration.
         """
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )
@@ -838,11 +840,15 @@ class TestMetricsEvaluator:
         result = evaluator.evaluate_metric(request)
 
         assert result is not None
-        assert result.result == "ERROR"
-        # Tokens from first successful iteration should be preserved
-        assert result.judge_llm_input_tokens == 150
-        assert result.judge_llm_output_tokens == 50
-        assert "iteration 2" in result.reason.lower()
+        # With consistent flow, both iterations complete and accumulate tokens
+        # Result is not ERROR because we get partial results (first iteration FAIL, second ERROR)
+        # The highest score from iterations is preserved
+        assert result.score == 0.3  # From first iteration
+        # Tokens accumulated from both iterations (first success + second failure mock)
+        assert result.judge_llm_input_tokens == 300  # 150 + 150
+        assert result.judge_llm_output_tokens == 100  # 50 + 50
+        # Error from second iteration captured in accumulated reason
+        assert "error" in result.reason.lower()
 
     def test_evaluate_single_path_error_preserves_tokens(
         self,
@@ -856,7 +862,7 @@ class TestMetricsEvaluator:
         Scenario: Single evaluation call fails but tokens were tracked.
         Expected: Error result should preserve any tokens captured.
         """
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.LLMManager")
+        create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
         )

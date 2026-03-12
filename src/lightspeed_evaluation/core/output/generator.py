@@ -196,6 +196,13 @@ class OutputHandler:
                         # Special formatting for execution_time
                         if column == "execution_time" and value is not None:
                             row_data.append(f"{value:.3f}")
+                        # Convert judge_scores to JSON string
+                        elif column == "judge_scores" and value is not None:
+                            row_data.append(
+                                json.dumps(
+                                    [js.model_dump() for js in value], default=str
+                                )
+                            )
                         else:
                             row_data.append(value)
                     else:
@@ -254,6 +261,12 @@ class OutputHandler:
                     "execution_time": round(r.execution_time, 3),
                     "judge_llm_input_tokens": r.judge_llm_input_tokens,
                     "judge_llm_output_tokens": r.judge_llm_output_tokens,
+                    # Judge panel scores (when using multiple judges)
+                    "judge_scores": (
+                        [js.model_dump() for js in r.judge_scores]
+                        if r.judge_scores
+                        else None
+                    ),
                     # Streaming performance metrics
                     "time_to_first_token": r.time_to_first_token,
                     "streaming_duration": r.streaming_duration,

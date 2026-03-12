@@ -6,6 +6,8 @@ from pydantic import ValidationError
 from lightspeed_evaluation.core.models.data import (
     EvaluationData,
     EvaluationResult,
+    JudgeScore,
+    MetricResult,
     TurnData,
 )
 
@@ -501,3 +503,113 @@ class TestEvaluationResult:
         )
 
         assert result.turn_id is None
+
+
+class TestJudgeScore:
+    """Tests for JudgeScore model used in judge panel evaluations."""
+
+    def test_valid_creation(self) -> None:
+        """Test JudgeScore creation with valid data."""
+        judge_score = JudgeScore(
+            judge_id="gpt-4o-mini",
+            score=0.85,
+            reason="Response is accurate and relevant",
+            input_tokens=150,
+            output_tokens=50,
+        )
+
+        assert judge_score.judge_id == "gpt-4o-mini"
+        assert judge_score.score == 0.85
+        assert judge_score.reason == "Response is accurate and relevant"
+        assert judge_score.input_tokens == 150
+        assert judge_score.output_tokens == 50
+
+    def test_default_values(self) -> None:
+        """Test JudgeScore has correct default values."""
+        judge_score = JudgeScore(judge_id="gpt-4o")
+
+        assert judge_score.score is None
+        assert judge_score.reason == ""
+        assert judge_score.input_tokens == 0
+        assert judge_score.output_tokens == 0
+
+    def test_empty_judge_id_rejected(self) -> None:
+        """Test that empty judge_id is rejected."""
+        with pytest.raises(ValidationError):
+            JudgeScore(judge_id="")
+
+    def test_score_out_of_range_rejected(self) -> None:
+        """Test that score outside 0-1 range is rejected."""
+        with pytest.raises(ValidationError):
+            JudgeScore(judge_id="gpt-4o", score=1.5)
+
+        with pytest.raises(ValidationError):
+            JudgeScore(judge_id="gpt-4o", score=-0.1)
+
+    def test_negative_tokens_rejected(self) -> None:
+        """Test that negative token counts are rejected."""
+        with pytest.raises(ValidationError):
+            JudgeScore(judge_id="gpt-4o", input_tokens=-1)
+
+        with pytest.raises(ValidationError):
+            JudgeScore(judge_id="gpt-4o", output_tokens=-1)
+
+
+class TestMetricResultJudgeScores:
+    """Tests for MetricResult.judge_scores field."""
+
+    def test_metric_result_with_judge_scores(self) -> None:
+        """Test MetricResult with judge_scores populated."""
+        judge_scores = [
+            JudgeScore(judge_id="gpt-4o-mini", score=0.8, input_tokens=100),
+            JudgeScore(judge_id="gpt-4o", score=0.9, input_tokens=120),
+            JudgeScore(judge_id="gemini-flash", score=0.85, input_tokens=110),
+        ]
+
+        result = MetricResult(
+            result="PASS",
+            score=0.85,
+            threshold=0.7,
+            reason="Aggregated from 3 judges",
+            judge_llm_input_tokens=330,
+            judge_llm_output_tokens=150,
+            judge_scores=judge_scores,
+        )
+
+        assert result.judge_scores is not None
+        assert len(result.judge_scores) == 3
+        # pylint: disable=unsubscriptable-object
+        assert result.judge_scores[0].judge_id == "gpt-4o-mini"
+        assert result.judge_scores[1].score == 0.9
+        assert result.score == 0.85
+
+    def test_metric_result_without_judge_scores(self) -> None:
+        """Test MetricResult without judge_scores (single judge mode)."""
+        result = MetricResult(
+            result="PASS",
+            score=0.8,
+            threshold=0.7,
+            reason="Single judge evaluation",
+        )
+
+        assert result.judge_scores is None
+
+    def test_evaluation_result_inherits_judge_scores(self) -> None:
+        """Test that EvaluationResult inherits judge_scores from MetricResult."""
+        judge_scores = [
+            JudgeScore(judge_id="gpt-4o-mini", score=0.75),
+            JudgeScore(judge_id="gpt-4o", score=0.85),
+        ]
+
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="turn1",
+            metric_identifier="ragas:faithfulness",
+            result="PASS",
+            score=0.8,
+            threshold=0.7,
+            judge_scores=judge_scores,
+        )
+
+        assert result.judge_scores is not None
+        assert len(result.judge_scores) == 2

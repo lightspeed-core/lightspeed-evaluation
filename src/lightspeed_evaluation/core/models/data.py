@@ -419,6 +419,24 @@ class EvaluationData(BaseModel):
         return v
 
 
+class JudgeScore(BaseModel):
+    """Model for individual judge evaluation score in a judge panel.
+
+    Used when multiple judges evaluate the same metric, storing per-judge
+    details for transparency and analysis.
+    """
+
+    judge_id: str = Field(
+        ..., min_length=1, description="Judge identifier (model ID from llm_pool)"
+    )
+    score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Score between 0 and 1"
+    )
+    reason: str = Field(default="", description="Explanation from this judge")
+    input_tokens: int = Field(default=0, ge=0, description="Input tokens used")
+    output_tokens: int = Field(default=0, ge=0, description="Output tokens used")
+
+
 class MetricResult(BaseModel):
     """Model for framework metric result."""
 
@@ -438,6 +456,10 @@ class MetricResult(BaseModel):
     )
     judge_llm_output_tokens: int = Field(
         default=0, ge=0, description="Judge LLM output tokens used"
+    )
+    judge_scores: Optional[list[JudgeScore]] = Field(
+        default=None,
+        description="Per-judge scores when using judge panel (for transparency)",
     )
 
     @field_validator("result")
