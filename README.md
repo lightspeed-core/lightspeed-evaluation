@@ -40,16 +40,18 @@ make install-tools
 By default, lightspeed-evaluation uses remote embedding providers (OpenAI, Gemini). If you need **local embedding models** (HuggingFace/sentence-transformers), install with:
 
 ```bash
-# Using pip
+# Using uv (from an already cloned repo) - CPU-only (default, ~2GB)
+uv sync --extra local-embeddings
+
+# Using uv (from an already cloned repo) - GPU with CUDA support (~6GB)
+cp uv-gpu.lock uv.lock && uv sync --extra local-embeddings --frozen
+
+# Using pip - CPU-only (install torch from CPU index first)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install 'lightspeed-evaluation[local-embeddings]'
 ```
-or 
-```bash
-# Using uv (from already cloned repo for local development)
-uv sync --extra local-embeddings
-```
 
-> **Note**: Local embeddings require PyTorch and related packages (~6GB). Only install if you need `embedding.provider: huggingface` in your configuration.
+> **Note**: The `uv` commands above must be run from an already cloned repository checkout, since they use this project's `pyproject.toml`, `uv.lock`, and `uv-gpu.lock`. The default `uv.lock` uses CPU-only PyTorch (~2GB). For GPU/CUDA support, copy `uv-gpu.lock` to `uv.lock` before syncing (~6GB). When using pip, a plain `pip install` may install CUDA-dependent wheels on Linux; use the `--index-url` flag for guaranteed CPU-only installation. Only install if you need `embedding.provider: huggingface` in your configuration.
 
 #### Optional: NLP metrics
 If you want to install Ragas NLP metrics like ROUGE or Bleu install additional dependencies with:
