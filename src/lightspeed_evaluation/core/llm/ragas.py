@@ -2,8 +2,11 @@
 
 from typing import Any, Optional
 
-from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
-from ragas.metrics import answer_relevancy, faithfulness
+from langchain_core.outputs.generation import Generation
+from langchain_core.outputs.llm_result import LLMResult
+from ragas.llms.base import BaseRagasLLM
+from ragas.metrics._answer_relevance import answer_relevancy
+from ragas.metrics._faithfulness import faithfulness
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager

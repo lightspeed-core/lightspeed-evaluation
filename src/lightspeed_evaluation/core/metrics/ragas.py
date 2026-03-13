@@ -1,21 +1,23 @@
 """Ragas metrics evaluation using LLM Manager."""
 
 import math
-from typing import Any, Optional
+from typing import Any, Optional, cast
+
+import pandas as pd
 
 import litellm
 from datasets import Dataset
 from litellm.caching.caching import Cache
 from litellm.types.caching import LiteLLMCacheType
 from ragas import evaluate
-from ragas.metrics import (
-    ContextRelevance,
-    Faithfulness,
+from ragas.metrics._answer_relevance import ResponseRelevancy
+from ragas.metrics._context_precision import (
     LLMContextPrecisionWithoutReference,
     LLMContextPrecisionWithReference,
-    LLMContextRecall,
-    ResponseRelevancy,
 )
+from ragas.metrics._context_recall import LLMContextRecall
+from ragas.metrics._faithfulness import Faithfulness
+from ragas.metrics._nv_metrics import ContextRelevance
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
 from lightspeed_evaluation.core.embedding.ragas import RagasEmbeddingManager
@@ -93,7 +95,10 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         metric_instance = metric_class(llm=self.llm_manager.get_llm(), **metric_kwargs)
 
         result = evaluate(dataset, metrics=[metric_instance], show_progress=False)
-        df = result.to_pandas()
+        to_pandas_fn = getattr(result, "to_pandas", None)
+        if to_pandas_fn is None:
+            return None, f"Ragas result missing to_pandas method for {metric_name}"
+        df = cast(pd.DataFrame, to_pandas_fn())
         score = df[result_key].iloc[0]
         return score, f"Ragas {metric_name}: {score:.2f}"
 
