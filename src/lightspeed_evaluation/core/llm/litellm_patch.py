@@ -1,21 +1,96 @@
-"""Global litellm patching for token tracking.
+"""LiteLLM configuration for token tracking and Ragas 0.4 compatibility.
 
-It patches litellm.completion and litellm.acompletion to automatically track tokens
-for all LLM calls throughout the application.
+This module configures litellm for two purposes:
+
+1. TOKEN TRACKING: Wraps litellm.completion and litellm.acompletion to track
+   token usage for all LLM calls (Judge LLM metrics). We use function wrapping
+   rather than litellm's callback system because callbacks don't reliably
+   capture tokens in all execution paths.
+
+2. RAGAS 0.4 COMPATIBILITY: Ragas 0.4's score() method internally uses
+   asyncio.run() which creates a new event loop. LiteLLM's background
+   LoggingWorker task conflicts with this, causing:
+   "RuntimeError: Queue is bound to a different event loop"
+
+   We replace the LoggingWorker with a no-op implementation to avoid this.
+   This is safe because we don't use litellm's built-in observability features.
 """
 
 import logging
+import os
+import warnings
 from functools import wraps
 from typing import Any
 
 import litellm
 
-from lightspeed_evaluation.core.llm.token_tracker import track_tokens
+# Suppress coroutine warnings from litellm's async logging (cosmetic only)
+warnings.filterwarnings(
+    "ignore",
+    message="coroutine.*was never awaited",
+    category=RuntimeWarning,
+)
+
+# pylint: disable=wrong-import-position
+from lightspeed_evaluation.core.llm.token_tracker import track_tokens  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 
-# Store original functions before patching
+# =============================================================================
+# RAGAS 0.4 COMPATIBILITY: No-op logging worker
+# =============================================================================
+# Replace litellm's LoggingWorker with a no-op to prevent event loop conflicts
+# when Ragas creates new event loops via asyncio.run().
+
+
+class _NoOpLoggingWorker:
+    """No-op logging worker to prevent event loop conflicts with Ragas 0.4.
+
+    LiteLLM's LoggingWorker runs async tasks that conflict with Ragas's use of
+    asyncio.run(). This no-op replacement silently ignores all logging operations.
+
+    See: https://github.com/BerriAI/litellm/issues/17813
+    """
+
+    def ensure_initialized_and_enqueue(self, *args: Any, **kwargs: Any) -> None:
+        """No-op: silently ignore."""
+
+    def enqueue(self, *args: Any, **kwargs: Any) -> None:
+        """No-op: silently ignore."""
+
+    def start(self) -> None:
+        """No-op: nothing to start."""
+
+    def stop(self) -> None:
+        """No-op: nothing to stop."""
+
+    def flush(self) -> None:
+        """No-op: nothing to flush."""
+
+    def clear_queue(self) -> None:
+        """No-op: nothing to clear."""
+
+
+# Apply the no-op worker
+try:
+    # pylint: disable=ungrouped-imports
+    import litellm.litellm_core_utils.logging_worker as logging_worker_module
+
+    logging_worker_module.GLOBAL_LOGGING_WORKER = _NoOpLoggingWorker()  # type: ignore[assignment]
+except (ImportError, AttributeError):
+    pass  # Older versions of litellm may not have this
+
+# Configure litellm to minimize async logging activity
+litellm.suppress_debug_info = True
+
+
+# =============================================================================
+# TOKEN TRACKING: Wrap completion functions
+# =============================================================================
+# We wrap the completion functions rather than using callbacks because
+# callbacks don't reliably capture tokens in all execution paths.
+
 _original_completion = litellm.completion
 _original_acompletion = litellm.acompletion
 
@@ -45,3 +120,20 @@ async def _acompletion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
 # Patch litellm's completion functions to include token tracking
 litellm.completion = _completion_with_token_tracking
 litellm.acompletion = _acompletion_with_token_tracking
+
+
+# =============================================================================
+# SSL CONFIGURATION UTILITY
+# =============================================================================
+def setup_litellm_ssl(llm_params: dict[str, Any]) -> None:
+    """Configure litellm SSL verification.
+
+    Args:
+        llm_params: Dictionary containing LLM parameters including 'ssl_verify'
+    """
+    ssl_verify = llm_params.get("ssl_verify", True)
+
+    if ssl_verify:
+        litellm.ssl_verify = os.environ.get("SSL_CERTIFI_BUNDLE", True)
+    else:
+        litellm.ssl_verify = False

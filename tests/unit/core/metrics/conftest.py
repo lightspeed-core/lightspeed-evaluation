@@ -119,12 +119,18 @@ def mock_rouge_scorer(mocker: MockerFixture) -> MockerFixture:
     """Mock RougeScore with configurable return value.
 
     Returns different scores for precision, recall, fmeasure.
+    Uses ragas 0.4+ API with score() method returning MetricResult.
     """
+    # Create mock MetricResult objects for each mode
+    mock_results = [
+        mocker.MagicMock(value=0.95),  # precision
+        mocker.MagicMock(value=0.89),  # recall
+        mocker.MagicMock(value=0.92),  # fmeasure
+    ]
+
     mock_scorer_instance = mocker.MagicMock()
-    # Return scores for precision, recall, fmeasure (called in that order)
-    mock_scorer_instance.single_turn_score = mocker.MagicMock(
-        side_effect=[0.95, 0.89, 0.92]
-    )
+    mock_scorer_instance.score = mocker.MagicMock(side_effect=mock_results)
+
     mocker.patch(
         "lightspeed_evaluation.core.metrics.nlp.RougeScore",
         return_value=mock_scorer_instance,
@@ -134,9 +140,15 @@ def mock_rouge_scorer(mocker: MockerFixture) -> MockerFixture:
 
 @pytest.fixture
 def mock_similarity_scorer(mocker: MockerFixture) -> MockerFixture:
-    """Mock NonLLMStringSimilarity with configurable return value."""
+    """Mock NonLLMStringSimilarity with configurable return value.
+
+    Uses ragas 0.4+ API with score() method returning MetricResult.
+    """
+    mock_result = mocker.MagicMock(value=0.78)
+
     mock_scorer_instance = mocker.MagicMock()
-    mock_scorer_instance.single_turn_score = mocker.MagicMock(return_value=0.78)
+    mock_scorer_instance.score = mocker.MagicMock(return_value=mock_result)
+
     mocker.patch(
         "lightspeed_evaluation.core.metrics.nlp.NonLLMStringSimilarity",
         return_value=mock_scorer_instance,

@@ -1,107 +1,77 @@
-"""Ragas LLM Manager - Ragas-specific LLM wrapper."""
+"""Ragas LLM Manager - Ragas-specific LLM wrapper using llm_factory."""
 
-from typing import Any, Optional
+import logging
+from typing import Any
 
-from ragas.llms.base import BaseRagasLLM, Generation, LLMResult
-from ragas.metrics import answer_relevancy, faithfulness
+import litellm
+from ragas.llms import llm_factory
 
-from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
+from lightspeed_evaluation.core.llm.litellm_patch import setup_litellm_ssl
 from lightspeed_evaluation.core.llm.manager import LLMManager
-from lightspeed_evaluation.core.system.exceptions import LLMError
 
-
-class RagasCustomLLM(BaseRagasLLM, BaseCustomLLM):
-    """Custom LLM for Ragas."""
-
-    def __init__(self, llm_manager: LLMManager):
-        """Initialize Ragas custom LLM with model name and LLM parameters."""
-        BaseRagasLLM.__init__(self)
-        BaseCustomLLM.__init__(
-            self, llm_manager.get_model_name(), llm_manager.get_llm_params()
-        )
-        print(f"✅ Ragas Custom LLM: {self.model_name}")
-
-    def generate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-        self,
-        prompt: Any,
-        n: int = 1,
-        temperature: float = 1e-08,
-        stop: Optional[list[str]] = None,
-        callbacks: Optional[Any] = None,
-    ) -> LLMResult:
-        """Generate text using LLM with provided parameters."""
-        prompt_text = str(prompt)
-
-        # Use temperature from params unless explicitly overridden
-        temp = (
-            temperature
-            if temperature != 1e-08
-            else self.llm_params.get("temperature", 0.0)
-        )
-
-        try:
-            # Use inherited BaseCustomLLM functionality
-            call_kwargs = {}
-            if stop is not None:
-                call_kwargs["stop"] = stop
-
-            responses = self.call(
-                prompt_text, n=n, temperature=temp, return_single=False, **call_kwargs
-            )
-
-            # Convert to Ragas format
-            generations = []
-            for response_text in responses:
-                gen = Generation(text=response_text)
-                generations.append(gen)
-
-            result = LLMResult(generations=[generations])
-            return result
-
-        except Exception as e:
-            print(f"❌ Ragas LLM failed: {e}")
-            raise LLMError(f"Ragas LLM evaluation failed: {str(e)}") from e
-
-    async def agenerate_text(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-        self,
-        prompt: Any,
-        n: int = 1,
-        temperature: Optional[float] = None,
-        stop: Optional[list[str]] = None,
-        callbacks: Optional[Any] = None,
-    ) -> LLMResult:
-        """Async generate."""
-        temp = temperature if temperature is not None else 1e-08
-        return self.generate_text(
-            prompt, n=n, temperature=temp, stop=stop, callbacks=callbacks
-        )
-
-    def is_finished(self, response: LLMResult) -> bool:
-        """Check if response is complete."""
-        return True
+logger = logging.getLogger(__name__)
 
 
 class RagasLLMManager:
-    """Ragas LLM Manager - Takes LLM parameters directly.
+    """Ragas LLM Manager - Creates LLM for Ragas 0.4+ metrics using llm_factory.
 
-    This manager focuses solely on Ragas-specific LLM integration.
+    This manager uses ragas's llm_factory with litellm provider to create an
+    InstructorLLM that is compatible with ragas 0.4+ collections-based metrics.
+
+    IMPORTANT: Ragas 0.4+ metrics internally use async operations even when
+    calling sync methods like score(). We must use litellm.acompletion (async)
+    instead of litellm.completion (sync) to avoid the error:
+    "Cannot use agenerate() with a synchronous client"
+
+    NOTE: Async logging is disabled in litellm_patch.py to prevent event loop
+    conflicts when ragas creates new event loops via asyncio.run().
     """
 
     def __init__(self, llm_manager: LLMManager):
-        """Initialize with LLM parameters from LLMManager."""
-        self.model_name = (llm_manager.get_model_name(),)
+        """Initialize with LLM parameters from LLMManager.
+
+        Args:
+            llm_manager: Pre-configured LLMManager with validated parameters
+        """
+        self.model_name = llm_manager.get_model_name()
         self.llm_params = llm_manager.get_llm_params()
-        self.custom_llm = RagasCustomLLM(llm_manager)
 
-        # Configure Ragas metrics to use our custom LLM
-        answer_relevancy.llm = self.custom_llm
-        faithfulness.llm = self.custom_llm
+        # Always drop unsupported parameters for cross-provider compatibility
+        litellm.drop_params = True
 
-        print("✅ Ragas LLM Manager configured")
+        # Setup SSL verification for litellm
+        setup_litellm_ssl(self.llm_params)
 
-    def get_llm(self) -> RagasCustomLLM:
-        """Get the configured Ragas LLM."""
-        return self.custom_llm
+        # Extract inference kwargs to pass to ragas llm_factory
+        # Filter out None values to avoid overriding library defaults unnecessarily
+        inference_kwargs: dict[str, Any] = {}
+        for key in ("temperature", "timeout", "num_retries"):
+            if self.llm_params.get(key) is not None:
+                inference_kwargs[key] = self.llm_params[key]
+
+        # Rename max_completion_tokens to max_tokens for ragas/instructor compatibility
+        # (OpenAI rejects requests with both set simultaneously)
+        if self.llm_params.get("max_completion_tokens") is not None:
+            inference_kwargs["max_tokens"] = self.llm_params["max_completion_tokens"]
+
+        # Create LLM using ragas llm_factory with litellm provider
+        # MUST use acompletion (async) because ragas 0.4 metrics use async internally
+        self.llm = llm_factory(
+            model=self.model_name,
+            provider="litellm",
+            client=litellm.acompletion,
+            **inference_kwargs,
+        )
+
+        logger.info("Ragas LLM Manager configured with model: %s", self.model_name)
+
+    def get_llm(self) -> Any:
+        """Get the configured Ragas LLM (InstructorLLM).
+
+        Returns:
+            The InstructorLLM instance created by llm_factory
+        """
+        return self.llm
 
     def get_model_info(self) -> dict[str, Any]:
         """Get information about the configured model."""

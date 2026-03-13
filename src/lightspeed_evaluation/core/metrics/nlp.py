@@ -9,8 +9,7 @@ This module provides text comparison metrics that don't require LLM calls:
 import logging
 from typing import Any, Optional
 
-from ragas.dataset_schema import SingleTurnSample
-from ragas.metrics import NonLLMStringSimilarity, RougeScore
+from ragas.metrics.collections import NonLLMStringSimilarity, RougeScore
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_BLEU_MAX_NGRAM,
@@ -86,7 +85,7 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
         return (turn_metadata or {}).get(metric_key, {})
 
     def _run_score(self, scorer: Any, response: str, reference: str) -> float:
-        """Run scoring using Ragas synchronous API.
+        """Run scoring using Ragas collections-based API.
 
         Args:
             scorer: The Ragas scorer instance
@@ -100,9 +99,8 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
             ValueError: If input validation fails
             TypeError: If type conversion fails
         """
-        sample = SingleTurnSample(response=response, reference=reference)
-        result = scorer.single_turn_score(sample)
-        return float(result)
+        result = scorer.score(response=response, reference=reference)
+        return float(result.value)
 
     def evaluate(
         self,
