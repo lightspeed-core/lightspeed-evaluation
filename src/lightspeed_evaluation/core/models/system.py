@@ -12,7 +12,6 @@ from pydantic import (
     model_validator,
 )
 
-from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
     DEFAULT_API_CACHE_DIR,
@@ -45,6 +44,7 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_GRAPH_TYPES,
     SUPPORTED_OUTPUT_TYPES,
 )
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 
 class LLMConfig(BaseModel):
@@ -82,7 +82,7 @@ class LLMConfig(BaseModel):
 
             # Check if file exists
             if not os.path.isfile(cert_path):
-                raise ValueError(
+                raise ConfigurationError(
                     f"SSL certificate file not found: '{cert_path}'. "
                     f"Original path: '{self.ssl_cert_file}'. "
                     "Please provide a valid path to a CA certificate file "
@@ -519,10 +519,10 @@ class LLMPoolConfig(BaseModel):
             Fully resolved LLMConfig
 
         Raises:
-            ValueError: If model_id not found
+            ConfigurationError: If model_id not found
         """
         if model_id not in self.models:
-            raise ValueError(
+            raise ConfigurationError(
                 f"Model '{model_id}' not found in llm_pool.models. "
                 f"Available: {list(self.models.keys())}"
             )
@@ -687,7 +687,7 @@ class GEvalConfig(BaseModel):
                     continue
                 # Overlap if not (b < c or d < a)
                 if not (b < c or d < a):
-                    raise ValueError(
+                    raise ConfigurationError(
                         f"Rubric score ranges must not overlap: "
                         f"[{a}, {b}] and [{c}, {d}] overlap"
                     )
@@ -708,9 +708,9 @@ class GEvalConfig(BaseModel):
             ValueError: If raw is not a dict or criteria is missing/empty
                 (only these pre-model_validate checks raise bare ValueError).
             ValidationError: If rubric or config fields fail Pydantic validation:
-                wrong types (e.g. score_range, expected_outcome), invalid structure,
-                or overlapping score ranges (model validator raises ValueError
-                and Pydantic v2 wraps it as ValidationError).
+                wrong types (e.g. score_range, expected_outcome), invalid structure.
+            ConfigurationError: If rubric score ranges overlap (model validator
+                raises ConfigurationError directly, bypassing Pydantic wrapping).
         """
         if not isinstance(raw, dict):
             raise ValueError("GEval config must be a dict")
@@ -801,9 +801,9 @@ class SystemConfig(BaseModel):
 
         Raises:
             ConfigurationError: When a geval:* entry has invalid config (e.g.
-                missing criteria, invalid rubric structure).
-                Re-raised from ValueError or Pydantic ValidationError for a consistent
-                config-failure exception type.
+                missing criteria, invalid rubric structure, overlapping rubrics).
+                Re-raised from ValueError, ValidationError, or ConfigurationError
+                for a consistent config-failure exception type with metric context.
         """
         if not v:
             return v
@@ -811,7 +811,7 @@ class SystemConfig(BaseModel):
             if metric_id.startswith("geval:") and isinstance(meta, dict):
                 try:
                     GEvalConfig.from_metadata(meta)
-                except (ValueError, ValidationError) as e:
+                except (ValueError, ValidationError, ConfigurationError) as e:
                     raise ConfigurationError(
                         f"Invalid GEval config for '{metric_id}': {e!s}"
                     ) from e

@@ -11,7 +11,10 @@ from lightspeed_evaluation.core.models.system import SystemConfig
 
 # Import only lightweight modules at top level
 from lightspeed_evaluation.core.system import ConfigLoader
-from lightspeed_evaluation.core.system.exceptions import DataValidationError
+from lightspeed_evaluation.core.system.exceptions import (
+    ConfigurationError,
+    DataValidationError,
+)
 
 
 def _clear_caches(system_config: SystemConfig) -> None:
@@ -174,7 +177,13 @@ def run_evaluation(  # pylint: disable=too-many-locals
             "SKIPPED": summary["SKIPPED"],
         }
 
-    except (FileNotFoundError, ValueError, RuntimeError, DataValidationError) as e:
+    except (
+        FileNotFoundError,
+        ValueError,
+        RuntimeError,
+        ConfigurationError,
+        DataValidationError,
+    ) as e:
         print(f"\n❌ Evaluation failed: {e}")
         traceback.print_exc()
         return None
