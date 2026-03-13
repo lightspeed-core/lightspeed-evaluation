@@ -10,7 +10,8 @@ import logging
 from typing import Any, Optional
 
 from ragas.dataset_schema import SingleTurnSample
-from ragas.metrics import NonLLMStringSimilarity, RougeScore
+from ragas.metrics._rouge_score import RougeScore
+from ragas.metrics._string import NonLLMStringSimilarity
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_BLEU_MAX_NGRAM,
