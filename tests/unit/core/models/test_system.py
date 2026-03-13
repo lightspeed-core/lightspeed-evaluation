@@ -71,11 +71,11 @@ class TestLLMConfig:
             os.unlink(cert_path)
 
         # Non-existent file fails
-        with pytest.raises(ValidationError, match="(?i)not found"):
+        with pytest.raises(ConfigurationError, match="(?i)not found"):
             LLMConfig(ssl_cert_file="/tmp/nonexistent_cert_12345.crt")
 
         # Directory fails
-        with pytest.raises(ValidationError):
+        with pytest.raises(ConfigurationError):
             LLMConfig(ssl_cert_file=tempfile.gettempdir())
 
 
@@ -268,7 +268,7 @@ class TestLLMPoolConfig:
         assert resolved.timeout == 300
 
         # Unknown model raises error
-        with pytest.raises(ValueError, match="Model 'unknown' not found"):
+        with pytest.raises(ConfigurationError, match="Model 'unknown' not found"):
             pool.resolve_llm_config("unknown")
 
     def test_custom_model_id_and_ssl(self) -> None:
@@ -419,13 +419,13 @@ class TestSystemConfigWithLLMPoolAndJudgePanel:
         with pytest.raises(ConfigurationError, match="llm_pool.*not defined"):
             config.get_judge_configs()
 
-        # get_judge_configs with invalid judge ID raises ValueError
+        # get_judge_configs with invalid judge ID raises error
         pool = LLMPoolConfig(
             models={"gpt-4o-mini": LLMProviderConfig(provider="openai")}
         )
         panel = JudgePanelConfig(judges=["gpt-4o-mini", "nonexistent"])
         config = SystemConfig(llm_pool=pool, judge_panel=panel)
-        with pytest.raises(ValueError, match="Model 'nonexistent' not found"):
+        with pytest.raises(ConfigurationError, match="Model 'nonexistent' not found"):
             config.get_judge_configs()
 
 
@@ -483,13 +483,8 @@ class TestGEvalRubricValidation:
         assert config.rubrics[1].score_range == (4, 7)
 
     def test_geval_config_rubrics_overlapping_fails(self) -> None:
-        """Overlapping rubric ranges fail validation.
-
-        validate_rubrics_non_overlapping raises ValueError, but Pydantic v2
-        wraps it in ValidationError before from_metadata returns, so callers
-        get ValidationError.
-        """
-        with pytest.raises(ValidationError, match="overlap"):
+        """Overlapping rubric ranges fail validation."""
+        with pytest.raises(ConfigurationError, match="overlap"):
             GEvalConfig.from_metadata(
                 {
                     "criteria": "Check.",

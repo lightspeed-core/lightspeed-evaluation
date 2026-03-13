@@ -26,6 +26,7 @@ from pydantic import ValidationError
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
 from lightspeed_evaluation.core.models import GEvalConfig
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class GEvalHandler:  # pylint: disable=R0903
         # GEvalConfig (criteria, rubrics, threshold, etc.) for evaluation.
         try:
             config = GEvalConfig.from_metadata(raw_config)
-        except (ValueError, ValidationError) as e:
+        except (ValueError, ValidationError, ConfigurationError) as e:
             return None, f"Invalid GEval configuration: {e!s}"
 
         # Convert validated rubrics to DeepEval Rubric objects

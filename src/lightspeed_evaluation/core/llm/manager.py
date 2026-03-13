@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from lightspeed_evaluation.core.models import LLMConfig, SystemConfig
 from lightspeed_evaluation.core.system.env_validator import validate_provider_env
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class LLMManager:
                     # Create child manager without system_config to avoid recursion
                     judge_manager = LLMManager(resolved_config, judge_id=pool_key)
                     self.judge_managers.append(judge_manager)
-            except ValueError as e:
+            except ConfigurationError as e:
                 logger.error("Failed to resolve judge panel: %s", e)
                 raise
         else:
