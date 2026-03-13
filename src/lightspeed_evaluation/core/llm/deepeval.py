@@ -4,11 +4,15 @@ Note: litellm patching is applied at package level (__init__.py) before any impo
 This ensures DeepEval's LiteLLMModel uses the patched completion functions.
 """
 
+import asyncio
+import logging
 import os
 from typing import Any
 
 import litellm
 from deepeval.models import LiteLLMModel
+
+logger = logging.getLogger(__name__)
 
 
 class DeepEvalLLMManager:
@@ -68,3 +72,11 @@ class DeepEvalLLMManager:
             "timeout": self.llm_params.get("timeout"),
             "num_retries": self.llm_params.get("num_retries", 3),
         }
+
+    @staticmethod
+    def flush_deepevals_pending_tasks() -> None:
+        """Flush background tasks left pending by DeepEvals async_mode."""
+        try:
+            asyncio.run(asyncio.sleep(0))
+        except RuntimeError as e:
+            logger.debug("Could not flush DeepEval pending tasks: %s", e)

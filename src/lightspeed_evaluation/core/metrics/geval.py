@@ -295,6 +295,8 @@ class GEvalHandler:  # pylint: disable=R0903
         # Evaluate (DeepEval normalizes score to [0, 1]; pass through as-is)
         try:
             metric.measure(test_case)
+            self.deepeval_llm_manager.flush_deepevals_pending_tasks()
+
             score = metric.score if metric.score is not None else 0.0
             reason = (
                 str(metric.reason)
@@ -402,6 +404,8 @@ class GEvalHandler:  # pylint: disable=R0903
         # Evaluate (DeepEval normalizes score to [0, 1]; pass through as-is)
         try:
             metric.measure(test_case)
+            self.deepeval_llm_manager.flush_deepevals_pending_tasks()
+
             score = metric.score if metric.score is not None else 0.0
             reason = (
                 str(metric.reason)
