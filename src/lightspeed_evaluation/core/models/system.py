@@ -160,6 +160,49 @@ class EmbeddingConfig(BaseModel):
         return v
 
 
+class MCPServerConfig(BaseModel):
+    """Configuration for a single MCP server authentication."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    auth_type: str = Field(
+        default="bearer",
+        description="Authentication type: only bearer is supported",
+    )
+    env_var: str = Field(
+        ...,
+        min_length=1,
+        description="Environment variable containing the token/key",
+    )
+    header_name: Optional[str] = Field(
+        default=None,
+        description="Custom header name (optional, defaults based on auth_type)",
+    )
+
+    @field_validator("auth_type")
+    @classmethod
+    def validate_auth_type(cls, v: str) -> str:
+        """Validate auth_type is supported."""
+        if v != "bearer":
+            raise ValueError("auth_type must be 'bearer'")
+        return v
+
+
+class MCPHeadersConfig(BaseModel):
+    """Configuration for MCP headers functionality."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable MCP headers functionality",
+    )
+    servers: dict[str, MCPServerConfig] = Field(
+        default_factory=dict,
+        description="MCP server configurations",
+    )
+
+
 class APIConfig(BaseModel):
     """API configuration for dynamic data generation."""
 
@@ -195,6 +238,9 @@ class APIConfig(BaseModel):
     )
     cache_enabled: bool = Field(
         default=True, description="Is caching of lightspeed-stack queries enabled?"
+    )
+    mcp_headers: Optional[MCPHeadersConfig] = Field(
+        default=None, description="MCP headers configuration for authentication"
     )
     num_retries: int = Field(
         default=DEFAULT_API_NUM_RETRIES,

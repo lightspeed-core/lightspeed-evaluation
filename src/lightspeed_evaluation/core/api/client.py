@@ -91,13 +91,61 @@ class APIClient:
             )
             self.client.headers.update({"Content-Type": "application/json"})
 
-            # Use API_KEY environment variable for authentication
-            api_key = os.getenv("API_KEY")
-            if api_key and self.client:
-                self.client.headers.update({"Authorization": f"Bearer {api_key}"})
+            # Set up MCP headers based on configuration
+            mcp_headers_dict = self._build_mcp_headers()
+            if mcp_headers_dict:
+                self.client.headers.update(
+                    {"MCP-HEADERS": json.dumps(mcp_headers_dict)}
+                )
 
         except Exception as e:
             raise APIError(f"Failed to setup API client: {e}") from e
+
+    def _build_mcp_headers(self) -> dict[str, dict[str, str]]:
+        """Build MCP headers based on configuration.
+
+        Returns:
+            Dictionary of MCP server headers, or empty dict if none configured.
+        """
+        # Use new MCP headers configuration if available and enabled
+        if (
+            self.config.mcp_headers
+            and self.config.mcp_headers.enabled
+            and self.config.mcp_headers.servers
+        ):
+
+            mcp_headers = {}
+            for server_name, server_config in self.config.mcp_headers.servers.items():
+                # Get token from environment variable
+                token = os.getenv(server_config.env_var)
+                if not token:
+                    logger.warning(
+                        "Environment variable '%s' not found "
+                        "for MCP server '%s'. Skipping authentication.",
+                        server_config.env_var,
+                        server_name,
+                    )
+                    continue
+
+                # Set up bearer auth headers
+                header_name = server_config.header_name or "Authorization"
+                header_value = f"Bearer {token}"
+
+                mcp_headers[server_name] = {header_name: header_value}
+
+            if not mcp_headers:
+                raise APIError(
+                    "MCP headers are enabled, but no valid server credentials were resolved. "
+                    "Check mcp_headers.servers and required environment variables."
+                )
+            return mcp_headers
+
+        # Fallback to legacy API_KEY behavior for backward compatibility
+        api_key = os.getenv("API_KEY")
+        if api_key:
+            return {"filesystem-tools": {"Authorization": f"Bearer {api_key}"}}
+
+        return {}
 
     def query(
         self,
