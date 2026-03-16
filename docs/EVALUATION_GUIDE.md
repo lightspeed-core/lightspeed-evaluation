@@ -715,6 +715,49 @@ visualization:
 - **`threshold`**: Minimum score to pass (0.0 to 1.0)
 - **`temperature: 0.0`**: Ensures consistent, deterministic evaluation
 
+### Panel of Judges (Advanced)
+
+> **⚠️ Note:** The traditional `llm` config will be deprecated. Use `llm_pool` + `judge_panel` for new deployments.
+
+For improved evaluation accuracy, you can use multiple LLMs as judges:
+
+```yaml
+# Define a pool of LLM configurations (can be used by multiple components)
+llm_pool:
+  defaults:
+    cache_dir: ".caches/llm_cache"
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 512
+  models:
+    judge-4o-mini:
+      provider: openai
+      model: gpt-4o-mini
+    judge-4.1-mini:
+      provider: openai
+      model: gpt-4.1-mini
+
+# Configure which models to use as judges
+judge_panel:
+  judges:
+    - judge-4o-mini
+    - judge-4.1-mini
+  aggregation_strategy: max  # Currently only 'max' is implemented
+  # enabled_metrics: ["ragas:faithfulness"]  # Optional: limit to specific metrics
+  # If enabled_metrics not set, ALL LLM metrics use the full panel
+```
+
+**Benefits:**
+- Reduces bias from a single model
+- More robust evaluation scores
+- Per-judge token tracking for cost analysis
+
+**Current Limitations:**
+- Only `max` aggregation is implemented (`average`, `majority_vote` coming soon)
+- Per-metric thresholds for panel not yet supported
+
+See [Configuration Guide](configuration.md#llm-pool).
+
 ### Evaluation Data (`evaluation_data.yaml`)
 
 **Simple Example:**

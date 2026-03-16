@@ -17,6 +17,62 @@ core:
   skip_on_failure: false  # Set to true to stop evaluation on first failure
 ```
 
+## LLM Pool
+
+Define a centralized pool of LLM configurations for the Judge Panel feature.
+
+> **Note:** The `llm` config below will be deprecated. New deployments should use `llm_pool` + `judge_panel`.
+
+| Setting | Description |
+|---------|-------------|
+| `llm_pool.defaults.cache_dir` | Cache directory (default: `.caches/llm_cache`) |
+| `llm_pool.defaults.timeout` | Request timeout in seconds |
+| `llm_pool.defaults.num_retries` | Retry attempts |
+| `llm_pool.defaults.parameters.temperature` | Sampling temperature |
+| `llm_pool.defaults.parameters.max_completion_tokens` | Max tokens in response |
+| `llm_pool.models.<id>.provider` | LLM provider (required) |
+| `llm_pool.models.<id>.model` | Model name |
+| `llm_pool.models.<id>.parameters.*` | Model-specific parameter overrides |
+
+```yaml
+llm_pool:
+  defaults:
+    cache_dir: ".caches/llm_cache"
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 512
+  models:
+    judge-4o-mini:
+      provider: openai
+      model: gpt-4o-mini
+    judge-4.1-mini:
+      provider: openai
+      model: gpt-4.1-mini
+```
+
+## Judge Panel
+
+Use multiple LLMs as judges to reduce bias and improve evaluation accuracy.
+
+| Setting | Description |
+|---------|-------------|
+| `judge_panel.judges` | List of model IDs from `llm_pool.models` (required) |
+| `judge_panel.enabled_metrics` | Metrics using full panel (if unset, all LLM metrics use panel) |
+| `judge_panel.aggregation_strategy` | `max` (default, currently only implemented), `average`, `majority_vote` coming soon |
+
+```yaml
+judge_panel:
+  judges:
+    - judge-4o-mini
+    - judge-4.1-mini
+  aggregation_strategy: max
+  # enabled_metrics: ["ragas:faithfulness"]  # Optional: limit to specific metrics
+```
+
+**Output:** Includes aggregated score and `judge_scores` JSON array with individual results.
+
+---
+
 ## Judge LLM configuration
 This section configures LLM as a judge for both Ragas and DeepEval.
 
