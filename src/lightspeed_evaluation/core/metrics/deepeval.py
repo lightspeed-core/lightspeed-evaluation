@@ -86,6 +86,7 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
     def _evaluate_metric(self, metric: Any, test_case: Any) -> tuple[float, str]:
         """Evaluate and get result."""
         metric.measure(test_case)
+        self.llm_manager.flush_deepevals_pending_tasks()
 
         reason = (
             metric.reason
