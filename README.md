@@ -10,9 +10,10 @@ A comprehensive framework for evaluating GenAI applications.
 - **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations
 - **Evaluation types**: Response, Context, Tool Call, Overall Conversation evaluation & Script-based evaluation
 - **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
+- **Panel of Judges**: Use multiple LLMs as judges to reduce bias and improve evaluation accuracy with configurable aggregation strategies
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
-- **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations
+- **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations (per-judge tracking for panel mode)
 - **Streaming Performance Metrics**: Capture time-to-first-token (TTFT), streaming duration, and tokens/second when using streaming endpoint
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
