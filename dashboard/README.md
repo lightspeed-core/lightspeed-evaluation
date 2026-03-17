@@ -1,21 +1,25 @@
 # Lightspeed Evaluation Dashboard
 
+> **Note:** This is a Proof of Concept (PoC) implementation.
+
 A web-based dashboard for visualizing, comparing, and managing lightspeed-evaluation results. Built with React 19 and Vite, it provides interactive charts, side-by-side evaluation comparison, PDF export, and the ability to run evaluations directly from the browser.
 
 ## Quick Start
 
 ```bash
-# Prerequisites: oc, Node.js 20.19+ or 22.12+, lightspeed-eval Python package installed
+# Prerequisites: Node.js 20.19+ or 22.12+, lightspeed-eval Python package installed
 make install
 
 # Start development server with default values
 make dev
 
 # Start development server with desired values
-LS_EVAL_SYSTEM_CFG_PATH=<path_to_system.yaml> LS_EVAL_DATA_PATH=<path_to_eval.yaml> LS_EVAL_REPORTS_PATH=<path_to_reports_dir> LS_EVAL_DASHBOARD_RUN_ENABLED=<true|false> API_KEY="$API_KEY" npx vite
+LS_EVAL_SYSTEM_CFG_PATH=<path_to_system.yaml> LS_EVAL_DATA_PATH=<path_to_eval.yaml> LS_EVAL_REPORTS_PATH=<path_to_reports_dir> LS_EVAL_DASHBOARD_RUN_ENABLED=<true|false> npx vite
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+The example above provides enough information to run the dashboard with the yaml files. See the [API Configuration](#api-configuration) section below for API key and API run details.
 
 ## Environment Variables
 
@@ -25,8 +29,6 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 | `LS_EVAL_DATA_PATH` | No | Path to `eval.yaml` |
 | `LS_EVAL_REPORTS_PATH` | No | Path to reports directory |
 | `LS_EVAL_DASHBOARD_RUN_ENABLED` | No | Enable/disable running evaluations from dashboard (default: `true`) |
-| `API_KEY` | Yes | API key for OLS service (e.g. `oc whoami -t`) |
-| `OPENAI_API_KEY` | For eval | API key for the judge LLM provider |
 
 ## Development
 
@@ -54,3 +56,18 @@ npm run lint     # Run ESLint
 - **Conversations**: `.yaml` files in `conversations/`
 
 Files are matched by their embedded timestamp (`YYYYMMDD_HHMMSS`). An evaluation CSV, its amended config, and its graphs all share the same timestamp.
+
+## API Configuration
+
+The following environment variables are required when running evaluations from the dashboard:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `API_KEY` | Yes | API key for OLS service (e.g. `oc whoami -t`) |
+| `OPENAI_API_KEY` | For eval | API key for the judge LLM provider |
+
+To start the development server with API keys:
+
+```bash
+API_KEY="$API_KEY" OPENAI_API_KEY="$OPENAI_API_KEY" npx vite
+```

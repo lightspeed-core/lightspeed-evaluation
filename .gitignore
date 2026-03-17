@@ -196,6 +196,4 @@ wip*/
 # dashboard
 dashboard/node_modules
 dashboard/.vite
-dashboard/eval.yaml
-dashboard/system.yaml
 dashboard/results/*

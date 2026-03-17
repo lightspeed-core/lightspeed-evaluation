@@ -1,0 +1,98 @@
+# Dashboard Test - System Configuration
+# This is a minimal configuration for testing the dashboard with API mode disabled
+
+# Core evaluation parameters
+core:
+  max_threads: 1
+
+# LLM as a judge configuration
+llm:
+  provider: "openai"
+  model: "gpt-4o-mini"
+  temperature: 0.0
+  max_tokens: 512
+  timeout: 300
+  num_retries: 3
+  cache_dir: ".caches/llm_cache"
+  cache_enabled: false
+
+# Embedding configuration
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+  provider_kwargs: {}
+  cache_dir: ".caches/embedding_cache"
+  cache_enabled: true
+
+# API Configuration - DISABLED for dashboard testing
+api:
+  enabled: false                       # API mode disabled
+  api_base: http://localhost:8080
+  endpoint_type: streaming
+  timeout: 300
+  provider: "openai"
+  model: "gpt-4o-mini"
+  cache_dir: ".caches/api_cache"
+  cache_enabled: true
+
+# Metrics metadata - Basic metrics only
+metrics_metadata:
+  turn_level:
+    "ragas:response_relevancy":
+      threshold: 0.8
+      description: "How relevant the response is to the question"
+      default: true
+
+    "ragas:faithfulness":
+      threshold: 0.8
+      description: "How faithful the response is to the provided context"
+      default: false
+
+    "custom:answer_correctness":
+      threshold: 0.75
+      description: "Correctness vs expected answer using custom LLM evaluation"
+
+  conversation_level:
+    "deepeval:conversation_completeness":
+      threshold: 0.8
+      description: "How completely the conversation addresses user intentions"
+      default: false
+
+# Output Configuration
+output:
+  output_dir: "./dashboard_test/results"
+  base_filename: "evaluation"
+  enabled_outputs:
+    - csv
+    - json
+
+# Visualization settings
+visualization:
+  figsize: [12, 8]
+  dpi: 300
+  enabled_graphs:
+    - "pass_rates"
+    - "score_distribution"
+    - "conversation_heatmap"
+    - "status_breakdown"
+
+# Environment Variables
+environment:
+  DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
+  DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"
+  LITELLM_LOG: ERROR
+
+# Logging Configuration
+logging:
+  source_level: INFO
+  package_level: ERROR
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  show_timestamps: true
+  package_overrides:
+    httpx: ERROR
+    urllib3: ERROR
+    requests: ERROR
+    matplotlib: ERROR
+    LiteLLM: WARNING
+    DeepEval: WARNING
+    ragas: WARNING
