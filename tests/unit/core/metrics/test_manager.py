@@ -79,7 +79,7 @@ class TestMetricManager:
     def test_get_metric_metadata_turn_level_override(
         self, system_config: SystemConfig
     ) -> None:
-        """Test turn-level metadata completely overrides system defaults."""
+        """Test turn-level metadata merges with system defaults (override keys win)."""
         manager = MetricManager(system_config)
 
         turn_data = TurnData(
@@ -101,14 +101,14 @@ class TestMetricManager:
         assert metadata is not None
         assert metadata["threshold"] == 0.9
         assert metadata["custom_field"] == "custom_value"
-        # Turn-level metadata completely replaces system defaults
-        assert "default" not in metadata
-        assert "description" not in metadata
+        # System keys not overridden are preserved (merge semantics)
+        assert metadata["default"] is True
+        assert metadata["description"] == "Test"
 
     def test_get_metric_metadata_conversation_level_override(
         self, system_config: SystemConfig
     ) -> None:
-        """Test conversation-level metadata overrides system defaults."""
+        """Test conversation-level metadata merges with system defaults (override wins)."""
         manager = MetricManager(system_config)
 
         turn = TurnData(turn_id="1", query="Q", response="R")
@@ -132,6 +132,9 @@ class TestMetricManager:
         assert metadata is not None
         assert metadata["threshold"] == 0.85
         assert metadata["criteria"] == "Custom criteria"
+        # System keys not overridden are preserved (merge semantics)
+        assert metadata["default"] is True
+        assert metadata["description"] == "Test"
 
     def test_get_metric_metadata_not_found(self, system_config: SystemConfig) -> None:
         """Test getting metadata for unknown metric returns None."""
