@@ -1,6 +1,6 @@
-LS_EVAL_SYSTEM_CFG_PATH ?= system.yaml
-LS_EVAL_DATA_PATH ?= eval.yaml
-LS_EVAL_REPORTS_PATH ?= /home/criolo/Dev/go/src/gitlab.cee.redhat.com/criolo/ols-evals/scripts/average_evaluation/results
+LS_EVAL_SYSTEM_CFG_PATH ?= ./dashboard/system.yaml
+LS_EVAL_DATA_PATH ?= ./dashboard/eval.yaml
+LS_EVAL_REPORTS_PATH ?= ./dashboard/results
 LS_EVAL_DASHBOARD_RUN_ENABLED ?= true
 API_KEY ?= $(shell oc whoami -t 2>/dev/null)
 
