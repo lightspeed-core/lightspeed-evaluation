@@ -60,7 +60,7 @@ metrics_metadata:
 
 # Output Configuration
 output:
-  output_dir: "./dashboard_test/results"
+  output_dir: "./dashboard/results"
   base_filename: "evaluation"
   enabled_outputs:
     - csv
