@@ -1,0 +1,98 @@
+# Dashboard Test - Evaluation Data
+# Simple evaluation data with basic metrics for dashboard testing
+
+- conversation_group_id: openshift_basics
+  tag: basic
+  description: "Basic OpenShift questions with simple metrics"
+
+  turns:
+    - turn_id: what_is_openshift
+      query: "What is OpenShift?"
+
+      response: "OpenShift is Red Hat's enterprise Kubernetes platform that provides additional tools and features for deploying, managing, and scaling containerized applications."
+
+      contexts:
+        - "OpenShift is a Kubernetes-based container platform developed by Red Hat"
+        - "It provides additional enterprise features beyond standard Kubernetes"
+        - "OpenShift includes integrated CI/CD, monitoring, and security features"
+
+      turn_metrics:
+        - "ragas:response_relevancy"
+        - "ragas:faithfulness"
+
+    - turn_id: create_project
+      query: "How do I create a new project?"
+
+      response: "You can create a new project in OpenShift using the command: oc new-project my-project-name"
+
+      expected_response: "Use the 'oc new-project' command followed by your desired project name"
+
+      contexts:
+        - "Projects in OpenShift are Kubernetes namespaces with additional features"
+        - "The oc new-project command creates and switches to a new project"
+
+      turn_metrics:
+        - "ragas:response_relevancy"
+        - "custom:answer_correctness"
+
+- conversation_group_id: pod_management
+  tag: basic
+  description: "Pod management questions"
+
+  conversation_metrics:
+    - "deepeval:conversation_completeness"
+
+  turns:
+    - turn_id: list_pods
+      query: "How do I list all pods in my project?"
+
+      response: "You can list all pods using the command: oc get pods"
+
+      expected_response: "Use 'oc get pods' to list all pods in the current project"
+
+      contexts:
+        - "The oc get pods command shows all pods in the current project"
+        - "You can add flags like -o wide for more details"
+
+      turn_metrics:
+        - "ragas:response_relevancy"
+        - "custom:answer_correctness"
+
+    - turn_id: pod_logs
+      query: "How can I check the logs of a pod?"
+
+      response: "To check pod logs, use: oc logs pod-name. You can also use -f flag to follow the logs in real-time."
+
+      expected_response: "Use 'oc logs pod-name' to view pod logs"
+
+      contexts:
+        - "The oc logs command displays logs from a specific pod"
+        - "Use -f flag to stream logs continuously"
+        - "You can specify a container name if the pod has multiple containers"
+
+      turn_metrics:
+        - "ragas:response_relevancy"
+        - "ragas:faithfulness"
+        - "custom:answer_correctness"
+
+- conversation_group_id: deployment_basics
+  tag: advanced
+  description: "Deployment creation and management"
+
+  turns:
+    - turn_id: create_deployment
+      query: "How do I create a deployment?"
+
+      response: "You can create a deployment using 'oc create deployment my-app --image=my-image:tag' or by applying a YAML file with 'oc apply -f deployment.yaml'"
+
+      expected_response: "Create deployments using 'oc create deployment' command or by applying a deployment YAML file"
+
+      contexts:
+        - "Deployments manage the lifecycle of pod replicas"
+        - "You can create deployments imperatively or declaratively"
+        - "The oc create deployment command is a quick way to get started"
+
+      turn_metrics:
+        - "ragas:response_relevancy"
+        - "ragas:faithfulness"
+        - "custom:answer_correctness"

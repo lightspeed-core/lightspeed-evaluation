@@ -1,0 +1,70 @@
+:root,
+[data-theme="dark"] {
+  --bg: #0a0e17;
+  --surface: rgba(22, 27, 45, 0.55);
+  --surface-solid: #161b2d;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --yellow: #d29922;
+  --purple: #bc8cff;
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glow-accent: rgba(88, 166, 255, 0.15);
+}
+
+[data-theme="light"] {
+  --bg: #eef2f7;
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-solid: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.15);
+  --text: #1f2328;
+  --text2: #656d76;
+  --accent: #0969da;
+  --green: #1a7f37;
+  --red: #cf222e;
+  --yellow: #9a6700;
+  --purple: #8250df;
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --glow-accent: rgba(9, 105, 218, 0.1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+[data-theme="dark"] body,
+:root body {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(88, 166, 255, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(188, 140, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(63, 185, 80, 0.04) 0%, transparent 60%),
+    var(--bg);
+}
+
+[data-theme="light"] body {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(9, 105, 218, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(130, 80, 223, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(26, 127, 55, 0.03) 0%, transparent 60%),
+    var(--bg);
+}
+
+#root {
+  width: 100%;
+}
