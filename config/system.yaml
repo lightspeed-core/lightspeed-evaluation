@@ -41,11 +41,20 @@ api:
   # API input configuration
   provider: "openai"                   # LLM provider for queries
   model: "gpt-4o-mini"                 # Model to use for queries
-  no_tools: null                       # Whether to bypass tools and MCP servers (optional)
+  no_tools: null                      # Whether to bypass tools and MCP servers (optional)
   system_prompt: null                  # System prompt (default None)
 
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
+  
+  # MCP Server Authentication Configuration
+  mcp_headers:
+    enabled: true                      # Enable MCP headers functionality
+    servers:                          # MCP server configurations
+      filesystem-tools:
+        env_var: API_KEY              # Environment variable containing the token/key
+
+  # Legacy authentication (fallback when mcp_headers is not configured or disabled)
   # Authentication via API_KEY environment variable only for MCP server
 
   # Retry configuration for 429 Too Many Requests API errors
