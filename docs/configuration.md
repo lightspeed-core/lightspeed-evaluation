@@ -58,7 +58,15 @@ Use multiple LLMs as judges to reduce bias and improve evaluation accuracy.
 |---------|-------------|
 | `judge_panel.judges` | List of model IDs from `llm_pool.models` (required) |
 | `judge_panel.enabled_metrics` | Metrics using full panel (if unset, all LLM metrics use panel) |
-| `judge_panel.aggregation_strategy` | `max` (default, currently only implemented), `average`, `majority_vote` coming soon |
+| `judge_panel.aggregation_strategy` | How to combine judge scores: `max`, `average`, or `majority_vote` (see below) |
+
+**Aggregation strategies** (multiple judges only; errored judges are excluded):
+
+| Strategy | Score | Pass / fail |
+|----------|-------|-------------|
+| `max` (default) | Highest score | Score vs metric threshold |
+| `average` | Mean of scores | Mean vs metric threshold |
+| `majority_vote` | Mean of scores | **Strict majority** of judges individually meet the metric threshold — more than half must pass (Ties fail). |
 
 ```yaml
 judge_panel:

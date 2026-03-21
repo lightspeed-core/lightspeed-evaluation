@@ -30,7 +30,10 @@ from lightspeed_evaluation.core.system.validator import (
     METRIC_REQUIREMENTS,
     check_metric_required_data,
 )
-from lightspeed_evaluation.core.constants import NON_LLM_FRAMEWORKS
+from lightspeed_evaluation.core.constants import (
+    DEFAULT_METRIC_THRESHOLD,
+    NON_LLM_FRAMEWORKS,
+)
 from lightspeed_evaluation.pipeline.evaluation.judges import JudgeOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -710,7 +713,7 @@ class MetricsEvaluator:
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:
         """Determine evaluation status based on score and threshold."""
         if threshold is None:
-            threshold = 0.5  # This will also handle binary metrics
+            threshold = DEFAULT_METRIC_THRESHOLD  # This will also handle binary metrics
         return "PASS" if score >= float(threshold) else "FAIL"
 
     def _extract_metadata_for_csv(self, request: EvaluationRequest) -> Optional[str]:

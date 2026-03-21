@@ -320,7 +320,6 @@ class TestJudgePanelConfig:
         assert panel.enabled_metrics is not None
         assert len(panel.enabled_metrics) == 2
 
-        # All aggregation strategies accepted (runtime warning for non-max)
         for strategy in ["max", "average", "majority_vote"]:
             panel = JudgePanelConfig(
                 judges=["gpt-4o-mini"], aggregation_strategy=strategy

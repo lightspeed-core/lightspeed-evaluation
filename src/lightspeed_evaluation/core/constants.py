@@ -2,6 +2,8 @@
 
 from ragas.metrics.collections import DistanceMeasure
 
+DEFAULT_METRIC_THRESHOLD = 0.5
+
 # NLP Metrics Constants - BLEU
 DEFAULT_BLEU_MAX_NGRAM = 4  # Standard BLEU uses up to 4-grams
 MIN_BLEU_NGRAM = 1

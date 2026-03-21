@@ -636,9 +636,8 @@ class JudgePanelConfig(BaseModel):
     aggregation_strategy: str = Field(
         default="max",
         description=(
-            "Strategy for aggregating scores from multiple judges. "
-            "Options: 'max', 'average', 'majority_vote'. "
-            "Note: Currently only 'max' is implemented; others coming soon."
+            "Strategy for aggregating scores: 'max', 'average', or "
+            "'majority_vote' (average reported; PASS if a strict majority vote)."
         ),
     )
 
