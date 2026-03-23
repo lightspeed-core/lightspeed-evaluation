@@ -174,11 +174,14 @@ class TestROUGEScore:
         self, nlp_metrics: NLPMetrics, mocker: MockerFixture
     ) -> None:
         """Test ROUGE score with custom rouge_type via turn_metrics_metadata."""
+        # Create mock MetricResult objects for each mode (ragas 0.4+ API)
+        mock_results = [
+            mocker.MagicMock(value=0.9),  # precision
+            mocker.MagicMock(value=0.8),  # recall
+            mocker.MagicMock(value=0.85),  # fmeasure
+        ]
         mock_scorer_instance = mocker.MagicMock()
-        # Return different scores for each mode (precision, recall, fmeasure)
-        mock_scorer_instance.single_turn_score = mocker.MagicMock(
-            side_effect=[0.9, 0.8, 0.85]
-        )
+        mock_scorer_instance.score = mocker.MagicMock(side_effect=mock_results)
         mocker.patch(
             "lightspeed_evaluation.core.metrics.nlp.RougeScore",
             return_value=mock_scorer_instance,
@@ -231,8 +234,10 @@ class TestSemanticSimilarityDistance:
         self, nlp_metrics: NLPMetrics, mocker: MockerFixture
     ) -> None:
         """Test string distance similarity with custom distance measure config."""
+        # Create mock MetricResult (ragas 0.4+ API)
+        mock_result = mocker.MagicMock(value=0.95)
         mock_scorer_instance = mocker.MagicMock()
-        mock_scorer_instance.single_turn_score = mocker.MagicMock(return_value=0.95)
+        mock_scorer_instance.score = mocker.MagicMock(return_value=mock_result)
         mocker.patch(
             "lightspeed_evaluation.core.metrics.nlp.NonLLMStringSimilarity",
             return_value=mock_scorer_instance,
@@ -304,7 +309,8 @@ class TestMetricErrorHandling:
     ) -> None:
         """Test that Ragas-based metrics raise MetricError when scoring fails."""
         mock_scorer_instance = mocker.MagicMock()
-        mock_scorer_instance.single_turn_score = mocker.MagicMock(
+        # Use ragas 0.4+ API: score() method instead of single_turn_score()
+        mock_scorer_instance.score = mocker.MagicMock(
             side_effect=RuntimeError("Test error")
         )
         mocker.patch(scorer_path, return_value=mock_scorer_instance)

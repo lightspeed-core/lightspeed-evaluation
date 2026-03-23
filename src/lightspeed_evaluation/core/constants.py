@@ -1,7 +1,6 @@
 """Common constants for evaluation framework."""
 
-# Map similarity measure strings to Ragas DistanceMeasure enum
-from ragas.metrics import DistanceMeasure
+from ragas.metrics.collections import DistanceMeasure
 
 # NLP Metrics Constants - BLEU
 DEFAULT_BLEU_MAX_NGRAM = 4  # Standard BLEU uses up to 4-grams

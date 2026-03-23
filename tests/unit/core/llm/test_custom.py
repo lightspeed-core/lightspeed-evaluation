@@ -15,7 +15,10 @@ class TestBaseCustomLLM:
 
     def test_setup_ssl_verify_enabled(self, mocker: MockerFixture) -> None:
         """Test SSL verification enabled by default."""
-        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
+        # Mock litellm in litellm_patch where setup_litellm_ssl is defined
+        mock_litellm = mocker.patch(
+            "lightspeed_evaluation.core.llm.litellm_patch.litellm"
+        )
         mocker.patch.dict("os.environ", {"SSL_CERTIFI_BUNDLE": "/path/to/bundle.pem"})
 
         BaseCustomLLM("gpt-4", {})
@@ -24,7 +27,10 @@ class TestBaseCustomLLM:
 
     def test_setup_ssl_verify_disabled(self, mocker: MockerFixture) -> None:
         """Test SSL verification can be disabled."""
-        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
+        # Mock litellm in litellm_patch where setup_litellm_ssl is defined
+        mock_litellm = mocker.patch(
+            "lightspeed_evaluation.core.llm.litellm_patch.litellm"
+        )
         mocker.patch.dict("os.environ", {})
 
         BaseCustomLLM("gpt-4", {"ssl_verify": False})
@@ -33,7 +39,10 @@ class TestBaseCustomLLM:
 
     def test_drop_params_always_enabled(self, mocker: MockerFixture) -> None:
         """Test drop_params is always enabled for cross-provider compatibility."""
+        # Mock litellm in custom.py where drop_params is set
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
+        # Also mock litellm_patch to prevent side effects
+        mocker.patch("lightspeed_evaluation.core.llm.litellm_patch.litellm")
         mocker.patch.dict("os.environ", {})
 
         BaseCustomLLM("gpt-4", {})

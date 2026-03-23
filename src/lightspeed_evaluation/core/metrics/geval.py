@@ -315,7 +315,11 @@ class GEvalHandler:  # pylint: disable=R0903
             )
             logger.debug(
                 "Test case output: %s...",
-                test_case.actual_output[:100] if test_case.actual_output else "None",
+                (
+                    str(test_case.actual_output)[:100]
+                    if test_case.actual_output is not None
+                    else "None"
+                ),
             )
             return None, f"GEval evaluation error: {str(e)}"
 
