@@ -160,6 +160,56 @@ class EmbeddingConfig(BaseModel):
         return v
 
 
+class MCPServerConfig(BaseModel):
+    """Configuration for a single MCP server authentication."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    env_var: str = Field(
+        ...,
+        min_length=1,
+        description="Environment variable containing the token/key",
+    )
+    header_name: Optional[str] = Field(
+        default=None,
+        description="Custom header name (optional, defaults to 'Authorization')",
+    )
+
+
+class MCPHeadersConfig(BaseModel):
+    """Configuration for MCP headers functionality."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable MCP headers functionality",
+    )
+    servers: dict[str, MCPServerConfig] = Field(
+        default_factory=dict,
+        description="MCP server configurations",
+    )
+
+    @model_validator(mode="after")
+    def _validate_env_vars_when_enabled(self) -> "MCPHeadersConfig":
+        """Validate that environment variables are set when MCP headers are enabled."""
+        if self.enabled and self.servers:
+            missing_vars = []
+            for server_name, server_config in self.servers.items():
+                if not os.getenv(server_config.env_var):
+                    missing_vars.append(f"{server_name}: {server_config.env_var}")
+
+            if missing_vars:
+                missing_list = ", ".join(missing_vars)
+                msg = (
+                    "MCP headers are enabled but required environment variables are not set: "
+                    f"{missing_list}"
+                )
+                raise ValueError(msg)
+
+        return self
+
+
 class APIConfig(BaseModel):
     """API configuration for dynamic data generation."""
 
@@ -195,6 +245,9 @@ class APIConfig(BaseModel):
     )
     cache_enabled: bool = Field(
         default=True, description="Is caching of lightspeed-stack queries enabled?"
+    )
+    mcp_headers: Optional[MCPHeadersConfig] = Field(
+        default=None, description="MCP headers configuration for authentication"
     )
     num_retries: int = Field(
         default=DEFAULT_API_NUM_RETRIES,
