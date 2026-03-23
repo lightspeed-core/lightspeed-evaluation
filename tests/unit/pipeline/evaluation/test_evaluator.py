@@ -1,4 +1,4 @@
-# pylint: disable=protected-access,redefined-outer-name,too-many-arguments,too-many-positional-arguments
+# pylint: disable=protected-access,redefined-outer-name,too-many-arguments,too-many-positional-arguments,too-many-lines
 
 """Unit tests for pipeline evaluation evaluator module."""
 
@@ -266,8 +266,23 @@ class TestMetricsEvaluator:
             config_loader, mock_metric_manager, mock_script_manager
         )
 
-        turn_data = TurnData(turn_id="1", query="Q", response="R")
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        turn1 = TurnData(
+            turn_id="1",
+            query="Q",
+            response="R",
+            api_input_tokens=10,
+            api_output_tokens=5,
+        )
+        turn2 = TurnData(
+            turn_id="2",
+            query="Q2",
+            response="R2",
+            api_input_tokens=20,
+            api_output_tokens=15,
+        )
+        conv_data = EvaluationData(
+            conversation_group_id="test_conv", turns=[turn1, turn2]
+        )
 
         request = EvaluationRequest.for_conversation(
             conv_data, "deepeval:conversation_completeness"
@@ -278,6 +293,8 @@ class TestMetricsEvaluator:
         assert result.result == "PASS"
         assert result.score == 0.75
         assert result.turn_id is None  # Conversation-level
+        assert result.api_input_tokens == 30
+        assert result.api_output_tokens == 20
 
     def test_evaluate_metric_unsupported_framework(
         self,
@@ -286,7 +303,7 @@ class TestMetricsEvaluator:
         mock_script_manager: ScriptExecutionManager,
         mocker: MockerFixture,
     ) -> None:
-        """Test evaluating metric with unsupported framework."""
+        """Test unsupported framework returns ERROR and aggregates API tokens across turns."""
         create_mock_llm_manager(mocker)
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
@@ -306,10 +323,24 @@ class TestMetricsEvaluator:
             config_loader, mock_metric_manager, mock_script_manager
         )
 
-        turn_data = TurnData(turn_id="1", query="Q", response="R")
-        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
-        request = EvaluationRequest.for_turn(conv_data, "unknown:metric", 0, turn_data)
+        turn1 = TurnData(
+            turn_id="1",
+            query="Q",
+            response="R",
+            api_input_tokens=5,
+            api_output_tokens=2,
+        )
+        turn2 = TurnData(
+            turn_id="2",
+            query="Q2",
+            response="R2",
+            api_input_tokens=7,
+            api_output_tokens=3,
+        )
+        conv_data = EvaluationData(
+            conversation_group_id="test_conv", turns=[turn1, turn2]
+        )
+        request = EvaluationRequest.for_conversation(conv_data, "unknown:metric")
 
         result = evaluator.evaluate_metric(request)
 
@@ -317,6 +348,8 @@ class TestMetricsEvaluator:
         assert result.result == "ERROR"
         assert result.score is None
         assert "Unsupported framework" in result.reason
+        assert result.api_input_tokens == 12
+        assert result.api_output_tokens == 5
 
     def test_evaluate_metric_returns_none_score(
         self,
