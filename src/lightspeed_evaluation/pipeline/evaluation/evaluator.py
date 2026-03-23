@@ -46,6 +46,28 @@ def _to_json_str(value: Any) -> Optional[str]:
         return str(value)
 
 
+def _calculate_api_token_counts_per_request(
+    request: EvaluationRequest,
+) -> tuple[int, int]:
+    """Resolve API token counts for a request."""
+    # For turn-level metric
+    if request.turn_data is not None:
+        return (
+            request.turn_data.api_input_tokens,
+            request.turn_data.api_output_tokens,
+        )
+
+    # For conversation-level metrics, sum across all turns in the conversation
+    api_input_tokens_sum = sum(
+        turn.api_input_tokens for turn in request.conv_data.turns
+    )
+    api_output_tokens_sum = sum(
+        turn.api_output_tokens for turn in request.conv_data.turns
+    )
+
+    return (api_input_tokens_sum, api_output_tokens_sum)
+
+
 class MetricsEvaluator:
     """Handles individual metric evaluation with proper scoring and status determination."""
 
@@ -185,6 +207,9 @@ class MetricsEvaluator:
             execution_time = time.time() - start_time
 
             turn_data = request.turn_data
+            api_input_tokens, api_output_tokens = (
+                _calculate_api_token_counts_per_request(request)
+            )
             return EvaluationResult(
                 **metric_result.model_dump(),
                 conversation_group_id=request.conv_data.conversation_group_id,
@@ -195,12 +220,8 @@ class MetricsEvaluator:
                 query=turn_data.query if turn_data else "",
                 response=turn_data.response or "" if turn_data else "",
                 execution_time=execution_time,
-                api_input_tokens=(
-                    request.turn_data.api_input_tokens if request.turn_data else 0
-                ),
-                api_output_tokens=(
-                    request.turn_data.api_output_tokens if request.turn_data else 0
-                ),
+                api_input_tokens=api_input_tokens,
+                api_output_tokens=api_output_tokens,
                 # Streaming performance metrics
                 time_to_first_token=(
                     turn_data.time_to_first_token if turn_data else None
@@ -662,6 +683,9 @@ class MetricsEvaluator:
     ) -> EvaluationResult:
         """Create an ERROR result for failed evaluation."""
         turn_data = request.turn_data
+        api_input_tokens, api_output_tokens = _calculate_api_token_counts_per_request(
+            request
+        )
         return EvaluationResult(
             conversation_group_id=request.conv_data.conversation_group_id,
             tag=request.conv_data.tag,
@@ -675,8 +699,8 @@ class MetricsEvaluator:
             query=turn_data.query if turn_data else "",
             response=turn_data.response or "" if turn_data else "",
             execution_time=execution_time,
-            api_input_tokens=turn_data.api_input_tokens if turn_data else 0,
-            api_output_tokens=turn_data.api_output_tokens if turn_data else 0,
+            api_input_tokens=api_input_tokens,
+            api_output_tokens=api_output_tokens,
             # Streaming performance metrics
             time_to_first_token=turn_data.time_to_first_token if turn_data else None,
             streaming_duration=turn_data.streaming_duration if turn_data else None,
