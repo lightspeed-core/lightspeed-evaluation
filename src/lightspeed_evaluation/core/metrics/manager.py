@@ -72,14 +72,17 @@ class MetricManager:
         Returns:
             Full metadata dictionary or None if not found
         """
-        # Check level-specific metadata first
+        # Get system default for this metric (base for merge)
+        system_metadata = self._get_system_metadata(level)
+        base = system_metadata.get(metric_identifier) or {}
+
+        # Level override: merge on top of system (override keys win; system keys kept)
         level_metadata = self._get_level_metadata(level, conv_data, turn_data)
         if metric_identifier in level_metadata:
-            return level_metadata[metric_identifier]
+            override = level_metadata[metric_identifier]
+            return {**base, **override} if override else base
 
-        # Fall back to system defaults
-        system_metadata = self._get_system_metadata(level)
-        return system_metadata.get(metric_identifier)
+        return base if base else None
 
     def get_effective_threshold(
         self,
