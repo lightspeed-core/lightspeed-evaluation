@@ -1401,6 +1401,7 @@ dependencies = [
     { name = "ragas" },
     { name = "scipy" },
     { name = "seaborn" },
+    { name = "sqlalchemy" },
     { name = "tenacity" },
     { name = "tqdm" },
 ]
@@ -1454,6 +1455,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.14.0" },
     { name = "seaborn", specifier = ">=0.11.0" },
     { name = "sentence-transformers", marker = "extra == 'local-embeddings'", specifier = ">=5.2.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "torch", marker = "extra == 'local-embeddings'", specifier = ">=2.5.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "tqdm", specifier = ">=4.67.1" },
