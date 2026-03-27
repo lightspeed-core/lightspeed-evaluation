@@ -179,10 +179,10 @@ class TestLLMManager:
         params = manager.get_llm_params()
 
         assert params["model"] == "gpt-4"
-        assert params["temperature"] == 0.0
-        assert params["max_completion_tokens"] == 512
         assert params["timeout"] == 60
         assert params["num_retries"] == 3
+        assert params["parameters"]["temperature"] == 0.0
+        assert params["parameters"]["max_completion_tokens"] == 512
 
     def test_get_config(
         self, basic_llm_config: LLMConfig, mocker: MockerFixture
@@ -238,10 +238,10 @@ class TestLLMManager:
         manager = LLMManager(config)
         params = manager.get_llm_params()
 
-        assert params["temperature"] == 0.7
-        assert params["max_completion_tokens"] == 1024
         assert params["timeout"] == 120
         assert params["num_retries"] == 5
+        assert params["parameters"]["temperature"] == 0.7
+        assert params["parameters"]["max_completion_tokens"] == 1024
 
     def test_initialization_logs_message(
         self,

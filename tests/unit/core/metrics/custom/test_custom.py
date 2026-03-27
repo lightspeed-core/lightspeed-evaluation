@@ -16,7 +16,7 @@ class TestCustomMetricsToolEval:
         # Mock LLM manager
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
-        mock_llm_manager.get_llm_params.return_value = {}
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
 
         custom_metrics = CustomMetrics(mock_llm_manager)
 
@@ -40,7 +40,7 @@ class TestCustomMetricsToolEval:
         """Test that default config uses full_match=True and ordered=True."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
-        mock_llm_manager.get_llm_params.return_value = {}
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
 
         custom_metrics = CustomMetrics(mock_llm_manager)
 
@@ -70,7 +70,7 @@ class TestCustomMetricsToolEval:
         """Test that ordered=False is read from turn_metrics_metadata."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
-        mock_llm_manager.get_llm_params.return_value = {}
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
 
         custom_metrics = CustomMetrics(mock_llm_manager)
 
@@ -100,7 +100,7 @@ class TestCustomMetricsToolEval:
         """Test that full_match=False is read from turn_metrics_metadata."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
-        mock_llm_manager.get_llm_params.return_value = {}
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
 
         custom_metrics = CustomMetrics(mock_llm_manager)
 
@@ -130,7 +130,7 @@ class TestCustomMetricsToolEval:
         """Test that config is read from system.yaml via MetricManager."""
         mock_llm_manager = mocker.Mock()
         mock_llm_manager.get_model_name.return_value = "test-model"
-        mock_llm_manager.get_llm_params.return_value = {}
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
 
         # Mock MetricManager to return system defaults
         mock_metric_manager = mocker.Mock()

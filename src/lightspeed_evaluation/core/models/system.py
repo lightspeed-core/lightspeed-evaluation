@@ -46,6 +46,27 @@ from lightspeed_evaluation.core.constants import (
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
+# Keys not allowed in llm_pool.parameters
+# These are either request-envelope fields or managed via dedicated config fields
+FORBIDDEN_PARAMETER_KEYS = frozenset(
+    {
+        # Request envelope fields
+        "model",
+        "messages",
+        "n",
+        # Operational fields (set via dedicated config)
+        "timeout",
+        "num_retries",
+        "ssl_verify",
+        "ssl_cert_file",
+        "cache_enabled",
+        "cache_dir",
+        # Provider/client fields
+        "provider",
+        "client",
+    }
+)
+
 
 class LLMConfig(BaseModel):
     """LLM configuration from system configuration."""
@@ -119,6 +140,35 @@ class LLMConfig(BaseModel):
     cache_enabled: bool = Field(
         default=True, description="Is caching of 'LLM as a judge' queries enabled?"
     )
+    parameters: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Internal: dynamic LLM parameters for API calls",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def strip_user_parameters(cls, data: Any) -> Any:
+        """Strip parameters from YAML/dict input.
+
+        Dynamic parameters via YAML are only supported through llm_pool.
+        For legacy llm:, parameters is always built from explicit fields.
+        """
+        if isinstance(data, dict):
+            data.pop("parameters", None)
+        return data
+
+    @model_validator(mode="after")
+    def build_parameters_from_fields(self) -> "LLMConfig":
+        """Build parameters dict from explicit temperature and max_tokens.
+
+        For the pool path, resolve_llm_config() overrides this via
+        model_copy(update=...) after construction.
+        """
+        self.parameters = {
+            "temperature": self.temperature,
+            "max_completion_tokens": self.max_tokens,
+        }
+        return self
 
 
 class EmbeddingConfig(BaseModel):
@@ -410,19 +460,37 @@ class LLMParametersConfig(BaseModel):
         description="Maximum tokens in response",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_forbidden_keys(cls, data: Any) -> Any:
+        """Reject keys that must be set via dedicated config fields, not parameters."""
+        if not isinstance(data, dict):
+            return data
+        forbidden_found = FORBIDDEN_PARAMETER_KEYS & data.keys()
+        if forbidden_found:
+            raise ConfigurationError(
+                f"Keys not allowed in parameters: {forbidden_found}. "
+                f"Use dedicated config fields instead."
+            )
+        return data
+
     def to_dict(self, exclude_none: bool = True) -> dict[str, Any]:
         """Convert parameters to dict for passing to LLM.
 
         Args:
-            exclude_none: If True, exclude None values from output
+            exclude_none: If True, exclude None values from output.
+                If False, include only explicitly set fields (uses model_fields_set
+                to distinguish user-provided None from unset defaults).
 
         Returns:
             Dict of parameters ready for LLM API call
         """
-        params = self.model_dump()
         if exclude_none:
-            return {k: v for k, v in params.items() if v is not None}
-        return params
+            return {k: v for k, v in self.model_dump().items() if v is not None}
+        # Include only fields the user explicitly set (including None overrides)
+        return {
+            k: v for k, v in self.model_dump().items() if k in self.model_fields_set
+        }
 
 
 class LLMDefaultsConfig(BaseModel):
@@ -581,16 +649,19 @@ class LLMPoolConfig(BaseModel):
             )
         entry = self.models[model_id]
 
-        # Merge parameters: defaults -> model entry
+        # Merge parameters: defaults -> individual (individual overrides defaults).
+        # None in individual explicitly removes the default's value.
+        # Note: Forbidden keys are rejected at LLMParametersConfig load time.
         merged_params: dict[str, Any] = {}
         merged_params.update(self.defaults.parameters.to_dict(exclude_none=True))
-        merged_params.update(entry.parameters.to_dict(exclude_none=True))
+        merged_params.update(entry.parameters.to_dict(exclude_none=False))
+        merged_params = {k: v for k, v in merged_params.items() if v is not None}
 
         # Build cache_dir from defaults with model-specific suffix
         suffix = cache_suffix if cache_suffix else model_id
         cache_dir = os.path.join(self.defaults.cache_dir, suffix)
 
-        return LLMConfig(
+        config = LLMConfig(
             provider=entry.provider,
             model=entry.model or model_id,
             temperature=merged_params.get("temperature", DEFAULT_LLM_TEMPERATURE),
@@ -609,6 +680,7 @@ class LLMPoolConfig(BaseModel):
             cache_dir=cache_dir,
             # Note: api_base and api_key_path are not propagated yet - requires LLMConfig extension
         )
+        return config.model_copy(update={"parameters": merged_params})
 
 
 class JudgePanelConfig(BaseModel):

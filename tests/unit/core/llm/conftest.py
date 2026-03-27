@@ -9,10 +9,12 @@ from lightspeed_evaluation.core.models import LLMConfig
 def llm_params() -> dict:
     """Create sample LLM parameters."""
     return {
-        "temperature": 0.5,
-        "max_completion_tokens": 1024,
         "timeout": 120,
         "num_retries": 5,
+        "parameters": {
+            "temperature": 0.5,
+            "max_completion_tokens": 1024,
+        },
     }
 
 

@@ -61,27 +61,10 @@ class TestBaseCustomLLM:
         mock_response.choices = [mock_choice]
         mock_litellm.completion.return_value = mock_response
 
-        llm = BaseCustomLLM("gpt-4", {"temperature": 0.0})
+        llm = BaseCustomLLM("gpt-4", {"parameters": {"temperature": 0.0}})
         result = llm.call("test prompt")
 
         assert result == "Test response"
-
-    def test_call_with_temperature_override(self, mocker: MockerFixture) -> None:
-        """Test call with temperature override."""
-        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
-        mocker.patch.dict("os.environ", {})
-
-        mock_choice = mocker.Mock()
-        mock_choice.message.content = "Test"
-        mock_response = mocker.Mock()
-        mock_response.choices = [mock_choice]
-        mock_litellm.completion.return_value = mock_response
-
-        llm = BaseCustomLLM("gpt-4", {"temperature": 0.0})
-        llm.call("test", temperature=0.9)
-
-        call_args = mock_litellm.completion.call_args[1]
-        assert call_args["temperature"] == 0.9
 
     def test_call_raises_llm_error_on_failure(self, mocker: MockerFixture) -> None:
         """Test call raises LLMError on failure."""
@@ -125,7 +108,7 @@ class TestBaseCustomLLMJudgeLLMTokenTracking:
         tracker.start()
 
         try:
-            llm = BaseCustomLLM("gpt-4", {"temperature": 0.0})
+            llm = BaseCustomLLM("gpt-4", {"parameters": {"temperature": 0.0}})
             llm.call("test prompt")
 
             # Tokens should be captured
@@ -162,7 +145,7 @@ class TestBaseCustomLLMJudgeLLMTokenTracking:
         temp.start()
         temp.stop()
 
-        llm = BaseCustomLLM("gpt-4", {"temperature": 0.0})
+        llm = BaseCustomLLM("gpt-4", {"parameters": {"temperature": 0.0}})
         result = llm.call("test prompt")
 
         # Should succeed without error
@@ -193,7 +176,7 @@ class TestBaseCustomLLMJudgeLLMTokenTracking:
         tracker.start()
 
         try:
-            llm = BaseCustomLLM("gpt-4", {"temperature": 0.0})
+            llm = BaseCustomLLM("gpt-4", {"parameters": {"temperature": 0.0}})
             llm.call("test prompt")
 
             # Tokens should NOT be captured due to cache hit

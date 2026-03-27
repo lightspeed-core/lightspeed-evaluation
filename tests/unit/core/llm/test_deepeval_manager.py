@@ -41,35 +41,18 @@ class TestDeepEvalLLMManager:
         assert manager.llm_params == llm_params
         mock_model.assert_called_once()
 
-    def test_initialization_with_default_temperature(
-        self, mocker: MockerFixture
-    ) -> None:
-        """Test initialization with default temperature."""
+    def test_initialization_passes_parameters(self, mocker: MockerFixture) -> None:
+        """Test initialization passes parameters to LiteLLMModel."""
         mock_model = mocker.patch(
             "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
         )
 
-        params = {"max_completion_tokens": 512}
+        params = {"parameters": {"temperature": 0.7, "max_completion_tokens": 512}}
         DeepEvalLLMManager("gpt-3.5-turbo", params)
 
-        # Should use default temperature 0.0
         call_kwargs = mock_model.call_args.kwargs
-        assert call_kwargs["temperature"] == 0.0
-
-    def test_initialization_with_default_num_retries(
-        self, mocker: MockerFixture
-    ) -> None:
-        """Test initialization with default num_retries."""
-        mock_model = mocker.patch(
-            "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
-        )
-
-        params = {"temperature": 0.0}
-        DeepEvalLLMManager("gpt-4", params)
-
-        # Should use default num_retries 3
-        call_kwargs = mock_model.call_args.kwargs
-        assert call_kwargs["num_retries"] == 3
+        assert call_kwargs["temperature"] == 0.7
+        assert call_kwargs["max_completion_tokens"] == 512
 
     def test_get_llm(self, llm_params: dict, mocker: MockerFixture) -> None:
         """Test get_llm method."""
@@ -92,10 +75,11 @@ class TestDeepEvalLLMManager:
         info = manager.get_model_info()
 
         assert info["model_name"] == "gpt-4"
-        assert info["temperature"] == 0.5
-        assert info["max_completion_tokens"] == 1024
         assert info["timeout"] == 120
         assert info["num_retries"] == 5
+        # Parameters from nested dict
+        assert info["temperature"] == 0.5
+        assert info["max_completion_tokens"] == 1024
 
     def test_initialization_prints_message(
         self, llm_params: dict, mocker: MockerFixture, capsys: pytest.CaptureFixture
