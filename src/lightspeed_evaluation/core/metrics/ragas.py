@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import litellm
 from litellm.caching.caching import Cache
-from litellm.types.caching import LiteLLMCacheType
+from litellm.types.caching import CachingSupportedCallTypes, LiteLLMCacheType
 from ragas.metrics.collections import (
     AnswerRelevancy,
     ContextPrecision,
@@ -49,9 +49,24 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         # Modifying global litellm cache as there is no clear way how to do it per model
         # We can't use Ragas's Cacher here, because we use litellm here and that conflicts with
         # litellm cache from DeepEval code
-        if llm_manager.get_config().cache_enabled and litellm.cache is None:
+        # Enable cache based on individual feature flags
+        llm_cache_enabled = llm_manager.get_config().cache_enabled
+        embedding_cache_enabled = embedding_manager.config.cache_enabled
+        if (llm_cache_enabled or embedding_cache_enabled) and litellm.cache is None:
+            # Build supported call types based on individual cache flags
+            supported_call_types: list[CachingSupportedCallTypes] = []
+            if llm_cache_enabled:
+                supported_call_types.extend(["completion", "acompletion"])
+            if embedding_cache_enabled:
+                supported_call_types.extend(["embedding", "aembedding"])
+
+            # Use LLM cache dir as primary location (shared cache for all litellm calls)
             cache_dir = llm_manager.get_config().cache_dir
-            litellm.cache = Cache(type=LiteLLMCacheType.DISK, disk_cache_dir=cache_dir)
+            litellm.cache = Cache(
+                type=LiteLLMCacheType.DISK,
+                disk_cache_dir=cache_dir,
+                supported_call_types=supported_call_types,
+            )
 
         # Create Ragas LLM Manager for metric configuration
         self.llm_manager = RagasLLMManager(llm_manager)
