@@ -2,7 +2,6 @@
 
 """Unit tests for JudgeOrchestrator - multi-judge evaluation and aggregation."""
 
-import logging
 from typing import Any
 
 import pytest
@@ -10,6 +9,22 @@ from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import JudgeScore
 from lightspeed_evaluation.pipeline.evaluation.judges import JudgeOrchestrator
+
+
+def _make_orchestrator(
+    mocker: MockerFixture,
+    strategy: str,
+    status_determiner: Any = None,
+) -> JudgeOrchestrator:
+    """Create a JudgeOrchestrator with a given aggregation strategy."""
+    mock_manager = mocker.MagicMock()
+    mock_manager.system_config.judge_panel.aggregation_strategy = strategy
+    return JudgeOrchestrator(
+        llm_manager=mock_manager,
+        primary_handlers={},
+        handler_factory=mocker.MagicMock(),
+        status_determiner=status_determiner or (lambda s, _: "PASS"),
+    )
 
 
 class TestAggregateScores:
@@ -20,22 +35,6 @@ class TestAggregateScores:
         """Create a mock LLM manager without system_config (no panel)."""
         manager = mocker.MagicMock()
         manager.system_config = None
-        manager.judge_id = "primary"
-        return manager
-
-    @pytest.fixture
-    def mock_llm_manager_with_panel(self, mocker: MockerFixture) -> Any:
-        """Create a mock LLM manager with panel config set to max strategy."""
-        manager = mocker.MagicMock()
-        manager.system_config.judge_panel.aggregation_strategy = "max"
-        manager.judge_id = "primary"
-        return manager
-
-    @pytest.fixture
-    def mock_llm_manager_with_average_strategy(self, mocker: MockerFixture) -> Any:
-        """Create a mock LLM manager with panel config set to average strategy."""
-        manager = mocker.MagicMock()
-        manager.system_config.judge_panel.aggregation_strategy = "average"
         manager.judge_id = "primary"
         return manager
 
@@ -59,10 +58,11 @@ class TestAggregateScores:
             JudgeScore(judge_id="judge-1", score=0.85, reason="Good answer")
         ]
 
-        score, reason = orchestrator.aggregate_scores(judge_scores)
+        score, reason, override = orchestrator.aggregate_scores(judge_scores)
 
         assert score == 0.85
         assert reason == "Good answer"
+        assert override is None
 
     def test_single_judge_with_none_score(
         self, orchestrator: JudgeOrchestrator
@@ -74,10 +74,11 @@ class TestAggregateScores:
             )
         ]
 
-        score, reason = orchestrator.aggregate_scores(judge_scores)
+        score, reason, override = orchestrator.aggregate_scores(judge_scores)
 
         assert score is None
         assert reason == "Evaluation error: timeout"
+        assert override is None
 
     def test_multiple_judges_returns_max(self, orchestrator: JudgeOrchestrator) -> None:
         """Multiple judges return max score."""
@@ -87,11 +88,12 @@ class TestAggregateScores:
             JudgeScore(judge_id="judge-3", score=0.75, reason="Good"),
         ]
 
-        score, reason = orchestrator.aggregate_scores(judge_scores)
+        score, reason, override = orchestrator.aggregate_scores(judge_scores)
 
         assert score == 0.9
         assert "Max of 3 judges" in reason
         assert "0.900" in reason
+        assert override is None
 
     def test_multiple_judges_with_one_failure(
         self, orchestrator: JudgeOrchestrator
@@ -103,10 +105,11 @@ class TestAggregateScores:
             JudgeScore(judge_id="judge-3", score=0.85, reason="Great"),
         ]
 
-        score, reason = orchestrator.aggregate_scores(judge_scores)
+        score, reason, override = orchestrator.aggregate_scores(judge_scores)
 
         assert score == 0.85
         assert "Max of 2 judges" in reason
+        assert override is None
 
     def test_all_judges_failed(self, orchestrator: JudgeOrchestrator) -> None:
         """All judges failing returns None with appropriate message."""
@@ -115,75 +118,100 @@ class TestAggregateScores:
             JudgeScore(judge_id="judge-2", score=None, reason="Error 2"),
         ]
 
-        score, reason = orchestrator.aggregate_scores(judge_scores)
+        score, reason, override = orchestrator.aggregate_scores(judge_scores)
 
         assert score is None
         assert reason == "All judges failed to produce a score"
+        assert override is None
 
 
-class TestAggregationStrategyWarning:
-    """Tests for aggregation strategy warning deduplication."""
+class TestAggregationStrategies:
+    """Tests for average and majority_vote aggregation."""
 
-    def test_warning_emitted_once_for_unimplemented_strategy(
-        self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Warning for unimplemented strategy is emitted only once."""
-        mock_manager = mocker.MagicMock()
-        mock_manager.system_config.judge_panel.aggregation_strategy = "average"
-        mock_manager.judge_id = "primary"
+    def test_average_strategy(self, mocker: MockerFixture) -> None:
+        """Average strategy returns mean of valid scores."""
+        orch = _make_orchestrator(mocker, "average")
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.6, reason="A"),
+            JudgeScore(judge_id="j2", score=0.8, reason="B"),
+        ]
+        score, reason, override = orch.aggregate_scores(judge_scores, 0.7)
+        assert score == pytest.approx(0.7)
+        assert "Average of 2 judges" in reason
+        assert override is None
 
-        orchestrator = JudgeOrchestrator(
-            llm_manager=mock_manager,
-            primary_handlers={},
-            handler_factory=mocker.MagicMock(),
-            status_determiner=lambda s, _: "PASS",
+    def test_majority_vote_pass(self, mocker: MockerFixture) -> None:
+        """Majority vote: PASS when strict majority of judges meet metric threshold."""
+        # status_determiner returns FAIL to prove override takes precedence
+        orch = _make_orchestrator(
+            mocker, "majority_vote", status_determiner=lambda s, _: "FAIL"
         )
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.9, reason="A"),
+            JudgeScore(judge_id="j2", score=0.9, reason="B"),
+            JudgeScore(judge_id="j3", score=0.2, reason="C"),
+        ]
+        score, reason, override = orch.aggregate_scores(judge_scores, 0.7)
+        assert score == pytest.approx((0.9 + 0.9 + 0.2) / 3)
+        assert override == "PASS"
+        assert "Majority vote (2/3" in reason
 
+    def test_majority_vote_fail(self, mocker: MockerFixture) -> None:
+        """Majority vote: FAIL when majority do not meet threshold."""
+        orch = _make_orchestrator(mocker, "majority_vote")
         judge_scores = [
             JudgeScore(judge_id="j1", score=0.8, reason="A"),
-            JudgeScore(judge_id="j2", score=0.7, reason="B"),
+            JudgeScore(judge_id="j2", score=0.2, reason="B"),
+            JudgeScore(judge_id="j3", score=0.2, reason="C"),
         ]
+        score, reason, override = orch.aggregate_scores(judge_scores, 0.7)
+        assert override == "FAIL"
+        assert "Majority vote (1/3" in reason
+        assert score == pytest.approx((0.8 + 0.2 + 0.2) / 3)
 
-        with caplog.at_level(logging.WARNING):
-            # Call aggregate multiple times
-            orchestrator.aggregate_scores(judge_scores)
-            orchestrator.aggregate_scores(judge_scores)
-            orchestrator.aggregate_scores(judge_scores)
-
-        # Warning should appear only once
-        warning_messages = [
-            r.message for r in caplog.records if "not yet implemented" in r.message
-        ]
-        assert len(warning_messages) == 1
-        assert "average" in warning_messages[0]
-
-    def test_no_warning_for_max_strategy(
-        self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    def test_majority_vote_none_threshold_uses_default_half(
+        self, mocker: MockerFixture
     ) -> None:
-        """No warning emitted when using implemented 'max' strategy."""
-        mock_manager = mocker.MagicMock()
-        mock_manager.system_config.judge_panel.aggregation_strategy = "max"
-        mock_manager.judge_id = "primary"
-
-        orchestrator = JudgeOrchestrator(
-            llm_manager=mock_manager,
-            primary_handlers={},
-            handler_factory=mocker.MagicMock(),
-            status_determiner=lambda s, _: "PASS",
-        )
-
+        """Majority vote with threshold=None uses 0.5; also tests 2-judge tie (1/2 → FAIL)."""
+        orch = _make_orchestrator(mocker, "majority_vote")
         judge_scores = [
-            JudgeScore(judge_id="j1", score=0.8, reason="A"),
-            JudgeScore(judge_id="j2", score=0.7, reason="B"),
+            JudgeScore(judge_id="j1", score=0.4, reason="A"),
+            JudgeScore(judge_id="j2", score=0.6, reason="B"),
         ]
+        score, reason, override = orch.aggregate_scores(judge_scores, None)
+        assert score == pytest.approx(0.5)
+        assert override == "FAIL"  # 1/2 pass at 0.5, not strict majority
+        assert "0.500 (default)" in reason
 
-        with caplog.at_level(logging.WARNING):
-            orchestrator.aggregate_scores(judge_scores)
-
-        warning_messages = [
-            r.message for r in caplog.records if "not yet implemented" in r.message
+    def test_majority_vote_even_split_tie_is_fail(self, mocker: MockerFixture) -> None:
+        """Tie on 4 judges (2/4 pass): strict majority needs >2, so FAIL."""
+        orch = _make_orchestrator(mocker, "majority_vote")
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.9, reason="A"),
+            JudgeScore(judge_id="j2", score=0.8, reason="B"),
+            JudgeScore(judge_id="j3", score=0.3, reason="C"),
+            JudgeScore(judge_id="j4", score=0.2, reason="D"),
         ]
-        assert len(warning_messages) == 0
+        score, reason, override = orch.aggregate_scores(judge_scores, 0.7)
+        assert override == "FAIL"
+        assert "Majority vote (2/4" in reason
+        assert score == pytest.approx(0.55)
+
+    def test_majority_vote_three_of_four_pass(self, mocker: MockerFixture) -> None:
+        """3/4 judges pass: strict majority (3 > 2), so PASS."""
+        orch = _make_orchestrator(
+            mocker, "majority_vote", status_determiner=lambda s, _: "FAIL"
+        )
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.9, reason="A"),
+            JudgeScore(judge_id="j2", score=0.8, reason="B"),
+            JudgeScore(judge_id="j3", score=0.7, reason="C"),
+            JudgeScore(judge_id="j4", score=0.2, reason="D"),
+        ]
+        score, reason, override = orch.aggregate_scores(judge_scores, 0.7)
+        assert override == "PASS"
+        assert "Majority vote (3/4" in reason
+        assert score == pytest.approx(0.65)
 
 
 class TestHandlerCaching:

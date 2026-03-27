@@ -1,8 +1,10 @@
 """Judge orchestration module - handles multi-judge evaluation and aggregation."""
 
 import logging
+from statistics import mean
 from typing import Any, Callable, Optional
 
+from lightspeed_evaluation.core.constants import DEFAULT_METRIC_THRESHOLD
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
 from lightspeed_evaluation.core.models import (
@@ -53,9 +55,6 @@ class JudgeOrchestrator:
         # Cache for judge-specific handlers (keyed by judge_id -> framework -> handler)
         self._judge_handlers: dict[str, dict[str, Any]] = {}
 
-        # Flag to avoid warning spam for unimplemented aggregation strategies
-        self._warned_aggregation_strategy = False
-
     def evaluate_with_judges(
         self,
         request: EvaluationRequest,
@@ -63,20 +62,19 @@ class JudgeOrchestrator:
         token_tracker: TokenTracker,
         threshold: Optional[float],
     ) -> MetricResult:
-        """Execute metric evaluation using appropriate judges.
+        """Evaluate a metric with the appropriate judges and aggregate results.
 
-        For metrics in enabled_metrics (or when enabled_metrics is None),
-        uses all panel judges. Otherwise uses only primary judge.
-        Always returns a list of JudgeScore entries (even for single judge).
+        Uses all panel judges for enabled metrics, or the primary judge only.
 
         Args:
-            request: Evaluation request (contains metric_identifier and conv_data)
-            evaluation_scope: Scope with turn/conversation context
-            token_tracker: Token usage tracker
-            threshold: Score threshold for pass/fail
+            request: Contains metric identifier and conversation data.
+            evaluation_scope: Turn or conversation context for the evaluation.
+            token_tracker: Tracks token usage per judge call.
+            threshold: Metric pass threshold from metadata. Defaults to 0.5
+                when not specified.
 
         Returns:
-            MetricResult with aggregated score and individual judge scores
+            MetricResult with aggregated score and individual judge scores.
         """
         # Extract framework and metric_name from identifier
         framework, metric_name = request.metric_identifier.split(":", 1)
@@ -102,10 +100,14 @@ class JudgeOrchestrator:
             token_tracker,
         )
 
-        # Aggregate scores
-        aggregated_score, aggregated_reason = self.aggregate_scores(judge_scores)
+        # Aggregate scores (majority_vote sets PASS/FAIL without re-applying threshold to mean)
+        aggregated_score, aggregated_reason, status_override = self.aggregate_scores(
+            judge_scores, threshold
+        )
 
-        if aggregated_score is not None:
+        if status_override is not None:
+            status = status_override
+        elif aggregated_score is not None:
             status = self._status_determiner(aggregated_score, threshold)
         else:
             status = "ERROR"
@@ -131,8 +133,16 @@ class JudgeOrchestrator:
     ) -> tuple[list[JudgeScore], int, int]:
         """Evaluate metric with all judges and collect results.
 
+        Args:
+            judge_managers: LLM managers for each judge to evaluate with.
+            framework: Metric framework name (e.g. ragas, deepeval).
+            metric_name: Name of the metric within the framework.
+            request: Contains conversation data for evaluation.
+            evaluation_scope: Turn or conversation context.
+            token_tracker: Tracks token usage per judge call.
+
         Returns:
-            Tuple of (judge_scores, total_input_tokens, total_output_tokens)
+            Tuple of (judge_scores, total_input_tokens, total_output_tokens).
         """
         judge_scores: list[JudgeScore] = []
         total_input_tokens = 0
@@ -164,8 +174,19 @@ class JudgeOrchestrator:
     ) -> tuple[JudgeScore, int, int]:
         """Evaluate metric with a single judge.
 
+        On evaluation error, returns a JudgeScore with score=None instead
+        of propagating the exception.
+
+        Args:
+            judge_manager: LLM manager for this judge.
+            framework: Metric framework name (e.g. ragas, deepeval).
+            metric_name: Name of the metric within the framework.
+            request: Contains conversation data for evaluation.
+            evaluation_scope: Turn or conversation context.
+            token_tracker: Tracks token usage for this call.
+
         Returns:
-            Tuple of (JudgeScore, input_tokens, output_tokens)
+            Tuple of (JudgeScore, input_tokens, output_tokens).
         """
         # Use judge_id from manager (pool key) - ensures uniqueness even when
         # multiple pool entries use the same underlying model
@@ -220,8 +241,15 @@ class JudgeOrchestrator:
     def _get_handler_for_judge(self, framework: str, judge_manager: LLMManager) -> Any:
         """Get or create a metric handler for a specific judge.
 
-        For primary manager, reuses existing handlers from primary_handlers.
-        For other judges, handlers are cached by judge_id (pool key) to avoid recreation.
+        Reuses existing handlers for the primary manager. For other judges,
+        creates and caches handlers by judge_id to avoid recreation.
+
+        Args:
+            framework: Metric framework name (e.g. ragas, deepeval).
+            judge_manager: LLM manager for the judge.
+
+        Returns:
+            The metric handler instance for the given framework and judge.
         """
         # Reuse existing handler if this is the primary manager
         if judge_manager is self.llm_manager:
@@ -244,50 +272,104 @@ class JudgeOrchestrator:
         return handler
 
     def aggregate_scores(
-        self, judge_scores: list[JudgeScore]
-    ) -> tuple[Optional[float], str]:
-        """Aggregate scores from multiple judges.
+        self,
+        judge_scores: list[JudgeScore],
+        threshold: Optional[float] = None,
+    ) -> tuple[Optional[float], str, Optional[str]]:
+        """Aggregate scores from multiple judges based on the panel strategy.
 
-        Currently implements 'max' strategy only. Other strategies (average,
-        majority_vote) are planned for future implementation.
-        For single judge, returns the judge's score and reason directly (even if None).
+        Judges that errored (score is None) are excluded from aggregation.
+        With a single judge, its score and reason are returned directly.
+
+        Strategies for multiple judges:
+            - max: uses the highest valid score.
+            - average: uses the mean of valid scores.
+            - majority_vote: reports the mean as the score but determines
+              pass/fail by strict majority of judges meeting the threshold.
 
         Args:
-            judge_scores: List of JudgeScore from all judges
+            judge_scores: List of score entries, one per judge.
+            threshold: Metric pass threshold. Defaults to 0.5 when not set.
 
         Returns:
-            Tuple of (aggregated_score, aggregated_reason)
+            Tuple of (aggregated_score, reason, status_override).
+            status_override is only set for majority_vote (PASS/FAIL);
+            None for other strategies.
         """
-        # Warn once if non-max strategy is configured (not yet implemented)
         panel = (
             self.llm_manager.system_config.judge_panel
             if self.llm_manager.system_config
             else None
         )
-        if (
-            panel
-            and panel.aggregation_strategy != "max"
-            and not self._warned_aggregation_strategy
-        ):
-            logger.warning(
-                "Aggregation strategy '%s' is not yet implemented. "
-                "Using 'max' instead. Other strategies coming soon.",
-                panel.aggregation_strategy,
-            )
-            self._warned_aggregation_strategy = True
+        strategy = panel.aggregation_strategy if panel else "max"
 
         # Single judge: return its score and reason directly (even if None)
         if len(judge_scores) == 1:
-            return judge_scores[0].score, judge_scores[0].reason
+            return judge_scores[0].score, judge_scores[0].reason, None
 
-        # Multiple judges: filter valid scores and aggregate
-        # Extract scores directly, filtering out None values
+        # Multiple judges: collect valid scores
         scores: list[float] = [js.score for js in judge_scores if js.score is not None]
 
         if not scores:
-            # All judges failed
-            return None, "All judges failed to produce a score"
+            return None, "All judges failed to produce a score", None
 
-        # Multiple judges: max score
+        n_valid = len(scores)
+
+        if strategy == "average":
+            avg_score = mean(scores)
+            return (
+                avg_score,
+                f"Average of {n_valid} judges: {avg_score:.3f}",
+                None,
+            )
+
+        if strategy == "majority_vote":
+            return self._aggregate_majority_vote(scores, threshold)
+
+        # max (default)
         max_score = max(scores)
-        return max_score, f"Max of {len(scores)} judges: {max_score:.3f}"
+        return (
+            max_score,
+            f"Max of {n_valid} judges: {max_score:.3f}",
+            None,
+        )
+
+    def _aggregate_majority_vote(
+        self,
+        scores: list[float],
+        threshold: Optional[float],
+    ) -> tuple[float, str, Optional[str]]:
+        """Aggregate using majority vote strategy.
+
+        Reports the mean of valid scores as the score. Pass/fail is decided by
+        whether a strict majority of judges individually meet the threshold
+        (passes > n/2). Ties fail (e.g. 1/2 is FAIL, 2/3 is PASS).
+
+        A status_override is returned so the caller does not re-compare the
+        mean against the metric threshold.
+
+        Args:
+            scores: Valid (non-None) judge scores.
+            threshold: Metric pass threshold. Defaults to 0.5 when not set.
+
+        Returns:
+            Tuple of (mean_score, reason, status_override).
+        """
+        n_valid = len(scores)
+        avg_score = mean(scores)
+        effective_threshold = (
+            float(threshold) if threshold is not None else DEFAULT_METRIC_THRESHOLD
+        )
+        passes = sum(1 for s in scores if s >= effective_threshold)
+        majority_pass = passes > n_valid / 2
+        status_override = "PASS" if majority_pass else "FAIL"
+        thr_label = (
+            f"{effective_threshold:.3f}"
+            if threshold is not None
+            else f"{effective_threshold:.3f} (default)"
+        )
+        reason = (
+            f"Majority vote ({passes}/{n_valid} pass threshold {thr_label}): "
+            f"mean score {avg_score:.3f}"
+        )
+        return avg_score, reason, status_override

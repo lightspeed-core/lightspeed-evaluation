@@ -742,21 +742,17 @@ judge_panel:
   judges:
     - judge-4o-mini
     - judge-4.1-mini
-  aggregation_strategy: max  # Currently only 'max' is implemented
+  aggregation_strategy: max  # or: average, majority_vote
   # enabled_metrics: ["ragas:faithfulness"]  # Optional: limit to specific metrics
   # If enabled_metrics not set, ALL LLM metrics use the full panel
 ```
+
+**Aggregation:** `max` (highest score), `average` (mean vs threshold), or `majority_vote` (more than half of judges must individually meet the threshold — ties fail). See [Configuration Guide](configuration.md#judge-panel).
 
 **Benefits:**
 - Reduces bias from a single model
 - More robust evaluation scores
 - Per-judge token tracking for cost analysis
-
-**Current Limitations:**
-- Only `max` aggregation is implemented (`average`, `majority_vote` coming soon)
-- Per-metric thresholds for panel not yet supported
-
-See [Configuration Guide](configuration.md#llm-pool).
 
 ### Evaluation Data (`evaluation_data.yaml`)
 
