@@ -29,6 +29,8 @@ dependencies = [
     "tenacity>=9.1.2",
     "langchain[huggingface]>=0.3.30",
     "langchain-google-genai>=2.0.0",
+    # Storage dependencies
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]

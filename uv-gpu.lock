@@ -426,10 +426,10 @@ wheels = [
 
 [[package]]
 name = "cuda-pathfinder"
-version = "1.4.3"
+version = "1.4.4"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/59/911a1a597264f1fb7ac176995a0f0b6062e37f8c1b6e0f23071a76838507/cuda_pathfinder-1.4.3-py3-none-any.whl", hash = "sha256:4345d8ead1f701c4fb8a99be6bc1843a7348b6ba0ef3b031f5a2d66fb128ae4c", size = 47951, upload-time = "2026-03-16T21:31:25.526Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/66/7b2c3d23dac4bb9629b4d9702f1f796bd41c01142c2b47be6fcfdeaf4ee4/cuda_pathfinder-1.4.4-py3-none-any.whl", hash = "sha256:1a9e7feccae0d969ad88545d0462f2ed2750df8e6732309798dc1e1ca603a28b", size = 48834, upload-time = "2026-03-23T20:50:00.706Z" },
 ]
 
 [[package]]
@@ -1423,6 +1423,7 @@ dependencies = [
     { name = "ragas" },
     { name = "scipy" },
     { name = "seaborn" },
+    { name = "sqlalchemy" },
     { name = "tenacity" },
     { name = "tqdm" },
 ]
@@ -1475,6 +1476,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.14.0" },
     { name = "seaborn", specifier = ">=0.11.0" },
     { name = "sentence-transformers", marker = "extra == 'local-embeddings'", specifier = ">=5.2.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "torch", marker = "extra == 'local-embeddings'", specifier = ">=2.5.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
