@@ -3,39 +3,23 @@
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
 .PHONY: help test
 
-install-tools: git-hooks  ## Install required utilities/tools
-	# Install uv if not already installed
-	@command -v uv > /dev/null || { echo >&2 "uv is not installed. Installing..."; pip install uv; }
-	uv --version
-	# display setuptools version
-	uv pip show setuptools
-	export PIP_DEFAULT_TIMEOUT=100
-	# install all dependencies, including devel ones
-	@for a in 1 2 3 4 5; do uv sync --group dev && break || sleep 15; done
-	# check that correct mypy version is installed
-	uv run mypy --version
-	# check that correct Black version is installed
-	uv run black --version
-	# check that correct Ruff version is installed
-	uv run ruff --version
-	# check that Pytest is installed
-	uv run pytest --version
-
 git-hooks:  ## Install git hooks
 	@echo "Installing git hooks"
 	cd .git/hooks && ln -sf ../../githooks/* ./
 
+install-tools: git-hooks  ## Install required utilities/tools
+	@command -v uv > /dev/null || { echo >&2 "uv is not installed. Installing..."; pip install uv; }
+	@uv --version
+
 uv-lock-check: ## Check that the uv.lock file is in a good shape
 	uv lock --check
 
-install-deps: install-tools uv-lock-check ## Install all required dependencies needed to run the service, according to uv.lock
-	@for a in 1 2 3 4 5; do uv sync && break || sleep 15; done
 
-install-deps-test: install-tools uv-lock-check ## Install all required dev dependencies needed to test the service, according to uv.lock
-	@for a in 1 2 3 4 5; do uv sync --group dev && break || sleep 15; done
+install-deps-test: ## Install all required dev dependencies needed to test the service, according to uv.lock
+	uv sync --group dev
 
 update-deps: ## Check pyproject.toml for changes, update the lock file if needed, then sync.
-	uv sync
+	uv lock
 	uv sync --group dev
 
 check-types: ## Checks type hints in sources
@@ -47,11 +31,56 @@ black-check:
 black-format:
 	uv run black src tests script lsc_agent_eval
 
-requirements.txt:	pyproject.toml uv.lock ## Generate requirements.txt file containing hashes for all non-devel packages
-	uv export --no-dev --format requirements-txt --output-file requirements.txt
+uv-lock-regenerate: ## Regenerate both CPU and GPU lock files from pyproject.toml
+	@echo "Regenerating CPU lock file (uv.lock)..."
+	uv lock
+	@echo "Regenerating GPU lock file (uv-gpu.lock)..."
+	@# Use mktemp for safe temporary files
+	@( \
+		set -e; \
+		BACKUP_FILE=$$(mktemp "$${TMPDIR:-/tmp}/pyproject-backup.XXXXXX"); \
+		TEMP_FILE=$$(mktemp "$${TMPDIR:-/tmp}/pyproject-temp.XXXXXX"); \
+		trap "rm -f $$TEMP_FILE; [ -f $$BACKUP_FILE ] && mv $$BACKUP_FILE pyproject.toml; echo '❌ Error: GPU lock generation failed, pyproject.toml restored'; exit 1" EXIT; \
+		cp pyproject.toml $$BACKUP_FILE; \
+		sed '/^\[tool\.uv\.sources\]/,/^torch = /d' pyproject.toml > $$TEMP_FILE; \
+		mv $$TEMP_FILE pyproject.toml; \
+		uv lock --locked 2>/dev/null || uv lock; \
+		mv uv.lock uv-gpu.lock; \
+		mv $$BACKUP_FILE pyproject.toml; \
+		trap - EXIT; \
+	)
+	@echo "Restoring CPU lock file (uv.lock)..."
+	uv lock
+	@echo "✅ Done! Created uv.lock (CPU) and uv-gpu.lock (GPU)"
 
-verify-packages-completeness:	requirements.txt ## Verify that requirements.txt file contains complete list of packages
-	uv pip download -d /tmp/ --use-pep517 --verbose -r requirements.txt
+generate-requirements: ## Generate pinned requirements-*.txt from uv.lock (no -e ., safe without clone)
+	@echo "Generating requirements.txt (runtime only, no optional extras)..."
+	uv export --frozen --no-hashes --no-dev --no-emit-project -o requirements.txt
+	@echo "Generating requirements-nlp-metrics.txt (base + nlp-metrics)..."
+	uv export --frozen --no-hashes --no-dev --no-emit-project --extra nlp-metrics -o requirements-nlp-metrics.txt
+	@echo "Generating requirements-local-embeddings.txt (base + local-embeddings, excludes torch)..."
+	uv export --frozen --no-hashes --no-dev --no-emit-project --extra local-embeddings --no-emit-package torch -o requirements-local-embeddings.txt
+	@echo "Generating requirements-all-extras.txt (base + all optional extras, excludes torch)..."
+	uv export --frozen --no-hashes --no-dev --no-emit-project --all-extras --no-emit-package torch -o requirements-all-extras.txt
+	@TORCH_VERSION=$$(grep 'torch.*version.*2\.' uv.lock | head -1 | sed 's/.*version = "\([^"]*\)".*/\1/'); \
+	echo ""; \
+	echo "========================================"; \
+	echo "Requirements files generated:"; \
+	echo "  - requirements.txt"; \
+	echo "  - requirements-nlp-metrics.txt"; \
+	echo "  - requirements-local-embeddings.txt (torch excluded - install separately)"; \
+	echo "  - requirements-all-extras.txt (torch excluded - install separately)"; \
+	echo ""; \
+	echo "For local-embeddings extras, install torch separately:"; \
+	echo "  CPU: pip install torch==$$TORCH_VERSION --index-url https://download.pytorch.org/whl/cpu"; \
+	echo "  GPU: pip install torch==$$TORCH_VERSION"; \
+	echo "Note: Dev dependencies use uv.lock for local development"; \
+	echo "========================================"
+
+sync-lock-and-requirements: uv-lock-regenerate generate-requirements ## Regenerate lock files and requirements-*.txt
+
+verify-packages-completeness: requirements-all-extras.txt ## Verify pinned requirements resolve (full optional set)
+	uv pip download -d /tmp/ --use-pep517 --verbose -r requirements-all-extras.txt
 
 distribution-archives: ## Generate distribution archives to be uploaded into Python registry
 	uv run python -m build

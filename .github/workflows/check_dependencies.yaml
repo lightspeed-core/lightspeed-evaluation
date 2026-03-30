@@ -21,7 +21,20 @@ jobs:
         run: pip install --user uv
       - name: uv version
         run: uv --version
-      - name: Generate requirements.txt file
-        run: uv export --format requirements-txt --output-file requirements.txt --no-hashes
-      - name: List requirements.txt file
-        run: cat requirements.txt
+      - name: Generate pinned requirements files
+        run: make generate-requirements
+      - name: List generated requirements files
+        run: ls -la requirements.txt requirements-*.txt
+      - name: Verify requirements files are up-to-date
+        run: |
+          if ! git diff --exit-code requirements.txt requirements-*.txt; then
+            echo "❌ ERROR: Generated requirements files have uncommitted changes!"
+            echo ""
+            echo "The requirements-*.txt files are out of sync with uv.lock."
+            echo "Please run locally:"
+            echo "  make generate-requirements"
+            echo "  git add requirements*.txt"
+            echo "  git commit -m 'chore: regenerate requirements files'"
+            exit 1
+          fi
+          echo "✅ All requirements files are up-to-date"
