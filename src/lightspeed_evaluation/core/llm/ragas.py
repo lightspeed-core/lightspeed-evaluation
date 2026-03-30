@@ -42,24 +42,24 @@ class RagasLLMManager:
         # Setup SSL verification for litellm
         setup_litellm_ssl(self.llm_params)
 
-        # Extract inference kwargs to pass to ragas llm_factory
-        # Filter out None values to avoid overriding library defaults unnecessarily
-        inference_kwargs: dict[str, Any] = {}
-        for key in ("temperature", "timeout", "num_retries"):
-            if self.llm_params.get(key) is not None:
-                inference_kwargs[key] = self.llm_params[key]
-
+        # Build inference kwargs from parameters
         # Rename max_completion_tokens to max_tokens for ragas/instructor compatibility
         # (OpenAI rejects requests with both set simultaneously)
-        if self.llm_params.get("max_completion_tokens") is not None:
-            inference_kwargs["max_tokens"] = self.llm_params["max_completion_tokens"]
+        # Note: Forbidden keys are rejected at LLMParametersConfig load time
+        inference_kwargs = dict(self.llm_params.get("parameters", {}))
+        if "max_completion_tokens" in inference_kwargs:
+            inference_kwargs["max_tokens"] = inference_kwargs.pop(
+                "max_completion_tokens"
+            )
 
         # Create LLM using ragas llm_factory with litellm provider
         # MUST use acompletion (async) because ragas 0.4 metrics use async internally
         self.llm = llm_factory(
-            model=self.model_name,
             provider="litellm",
             client=litellm.acompletion,
+            model=self.model_name,
+            timeout=self.llm_params.get("timeout"),
+            num_retries=self.llm_params.get("num_retries"),
             **inference_kwargs,
         )
 
@@ -75,7 +75,9 @@ class RagasLLMManager:
 
     def get_model_info(self) -> dict[str, Any]:
         """Get information about the configured model."""
-        return {
-            "model_name": self.model_name,
-            "temperature": self.llm_params.get("temperature", 0.0),
-        }
+        params = self.llm_params.get("parameters", {})
+        info: dict[str, Any] = {"model_name": self.model_name}
+        # Only include temperature if explicitly set (not removed via null)
+        if "temperature" in params:
+            info["temperature"] = params["temperature"]
+        return info

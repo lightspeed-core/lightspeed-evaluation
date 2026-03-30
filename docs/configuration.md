@@ -26,18 +26,31 @@ Define a centralized pool of LLM configurations for the Judge Panel feature.
 | Setting | Description |
 |---------|-------------|
 | `llm_pool.defaults.cache_dir` | Cache directory (default: `.caches/llm_cache`) |
-| `llm_pool.defaults.timeout` | Request timeout in seconds |
-| `llm_pool.defaults.num_retries` | Retry attempts |
+| `llm_pool.defaults.timeout` | Request timeout in seconds (default: `300`) |
+| `llm_pool.defaults.num_retries` | Retry attempts (default: `3`) |
 | `llm_pool.defaults.parameters.temperature` | Sampling temperature |
 | `llm_pool.defaults.parameters.max_completion_tokens` | Max tokens in response |
+| `llm_pool.defaults.parameters.*` | Any additional provider-supported LLM parameter (e.g., `top_p`, `frequency_penalty`) |
 | `llm_pool.models.<id>.provider` | LLM provider (required) |
 | `llm_pool.models.<id>.model` | Model name |
-| `llm_pool.models.<id>.parameters.*` | Model-specific parameter overrides |
+| `llm_pool.models.<id>.parameters.*` | Model-specific parameter overrides (merged with defaults, model takes priority) |
+
+**Dynamic Parameters:** The `parameters` dict accepts any key-value pair supported by the LLM provider. Known parameters: `temperature`, `max_completion_tokens`. Unsupported parameters are silently dropped by the provider.
+
+**Removing Defaults:** To remove an inherited default parameter, set it to `null` in the model config:
+```yaml
+models:
+  no-temp-model:
+    provider: openai
+    parameters:
+      temperature: null  # Removes default temperature, won't be sent to API
+```
 
 ```yaml
 llm_pool:
   defaults:
     cache_dir: ".caches/llm_cache"
+    num_retries: 2
     parameters:
       temperature: 0.0
       max_completion_tokens: 512
@@ -48,6 +61,8 @@ llm_pool:
     judge-4.1-mini:
       provider: openai
       model: gpt-4.1-mini
+      parameters:
+        temperature: 0.3                # Overrides default
 ```
 
 ## Judge Panel
@@ -81,8 +96,11 @@ judge_panel:
 
 ---
 
-## Judge LLM configuration
-This section configures LLM as a judge for both Ragas and DeepEval.
+## Judge LLM configuration (legacy)
+
+> **Deprecation notice:** The `llm` section will be replaced by `llm_pool` + `judge_panel`.
+
+This section configures LLM. It is used when `judge_panel` is not configured (even if `llm_pool` exists).
 
 ### LLM
 | Setting (llm.) | Default | Description |
@@ -97,6 +115,8 @@ This section configures LLM as a judge for both Ragas and DeepEval.
 | num_retries | `3` | Maximum retry attempts |
 | cache_dir | `".caches/llm_cache"` | Directory with cached LLM responses |
 | cache_enabled | `true` | Is LLM cache enabled? |
+
+Dynamic LLM parameters are only supported through `llm_pool` config. To use dynamic parameters, migrate to `llm_pool`.
 
 **Note**: For RHAIIS, models.corp, or other vLLM-based inference servers, use the `hosted_vllm` provider configuration. `models.corp` additionally requires certificate setup via `ssl_cert_file` configuration option.
 

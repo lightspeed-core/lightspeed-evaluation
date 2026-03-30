@@ -23,7 +23,13 @@ class DeepEvalLLMManager:
     """
 
     def __init__(self, model_name: str, llm_params: dict[str, Any]):
-        """Initialize with LLM parameters from LLMManager."""
+        """Initialize with LLM parameters from LLMManager.
+
+        Args:
+            model_name: Constructed model name (e.g., "openai/gpt-4")
+            llm_params: LLM params from get_llm_params() — operational fields
+                plus a "parameters" dict with inference params.
+        """
         self.model_name = model_name
         self.llm_params = llm_params
 
@@ -34,14 +40,16 @@ class DeepEvalLLMManager:
 
         # Note: Token tracking is handled by the patched litellm.completion/acompletion
         # No additional setup needed - the patch was applied at module import time
-
         # Create standard LiteLLMModel - it will use our patched completion functions
+
+        # LiteLLMModel stores **kwargs in self.kwargs and merges them into
+        # every litellm.completion() call
+        # Note: Forbidden keys are rejected at LLMParametersConfig load time
         self.llm_model = LiteLLMModel(
             model=self.model_name,
-            temperature=llm_params.get("temperature", 0.0),
-            max_completion_tokens=llm_params.get("max_completion_tokens"),
-            timeout=llm_params.get("timeout"),
-            num_retries=llm_params.get("num_retries", 3),
+            timeout=self.llm_params.get("timeout"),
+            num_retries=self.llm_params.get("num_retries"),
+            **self.llm_params.get("parameters", {}),
         )
 
         print(f"✅ DeepEval LLM Manager: {self.model_name}")
@@ -65,13 +73,12 @@ class DeepEvalLLMManager:
 
     def get_model_info(self) -> dict[str, Any]:
         """Get information about the configured model."""
-        return {
-            "model_name": self.model_name,
-            "temperature": self.llm_params.get("temperature", 0.0),
-            "max_completion_tokens": self.llm_params.get("max_completion_tokens"),
-            "timeout": self.llm_params.get("timeout"),
-            "num_retries": self.llm_params.get("num_retries", 3),
-        }
+        info: dict[str, Any] = {"model_name": self.model_name}
+        info["timeout"] = self.llm_params.get("timeout")
+        info["num_retries"] = self.llm_params.get("num_retries")
+        # Add inference params (forbidden keys rejected at config load time)
+        info.update(self.llm_params.get("parameters", {}))
+        return info
 
     @staticmethod
     def flush_deepevals_pending_tasks() -> None:

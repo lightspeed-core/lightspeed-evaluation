@@ -49,6 +49,35 @@ class TestLLMConfig:
         with pytest.raises(ValidationError):
             LLMConfig(num_retries=-1)
 
+    def test_parameters_auto_populated_from_fields(self) -> None:
+        """Legacy path: parameters dict is built from explicit fields."""
+        config = LLMConfig(temperature=0.3, max_tokens=1024)
+        assert config.parameters == {
+            "temperature": 0.3,
+            "max_completion_tokens": 1024,
+        }
+
+    def test_parameters_from_pool_path(self) -> None:
+        """Pool path: model_copy sets parameters with extras."""
+        config = LLMConfig(temperature=0.5, max_tokens=2048)
+        params = {"temperature": 0.5, "max_completion_tokens": 2048, "top_p": 0.9}
+        config = config.model_copy(update={"parameters": params})
+        assert config.parameters == params
+        assert config.parameters["top_p"] == 0.9
+
+    def test_parameters_stripped_from_yaml_input(self) -> None:
+        """User-provided parameters in YAML is stripped, rebuilt from fields."""
+        config = LLMConfig(
+            temperature=0.3,
+            max_tokens=1024,
+            parameters={"top_p": 0.9},
+        )
+        assert "top_p" not in config.parameters
+        assert config.parameters == {
+            "temperature": 0.3,
+            "max_completion_tokens": 1024,
+        }
+
     def test_ssl_cert_file_handling(self, mocker: MockerFixture) -> None:
         """Test ssl_cert_file validation and path expansion."""
         # Create temp cert file
@@ -172,9 +201,18 @@ class TestLLMParametersConfig:
         assert "temperature" in result
         assert "max_completion_tokens" not in result
 
-        # to_dict can include None
+        # to_dict(exclude_none=False) returns only explicitly set fields
         result = params.to_dict(exclude_none=False)
-        assert result["max_completion_tokens"] is None
+        assert "max_completion_tokens" not in result  # not set, not included
+        assert result["temperature"] == 0.5
+
+        # Explicitly setting a field to None includes it (for override/drop)
+        params_with_null = LLMParametersConfig.model_validate(
+            {"temperature": None, "top_p": 0.9}
+        )
+        result = params_with_null.to_dict(exclude_none=False)
+        assert result["temperature"] is None  # explicitly set to None
+        assert result["top_p"] == 0.9
 
 
 class TestLLMProviderConfig:
@@ -271,6 +309,74 @@ class TestLLMPoolConfig:
         with pytest.raises(ConfigurationError, match="Model 'unknown' not found"):
             pool.resolve_llm_config("unknown")
 
+    def test_resolve_llm_config_passes_extras(self) -> None:
+        """Extra parameters from LLMParametersConfig flow into LLMConfig.parameters."""
+        pool = LLMPoolConfig(
+            defaults=LLMDefaultsConfig(
+                parameters=LLMParametersConfig.model_validate(
+                    {"temperature": 0.1, "max_completion_tokens": 512, "top_p": 0.9}
+                ),
+            ),
+            models={
+                "gpt-4o-mini": LLMProviderConfig(
+                    provider="openai",
+                    parameters=LLMParametersConfig.model_validate(
+                        {"frequency_penalty": 0.5}
+                    ),
+                ),
+            },
+        )
+        resolved = pool.resolve_llm_config("gpt-4o-mini")
+
+        # Explicit fields set from merged params
+        assert resolved.temperature == 0.1
+        assert resolved.max_tokens == 512
+
+        # Extras present in parameters dict
+        assert resolved.parameters["top_p"] == 0.9
+        assert resolved.parameters["frequency_penalty"] == 0.5
+        assert resolved.parameters["temperature"] == 0.1
+        assert resolved.parameters["max_completion_tokens"] == 512
+
+    def test_resolve_llm_config_individual_overrides_default_extras(self) -> None:
+        """Individual model extras override default extras."""
+        pool = LLMPoolConfig(
+            defaults=LLMDefaultsConfig(
+                parameters=LLMParametersConfig.model_validate({"top_p": 0.9}),
+            ),
+            models={
+                "model-a": LLMProviderConfig(
+                    provider="openai",
+                    parameters=LLMParametersConfig.model_validate({"top_p": 0.5}),
+                ),
+            },
+        )
+        resolved = pool.resolve_llm_config("model-a")
+        assert resolved.parameters["top_p"] == 0.5
+
+    def test_resolve_llm_config_none_drops_default(self) -> None:
+        """Individual model setting a param to null removes the default value."""
+        pool = LLMPoolConfig(
+            defaults=LLMDefaultsConfig(
+                parameters=LLMParametersConfig.model_validate(
+                    {"temperature": 0.3, "top_p": 0.9}
+                ),
+            ),
+            models={
+                "model-a": LLMProviderConfig(
+                    provider="openai",
+                    parameters=LLMParametersConfig.model_validate(
+                        {"temperature": None}
+                    ),
+                ),
+            },
+        )
+        resolved = pool.resolve_llm_config("model-a")
+        # temperature was explicitly nulled -> absent from parameters (not sent to LLM)
+        assert "temperature" not in resolved.parameters
+        # top_p from defaults survives
+        assert resolved.parameters["top_p"] == 0.9
+
     def test_custom_model_id_and_ssl(self) -> None:
         """Test custom model IDs and SSL settings."""
         pool = LLMPoolConfig(
@@ -297,6 +403,28 @@ class TestLLMPoolConfig:
         # SSL settings
         assert pool.resolve_llm_config("gpt-oss-prod").ssl_verify is True
         assert pool.resolve_llm_config("gpt-oss-staging").ssl_verify is False
+
+    def test_forbidden_keys_rejected_at_load_time(self) -> None:
+        """Forbidden keys in parameters raise ConfigurationError at config load."""
+        # Direct LLMParametersConfig
+        with pytest.raises(ConfigurationError, match="Keys not allowed"):
+            LLMParametersConfig.model_validate({"timeout": 60})
+
+        with pytest.raises(ConfigurationError, match="Keys not allowed"):
+            LLMParametersConfig.model_validate({"provider": "openai"})
+
+        # At defaults level
+        with pytest.raises(ConfigurationError, match="Keys not allowed"):
+            LLMDefaultsConfig(
+                parameters=LLMParametersConfig.model_validate({"model": "gpt-4"})
+            )
+
+        # At model level
+        with pytest.raises(ConfigurationError, match="Keys not allowed"):
+            LLMProviderConfig(
+                provider="openai",
+                parameters=LLMParametersConfig.model_validate({"num_retries": 5}),
+            )
 
 
 class TestJudgePanelConfig:

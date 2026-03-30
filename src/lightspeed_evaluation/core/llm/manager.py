@@ -209,15 +209,18 @@ class LLMManager:
         return self.model_name
 
     def get_llm_params(self) -> dict[str, Any]:
-        """Get parameters for LLM completion calls."""
+        """Get all LLM parameters for adapter consumption.
+
+        Returns operational params and inference parameters dict.
+        Adapters read operational fields directly and spread **parameters
+        for inference params (temperature, max_completion_tokens, etc.).
+        """
         return {
             "model": self.model_name,
-            "temperature": self.config.temperature,
-            # Map max_tokens to max_completion_tokens for LLM API
-            "max_completion_tokens": self.config.max_tokens,
             "timeout": self.config.timeout,
             "num_retries": self.config.num_retries,
             "ssl_verify": self.config.ssl_verify,
+            "parameters": dict(self.config.parameters),
         }
 
     def get_config(self) -> LLMConfig:

@@ -1,7 +1,7 @@
 """Base Custom LLM class for evaluation framework."""
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 import litellm
 from litellm.exceptions import InternalServerError
@@ -16,7 +16,13 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
     """Base LLM class with core calling functionality."""
 
     def __init__(self, model_name: str, llm_params: dict[str, Any]):
-        """Initialize with model configuration."""
+        """Initialize with model configuration.
+
+        Args:
+            model_name: Constructed model name (e.g., "openai/gpt-4")
+            llm_params: LLM params from get_llm_params() — operational fields
+                plus a "parameters" dict with inference params.
+        """
         self.model_name = model_name
         self.llm_params = llm_params
 
@@ -29,7 +35,6 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
         self,
         prompt: str,
         n: int = 1,
-        temperature: Optional[float] = None,
         return_single: bool = True,
         **kwargs: Any,
     ) -> Union[str, list[str]]:
@@ -38,27 +43,20 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
         Args:
             prompt: Text prompt to send
             n: Number of responses to generate (default 1)
-            temperature: Override temperature (uses config default if None)
             return_single: If True and n=1, return single string. If False, always return list.
             **kwargs: Additional LLM parameters
 
         Returns:
             Single string if return_single=True and n=1, otherwise list of strings
         """
-        temp = (
-            temperature
-            if temperature is not None
-            else self.llm_params.get("temperature", 0.0)
-        )
-
+        # Note: Forbidden keys are rejected at LLMParametersConfig load time
         call_params = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": temp,
             "n": n,
-            "max_completion_tokens": self.llm_params.get("max_completion_tokens"),
             "timeout": self.llm_params.get("timeout"),
-            "num_retries": self.llm_params.get("num_retries", 3),
+            "num_retries": self.llm_params.get("num_retries"),
+            **self.llm_params.get("parameters", {}),
             **kwargs,
         }
 
