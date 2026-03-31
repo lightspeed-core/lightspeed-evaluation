@@ -22,7 +22,7 @@ A framework for evaluating AI agent performance.
 
 ### Prerequisites
 
-- Python 3.11 or 3.12
+- Python 3.11 - 3.13
 - Package manager: `uv` or `pip`
 
 - Agent API is running. Any change to the API response may impact evaluation processing logic.
@@ -30,26 +30,35 @@ A framework for evaluating AI agent performance.
 
 ### Install from Git
 
-```bash
-# Install directly from git repository
-pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_agent_eval
+Replace `TAG` below with a [release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) like `v0.5.0`, or use `main` for latest.
 
-# Or install with uv
-uv add git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_agent_eval
+```bash
+# Set your desired tag
+TAG=v0.5.0
+
+# Install package (no dependencies)
+pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}#subdirectory=lsc_agent_eval
+
+# Install dependencies
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/lsc_agent_eval/requirements.txt
 ```
 
-### Install from Source
+**From main branch:**
+```bash
+pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git#subdirectory=lsc_agent_eval
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/main/lsc_agent_eval/requirements.txt
+```
+
+**Note:** Both `pip` and `uv pip` work with requirements files.
+
+### Local Development (clone, uv lock)
 
 ```bash
-# Clone the repository
 git clone https://github.com/lightspeed-core/lightspeed-evaluation.git
 cd lightspeed-evaluation/lsc_agent_eval
 
-# Install with pip
-pip install -e .
-
-# Or install with uv
-uv sync
+uv sync              # Runtime dependencies
+uv sync --group dev  # + dev tools
 ```
 
 ## Data Configuration
