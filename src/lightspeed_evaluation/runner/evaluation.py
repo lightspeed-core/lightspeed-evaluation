@@ -123,6 +123,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         evaluation_data = DataValidator(
             api_enabled=system_config.api.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
+            system_config=system_config,
         ).load_evaluation_data(
             eval_args.eval_data,
             tags=eval_args.tags,

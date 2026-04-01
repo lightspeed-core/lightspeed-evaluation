@@ -6,11 +6,10 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from pytest_mock import MockerFixture
 
 from pydantic import ValidationError
 
-from lightspeed_evaluation.core.models import EvaluationData, TurnData
+from lightspeed_evaluation.core.models import EvaluationData, SystemConfig, TurnData
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
 from lightspeed_evaluation.core.system.validator import (
     DataValidator,
@@ -136,17 +135,15 @@ class TestDataValidator:
         assert result is True
         assert len(validator.validation_errors) == 0
 
-    def test_validate_metrics_availability_unknown_turn_metric(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_validate_metrics_availability_unknown_turn_metric(self) -> None:
         """Test validation fails for unknown turn metric."""
-        # Mock the global metrics sets
-        mocker.patch(
-            "lightspeed_evaluation.core.system.validator.TURN_LEVEL_METRICS",
-            {"ragas:faithfulness", "custom:answer_correctness"},
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+                "custom:answer_correctness": {"threshold": 0.8},
+            },
         )
-
-        validator = DataValidator()
+        validator = DataValidator(system_config=config)
 
         turn = TurnData(
             turn_id="1",
@@ -164,16 +161,14 @@ class TestDataValidator:
             "Unknown turn metric" in error for error in validator.validation_errors
         )
 
-    def test_validate_metrics_availability_unknown_conversation_metric(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_validate_metrics_availability_unknown_conversation_metric(self) -> None:
         """Test validation fails for unknown conversation metric."""
-        mocker.patch(
-            "lightspeed_evaluation.core.system.validator.CONVERSATION_LEVEL_METRICS",
-            {"deepeval:conversation_completeness"},
+        config = SystemConfig(
+            default_conversation_metrics_metadata={
+                "deepeval:conversation_completeness": {"threshold": 0.6},
+            },
         )
-
-        validator = DataValidator()
+        validator = DataValidator(system_config=config)
 
         turn = TurnData(turn_id="1", query="Query", response="Response")
         conv_data = EvaluationData(
@@ -226,16 +221,15 @@ class TestDataValidator:
         assert any("contexts" in error.lower() for error in validator.validation_errors)
 
     def test_validate_metric_requirements_api_enabled_allows_missing_response(
-        self, mocker: MockerFixture
+        self,
     ) -> None:
         """Test that missing response is allowed when API is enabled."""
-        # Mock the global metrics sets
-        mocker.patch(
-            "lightspeed_evaluation.core.system.validator.TURN_LEVEL_METRICS",
-            {"ragas:response_relevancy"},
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:response_relevancy": {"threshold": 0.7},
+            },
         )
-
-        validator = DataValidator(api_enabled=True)
+        validator = DataValidator(api_enabled=True, system_config=config)
 
         turn = TurnData(
             turn_id="1",
@@ -293,17 +287,14 @@ class TestDataValidator:
             "tool_calls" in error.lower() for error in validator.validation_errors
         )
 
-    def test_validate_metric_requirements_skip_script_when_api_disabled(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_validate_metric_requirements_skip_script_when_api_disabled(self) -> None:
         """Test script metrics validation is skipped when API is disabled."""
-        # Mock the global metrics sets
-        mocker.patch(
-            "lightspeed_evaluation.core.system.validator.TURN_LEVEL_METRICS",
-            {"script:action_eval"},
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "script:action_eval": {"threshold": 0.5},
+            },
         )
-
-        validator = DataValidator(api_enabled=False)
+        validator = DataValidator(api_enabled=False, system_config=config)
 
         turn = TurnData(
             turn_id="1",
@@ -366,7 +357,7 @@ class TestDataValidator:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_evaluation_data_valid(self, mocker: MockerFixture) -> None:
+    def test_load_evaluation_data_valid(self) -> None:
         """Test loading valid evaluation data file."""
         yaml_content = """
 - conversation_group_id: test_conv
@@ -381,16 +372,9 @@ class TestDataValidator:
             temp_path = f.name
 
         try:
-            # Mock the global metrics to avoid validation errors
-            mocker.patch(
-                "lightspeed_evaluation.core.system.validator.TURN_LEVEL_METRICS", set()
-            )
-            mocker.patch(
-                "lightspeed_evaluation.core.system.validator.CONVERSATION_LEVEL_METRICS",
-                set(),
-            )
-
-            validator = DataValidator(api_enabled=False)
+            # Use empty SystemConfig so metric sets are empty (no false positives)
+            config = SystemConfig()
+            validator = DataValidator(api_enabled=False, system_config=config)
             data = validator.load_evaluation_data(temp_path)
 
             assert len(data) == 1
@@ -448,16 +432,14 @@ class TestDataValidator:
 
         assert result is True
 
-    def test_validate_evaluation_data_accumulates_errors(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_validate_evaluation_data_accumulates_errors(self) -> None:
         """Test that validation accumulates multiple errors."""
-        mocker.patch(
-            "lightspeed_evaluation.core.system.validator.TURN_LEVEL_METRICS",
-            {"ragas:faithfulness"},
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+            },
         )
-
-        validator = DataValidator(api_enabled=False)
+        validator = DataValidator(api_enabled=False, system_config=config)
 
         # Create data with multiple validation issues
         turn1 = TurnData(

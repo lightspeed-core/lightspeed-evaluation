@@ -5,13 +5,18 @@
 from pathlib import Path
 
 from pytest_mock import MockerFixture
-from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.models import (
+    EvaluationData,
+    EvaluationResult,
+    SystemConfig,
+    TurnData,
+)
 from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.output.statistics import (
     calculate_basic_stats,
     calculate_detailed_stats,
 )
-from lightspeed_evaluation.core.system.loader import validate_metrics
+from lightspeed_evaluation.core.system.validator import DataValidator
 
 
 class TestStatisticsEdgeCases:
@@ -138,22 +143,43 @@ class TestSystemLoaderEdgeCases:
     """Edge case tests for system loader."""
 
     def test_validate_metrics_with_mixed_valid_invalid(self) -> None:
-        """Test validating mix of valid and invalid metrics."""
+        """Test validating mix of valid and invalid metrics via DataValidator."""
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+                "custom:keywords_eval": {"threshold": 0.5},
+            },
+            default_conversation_metrics_metadata={
+                "deepeval:conversation_completeness": {"threshold": 0.6},
+            },
+        )
+        validator = DataValidator(api_enabled=False, system_config=config)
 
-        turn_metrics = [
-            "ragas:faithfulness",
-            "unknown:metric1",
-            "custom:keywords_eval",
-            "unknown:metric2",
-        ]
-        conversation_metrics = [
-            "deepeval:conversation_completeness",
-            "unknown:conv_metric",
-        ]
+        turn = TurnData(
+            turn_id="1",
+            query="Q",
+            response="R",
+            contexts=["C"],
+            expected_keywords=[["kw"]],
+            turn_metrics=[
+                "ragas:faithfulness",
+                "unknown:metric1",
+                "custom:keywords_eval",
+                "unknown:metric2",
+            ],
+        )
+        conv = EvaluationData(
+            conversation_group_id="test",
+            turns=[turn],
+            conversation_metrics=[
+                "deepeval:conversation_completeness",
+                "unknown:conv_metric",
+            ],
+        )
 
-        errors = validate_metrics(turn_metrics, conversation_metrics)
+        validator._validate_evaluation_data([conv])
 
-        # Should have 3 errors (2 turn-level + 1 conversation-level)
-        assert len(errors) >= 2
-        assert any("unknown:metric1" in err for err in errors)
-        assert any("unknown:conv_metric" in err for err in errors)
+        # Should have 3 errors (2 unknown turn-level + 1 unknown conversation-level)
+        assert len(validator.validation_errors) >= 2
+        assert any("unknown:metric1" in err for err in validator.validation_errors)
+        assert any("unknown:conv_metric" in err for err in validator.validation_errors)

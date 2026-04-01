@@ -7,66 +7,8 @@ import pytest
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
-from lightspeed_evaluation.core.system.loader import (
-    ConfigLoader,
-    populate_metric_mappings,
-    TURN_LEVEL_METRICS,
-    CONVERSATION_LEVEL_METRICS,
-)
+from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.models import SystemConfig
-
-
-class TestPopulateMetricMappings:
-    """Unit tests for populate_metric_mappings function."""
-
-    def test_populate_metric_mappings_turn_level(self) -> None:
-        """Test populating turn-level metrics."""
-        config = SystemConfig()
-        config.default_turn_metrics_metadata = {
-            "ragas:faithfulness": {"threshold": 0.7},
-            "custom:answer_correctness": {"threshold": 0.8},
-        }
-        config.default_conversation_metrics_metadata = {}
-
-        populate_metric_mappings(config)
-
-        assert "ragas:faithfulness" in TURN_LEVEL_METRICS
-        assert "custom:answer_correctness" in TURN_LEVEL_METRICS
-
-    def test_populate_metric_mappings_conversation_level(self) -> None:
-        """Test populating conversation-level metrics."""
-        config = SystemConfig()
-        config.default_turn_metrics_metadata = {}
-        config.default_conversation_metrics_metadata = {
-            "deepeval:conversation_completeness": {"threshold": 0.6},
-            "deepeval:conversation_relevancy": {"threshold": 0.7},
-        }
-
-        populate_metric_mappings(config)
-
-        assert "deepeval:conversation_completeness" in CONVERSATION_LEVEL_METRICS
-        assert "deepeval:conversation_relevancy" in CONVERSATION_LEVEL_METRICS
-
-    def test_populate_metric_mappings_clears_previous(self) -> None:
-        """Test that populate clears previous mappings."""
-        config1 = SystemConfig()
-        config1.default_turn_metrics_metadata = {"metric1": {}}
-        config1.default_conversation_metrics_metadata = {}
-
-        populate_metric_mappings(config1)
-        assert "metric1" in TURN_LEVEL_METRICS
-
-        # Populate with different config
-        config2 = SystemConfig()
-        config2.default_turn_metrics_metadata = {"metric2": {}}
-        config2.default_conversation_metrics_metadata = {}
-
-        populate_metric_mappings(config2)
-
-        # Should only have metric2 now
-        assert "metric2" in TURN_LEVEL_METRICS
-        # metric1 should be cleared
-        assert "metric1" not in TURN_LEVEL_METRICS
 
 
 class TestConfigLoader:
@@ -217,8 +159,8 @@ metrics_metadata:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_system_config_populates_metrics(self) -> None:
-        """Test that loading config populates global metric mappings."""
+    def test_load_system_config_populates_metrics_on_config(self) -> None:
+        """Test that loading config populates metric names on SystemConfig."""
         yaml_content = """
 llm:
   provider: openai
@@ -249,10 +191,10 @@ metrics_metadata:
             loader = ConfigLoader()
             config = loader.load_system_config(temp_path)
 
-            # Check that metrics were populated
-            assert "ragas:faithfulness" in TURN_LEVEL_METRICS
-            assert "custom:answer_correctness" in TURN_LEVEL_METRICS
-            assert "deepeval:completeness" in CONVERSATION_LEVEL_METRICS
+            # Metric names are now computed properties on SystemConfig
+            assert "ragas:faithfulness" in config.turn_level_metric_names
+            assert "custom:answer_correctness" in config.turn_level_metric_names
+            assert "deepeval:completeness" in config.conversation_level_metric_names
 
             # Check config has metadata
             assert "ragas:faithfulness" in config.default_turn_metrics_metadata
@@ -437,16 +379,19 @@ class TestConfigLoaderFromConfig:
 
         mock_setup_env.assert_called_once()
 
-    def test_from_config_populates_metric_mappings(self, mocker: MockerFixture) -> None:
-        """Test that from_config calls populate_metric_mappings."""
-        mock_populate = mocker.patch(
-            "lightspeed_evaluation.core.system.loader.populate_metric_mappings"
+    def test_from_config_no_longer_calls_populate_metric_mappings(self) -> None:
+        """Test that from_config does not call populate_metric_mappings.
+
+        Metric sets are now derived from SystemConfig properties, so
+        the old global populate step is no longer needed.
+        """
+        config = SystemConfig(
+            default_turn_metrics_metadata={"ragas:faithfulness": {"threshold": 0.7}},
         )
-        config = SystemConfig()
+        loader = ConfigLoader.from_config(config)
 
-        ConfigLoader.from_config(config)
-
-        mock_populate.assert_called_once_with(config)
+        assert loader.system_config is config
+        assert "ragas:faithfulness" in config.turn_level_metric_names
 
     def test_from_config_builds_ssl_config_data(self, mocker: MockerFixture) -> None:
         """Test that from_config builds config data with SSL fields for env setup."""
