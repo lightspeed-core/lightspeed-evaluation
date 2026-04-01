@@ -27,43 +27,90 @@ A comprehensive framework for evaluating GenAI applications.
 
 ### Installation
 
-```bash
-# From Git
-pip install git+https://github.com/lightspeed-core/lightspeed-evaluation.git
+**Note:** either use `pip` or `uv pip`.
 
-# Additional steps for local development
+#### From Git
+
+Replace `TAG` below with a [release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) like `v0.5.0`, or use `main` for latest (not recommended).
+
+```bash
+# Set your desired tag
+TAG=v0.5.0
+
+# Install package (no dependencies)
+pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
+
+# Install dependencies (choose one variant)
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/requirements.txt                      # Runtime only
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/requirements-nlp-metrics.txt       # + nlp-metrics
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/requirements-local-embeddings.txt  # + local-embeddings (torch excluded, see below)
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/requirements-all-extras.txt        # + all extras (torch excluded, see below)
+```
+
+**From main branch:**
+```bash
+pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/main/requirements.txt
+```
+
+**CPU torch + local embeddings:**
+```bash
+TAG=v0.5.0
+
+# 1. Install package
+pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
+
+# 2. Install CPU torch
+pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+
+# 3. Install other dependencies
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/requirements-local-embeddings.txt
+```
+
+**GPU torch + local embeddings:**
+```bash
+TAG=v0.5.0
+
+# 1. Install package
+pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
+
+# 2. Install GPU torch (CUDA version from PyPI)
+pip install torch==2.10.0
+
+# 3. Install other dependencies
+pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-evaluation/${TAG}/requirements-local-embeddings.txt
+```
+
+#### Local Development (clone, uv lock)
+
+**Prerequisites:** Install [uv](https://docs.astral.sh/uv/) (fast Python package installer):
+
+```bash
 pip install uv
-make install-tools
 ```
 
-#### Optional: Local Embedding Models (HuggingFace)
-
-By default, lightspeed-evaluation uses remote embedding providers (OpenAI, Gemini). If you need **local embedding models** (HuggingFace/sentence-transformers), install with:
+**Clone and install:**
 
 ```bash
-# Using uv (from an already cloned repo) - CPU-only (default, ~2GB)
-uv sync --extra local-embeddings
+git clone https://github.com/lightspeed-core/lightspeed-evaluation.git
+cd lightspeed-evaluation
 
-# Using uv (from an already cloned repo) - GPU with CUDA support (~6GB)
+# Install (choose one)
+uv sync                              # Core only
+uv sync --extra nlp-metrics          # + nlp-metrics
+uv sync --extra local-embeddings     # + local-embeddings (CPU, ~2GB)
+uv sync --all-extras                 # + all extras
+uv sync --all-extras --group dev     # + dev tools (for contributors)
+
+# GPU local embeddings (~6GB)
 cp uv-gpu.lock uv.lock && uv sync --extra local-embeddings --frozen
-
-# Using pip - CPU-only (install torch from CPU index first)
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install 'lightspeed-evaluation[local-embeddings]'
 ```
 
-> **Note**: The `uv` commands above must be run from an already cloned repository checkout, since they use this project's `pyproject.toml`, `uv.lock`, and `uv-gpu.lock`. The default `uv.lock` uses CPU-only PyTorch (~2GB). For GPU/CUDA support, copy `uv-gpu.lock` to `uv.lock` before syncing (~6GB). When using pip, a plain `pip install` may install CUDA-dependent wheels on Linux; use the `--index-url` flag for guaranteed CPU-only installation. Only install if you need `embedding.provider: huggingface` in your configuration.
+#### Maintainers: Regenerate locks and requirements
 
-#### Optional: NLP metrics
-If you want to install Ragas NLP metrics like ROUGE or Bleu install additional dependencies with:
+After changing `pyproject.toml`:
 ```bash
-# Using pip
-pip install 'lightspeed-evaluation[nlp-metrics]'
-```
-or 
-```bash
-# Using uv (from already cloned repo for local development)
-uv sync --extra nlp-metrics
+make sync-lock-and-requirements  # Regenerate uv.lock, uv-gpu.lock, requirements-*.txt
 ```
 
 ### Basic Usage
