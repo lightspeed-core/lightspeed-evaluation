@@ -12,7 +12,6 @@ from lightspeed_evaluation.core.models import (
     EvaluationData,
     LLMConfig,
     LoggingConfig,
-    OutputConfig,
     SystemConfig,
     VisualizationConfig,
 )
@@ -20,10 +19,21 @@ from lightspeed_evaluation.core.models.system import (
     JudgePanelConfig,
     LLMPoolConfig,
 )
+from lightspeed_evaluation.core.storage.config import (
+    DatabaseBackendConfig,
+    FileBackendConfig,
+    StorageBackendConfig,
+)
 from lightspeed_evaluation.core.system.setup import (
     setup_environment_variables,
     setup_logging,
 )
+
+logger = logging.getLogger(__name__)
+
+# Supported storage backend types
+SUPPORTED_STORAGE_TYPES: tuple[str, ...] = ("file", "sqlite", "postgres", "mysql")
+DATABASE_STORAGE_TYPES: tuple[str, ...] = ("sqlite", "postgres", "mysql")
 
 # Global metric mapping sets (populated dynamically from system config)
 TURN_LEVEL_METRICS: set[str] = set()
@@ -168,12 +178,15 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         judge_panel_data = config_data.get("judge_panel")
         judge_panel = JudgePanelConfig(**judge_panel_data) if judge_panel_data else None
 
+        # Parse storage backends
+        storage_backends = self._parse_storage_config(config_data.get("storage", []))
+
         return SystemConfig(
             core=CoreConfig(**config_data.get("core", {})),
             llm=LLMConfig(**config_data.get("llm", {})),
             embedding=EmbeddingConfig(**config_data.get("embedding") or {}),
             api=APIConfig(**config_data.get("api", {})),
-            output=OutputConfig(**config_data.get("output", {})),
+            storage=storage_backends,
             logging=LoggingConfig(**config_data.get("logging", {})),
             visualization=VisualizationConfig(**config_data.get("visualization", {})),
             llm_pool=llm_pool,
@@ -183,3 +196,25 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
                 "conversation_level", {}
             ),
         )
+
+    def _parse_storage_config(
+        self, storage_data: list[dict[str, Any]]
+    ) -> list[StorageBackendConfig]:
+        """Parse storage configuration into typed backend configs."""
+        backends: list[StorageBackendConfig] = []
+
+        for item in storage_data:
+            backend_type = item.get("type")
+            if backend_type == "file":
+                backends.append(FileBackendConfig(**item))
+            elif backend_type in DATABASE_STORAGE_TYPES:
+                backends.append(DatabaseBackendConfig(**item))
+            else:
+                logger.warning(
+                    "Unknown storage backend type '%s', skipping. "
+                    "Supported types: %s",
+                    backend_type,
+                    ", ".join(SUPPORTED_STORAGE_TYPES),
+                )
+
+        return backends

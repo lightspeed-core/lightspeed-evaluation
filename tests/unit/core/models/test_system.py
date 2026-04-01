@@ -13,9 +13,9 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     EmbeddingConfig,
     APIConfig,
-    OutputConfig,
     VisualizationConfig,
 )
+from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.models.system import (
     GEvalConfig,
     GEvalRubricConfig,
@@ -109,7 +109,7 @@ class TestLLMConfig:
 
 
 class TestBasicConfigModels:
-    """Tests for EmbeddingConfig, APIConfig, OutputConfig, VisualizationConfig, LoggingConfig."""
+    """Tests for basic config models."""
 
     def test_embedding_config(self) -> None:
         """Test EmbeddingConfig defaults and custom values."""
@@ -133,13 +133,13 @@ class TestBasicConfigModels:
         with pytest.raises(ValidationError):
             APIConfig(timeout=0)
 
-    def test_output_config(self) -> None:
-        """Test OutputConfig defaults and custom values."""
-        default = OutputConfig()
+    def test_file_backend_config(self) -> None:
+        """Test FileBackendConfig defaults and custom values."""
+        default = FileBackendConfig()
         assert "csv" in default.enabled_outputs
         assert len(default.csv_columns) > 0
 
-        custom = OutputConfig(enabled_outputs=["json"], csv_columns=["result"])
+        custom = FileBackendConfig(enabled_outputs=["json"], csv_columns=["result"])
         assert custom.enabled_outputs == ["json"]
 
     def test_visualization_config(self) -> None:

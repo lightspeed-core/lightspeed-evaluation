@@ -11,6 +11,7 @@ from lightspeed_evaluation.core.output.statistics import (
     calculate_basic_stats,
     calculate_detailed_stats,
 )
+from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.system.loader import validate_metrics
 
 
@@ -109,9 +110,9 @@ class TestOutputHandlerEdgeCases:
         self, tmp_path: Path, mocker: MockerFixture
     ) -> None:
         """Test CSV generation with minimal column set."""
-
+        file_config = FileBackendConfig(csv_columns=["conversation_group_id", "result"])
         config = mocker.Mock()
-        config.output.csv_columns = ["conversation_group_id", "result"]
+        config.storage = [file_config]
         config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)

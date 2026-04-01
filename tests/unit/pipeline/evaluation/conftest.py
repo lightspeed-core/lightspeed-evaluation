@@ -12,6 +12,7 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.script import ScriptExecutionManager
@@ -104,10 +105,12 @@ def mock_config_loader(mocker: MockerFixture) -> ConfigLoader:
     """Create a mock config loader with system config."""
     loader = mocker.Mock(spec=ConfigLoader)
 
-    config = SystemConfig()
+    file_config = FileBackendConfig(
+        output_dir="/tmp/test_output",
+        base_filename="test",
+    )
+    config = SystemConfig(storage=[file_config])
     config.api.enabled = False
-    config.output.output_dir = "/tmp/test_output"
-    config.output.base_filename = "test"
     config.core.max_threads = 2
 
     loader.system_config = config

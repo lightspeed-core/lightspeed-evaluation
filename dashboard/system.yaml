@@ -58,13 +58,14 @@ metrics_metadata:
       description: "How completely the conversation addresses user intentions"
       default: false
 
-# Output Configuration
-output:
-  output_dir: "./dashboard/results"
-  base_filename: "evaluation"
-  enabled_outputs:
-    - csv
-    - json
+# Storage Configuration
+storage:
+  - type: "file"
+    output_dir: "./dashboard/results"
+    base_filename: "evaluation"
+    enabled_outputs:
+      - csv
+      - json
 
 # Visualization settings
 visualization:

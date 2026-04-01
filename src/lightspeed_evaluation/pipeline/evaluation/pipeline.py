@@ -17,7 +17,15 @@ from lightspeed_evaluation.core.models import (
 )
 from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
 from lightspeed_evaluation.core.script import ScriptExecutionManager
+from lightspeed_evaluation.core.storage import (
+    RunInfo,
+    SQLStorageBackend,
+    create_database_backend,
+    get_database_config,
+    get_file_config,
+)
 from lightspeed_evaluation.core.system import ConfigLoader
+from lightspeed_evaluation.core.system.exceptions import StorageError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
@@ -47,7 +55,11 @@ class EvaluationPipeline:
 
         self.system_config: SystemConfig = config_loader.system_config
         self.original_data_path: Optional[str] = None
-        self.output_dir = output_dir or config_loader.system_config.output.output_dir
+        file_config = get_file_config(config_loader.system_config.storage)
+        self.output_dir = output_dir or file_config.output_dir
+
+        # Initialize database storage backend if configured
+        self.db_backend: Optional[SQLStorageBackend] = self._initialize_db_backend()
 
         # Initialize components
         self._initialize_components()
@@ -92,6 +104,17 @@ class EvaluationPipeline:
             processor_components,
         )
 
+    def _initialize_db_backend(self) -> Optional[SQLStorageBackend]:
+        """Initialize database storage backend if configured."""
+        db_config = get_database_config(self.system_config.storage)
+        if not db_config:
+            return None
+
+        backend = create_database_backend(db_config)
+        if backend:
+            logger.info("Database storage backend initialized: %s", db_config.type)
+        return backend
+
     def _create_api_client(self) -> Optional[APIClient]:
         """Create API client if enabled."""
         config = self.config_loader.system_config
@@ -125,9 +148,19 @@ class EvaluationPipeline:
         self.original_data_path = original_data_path
         logger.info("Starting evaluation")
 
-        # Process each conversation
-        logger.info("Processing conversations")
-        results = self._process_eval_data(evaluation_data)
+        # Initialize database backend for this run
+        if self.db_backend:
+            run_name = original_data_path or "evaluation"
+            self.db_backend.initialize(RunInfo(name=run_name))
+
+        try:
+            # Process each conversation
+            logger.info("Processing conversations")
+            results = self._process_eval_data(evaluation_data)
+        finally:
+            # Finalize database storage (ensure cleanup even on error)
+            if self.db_backend:
+                self.db_backend.finalize()
 
         # Save amended data if API was used
         config = self.config_loader.system_config
@@ -151,12 +184,19 @@ class EvaluationPipeline:
                 executor.submit(self.conversation_processor.process_conversation, c)
                 for c in evaluation_data
             )
-            res = []
+            results: list[EvaluationResult] = []
             for future in tqdm.tqdm(
                 concurrent.futures.as_completed(futures), total=len(evaluation_data)
             ):
-                res.extend(future.result())
-            return res
+                conversation_results = future.result()
+                # Batch save results per conversation (more efficient than individual saves)
+                if self.db_backend and conversation_results:
+                    try:
+                        self.db_backend.save_run(conversation_results)
+                    except StorageError as e:
+                        logger.warning("Failed to save results to database: %s", e)
+                results.extend(conversation_results)
+            return results
 
     def _save_amended_data(self, evaluation_data: list[EvaluationData]) -> None:
         """Save amended evaluation data with API amendments to output directory."""
@@ -183,6 +223,10 @@ class EvaluationPipeline:
         """Clean up resources."""
         if self.api_client:
             self.api_client.close()
+
+        if self.db_backend:
+            self.db_backend.close()
+            logger.info("Database storage backend closed")
 
         if litellm.cache is not None:
             asyncio.run(litellm.cache.disconnect())  # type: ignore

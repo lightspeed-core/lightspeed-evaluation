@@ -22,6 +22,7 @@ import pytest
 
 from lightspeed_evaluation import ConfigLoader, evaluate
 from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.storage import FileBackendConfig
 
 
 def check_api_available() -> bool:
@@ -111,7 +112,8 @@ class TestFullEvaluation:
         system_config = loader.load_system_config(str(config_path))
 
         # Override output directory to use temporary path
-        system_config.output.output_dir = str(tmp_path / "eval_output")
+        file_config = FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
+        system_config.storage = [file_config]
 
         # Verify endpoint type matches expectation
         assert (
@@ -187,7 +189,7 @@ class TestFullEvaluation:
             ("streaming_config_path", "streaming"),
         ],
     )
-    def test_api_response_enrichment(
+    def test_api_response_enrichment(  # pylint: disable=too-many-locals
         self,
         config_fixture: str,
         endpoint_type: str,
@@ -215,7 +217,8 @@ class TestFullEvaluation:
 
         loader = ConfigLoader()
         system_config = loader.load_system_config(str(config_path))
-        system_config.output.output_dir = str(tmp_path / "eval_output")
+        file_config = FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
+        system_config.storage = [file_config]
 
         # Verify endpoint type matches expectation
         assert (

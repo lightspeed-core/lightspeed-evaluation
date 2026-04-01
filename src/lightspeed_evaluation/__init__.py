@@ -21,7 +21,6 @@ if TYPE_CHECKING:
         EvaluationResult,
         LLMConfig,
         LoggingConfig,
-        OutputConfig,
         TurnData,
         VisualizationConfig,
     )
@@ -59,7 +58,6 @@ _LAZY_IMPORTS = {
     # Models
     "LLMConfig": ("lightspeed_evaluation.core.models", "LLMConfig"),
     "APIConfig": ("lightspeed_evaluation.core.models", "APIConfig"),
-    "OutputConfig": ("lightspeed_evaluation.core.models", "OutputConfig"),
     "LoggingConfig": ("lightspeed_evaluation.core.models", "LoggingConfig"),
     "VisualizationConfig": ("lightspeed_evaluation.core.models", "VisualizationConfig"),
     "EvaluationData": ("lightspeed_evaluation.core.models", "EvaluationData"),

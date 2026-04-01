@@ -39,3 +39,19 @@ class ScriptExecutionError(EvaluationError):
         super().__init__(message)
         self.script_path = script_path
         self.return_code = return_code
+
+
+class StorageError(EvaluationError):
+    """Exception for storage-related errors.
+
+    Raised when storage operations fail, such as initialization failures,
+    save errors, or finalization issues.
+
+    Attributes:
+        backend_name: Optional name of the backend that raised the error.
+    """
+
+    def __init__(self, message: str, backend_name: str | None = None):
+        """Initialize storage error."""
+        super().__init__(message)
+        self.backend_name = backend_name

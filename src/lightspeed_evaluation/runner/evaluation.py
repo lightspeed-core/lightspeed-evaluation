@@ -10,6 +10,7 @@ from typing import Any, Optional
 from lightspeed_evaluation.core.models.system import SystemConfig
 
 # Import only lightweight modules at top level
+from lightspeed_evaluation.core.storage import get_file_config
 from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
@@ -149,9 +150,10 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Generate reports
         print("\n📊 Generating Reports...")
+        file_config = get_file_config(system_config.storage)
         output_handler = OutputHandler(
-            output_dir=eval_args.output_dir or system_config.output.output_dir,
-            base_filename=system_config.output.base_filename,
+            output_dir=eval_args.output_dir or file_config.output_dir,
+            base_filename=file_config.base_filename,
             system_config=system_config,
         )
         output_handler.generate_reports(results, evaluation_data)

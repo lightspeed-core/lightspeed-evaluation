@@ -14,7 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from lightspeed_evaluation.core.models import EvaluationResult
-from lightspeed_evaluation.core.storage.exceptions import StorageError
+from lightspeed_evaluation.core.system.exceptions import StorageError
 from lightspeed_evaluation.core.storage.protocol import RunInfo
 
 logger = logging.getLogger(__name__)
