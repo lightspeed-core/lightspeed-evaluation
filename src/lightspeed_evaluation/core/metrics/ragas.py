@@ -2,6 +2,7 @@
 
 import errno
 import math
+import threading
 from typing import Any, Optional
 
 import litellm
@@ -21,6 +22,9 @@ from lightspeed_evaluation.core.embedding.ragas import RagasEmbeddingManager
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
+
+# Lock for serializing litellm.cache setup (process-global state).
+_litellm_cache_lock = threading.Lock()
 
 
 def _clamp_score(score: float) -> float:
@@ -46,27 +50,26 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
             llm_manager: Pre-configured LLMManager with validated parameters
             embedding_manager: Pre-configured EmbeddingManager with validated parameters
         """
-        # Modifying global litellm cache as there is no clear way how to do it per model
-        # We can't use Ragas's Cacher here, because we use litellm here and that conflicts with
-        # litellm cache from DeepEval code
-        # Enable cache based on individual feature flags
+        # litellm.cache is process-global; serialize setup with a lock
+        # so that concurrent pipelines don't race.
         llm_cache_enabled = llm_manager.get_config().cache_enabled
         embedding_cache_enabled = embedding_manager.config.cache_enabled
-        if (llm_cache_enabled or embedding_cache_enabled) and litellm.cache is None:
-            # Build supported call types based on individual cache flags
-            supported_call_types: list[CachingSupportedCallTypes] = []
-            if llm_cache_enabled:
-                supported_call_types.extend(["completion", "acompletion"])
-            if embedding_cache_enabled:
-                supported_call_types.extend(["embedding", "aembedding"])
+        if llm_cache_enabled or embedding_cache_enabled:
+            with _litellm_cache_lock:
+                if litellm.cache is None:
+                    # Build supported call types based on individual cache flags
+                    supported_call_types: list[CachingSupportedCallTypes] = []
+                    if llm_cache_enabled:
+                        supported_call_types.extend(["completion", "acompletion"])
+                    if embedding_cache_enabled:
+                        supported_call_types.extend(["embedding", "aembedding"])
 
-            # Use LLM cache dir as primary location (shared cache for all litellm calls)
-            cache_dir = llm_manager.get_config().cache_dir
-            litellm.cache = Cache(
-                type=LiteLLMCacheType.DISK,
-                disk_cache_dir=cache_dir,
-                supported_call_types=supported_call_types,
-            )
+                    cache_dir = llm_manager.get_config().cache_dir
+                    litellm.cache = Cache(
+                        type=LiteLLMCacheType.DISK,
+                        disk_cache_dir=cache_dir,
+                        supported_call_types=supported_call_types,
+                    )
 
         # Create Ragas LLM Manager for metric configuration
         self.llm_manager = RagasLLMManager(llm_manager)

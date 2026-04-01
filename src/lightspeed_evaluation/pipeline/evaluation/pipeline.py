@@ -3,6 +3,7 @@
 import asyncio
 import concurrent.futures
 import logging
+import threading
 from typing import Optional
 
 import litellm
@@ -27,6 +28,11 @@ from lightspeed_evaluation.pipeline.evaluation.processor import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Lock for serializing litellm.cache and litellm.ssl_verify access.
+# These are process-global settings in litellm; concurrent pipelines must
+# serialize setup and teardown to avoid race conditions.
+_litellm_lock = threading.Lock()
 
 
 class EvaluationPipeline:
@@ -180,10 +186,21 @@ class EvaluationPipeline:
             logger.warning("Failed to save amended data: %s", e)
 
     def close(self) -> None:
-        """Clean up resources."""
+        """Clean up resources.
+
+        Uses a lock to serialize litellm cache teardown across concurrent
+        pipelines, since ``litellm.cache`` is process-global state.
+        """
         if self.api_client:
             self.api_client.close()
 
-        if litellm.cache is not None:
-            asyncio.run(litellm.cache.disconnect())  # type: ignore
-            litellm.cache = None
+        with _litellm_lock:
+            cache = litellm.cache
+            if cache is not None:
+                try:
+                    # Use getattr to call untyped third-party method
+                    disconnect = getattr(cache, "disconnect")
+                    asyncio.run(disconnect())
+                except Exception:  # pylint: disable=broad-exception-caught
+                    logger.debug("litellm cache disconnect raised; ignoring")
+                litellm.cache = None

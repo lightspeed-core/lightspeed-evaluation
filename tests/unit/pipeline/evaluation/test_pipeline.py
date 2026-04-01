@@ -324,6 +324,49 @@ class TestEvaluationPipeline:
         # Should not raise any errors
         pipeline.close()
 
+    def test_close_handles_already_disconnected_cache(
+        self, mock_config_loader: ConfigLoader, mocker: MockerFixture
+    ) -> None:
+        """Test close handles already-disconnected cache gracefully."""
+        assert mock_config_loader.system_config is not None
+        mock_config_loader.system_config.api.enabled = False
+
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.ScriptExecutionManager"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.MetricsEvaluator"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.ConversationProcessor"
+        )
+
+        # Mock litellm.cache with a disconnect that raises
+        mock_litellm = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.litellm"
+        )
+        mock_cache = mocker.Mock()
+        mock_litellm.cache = mock_cache
+
+        mock_asyncio_run = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.asyncio.run"
+        )
+        mock_asyncio_run.side_effect = RuntimeError("already disconnected")
+
+        pipeline = EvaluationPipeline(mock_config_loader)
+        # Should not raise even though disconnect() fails
+        pipeline.close()
+
+        # Cache should be set to None after close
+        assert mock_litellm.cache is None
+
     def test_output_dir_override(
         self, mock_config_loader: ConfigLoader, mocker: MockerFixture
     ) -> None:
