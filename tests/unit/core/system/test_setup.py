@@ -3,11 +3,13 @@
 import logging
 import os
 
+import pytest
 from pytest_mock import MockerFixture
 from _pytest.capture import CaptureFixture
 
 from lightspeed_evaluation.core.models import LoggingConfig
 from lightspeed_evaluation.core.system.setup import (
+    _reset_env_guard,
     setup_environment_variables,
     setup_logging,
 )
@@ -15,6 +17,11 @@ from lightspeed_evaluation.core.system.setup import (
 
 class TestSetupEnvironmentVariables:
     """Tests for environment variable setup."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_guard(self) -> None:
+        """Reset the idempotency guard before each test."""
+        _reset_env_guard()
 
     def test_setup_default_environment_variables(self, mocker: MockerFixture) -> None:
         """Test setting up default environment variables."""
@@ -135,6 +142,30 @@ class TestSetupEnvironmentVariables:
 
         assert os.environ["SSL_CERTIFI_BUNDLE"] == "/path/to/certifi/cacert.pem"
         mock_where.assert_called()
+
+    def test_setup_environment_variables_is_idempotent(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that setup_environment_variables only runs once per process."""
+        mocker.patch.dict(os.environ, {}, clear=True)
+        mock_where = mocker.patch(
+            "lightspeed_evaluation.core.system.ssl_certifi.certifi.where"
+        )
+        mock_where.return_value = "/path/to/certifi/cacert.pem"
+
+        # First call should set env vars
+        setup_environment_variables({})
+        assert os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] == "YES"
+
+        # Modify an env var
+        os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] = "NO"
+
+        # Second call should be a no-op (idempotent guard)
+        setup_environment_variables({})
+        assert os.environ["DEEPEVAL_TELEMETRY_OPT_OUT"] == "NO"
+
+        # ssl_certifi was only called once
+        mock_where.assert_called_once()
 
 
 class TestSetupLogging:

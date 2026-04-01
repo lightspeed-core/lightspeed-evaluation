@@ -1,4 +1,15 @@
-"""System setup and initialization utilities."""
+"""System setup and initialization utilities.
+
+Environment variable setup is idempotent: the guard flag ``_env_initialized``
+ensures variables are applied only once per process, even if multiple
+``ConfigLoader`` / ``EvaluationPipeline`` instances are created.
+
+``setup_logging()`` sets process-global logging configuration. The first
+call configures root/package loggers; subsequent calls overwrite that
+config (``force=True`` in ``basicConfig``).  This is intentional so that
+tests or applications can re-configure logging, but callers should be
+aware that it affects the entire process.
+"""
 
 import logging
 import os
@@ -7,9 +18,30 @@ from typing import Any
 from lightspeed_evaluation.core.models import LoggingConfig
 from lightspeed_evaluation.core.system.ssl_certifi import create_ssl_certifi_bundle
 
+# Mutable container holding a single boolean flag. Using a list avoids the
+# ``global`` statement and the ``UPPER_CASE`` naming requirement for module
+# constants while remaining simple and testable.
+_ENV_GUARD: list[bool] = [False]
+
+
+def _reset_env_guard() -> None:
+    """Reset the environment initialization guard (for testing only)."""
+    _ENV_GUARD[0] = False
+
 
 def setup_environment_variables(config_data: dict[str, Any]) -> None:
-    """Setup environment variables from validated config data."""
+    """Setup environment variables from validated config data.
+
+    Idempotent: only applies environment variables on the first call
+    per process. Subsequent calls are no-ops.
+
+    Args:
+        config_data: Configuration dict with optional ``environment`` key.
+    """
+    if _ENV_GUARD[0]:
+        return
+    _ENV_GUARD[0] = True
+
     # Create combined SSL certificate certifi bundle
     certifi_bundle_file = create_ssl_certifi_bundle(config_data)
 
