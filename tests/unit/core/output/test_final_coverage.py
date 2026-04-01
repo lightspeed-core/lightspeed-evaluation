@@ -11,6 +11,7 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.output.statistics import (
     calculate_basic_stats,
@@ -89,10 +90,8 @@ class TestStatisticsEdgeCases:
 class TestOutputHandlerEdgeCases:
     """Edge case tests for output handler."""
 
-    def test_calculate_stats_with_single_result(self, tmp_path: Path) -> None:
-        """Test stats calculation with exactly one result."""
-
-        handler = OutputHandler(output_dir=str(tmp_path))
+    def test_summary_with_single_result(self) -> None:
+        """Test summary creation with exactly one result."""
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
@@ -104,11 +103,11 @@ class TestOutputHandlerEdgeCases:
             )
         ]
 
-        stats = handler._calculate_stats(results)
+        summary = EvaluationSummary.from_results(results)
 
-        assert stats["basic"]["TOTAL"] == 1
-        assert stats["basic"]["PASS"] == 1
-        assert stats["basic"]["pass_rate"] == 100.0
+        assert summary.overall.total == 1
+        assert summary.overall.passed == 1
+        assert summary.overall.pass_rate == 100.0
 
     def test_generate_csv_with_minimal_columns(
         self, tmp_path: Path, mocker: MockerFixture
