@@ -6,18 +6,58 @@ core:
   fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
   skip_on_failure: false      # If True, skip remaining turns when a turn evaluation fails (can be overridden per conversation)
 
-# LLM as a judge configuration
-llm:
-  provider: "openai"                  # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
-  model: "gpt-4o-mini"                # Model name for the provider
-  ssl_verify: true                    # Verify SSL certificates for specified provider
-  ssl_cert_file: null                 # Path to custom CA
-  temperature: 0.0                    # Generation temperature
-  max_tokens: 512                     # Maximum tokens in response
-  timeout: 300                        # Request timeout in seconds
-  num_retries: 3                      # Retry attempts
-  cache_dir: ".caches/llm_cache"      # Directory with LLM cache
-  cache_enabled: true                 # Is LLM cache enabled?
+# LLM as a judge configuration (Legacy)
+# Deprecated: top-level llm: (single judge) will be removed — use llm_pool + judge_panel only.
+# llm:
+#   provider: "openai"                  # LLM Provider (openai, watsonx, gemini, hosted_vllm etc..)
+#   model: "gpt-4o-mini"                # Model name for the provider
+#   ssl_verify: true                    # Verify SSL certificates for specified provider
+#   ssl_cert_file: null                 # Path to custom CA
+#   temperature: 0.0                    # Generation temperature
+#   max_tokens: 512                     # Maximum tokens in response
+#   timeout: 300                        # Request timeout in seconds
+#   num_retries: 3                      # Retry attempts
+#   cache_dir: ".caches/llm_cache"      # Directory with LLM cache
+#   cache_enabled: true                 # Is LLM cache enabled?
+
+# Pool of named models (judges reference these IDs)
+# Default values merge into each model; parameters supports extra provider keys; null removes an inherited parameter.
+llm_pool:
+  defaults:
+    cache_enabled: true
+    cache_dir: ".caches/llm_cache"
+    timeout: 300
+    num_retries: 3
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 1024
+  models:
+    judge_gpt_4o_mini:
+      # Uses default parameters
+      provider: openai
+      model: gpt-4o-mini
+      # timeout: 360
+      # ssl_verify: true
+      # ssl_cert_file: null
+    judge_gpt_4_1_mini:
+      provider: openai
+      model: gpt-4.1-mini
+      parameters:
+        # Add, remove or override model specific parameters
+        temperature: null             # Removes temperature from default
+        max_completion_tokens: 2048   # Overrides default
+
+# Judge Panel: multiple judges from the pool
+# Combine their scores. First judge in judges is the fallback when the full panel is not used for a metric.
+judge_panel:
+  judges:
+    - judge_gpt_4_1_mini
+    - judge_gpt_4o_mini
+  # Enable Metrics: non-empty list → panel only for listed metrics (others → first judge);
+  # omit or null → all metrics use all judges; [] → none use panel (first judge only).
+  enabled_metrics:
+    - "custom:answer_correctness"
+  aggregation_strategy: max  # Other Strategies: average, majority_vote
 
 # Default embedding (for LLM as a judge) configuration:
 embedding:
@@ -223,16 +263,19 @@ output:
     - "tokens_per_second"       # Output tokens per second throughput
     - "judge_llm_input_tokens"
     - "judge_llm_output_tokens"
+    - "judge_scores"
     - "tool_calls"
     - "contexts"
     - "expected_response"
     - "expected_intent"
     - "expected_keywords"
     - "expected_tool_calls"
-  summary_config_sections:
-      - llm           # Default
-      - embedding     # Default
-      - api           # Default
+  summary_config_sections:  # Save configs to json report
+      - core
+      - llm_pool
+      - judge_panel
+      - embedding
+      - api
 
 # Visualization settings
 visualization:
