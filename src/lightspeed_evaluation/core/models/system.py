@@ -18,7 +18,6 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_API_TIMEOUT,
     DEFAULT_API_VERSION,
     DEFAULT_API_NUM_RETRIES,
-    DEFAULT_BASE_FILENAME,
     DEFAULT_EMBEDDING_CACHE_DIR,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_EMBEDDING_PROVIDER,
@@ -29,21 +28,18 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_LLM_PROVIDER,
     DEFAULT_SSL_VERIFY,
     DEFAULT_SSL_CERT_FILE,
-    DEFAULT_STORED_CONFIGS,
     DEFAULT_LLM_RETRIES,
     DEFAULT_LLM_TEMPERATURE,
     DEFAULT_LOG_FORMAT,
     DEFAULT_LOG_PACKAGE_LEVEL,
     DEFAULT_LOG_SHOW_TIMESTAMPS,
     DEFAULT_LOG_SOURCE_LEVEL,
-    DEFAULT_OUTPUT_DIR,
     DEFAULT_VISUALIZATION_DPI,
     DEFAULT_VISUALIZATION_FIGSIZE,
-    SUPPORTED_CSV_COLUMNS,
     SUPPORTED_ENDPOINT_TYPES,
     SUPPORTED_GRAPH_TYPES,
-    SUPPORTED_OUTPUT_TYPES,
 )
+from lightspeed_evaluation.core.storage.config import StorageBackendConfig
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 # Keys not allowed in llm_pool.parameters
@@ -315,56 +311,6 @@ class APIConfig(BaseModel):
         """Validate endpoint type is supported."""
         if v not in SUPPORTED_ENDPOINT_TYPES:
             raise ValueError(f"Endpoint type must be one of {SUPPORTED_ENDPOINT_TYPES}")
-        return v
-
-
-class OutputConfig(BaseModel):
-    """Output configuration for evaluation results."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    output_dir: str = Field(
-        default=DEFAULT_OUTPUT_DIR, description="Output directory for results"
-    )
-    base_filename: str = Field(
-        default=DEFAULT_BASE_FILENAME, description="Base filename for output files"
-    )
-    enabled_outputs: list[str] = Field(
-        default=SUPPORTED_OUTPUT_TYPES,
-        description="List of enabled output types: csv, json, txt",
-    )
-    csv_columns: list[str] = Field(
-        default=SUPPORTED_CSV_COLUMNS,
-        description="CSV columns to include in detailed results",
-    )
-
-    summary_config_sections: list[str] = Field(
-        default=DEFAULT_STORED_CONFIGS,
-        description="Configuration sections to include in summary reports",
-    )
-
-    @field_validator("csv_columns")
-    @classmethod
-    def validate_csv_columns(cls, v: list[str]) -> list[str]:
-        """Validate that all CSV columns are supported."""
-        for column in v:
-            if column not in SUPPORTED_CSV_COLUMNS:
-                raise ValueError(
-                    f"Unsupported CSV column: {column}. "
-                    f"Supported columns: {SUPPORTED_CSV_COLUMNS}"
-                )
-        return v
-
-    @field_validator("enabled_outputs")
-    @classmethod
-    def validate_enabled_outputs(cls, v: list[str]) -> list[str]:
-        """Validate that all enabled outputs are supported."""
-        for output_type in v:
-            if output_type not in SUPPORTED_OUTPUT_TYPES:
-                raise ValueError(
-                    f"Unsupported output type: {output_type}. "
-                    f"Supported types: {SUPPORTED_OUTPUT_TYPES}"
-                )
         return v
 
 
@@ -891,8 +837,9 @@ class SystemConfig(BaseModel):
         default_factory=EmbeddingConfig, description="Embeddings configuration"
     )
     api: APIConfig = Field(default_factory=APIConfig, description="API configuration")
-    output: OutputConfig = Field(
-        default_factory=OutputConfig, description="Output configuration"
+    storage: list[StorageBackendConfig] = Field(
+        default_factory=list,
+        description="Storage backends for evaluation results (file and/or database)",
     )
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig, description="Logging configuration"

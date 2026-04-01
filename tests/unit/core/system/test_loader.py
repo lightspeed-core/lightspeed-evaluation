@@ -9,6 +9,7 @@ from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.models import SystemConfig
+from lightspeed_evaluation.core.storage import get_file_config
 
 
 class TestConfigLoader:
@@ -110,11 +111,12 @@ embedding:
 api:
   enabled: false
 
-output:
-  output_dir: ./test_output
-  enabled_outputs:
-    - csv
-    - json
+storage:
+  - type: "file"
+    output_dir: ./test_output
+    enabled_outputs:
+      - csv
+      - json
 
 logging:
   source_level: DEBUG
@@ -151,8 +153,9 @@ metrics_metadata:
             assert config.llm.temperature == 0.7
             assert config.embedding.provider == "openai"
             assert config.api.enabled is False
-            assert config.output.output_dir == "./test_output"
-            assert "csv" in config.output.enabled_outputs
+            file_config = get_file_config(config.storage)
+            assert file_config.output_dir == "./test_output"
+            assert "csv" in file_config.enabled_outputs
             assert config.logging.source_level == "DEBUG"
             assert config.visualization.figsize == [10, 6]
             assert config.visualization.dpi == 200
@@ -227,7 +230,7 @@ metrics_metadata:
             # Check defaults are applied
             assert config.llm.temperature == 0.0  # Default
             assert config.llm.max_tokens == 512  # Default
-            assert config.output.output_dir == "./eval_output"  # Default
+            assert get_file_config(config.storage).output_dir == "./eval_output"
             assert config.logging.show_timestamps is True  # Default
         finally:
             Path(temp_path).unlink()
@@ -292,7 +295,7 @@ llm:
 
 core: {}
 api: {}
-output: {}
+storage: []
 logging: {}
 
 metrics_metadata:
@@ -311,7 +314,36 @@ metrics_metadata:
             # Should use defaults for empty sections
             assert config.core.max_threads is None
             assert config.api.enabled is True  # Default is True
-            assert config.output.output_dir == "./eval_output"
+            assert get_file_config(config.storage).output_dir == "./eval_output"
+        finally:
+            Path(temp_path).unlink()
+
+    def test_load_system_config_unknown_storage_type_raises(self) -> None:
+        """Unknown storage backend type must fail fast."""
+        yaml_content = """
+llm:
+  provider: openai
+  model: gpt-4o-mini
+
+storage:
+  - type: mongo
+    database: x
+
+metrics_metadata:
+  turn_level: {}
+  conversation_level: {}
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            loader = ConfigLoader()
+            with pytest.raises(
+                ConfigurationError, match="Unknown storage backend type"
+            ):
+                loader.load_system_config(temp_path)
         finally:
             Path(temp_path).unlink()
 

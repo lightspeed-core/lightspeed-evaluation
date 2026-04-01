@@ -25,7 +25,6 @@ from lightspeed_evaluation.core.models.system import (
     LLMConfig,
     LLMPoolConfig,
     LoggingConfig,
-    OutputConfig,
     SystemConfig,
     VisualizationConfig,
 )
@@ -49,7 +48,6 @@ __all__ = [
     "LLMPoolConfig",
     "EmbeddingConfig",
     "APIConfig",
-    "OutputConfig",
     "LoggingConfig",
     "SystemConfig",
     "VisualizationConfig",

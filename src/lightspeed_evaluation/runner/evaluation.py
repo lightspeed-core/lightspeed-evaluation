@@ -10,6 +10,7 @@ from typing import Any, Optional
 from lightspeed_evaluation.core.models.system import LLMPoolConfig, SystemConfig
 
 # Import only lightweight modules at top level
+from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
 from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
@@ -151,18 +152,32 @@ def run_evaluation(  # pylint: disable=too-many-locals
             system_config, evaluation_data, output_dir=eval_args.output_dir
         )
 
-        # Generate reports
-        print("\n📊 Generating Reports...")
-        output_handler = OutputHandler(
-            output_dir=eval_args.output_dir or system_config.output.output_dir,
-            base_filename=system_config.output.base_filename,
-            system_config=system_config,
-        )
-        output_handler.generate_reports(results, evaluation_data)
+        file_entries = [
+            c for c in system_config.storage if isinstance(c, FileBackendConfig)
+        ]
+        if not file_entries:
+            # No file storage in config: use legacy default file settings (same as get_file_config).
+            print("\n📊 Generating Reports...")
+            file_config = get_file_config(system_config.storage)
+            output_handler = OutputHandler(
+                output_dir=eval_args.output_dir or file_config.output_dir,
+                base_filename=file_config.base_filename,
+                system_config=system_config,
+                file_config=file_config,
+            )
+            output_handler.generate_reports(results, evaluation_data)
 
         print("\n🎉 Evaluation Complete!")
         print(f"📊 {len(results)} evaluations completed")
-        print(f"📁 Reports generated in: {output_handler.output_dir}")
+        for fc in file_entries:
+            report_dir = Path(eval_args.output_dir or fc.output_dir).resolve()
+            print(f"📁 Reports generated in: {report_dir}")
+        if not file_entries:
+            out_dir = Path(
+                eval_args.output_dir
+                or get_file_config(system_config.storage).output_dir
+            ).resolve()
+            print(f"📁 Reports generated in: {out_dir}")
 
         # Final Summary
         summary = calculate_basic_stats(results)

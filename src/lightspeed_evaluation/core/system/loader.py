@@ -12,7 +12,6 @@ from lightspeed_evaluation.core.models import (
     EvaluationData,
     LLMConfig,
     LoggingConfig,
-    OutputConfig,
     SystemConfig,
     VisualizationConfig,
 )
@@ -20,10 +19,22 @@ from lightspeed_evaluation.core.models.system import (
     JudgePanelConfig,
     LLMPoolConfig,
 )
+from lightspeed_evaluation.core.storage.config import (
+    DatabaseBackendConfig,
+    FileBackendConfig,
+    StorageBackendConfig,
+)
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.core.system.setup import (
     setup_environment_variables,
     setup_logging,
 )
+
+logger = logging.getLogger(__name__)
+
+# Supported storage backend types
+SUPPORTED_STORAGE_TYPES: tuple[str, ...] = ("file", "sqlite", "postgres", "mysql")
+DATABASE_STORAGE_TYPES: tuple[str, ...] = ("sqlite", "postgres", "mysql")
 
 
 class ConfigLoader:  # pylint: disable=too-few-public-methods
@@ -118,12 +129,16 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         judge_panel_data = config_data.get("judge_panel")
         judge_panel = JudgePanelConfig(**judge_panel_data) if judge_panel_data else None
 
+        # Parse storage backends with backward compatibility for legacy 'output' section
+        storage_data = self._get_storage_config_with_backward_compat(config_data)
+        storage_backends = self._parse_storage_config(storage_data)
+
         return SystemConfig(
             core=CoreConfig(**config_data.get("core", {})),
             llm=LLMConfig(**config_data.get("llm", {})),
             embedding=EmbeddingConfig(**config_data.get("embedding") or {}),
             api=APIConfig(**config_data.get("api", {})),
-            output=OutputConfig(**config_data.get("output", {})),
+            storage=storage_backends,
             logging=LoggingConfig(**config_data.get("logging", {})),
             visualization=VisualizationConfig(**config_data.get("visualization", {})),
             llm_pool=llm_pool,
@@ -133,3 +148,57 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
                 "conversation_level", {}
             ),
         )
+
+    def _get_storage_config_with_backward_compat(
+        self, config_data: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Get storage config with backward compatibility for legacy 'output' section.
+
+        Args:
+            config_data: Raw configuration data from YAML.
+
+        Returns:
+            List of storage backend configurations.
+        """
+        # New format: use 'storage' section directly
+        if "storage" in config_data:
+            return config_data.get("storage", [])
+
+        # Legacy format: convert 'output' section to 'storage' format
+        if "output" in config_data:
+            logger.warning(
+                "DEPRECATION: 'output' configuration is deprecated. "
+                "Please migrate to 'storage' format. "
+                "See docs/configuration.md for the new format."
+            )
+            output_config = config_data["output"]
+            # Convert legacy output config to file backend format
+            file_backend = {"type": "file", **output_config}
+            return [file_backend]
+
+        # No storage config - return empty list (defaults will be used)
+        return []
+
+    def _parse_storage_config(
+        self, storage_data: list[dict[str, Any]]
+    ) -> list[StorageBackendConfig]:
+        """Parse storage configuration into typed backend configs.
+
+        Raises:
+            ConfigurationError: If a storage entry has an unsupported ``type``.
+        """
+        backends: list[StorageBackendConfig] = []
+
+        for item in storage_data:
+            backend_type = item.get("type")
+            if backend_type == "file":
+                backends.append(FileBackendConfig(**item))
+            elif backend_type in DATABASE_STORAGE_TYPES:
+                backends.append(DatabaseBackendConfig(**item))
+            else:
+                raise ConfigurationError(
+                    f"Unknown storage backend type {backend_type!r}. "
+                    f"Supported types: {', '.join(SUPPORTED_STORAGE_TYPES)}"
+                )
+
+        return backends

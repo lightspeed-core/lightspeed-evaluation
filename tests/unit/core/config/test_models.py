@@ -7,10 +7,10 @@ from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
     LLMConfig,
-    OutputConfig,
     SystemConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
 
 
 class TestTurnData:
@@ -199,19 +199,22 @@ class TestSystemConfig:
 
     def test_valid_system_config_creation(self) -> None:
         """Test creating valid SystemConfig instance."""
+        file_config = FileBackendConfig(
+            output_dir="./custom_output", enabled_outputs=["json"]
+        )
         config = SystemConfig(
             core=CoreConfig(max_threads=42),
             llm=LLMConfig(
                 provider="anthropic", model="claude-3-sonnet", temperature=0.5
             ),
-            output=OutputConfig(output_dir="./custom_output", enabled_outputs=["json"]),
+            storage=[file_config],
         )
 
         assert config.llm.provider == "anthropic"
         assert config.llm.model == "claude-3-sonnet"
         assert config.llm.temperature == 0.5
-        assert config.output.output_dir == "./custom_output"
-        assert config.output.enabled_outputs == ["json"]
+        assert get_file_config(config.storage).output_dir == "./custom_output"
+        assert get_file_config(config.storage).enabled_outputs == ["json"]
         assert config.core.max_threads == 42
 
     def test_system_config_with_defaults(self) -> None:
@@ -221,8 +224,8 @@ class TestSystemConfig:
         assert config.llm.provider == "openai"
         assert config.llm.model == "gpt-4o-mini"
         assert config.llm.temperature == 0.0
-        assert config.output.output_dir == "./eval_output"
-        assert "csv" in config.output.enabled_outputs
+        assert get_file_config(config.storage).output_dir == "./eval_output"
+        assert "csv" in get_file_config(config.storage).enabled_outputs
         assert config.core.max_threads is None
 
     def test_system_config_logging_defaults(self) -> None:
