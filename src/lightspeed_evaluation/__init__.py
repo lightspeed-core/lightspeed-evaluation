@@ -12,7 +12,14 @@ from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
 
 if TYPE_CHECKING:
     # ruff: noqa: F401
-    from lightspeed_evaluation.api import evaluate, evaluate_conversation, evaluate_turn
+    from lightspeed_evaluation.api import (
+        evaluate,
+        evaluate_conversation,
+        evaluate_conversation_with_summary,
+        evaluate_turn,
+        evaluate_turn_with_summary,
+        evaluate_with_summary,
+    )
     from lightspeed_evaluation.core.api import APIClient
     from lightspeed_evaluation.core.llm import LLMManager
     from lightspeed_evaluation.core.models import (
@@ -25,6 +32,7 @@ if TYPE_CHECKING:
         TurnData,
         VisualizationConfig,
     )
+    from lightspeed_evaluation.core.models.summary import EvaluationSummary
     from lightspeed_evaluation.core.output import GraphGenerator, OutputHandler
     from lightspeed_evaluation.core.script import ScriptExecutionManager
     from lightspeed_evaluation.core.system import (
@@ -45,8 +53,17 @@ __version__ = "0.6.0"
 _LAZY_IMPORTS = {
     # Programmatic API
     "evaluate": ("lightspeed_evaluation.api", "evaluate"),
+    "evaluate_with_summary": ("lightspeed_evaluation.api", "evaluate_with_summary"),
     "evaluate_conversation": ("lightspeed_evaluation.api", "evaluate_conversation"),
+    "evaluate_conversation_with_summary": (
+        "lightspeed_evaluation.api",
+        "evaluate_conversation_with_summary",
+    ),
     "evaluate_turn": ("lightspeed_evaluation.api", "evaluate_turn"),
+    "evaluate_turn_with_summary": (
+        "lightspeed_evaluation.api",
+        "evaluate_turn_with_summary",
+    ),
     # Main pipeline
     "EvaluationPipeline": (
         "lightspeed_evaluation.pipeline.evaluation",
@@ -65,6 +82,10 @@ _LAZY_IMPORTS = {
     "EvaluationData": ("lightspeed_evaluation.core.models", "EvaluationData"),
     "TurnData": ("lightspeed_evaluation.core.models", "TurnData"),
     "EvaluationResult": ("lightspeed_evaluation.core.models", "EvaluationResult"),
+    "EvaluationSummary": (
+        "lightspeed_evaluation.core.models.summary",
+        "EvaluationSummary",
+    ),
     # Core components
     "LLMManager": ("lightspeed_evaluation.core.llm", "LLMManager"),
     "APIClient": ("lightspeed_evaluation.core.api", "APIClient"),
