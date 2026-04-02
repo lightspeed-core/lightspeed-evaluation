@@ -1,6 +1,6 @@
 """System setup and initialization utilities.
 
-Environment variable setup is idempotent: the guard flag ``_env_initialized``
+Environment variable setup is idempotent: the guard flag ``_ENV_GUARD``
 ensures variables are applied only once per process, even if multiple
 ``ConfigLoader`` / ``EvaluationPipeline`` instances are created.
 
