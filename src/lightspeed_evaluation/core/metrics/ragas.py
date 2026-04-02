@@ -2,7 +2,6 @@
 
 import errno
 import math
-import threading
 from typing import Any, Optional
 
 import litellm
@@ -19,12 +18,10 @@ from ragas.metrics.collections import (
 
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
 from lightspeed_evaluation.core.embedding.ragas import RagasEmbeddingManager
+from lightspeed_evaluation.core.llm.litellm_patch import litellm_state_lock
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
-
-# Lock for serializing litellm.cache setup (process-global state).
-_litellm_cache_lock = threading.Lock()
 
 
 def _clamp_score(score: float) -> float:
@@ -50,12 +47,12 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
             llm_manager: Pre-configured LLMManager with validated parameters
             embedding_manager: Pre-configured EmbeddingManager with validated parameters
         """
-        # litellm.cache is process-global; serialize setup with a lock
+        # litellm.cache is process-global; serialize setup with the shared lock
         # so that concurrent pipelines don't race.
         llm_cache_enabled = llm_manager.get_config().cache_enabled
         embedding_cache_enabled = embedding_manager.config.cache_enabled
         if llm_cache_enabled or embedding_cache_enabled:
-            with _litellm_cache_lock:
+            with litellm_state_lock:
                 if litellm.cache is None:
                     # Build supported call types based on individual cache flags
                     supported_call_types: list[CachingSupportedCallTypes] = []

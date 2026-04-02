@@ -3,13 +3,13 @@
 import asyncio
 import concurrent.futures
 import logging
-import threading
 from typing import Optional
 
 import litellm
 import tqdm
 
 from lightspeed_evaluation.core.api import APIClient
+from lightspeed_evaluation.core.llm.litellm_patch import litellm_state_lock
 from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import (
     EvaluationData,
@@ -28,11 +28,6 @@ from lightspeed_evaluation.pipeline.evaluation.processor import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Lock for serializing litellm.cache and litellm.ssl_verify access.
-# These are process-global settings in litellm; concurrent pipelines must
-# serialize setup and teardown to avoid race conditions.
-_litellm_lock = threading.Lock()
 
 
 class EvaluationPipeline:
@@ -194,7 +189,7 @@ class EvaluationPipeline:
         if self.api_client:
             self.api_client.close()
 
-        with _litellm_lock:
+        with litellm_state_lock:
             cache = litellm.cache
             if cache is not None:
                 try:

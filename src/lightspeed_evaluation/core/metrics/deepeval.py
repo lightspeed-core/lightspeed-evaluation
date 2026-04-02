@@ -6,7 +6,6 @@ This module provides integration with DeepEval metrics including:
 """
 
 import logging
-import threading
 from typing import Any, Optional
 
 import litellm
@@ -21,15 +20,13 @@ from litellm.caching.caching import Cache
 from litellm.types.caching import LiteLLMCacheType
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
+from lightspeed_evaluation.core.llm.litellm_patch import litellm_state_lock
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.geval import GEvalHandler
 from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 
 logger = logging.getLogger(__name__)
-
-# Lock for serializing litellm.cache setup (process-global state).
-_litellm_cache_lock = threading.Lock()
 
 
 class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
@@ -51,10 +48,10 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             llm_manager: Pre-configured LLMManager with validated parameters
             metric_manager: MetricManager for accessing metric metadata
         """
-        # litellm.cache is process-global; serialize setup with a lock
+        # litellm.cache is process-global; serialize setup with the shared lock
         # so that concurrent pipelines don't race.
         if llm_manager.get_config().cache_enabled:
-            with _litellm_cache_lock:
+            with litellm_state_lock:
                 if litellm.cache is None:
                     cache_dir = llm_manager.get_config().cache_dir
                     litellm.cache = Cache(
