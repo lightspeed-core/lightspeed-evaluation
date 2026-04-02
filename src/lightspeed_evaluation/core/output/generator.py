@@ -17,7 +17,14 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_OUTPUT_TYPES,
 )
 from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
-from lightspeed_evaluation.core.models.summary import EvaluationSummary
+from lightspeed_evaluation.core.models.summary import (
+    ConversationStats,
+    EvaluationSummary,
+    MetricStats,
+    OverallStats,
+    StreamingStats,
+    TagStats,
+)
 from lightspeed_evaluation.core.output.visualization import GraphGenerator
 
 logger = logging.getLogger(__name__)
@@ -106,36 +113,31 @@ class OutputHandler:
         target_dir = Path(output_dir) if output_dir else self.output_dir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Use the handler's output_dir temporarily if overridden
-        original_dir = self.output_dir
-        self.output_dir = target_dir
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_filename = f"{self.base_filename}_{timestamp}"
 
         generated_files: list[Path] = []
 
-        try:
-            if "csv" in formats:
-                csv_file = self._generate_csv_report(summary.results, base_filename)
-                generated_files.append(csv_file)
-                logger.info("CSV: %s", csv_file)
+        if "csv" in formats:
+            csv_file = self._generate_csv_report(
+                summary.results, base_filename, target_dir=target_dir
+            )
+            generated_files.append(csv_file)
+            logger.info("CSV: %s", csv_file)
 
-            if "json" in formats:
-                json_file = self._generate_json_summary_from_model(
-                    summary, base_filename
-                )
-                generated_files.append(json_file)
-                logger.info("JSON: %s", json_file)
+        if "json" in formats:
+            json_file = self._generate_json_summary_from_model(
+                summary, base_filename, target_dir=target_dir
+            )
+            generated_files.append(json_file)
+            logger.info("JSON: %s", json_file)
 
-            if "txt" in formats:
-                txt_file = self._generate_text_summary_from_model(
-                    summary, base_filename
-                )
-                generated_files.append(txt_file)
-                logger.info("TXT: %s", txt_file)
-        finally:
-            self.output_dir = original_dir
+        if "txt" in formats:
+            txt_file = self._generate_text_summary_from_model(
+                summary, base_filename, target_dir=target_dir
+            )
+            generated_files.append(txt_file)
+            logger.info("TXT: %s", txt_file)
 
         return generated_files
 
@@ -192,11 +194,14 @@ class OutputHandler:
             logger.warning("Graph generation failed: %s", e)
 
     def _generate_csv_report(
-        self, results: list[EvaluationResult], base_filename: str
+        self,
+        results: list[EvaluationResult],
+        base_filename: str,
+        target_dir: Optional[Path] = None,
     ) -> Path:
         """Generate detailed CSV report."""
-        # Move to dataframe for better aggregation
-        csv_file = self.output_dir / f"{base_filename}_detailed.csv"
+        out = target_dir if target_dir is not None else self.output_dir
+        csv_file = out / f"{base_filename}_detailed.csv"
 
         with open(csv_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -240,64 +245,22 @@ class OutputHandler:
         self,
         summary: EvaluationSummary,
         base_filename: str,
+        target_dir: Optional[Path] = None,
     ) -> Path:
         """Generate JSON summary report from an EvaluationSummary model.
 
         Args:
             summary: The EvaluationSummary containing all computed stats.
             base_filename: Base filename for the output file.
+            target_dir: Optional directory override for output file location.
 
         Returns:
             Path to the generated JSON file.
         """
-        json_file = self.output_dir / f"{base_filename}_summary.json"
+        out = target_dir if target_dir is not None else self.output_dir
+        json_file = out / f"{base_filename}_summary.json"
 
-        # Build overall stats dict merging judge tokens + api tokens
-        overall = summary.overall
-        api_tokens = summary.api_tokens
-        judge_tokens = overall.total_judge_llm_tokens
-        api_total = api_tokens.total_api_tokens if api_tokens else 0
-
-        overall_stats = {
-            "TOTAL": overall.total,
-            "PASS": overall.passed,
-            "FAIL": overall.failed,
-            "ERROR": overall.error,
-            "SKIPPED": overall.skipped,
-            "pass_rate": overall.pass_rate,
-            "fail_rate": overall.fail_rate,
-            "error_rate": overall.error_rate,
-            "skipped_rate": overall.skipped_rate,
-            "total_judge_llm_input_tokens": overall.total_judge_llm_input_tokens,
-            "total_judge_llm_output_tokens": overall.total_judge_llm_output_tokens,
-            "total_judge_llm_tokens": judge_tokens,
-            "total_api_input_tokens": (
-                api_tokens.total_api_input_tokens if api_tokens else 0
-            ),
-            "total_api_output_tokens": (
-                api_tokens.total_api_output_tokens if api_tokens else 0
-            ),
-            "total_api_tokens": api_total,
-            "total_tokens": judge_tokens + api_total,
-        }
-
-        # Build by_metric dict in the format matching original output
-        by_metric = _metric_stats_to_dict(summary.by_metric)
-        by_conversation = _conversation_stats_to_dict(summary.by_conversation)
-        by_tag = _tag_stats_to_dict(summary.by_tag)
-
-        summary_stats: dict[str, Any] = {
-            "overall": overall_stats,
-            "by_metric": by_metric,
-            "by_conversation": by_conversation,
-            "by_tag": by_tag,
-        }
-
-        # Include streaming performance if available
-        if summary.streaming is not None:
-            summary_stats["streaming_performance"] = _streaming_stats_to_dict(
-                summary.streaming
-            )
+        summary_stats = _build_json_summary_stats(summary)
 
         output = {
             "timestamp": summary.timestamp,
@@ -316,17 +279,20 @@ class OutputHandler:
         self,
         summary: EvaluationSummary,
         base_filename: str,
+        target_dir: Optional[Path] = None,
     ) -> Path:
         """Generate human-readable text summary from an EvaluationSummary model.
 
         Args:
             summary: The EvaluationSummary containing all computed stats.
             base_filename: Base filename for the output file.
+            target_dir: Optional directory override for output file location.
 
         Returns:
             Path to the generated text file.
         """
-        txt_file = self.output_dir / f"{base_filename}_summary.txt"
+        out = target_dir if target_dir is not None else self.output_dir
+        txt_file = out / f"{base_filename}_summary.txt"
 
         # Build compatible dicts from summary model
         basic_stats = _overall_to_basic_stats_dict(summary.overall)
@@ -614,6 +580,48 @@ class OutputHandler:
         return self.output_dir
 
 
+def _build_json_summary_stats(summary: EvaluationSummary) -> dict[str, Any]:
+    """Build the summary_stats dict for JSON output from an EvaluationSummary.
+
+    Merges overall stats with API token usage and builds per-metric,
+    per-conversation, per-tag, and streaming performance sections.
+
+    Args:
+        summary: The EvaluationSummary instance.
+
+    Returns:
+        Dictionary matching the JSON summary format.
+    """
+    overall = summary.overall
+    api_tokens = summary.api_tokens
+    judge_tokens = overall.total_judge_llm_tokens
+    api_total = api_tokens.total_api_tokens if api_tokens else 0
+
+    overall_stats = {
+        **_overall_to_basic_stats_dict(overall),
+        "total_api_input_tokens": (
+            api_tokens.total_api_input_tokens if api_tokens else 0
+        ),
+        "total_api_output_tokens": (
+            api_tokens.total_api_output_tokens if api_tokens else 0
+        ),
+        "total_api_tokens": api_total,
+        "total_tokens": judge_tokens + api_total,
+    }
+
+    result: dict[str, Any] = {
+        "overall": overall_stats,
+        "by_metric": _metric_stats_to_dict(summary.by_metric),
+        "by_conversation": _conversation_stats_to_dict(summary.by_conversation),
+        "by_tag": _tag_stats_to_dict(summary.by_tag),
+    }
+
+    if summary.streaming is not None:
+        result["streaming_performance"] = _streaming_stats_to_dict(summary.streaming)
+
+    return result
+
+
 def _result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
     """Convert a single EvaluationResult to JSON-serializable dict.
 
@@ -643,7 +651,9 @@ def _result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
     }
 
 
-def _overall_to_basic_stats_dict(overall: Any) -> dict[str, Any]:
+def _overall_to_basic_stats_dict(
+    overall: "OverallStats",
+) -> dict[str, Any]:
     """Convert OverallStats to the dict format expected by text output.
 
     Args:
@@ -668,7 +678,9 @@ def _overall_to_basic_stats_dict(overall: Any) -> dict[str, Any]:
     }
 
 
-def _group_stats_to_dict(stats: Any) -> dict[str, Any]:
+def _group_stats_to_dict(
+    stats: MetricStats | ConversationStats | TagStats,
+) -> dict[str, Any]:
     """Convert a group stats model to the dict format for text output.
 
     Args:
@@ -687,7 +699,10 @@ def _group_stats_to_dict(stats: Any) -> dict[str, Any]:
         "error_rate": stats.error_rate,
         "skipped_rate": stats.skipped_rate,
     }
-    if hasattr(stats, "score_statistics") and stats.score_statistics is not None:
+    if (
+        isinstance(stats, (MetricStats, TagStats))
+        and stats.score_statistics is not None
+    ):
         score_stats = stats.score_statistics
         result["score_statistics"] = {
             "count": score_stats.count,
@@ -702,7 +717,7 @@ def _group_stats_to_dict(stats: Any) -> dict[str, Any]:
 
 
 def _metric_stats_to_dict(
-    by_metric: dict[str, Any],
+    by_metric: dict[str, MetricStats],
 ) -> dict[str, dict[str, Any]]:
     """Convert by_metric model dict to legacy dict format.
 
@@ -716,7 +731,7 @@ def _metric_stats_to_dict(
 
 
 def _conversation_stats_to_dict(
-    by_conversation: dict[str, Any],
+    by_conversation: dict[str, ConversationStats],
 ) -> dict[str, dict[str, Any]]:
     """Convert by_conversation model dict to legacy dict format.
 
@@ -730,7 +745,7 @@ def _conversation_stats_to_dict(
 
 
 def _tag_stats_to_dict(
-    by_tag: dict[str, Any],
+    by_tag: dict[str, TagStats],
 ) -> dict[str, dict[str, Any]]:
     """Convert by_tag model dict to legacy dict format.
 
@@ -764,7 +779,7 @@ def _summary_to_detailed_stats_dict(
     }
 
 
-def _streaming_stats_to_dict(streaming: Any) -> dict[str, Any]:
+def _streaming_stats_to_dict(streaming: StreamingStats) -> dict[str, Any]:
     """Convert StreamingStats model to the dict format for text output.
 
     Args:

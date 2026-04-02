@@ -450,13 +450,13 @@ class TestOutputHandlerSave:
         assert custom_dir.exists()
         assert files[0].parent == custom_dir
 
-    def test_save_restores_output_dir(
+    def test_save_does_not_mutate_output_dir(
         self,
         tmp_path: Path,
         sample_results: list[EvaluationResult],
         mocker: MockerFixture,
     ) -> None:
-        """Test that save() restores the original output_dir after completion."""
+        """Test that save() does not mutate the handler's output_dir."""
         mock_now = mocker.Mock()
         mock_now.strftime.return_value = "20250101_120000"
         mock_now.isoformat.return_value = "2025-01-01T12:00:00"
