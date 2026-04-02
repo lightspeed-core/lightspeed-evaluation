@@ -22,6 +22,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **Concurrent Evaluation**: Multi-threaded evaluation with configurable thread count
 - **Caching**: LLM, embedding, and API response caching for faster re-runs
 - **Skip on Failure**: Optionally skip remaining evaluations in a conversation when a turn evaluation fails (configurable globally or per conversation). When there is an error in API call/Setup script execution metrics are marked as ERROR always.
+- **Usage Modes**: CLI for batch evaluation and programmatic API for real-time integration with Python applications
 
 ## 🚀 Quick Start
 
@@ -126,13 +127,36 @@ export KUBECONFIG="/path/to/your/kubeconfig"
 lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --output-dir <OUTPUT_DIR>
 
 # Run subset of evaluations (filter by tag or conversation ID)
-lightspeed-eval --tags basic advanced              # Filter by tags
-lightspeed-eval --conv-ids conv_1 conv_2           # Filter by conversation IDs
-lightspeed-eval --tags basic --conv-ids special    # Filter by either (OR logic)
+lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --tags basic advanced
+lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --conv-ids conv_1 conv_2
+# Filter by either (OR logic)
+lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --tags basic --conv-ids special
 
-# Cache warmup mode (empty the current caches)
-lightspeed-eval --cache-warmup                     # Rebuild caches from scratch
+# Clear and rebuild caches
+lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --cache-warmup
 ```
+
+### Programmatic Usage (Library Mode)
+
+Use the framework as a Python library for real-time integration with Python applications:
+
+```python
+from lightspeed_evaluation import evaluate, SystemConfig, LLMConfig, EvaluationData, TurnData
+
+# Configure
+config = SystemConfig(llm=LLMConfig(provider="openai", model="gpt-4o-mini"))
+
+# Create evaluation data
+data = EvaluationData(
+    conversation_group_id="my_eval",
+    turns=[TurnData(turn_id="t1", query="What is OCP?", response="OpenShift...")]
+)
+
+# Run evaluation
+results = evaluate(config, [data])
+```
+
+**See [Evaluation Guide - Programmatic API](docs/EVALUATION_GUIDE.md#10-programmatic-api) for detailed examples.**
 
 ### Usage Scenarios
 Please make any necessary modifications to system.yaml and evaluation_data.yaml. The evaluation_data.yaml file includes sample data for guidance.
@@ -183,6 +207,10 @@ lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data conf
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
+- **NLP** (No LLM required)
+  - [`nlp:bleu`](https://en.wikipedia.org/wiki/BLEU) - BLEU score for n-gram precision
+  - [`nlp:rouge`](https://en.wikipedia.org/wiki/ROUGE_(metric)) - ROUGE score for recall-oriented overlap
+  - **Installation**: `pip install 'lightspeed-evaluation[nlp-metrics]'` or `uv sync --extra nlp-metrics`
 
 ### Conversation-Level (Multi-turn)
 - **DeepEval** -- [docs](https://deepeval.com/docs/metrics-introduction) on DeepEval website
@@ -510,7 +538,15 @@ make test            # Or: uv run pytest tests --cov=src
 | Issue | Solution |
 |-------|----------|
 | Parsing error with context-related metrics (e.g., `faithfulness`) | Increase [`max_tokens`](config/system.yaml#L16) to a higher value (e.g., 2048 or higher - depends on number of the context & size) |
-| API responses not changing after updates | Disable caching (`cache_enabled: false`) or delete the cache folders (`.caches/`) |
+| Expected changes not reflected in results | Clear caches with `--cache-warmup` flag, or set `cache_enabled: false` in config, or manually delete `.caches/` folders |
+
+**For comprehensive troubleshooting, see [Evaluation Guide - Troubleshooting](docs/EVALUATION_GUIDE.md#14-troubleshooting)**
+
+## 📊 Web Dashboard (Proof of Concept)
+
+An interactive web-based dashboard for visualizing and comparing evaluation results is available in the `dashboard/` directory. This is a **PoC implementation** built with React and Vite.
+
+**See [dashboard/README.md](dashboard/README.md) for setup and usage instructions.**
 
 ## Generate answers (optional - for creating test data)
 For generating answers (optional) refer [README-generate-answers](README-generate-answers.md)
