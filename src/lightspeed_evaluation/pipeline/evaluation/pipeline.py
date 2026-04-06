@@ -196,6 +196,6 @@ class EvaluationPipeline:
                     # Use getattr to call untyped third-party method
                     disconnect = getattr(cache, "disconnect")
                     asyncio.run(disconnect())
-                except Exception:  # pylint: disable=broad-exception-caught
+                except (AttributeError, RuntimeError, OSError):
                     logger.debug("litellm cache disconnect raised; ignoring")
                 litellm.cache = None

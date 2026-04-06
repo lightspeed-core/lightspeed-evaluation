@@ -13,6 +13,7 @@ aware that it affects the entire process.
 
 import logging
 import os
+import threading
 from typing import Any
 
 from lightspeed_evaluation.core.models import LoggingConfig
@@ -22,6 +23,7 @@ from lightspeed_evaluation.core.system.ssl_certifi import create_ssl_certifi_bun
 # ``global`` statement and the ``UPPER_CASE`` naming requirement for module
 # constants while remaining simple and testable.
 _ENV_GUARD: list[bool] = [False]
+_ENV_LOCK = threading.Lock()
 
 
 def _reset_env_guard() -> None:
@@ -32,15 +34,16 @@ def _reset_env_guard() -> None:
 def setup_environment_variables(config_data: dict[str, Any]) -> None:
     """Setup environment variables from validated config data.
 
-    Idempotent: only applies environment variables on the first call
-    per process. Subsequent calls are no-ops.
+    Idempotent and thread-safe: only applies environment variables on the
+    first call per process. Subsequent calls are no-ops.
 
     Args:
         config_data: Configuration dict with optional ``environment`` key.
     """
-    if _ENV_GUARD[0]:
-        return
-    _ENV_GUARD[0] = True
+    with _ENV_LOCK:
+        if _ENV_GUARD[0]:
+            return
+        _ENV_GUARD[0] = True
 
     # Create combined SSL certificate certifi bundle
     certifi_bundle_file = create_ssl_certifi_bundle(config_data)

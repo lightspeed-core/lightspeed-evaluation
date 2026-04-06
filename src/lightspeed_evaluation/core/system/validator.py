@@ -306,6 +306,10 @@ class DataValidator:  # pylint: disable=too-few-public-methods
 
     def _validate_metrics_availability(self, data: EvaluationData) -> None:
         """Validate that specified metrics are available/supported."""
+        # Skip validation when no system_config was provided (metric sets empty)
+        if not self._turn_level_metrics and not self._conversation_level_metrics:
+            return
+
         conversation_id = data.conversation_group_id
 
         # Validate per-turn metrics
