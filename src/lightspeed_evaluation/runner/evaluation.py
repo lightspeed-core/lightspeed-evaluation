@@ -132,6 +132,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
             eval_args.eval_data,
             tags=eval_args.tags,
             conv_ids=eval_args.conv_ids,
+            metrics=eval_args.metrics,
         )
 
         print(
@@ -235,6 +236,12 @@ def main() -> int:
         nargs="+",
         default=None,
         help="Filter by conversation group IDs (run only specified conversations)",
+    )
+    parser.add_argument(
+        "--metrics",
+        nargs="+",
+        default=None,
+        help="Filter to only run specified metrics (e.g. custom:answer_correctness)",
     )
     parser.add_argument(
         "--cache-warmup",

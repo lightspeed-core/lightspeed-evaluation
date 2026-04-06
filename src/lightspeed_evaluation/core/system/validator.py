@@ -171,6 +171,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         data_path: str,
         tags: Optional[list[str]] = None,
         conv_ids: Optional[list[str]] = None,
+        metrics: Optional[list[str]] = None,
     ) -> list[EvaluationData]:
         """Load, filter, and validate evaluation data from YAML file.
 
@@ -184,6 +185,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
             data_path: Path to the evaluation data YAML file
             tags: Optional list of tags to filter by
             conv_ids: Optional list of conversation group IDs to filter by
+            metrics: Optional list of metrics to run (filters each turn's turn_metrics)
 
         Returns:
             Filtered and validated list of Evaluation Data
@@ -229,6 +231,16 @@ class DataValidator:  # pylint: disable=too-few-public-methods
 
         # Filter by scope before validation
         evaluation_data = self._filter_by_scope(evaluation_data, tags, conv_ids)
+
+        # Filter turn_metrics if --metrics was specified
+        if metrics:
+            metrics_set = set(metrics)
+            for eval_data in evaluation_data:
+                for turn in eval_data.turns:
+                    if turn.turn_metrics:
+                        turn.turn_metrics = [
+                            m for m in turn.turn_metrics if m in metrics_set
+                        ]
 
         # Semantic validation (metrics availability and requirements)
         if not self._validate_evaluation_data(evaluation_data):
