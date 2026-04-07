@@ -17,6 +17,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **Streaming Performance Metrics**: Capture time-to-first-token (TTFT), streaming duration, and tokens/second when using streaming endpoint
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
+- **Database Storage**: Optional persistence to SQLite, PostgreSQL, or MySQL for querying and analysis
 - **Flexible Configuration**: Configurable environment & metric metadata, Global defaults with per-conversation/per-turn metric overrides
 - **Early Validation**: Catch configuration errors before expensive LLM calls
 - **Concurrent Evaluation**: Multi-threaded evaluation with configurable thread count
@@ -214,6 +215,69 @@ See [Configuration → Metrics](docs/configuration.md#metrics) for GEval options
 The default system config file is [`config/system.yaml`](config/system.yaml).
 See [`docs/configuration.md`](docs/configuration.md) for the detailed description.
 
+### Storage Configuration
+
+The `storage` section configures where evaluation results are persisted. You can configure multiple storage backends to save results to files and/or databases simultaneously.
+
+#### File Backend (Default)
+
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"           # Output directory for result files
+    base_filename: "evaluation"           # Base filename for output files
+    enabled_outputs:                      # Output types to generate
+      - csv                               # Detailed results CSV
+      - json                              # Summary JSON with statistics
+      - txt                               # Human-readable summary
+    csv_columns:                          # Columns to include in CSV
+      - "conversation_group_id"
+      - "turn_id"
+      - "metric_identifier"
+      - "result"
+      - "score"
+      # ... see system.yaml for full list
+```
+
+#### Database Backend (Optional)
+
+Save results directly to a database for querying and analysis. Supports SQLite, PostgreSQL, and MySQL.
+
+**SQLite (Local file):**
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "sqlite"
+    database: "./eval_results.db"         # Database file path
+    table_name: "evaluation_results"      # Table name (default)
+```
+
+**PostgreSQL:**
+```yaml
+storage:
+  - type: "postgres"
+    database: "evaluations"
+    host: "localhost"
+    port: 5432
+    user: "admin"
+    password: "secret"
+    table_name: "evaluation_results"
+```
+
+**MySQL:**
+```yaml
+storage:
+  - type: "mysql"
+    database: "evaluations"
+    host: "localhost"
+    port: 3306
+    user: "admin"
+    password: "secret"
+    table_name: "evaluation_results"
+```
+
+> **Note:** Database storage is incremental - results are saved as each conversation completes. Storage failures are logged as warnings but don't stop the evaluation.
 
 ### Input File Data Structure (`config/evaluation_data.yaml`)
 
@@ -459,6 +523,7 @@ export API_KEY="your-api-endpoint-key"
 - **JSON**: Summary statistics with score distributions
 - **TXT**: Human-readable summary
 - **PNG**: 4 visualization types (pass rates, score distributions, heatmaps, status breakdown)
+- **Database**: Optional persistence to SQLite, PostgreSQL, or MySQL (see [Storage Configuration](#storage-configuration))
 
 ### Key Metrics in Output
 - **Status**: PASS/FAIL/ERROR/SKIPPED
