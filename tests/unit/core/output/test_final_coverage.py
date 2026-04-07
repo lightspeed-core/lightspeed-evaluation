@@ -180,6 +180,7 @@ class TestSystemLoaderEdgeCases:
         validator._validate_evaluation_data([conv])
 
         # Should have 3 errors (2 unknown turn-level + 1 unknown conversation-level)
-        assert len(validator.validation_errors) >= 2
+        assert len(validator.validation_errors) == 3
         assert any("unknown:metric1" in err for err in validator.validation_errors)
+        assert any("unknown:metric2" in err for err in validator.validation_errors)
         assert any("unknown:conv_metric" in err for err in validator.validation_errors)
