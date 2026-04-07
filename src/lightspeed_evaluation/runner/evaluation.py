@@ -7,7 +7,7 @@ import traceback
 from pathlib import Path
 from typing import Any, Optional
 
-from lightspeed_evaluation.core.models.system import SystemConfig
+from lightspeed_evaluation.core.models.system import LLMPoolConfig, SystemConfig
 
 # Import only lightweight modules at top level
 from lightspeed_evaluation.core.system import ConfigLoader
@@ -23,9 +23,12 @@ def _clear_caches(system_config: SystemConfig) -> None:
     Args:
         system_config: System configuration containing cache directory paths
     """
-    cache_dirs = []
+    cache_dirs: list[tuple[str, str]] = []
 
     # Collect all enabled cache directories
+    pool = system_config.llm_pool
+    if isinstance(pool, LLMPoolConfig) and pool.defaults.cache_enabled:
+        cache_dirs.append(("LLM Judge (pool)", pool.defaults.cache_dir))
     if system_config.llm.cache_enabled:
         cache_dirs.append(("LLM Judge", system_config.llm.cache_dir))
     # We clear the api cache even if the Lightspeed core api is disabled
