@@ -644,3 +644,52 @@ class TestGEvalRubricValidation:
                     },
                 }
             )
+
+
+class TestSystemConfigMetricNameProperties:
+    """Tests for SystemConfig.turn_level_metric_names and conversation_level_metric_names."""
+
+    def test_turn_level_metric_names_returns_correct_set(self) -> None:
+        """Test turn_level_metric_names returns keys from metadata dict."""
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+                "custom:answer_correctness": {"threshold": 0.8},
+            },
+        )
+        assert config.turn_level_metric_names == {
+            "ragas:faithfulness",
+            "custom:answer_correctness",
+        }
+
+    def test_conversation_level_metric_names_returns_correct_set(self) -> None:
+        """Test conversation_level_metric_names returns keys from metadata dict."""
+        config = SystemConfig(
+            default_conversation_metrics_metadata={
+                "deepeval:conversation_completeness": {"threshold": 0.6},
+                "deepeval:conversation_relevancy": {"threshold": 0.7},
+            },
+        )
+        assert config.conversation_level_metric_names == {
+            "deepeval:conversation_completeness",
+            "deepeval:conversation_relevancy",
+        }
+
+    def test_empty_metadata_returns_empty_sets(self) -> None:
+        """Test that empty metadata dicts return empty sets."""
+        config = SystemConfig()
+        assert config.turn_level_metric_names == set()
+        assert config.conversation_level_metric_names == set()
+
+    def test_metric_names_are_derived_not_stored(self) -> None:
+        """Test that metric names are computed properties, not stored state."""
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+            },
+        )
+        names1 = config.turn_level_metric_names
+        names2 = config.turn_level_metric_names
+        assert names1 == names2
+        # Each call returns a fresh set (not the same object)
+        assert names1 is not names2

@@ -9,25 +9,19 @@ from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 class TestDeepEvalLLMManager:
     """Tests for DeepEvalLLMManager."""
 
-    def test_setup_ssl_verify_enabled(self, mocker: MockerFixture) -> None:
-        """Test SSL verification enabled by default."""
-        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.deepeval.litellm")
-        mocker.patch.dict("os.environ", {"SSL_CERTIFI_BUNDLE": "/path/to/bundle.pem"})
+    def test_setup_ssl_verify_delegates_to_litellm_patch(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test SSL verification delegates to setup_litellm_ssl."""
+        mock_setup = mocker.patch(
+            "lightspeed_evaluation.core.llm.deepeval.setup_litellm_ssl"
+        )
         mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
 
-        DeepEvalLLMManager("gpt-4", {})
+        params = {"ssl_verify": False}
+        DeepEvalLLMManager("gpt-4", params)
 
-        assert mock_litellm.ssl_verify == "/path/to/bundle.pem"
-
-    def test_setup_ssl_verify_disabled(self, mocker: MockerFixture) -> None:
-        """Test SSL verification can be disabled."""
-        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.deepeval.litellm")
-        mocker.patch.dict("os.environ", {})
-        mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
-
-        DeepEvalLLMManager("gpt-4", {"ssl_verify": False})
-
-        assert mock_litellm.ssl_verify is False
+        mock_setup.assert_called_once_with(params)
 
     def test_initialization(self, llm_params: dict, mocker: MockerFixture) -> None:
         """Test manager initialization."""

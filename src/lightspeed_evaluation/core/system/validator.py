@@ -2,17 +2,16 @@
 
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import yaml
 from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models import EvaluationData, TurnData
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
-from lightspeed_evaluation.core.system.loader import (
-    CONVERSATION_LEVEL_METRICS,
-    TURN_LEVEL_METRICS,
-)
+
+if TYPE_CHECKING:
+    from lightspeed_evaluation.core.models import SystemConfig
 
 # Metric requirements mapping
 METRIC_REQUIREMENTS = {
@@ -141,14 +140,31 @@ class DataValidator:  # pylint: disable=too-few-public-methods
     """
 
     def __init__(
-        self, api_enabled: bool = False, fail_on_invalid_data: bool = True
+        self,
+        api_enabled: bool = False,
+        fail_on_invalid_data: bool = True,
+        system_config: Optional["SystemConfig"] = None,
     ) -> None:
-        """Initialize validator."""
+        """Initialize validator.
+
+        Args:
+            api_enabled: Whether the API is enabled (allows missing response fields).
+            fail_on_invalid_data: Whether to fail on invalid conversations.
+            system_config: SystemConfig providing metric name sets. When provided,
+                metric availability is validated against the config's metadata
+                rather than module-level globals.
+        """
         self.validation_errors: list[str] = []
         self.evaluation_data: Optional[list[EvaluationData]] = None
         self.api_enabled = api_enabled
         self.original_data_path: Optional[str] = None
         self.fail_on_invalid_data = fail_on_invalid_data
+        self._turn_level_metrics: set[str] = (
+            system_config.turn_level_metric_names if system_config else set()
+        )
+        self._conversation_level_metrics: set[str] = (
+            system_config.conversation_level_metric_names if system_config else set()
+        )
 
     def load_evaluation_data(
         self,
@@ -290,13 +306,17 @@ class DataValidator:  # pylint: disable=too-few-public-methods
 
     def _validate_metrics_availability(self, data: EvaluationData) -> None:
         """Validate that specified metrics are available/supported."""
+        # Skip validation when no system_config was provided (metric sets empty)
+        if not self._turn_level_metrics and not self._conversation_level_metrics:
+            return
+
         conversation_id = data.conversation_group_id
 
         # Validate per-turn metrics
         for turn_data in data.turns:
             if turn_data.turn_metrics:
                 for metric in turn_data.turn_metrics:
-                    if metric not in TURN_LEVEL_METRICS:
+                    if metric not in self._turn_level_metrics:
                         turn_data.add_invalid_metric(metric)
                         self.validation_errors.append(
                             f"Conversation {conversation_id}, Turn {turn_data.turn_id}: "
@@ -306,7 +326,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         # Validate conversation metrics
         if data.conversation_metrics:
             for metric in data.conversation_metrics:
-                if metric not in CONVERSATION_LEVEL_METRICS:
+                if metric not in self._conversation_level_metrics:
                     data.add_invalid_metric(metric)
                     self.validation_errors.append(
                         f"Conversation {conversation_id}: Unknown conversation metric '{metric}'"

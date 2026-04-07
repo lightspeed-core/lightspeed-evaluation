@@ -6,11 +6,12 @@ This ensures DeepEval's LiteLLMModel uses the patched completion functions.
 
 import asyncio
 import logging
-import os
 from typing import Any
 
 import litellm
 from deepeval.models import LiteLLMModel
+
+from lightspeed_evaluation.core.llm.litellm_patch import setup_litellm_ssl
 
 logger = logging.getLogger(__name__)
 
@@ -55,17 +56,12 @@ class DeepEvalLLMManager:
         print(f"✅ DeepEval LLM Manager: {self.model_name}")
 
     def setup_ssl_verify(self) -> None:
-        """Setup SSL verification based on LLM parameters."""
-        ssl_verify = self.llm_params.get(
-            "ssl_verify", True
-        )  # pylint: disable=duplicate-code
+        """Setup SSL verification based on LLM parameters.
 
-        if ssl_verify:
-            # Use our combined certifi bundle (includes system + custom certs)
-            litellm.ssl_verify = os.environ.get("SSL_CERTIFI_BUNDLE", True)
-        else:
-            # Explicitly disable SSL verification
-            litellm.ssl_verify = False
+        Delegates to the shared ``setup_litellm_ssl`` in ``litellm_patch``
+        which acquires ``litellm_state_lock`` to serialize access.
+        """
+        setup_litellm_ssl(self.llm_params)
 
     def get_llm(self) -> LiteLLMModel:
         """Get the configured DeepEval LLM model."""

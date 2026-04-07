@@ -25,51 +25,6 @@ from lightspeed_evaluation.core.system.setup import (
     setup_logging,
 )
 
-# Global metric mapping sets (populated dynamically from system config)
-TURN_LEVEL_METRICS: set[str] = set()
-CONVERSATION_LEVEL_METRICS: set[str] = set()
-
-
-def populate_metric_mappings(system_config: "SystemConfig") -> None:
-    """Populate global metric mapping sets from system config."""
-    TURN_LEVEL_METRICS.clear()
-    CONVERSATION_LEVEL_METRICS.clear()
-
-    # Extract metrics metadata from validated system config
-    metrics_metadata = {
-        "turn_level": system_config.default_turn_metrics_metadata,
-        "conversation_level": system_config.default_conversation_metrics_metadata,
-    }
-
-    # Process turn-level metrics
-    turn_level = metrics_metadata.get("turn_level", {})
-    for metric_name in turn_level.keys():
-        TURN_LEVEL_METRICS.add(metric_name)
-
-    # Process conversation-level metrics
-    conversation_level = metrics_metadata.get("conversation_level", {})
-    for metric_name in conversation_level.keys():
-        CONVERSATION_LEVEL_METRICS.add(metric_name)
-
-
-def validate_metrics(
-    turn_metrics: list[str], conversation_metrics: list[str]
-) -> list[str]:
-    """Validate that provided metrics are recognized."""
-    errors = []
-
-    # Check turn-level metrics
-    for metric in turn_metrics:
-        if metric not in TURN_LEVEL_METRICS:
-            errors.append(f"'{metric}' is not a recognized turn-level metric")
-
-    # Check conversation-level metrics
-    for metric in conversation_metrics:
-        if metric not in CONVERSATION_LEVEL_METRICS:
-            errors.append(f"'{metric}' is not a recognized conversation-level metric")
-
-    return errors
-
 
 class ConfigLoader:  # pylint: disable=too-few-public-methods
     """Configuration loader for evaluation framework."""
@@ -99,8 +54,6 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         config_data = cls._build_config_data_from_system_config(system_config)
         setup_environment_variables(config_data)
         loader.logger = setup_logging(system_config.logging)
-
-        populate_metric_mappings(system_config)
 
         return loader
 
@@ -150,9 +103,6 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         # Setup environment and logging
         setup_environment_variables(config_data)
         self.logger = setup_logging(self.system_config.logging)
-
-        # Populate metric mappings
-        populate_metric_mappings(self.system_config)
 
         self.logger.debug("System config loaded successfully")
         return self.system_config

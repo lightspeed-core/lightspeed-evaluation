@@ -20,6 +20,7 @@ from litellm.caching.caching import Cache
 from litellm.types.caching import LiteLLMCacheType
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
+from lightspeed_evaluation.core.llm.litellm_patch import litellm_state_lock
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.geval import GEvalHandler
 from lightspeed_evaluation.core.metrics.manager import MetricManager
@@ -47,12 +48,15 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             llm_manager: Pre-configured LLMManager with validated parameters
             metric_manager: MetricManager for accessing metric metadata
         """
-        # Setup cache if enabled (shared across all DeepEval operations)
-        if llm_manager.get_config().cache_enabled and litellm.cache is None:
-            cache_dir = llm_manager.get_config().cache_dir
-            # Modifying global litellm cache as there is no clear way how to do it per model
-            # Checking if the litellm.cache as there is potential conflict with Ragas code
-            litellm.cache = Cache(type=LiteLLMCacheType.DISK, disk_cache_dir=cache_dir)
+        # litellm.cache is process-global; serialize setup with the shared lock
+        # so that concurrent pipelines don't race.
+        if llm_manager.get_config().cache_enabled:
+            with litellm_state_lock:
+                if litellm.cache is None:
+                    cache_dir = llm_manager.get_config().cache_dir
+                    litellm.cache = Cache(
+                        type=LiteLLMCacheType.DISK, disk_cache_dir=cache_dir
+                    )
 
         # Create shared LLM Manager for all DeepEval metrics (standard + GEval)
         self.llm_manager = DeepEvalLLMManager(

@@ -18,6 +18,7 @@ This module configures litellm for two purposes:
 
 import logging
 import os
+import threading
 import warnings
 from functools import wraps
 from typing import Any
@@ -123,6 +124,15 @@ litellm.acompletion = _acompletion_with_token_tracking
 
 
 # =============================================================================
+# GLOBAL STATE LOCK
+# =============================================================================
+# Single lock for ALL litellm global state mutations (cache, ssl_verify).
+# Import this lock in any module that reads/writes litellm.cache or
+# litellm.ssl_verify to prevent race conditions between concurrent pipelines.
+litellm_state_lock = threading.Lock()
+
+
+# =============================================================================
 # SSL CONFIGURATION UTILITY
 # =============================================================================
 def setup_litellm_ssl(llm_params: dict[str, Any]) -> None:
@@ -133,7 +143,8 @@ def setup_litellm_ssl(llm_params: dict[str, Any]) -> None:
     """
     ssl_verify = llm_params.get("ssl_verify", True)
 
-    if ssl_verify:
-        litellm.ssl_verify = os.environ.get("SSL_CERTIFI_BUNDLE", True)
-    else:
-        litellm.ssl_verify = False
+    with litellm_state_lock:
+        if ssl_verify:
+            litellm.ssl_verify = os.environ.get("SSL_CERTIFI_BUNDLE", True)
+        else:
+            litellm.ssl_verify = False

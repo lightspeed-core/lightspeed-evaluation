@@ -941,6 +941,16 @@ class SystemConfig(BaseModel):
                     ) from e
         return v
 
+    @property
+    def turn_level_metric_names(self) -> set[str]:
+        """Return turn-level metric names derived from metadata keys."""
+        return set(self.default_turn_metrics_metadata.keys())
+
+    @property
+    def conversation_level_metric_names(self) -> set[str]:
+        """Return conversation-level metric names derived from metadata keys."""
+        return set(self.default_conversation_metrics_metadata.keys())
+
     def get_judge_configs(self) -> list[tuple[str, LLMConfig]]:
         """Get resolved LLMConfig for all judges with their pool keys.
 
