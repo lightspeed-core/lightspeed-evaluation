@@ -9,6 +9,15 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.models.system import (
+    APIConfig,
+    EmbeddingConfig,
+    LLMConfig,
+    LLMDefaultsConfig,
+    LLMPoolConfig,
+    LLMProviderConfig,
+    SystemConfig,
+)
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
 from lightspeed_evaluation.runner.evaluation import _clear_caches, main, run_evaluation
 
@@ -25,6 +34,42 @@ def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
+
+
+def _system_config_all_caches_under_tmp(tmp_path: Path) -> SystemConfig:
+    """Dirs + SystemConfig for _clear_caches covering pool, llm, API, embedding."""
+    pool = tmp_path / "pool_llm"
+    legacy = tmp_path / "legacy_llm"
+    api_dir = tmp_path / "api_cache"
+    emb_dir = tmp_path / "emb_cache"
+    for d in (pool, legacy, api_dir, emb_dir):
+        d.mkdir()
+    nested = pool / "nested"
+    nested.mkdir()
+    (nested / "pool.db").write_text("x")
+    (legacy / "llm.db").write_text("x")
+    (api_dir / "api.db").write_text("x")
+    (emb_dir / "emb.db").write_text("x")
+
+    return SystemConfig(
+        llm=LLMConfig(cache_enabled=True, cache_dir=str(legacy)),
+        llm_pool=LLMPoolConfig(
+            defaults=LLMDefaultsConfig(
+                cache_enabled=True,
+                cache_dir=str(pool),
+            ),
+            models={"j": LLMProviderConfig(provider="openai", model="gpt-4o-mini")},
+        ),
+        api=APIConfig(
+            enabled=False,
+            cache_enabled=True,
+            cache_dir=str(api_dir),
+        ),
+        embedding=EmbeddingConfig(
+            cache_enabled=True,
+            cache_dir=str(emb_dir),
+        ),
+    )
 
 
 class TestRunEvaluation:
@@ -376,48 +421,34 @@ class TestClearCaches:
     """Unit tests for _clear_caches function."""
 
     def test_clear_caches_with_all_caches_enabled(
-        self, tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         """Test clearing all cache directories when all caches are enabled."""
         # Create test cache directories with files
-        llm_cache = tmp_path / "llm_cache"
-        api_cache = tmp_path / "api_cache"
-        embedding_cache = tmp_path / "embedding_cache"
-
-        llm_cache.mkdir()
-        api_cache.mkdir()
-        embedding_cache.mkdir()
-
-        (llm_cache / "test1.db").write_text("test")
-        (api_cache / "test2.db").write_text("test")
-        (embedding_cache / "test3.db").write_text("test")
-
-        # Mock system config
-        mock_config = mocker.Mock()
-        mock_config.llm.cache_enabled = True
-        mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.api.enabled = True
-        mock_config.api.cache_enabled = True
-        mock_config.api.cache_dir = str(api_cache)
-        mock_config.embedding.cache_enabled = True
-        mock_config.embedding.cache_dir = str(embedding_cache)
+        config = _system_config_all_caches_under_tmp(tmp_path)
+        pool = tmp_path / "pool_llm"
+        legacy = tmp_path / "legacy_llm"
+        api_dir = tmp_path / "api_cache"
+        emb_dir = tmp_path / "emb_cache"
+        nested = pool / "nested"
 
         # Call clear caches
-        _clear_caches(mock_config)
+        _clear_caches(config)
 
+        for d in (pool, legacy, api_dir, emb_dir):
+            assert d.is_dir()
         # Verify directories were cleared and recreated
-        assert llm_cache.exists()
-        assert api_cache.exists()
-        assert embedding_cache.exists()
-        assert not (llm_cache / "test1.db").exists()
-        assert not (api_cache / "test2.db").exists()
-        assert not (embedding_cache / "test3.db").exists()
+        assert not (nested / "pool.db").exists()
+        assert not (legacy / "llm.db").exists()
+        assert not (api_dir / "api.db").exists()
+        assert not (emb_dir / "emb.db").exists()
 
         # Verify output messages
-        captured = capsys.readouterr()
-        assert "Cleared LLM Judge cache" in captured.out
-        assert "Cleared API cache" in captured.out
-        assert "Cleared Embedding cache" in captured.out
+        out = capsys.readouterr().out
+        assert "Cleared LLM Judge (pool) cache" in out
+        assert "Cleared LLM Judge cache" in out
+        assert "Cleared API cache" in out
+        assert "Cleared Embedding cache" in out
 
     def test_clear_caches_with_only_llm_cache_enabled(
         self, tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture
