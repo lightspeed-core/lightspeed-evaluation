@@ -32,11 +32,11 @@ A comprehensive framework for evaluating GenAI applications.
 
 #### From Git
 
-Replace `TAG` below with a [release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) like `v0.5.0`, or use `main` for latest (not recommended).
+Replace `TAG` below with a [release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) like `v0.6.0`, or use `main` for latest (not recommended).
 
 ```bash
 # Set your desired tag
-TAG=v0.5.0
+TAG=v0.6.0
 
 # Install package (no dependencies)
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -56,7 +56,7 @@ pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-eval
 
 **CPU torch + local embeddings:**
 ```bash
-TAG=v0.5.0
+TAG=v0.6.0
 
 # 1. Install package
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -70,7 +70,7 @@ pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-eval
 
 **GPU torch + local embeddings:**
 ```bash
-TAG=v0.5.0
+TAG=v0.6.0
 
 # 1. Install package
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
