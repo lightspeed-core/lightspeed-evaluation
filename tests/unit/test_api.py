@@ -299,6 +299,7 @@ class TestSummaryConversationAndTurn:
         data_list = call_args[0][1]
         assert len(data_list) == 1
         assert data_list[0].conversation_group_id == "programmatic_eval"
+        assert call_args.kwargs.get("compute_confidence_intervals") is False
         assert result == mock_eval.return_value
 
     def test_turn_with_summary_metrics_override(self, mocker: MockerFixture) -> None:

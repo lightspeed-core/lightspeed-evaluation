@@ -211,4 +211,5 @@ def evaluate_turn_with_summary(
         config,
         [data],
         output_dir=output_dir,
+        compute_confidence_intervals=False,
     )

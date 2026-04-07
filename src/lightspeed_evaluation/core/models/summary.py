@@ -331,7 +331,8 @@ def _compute_metric_stats(
         grouped.setdefault(r.metric_identifier, []).append(r)
 
     metric_stats: dict[str, MetricStats] = {}
-    for metric_id, group_results in grouped.items():
+    for metric_id in sorted(grouped):
+        group_results = grouped[metric_id]
         base = _build_group_stats_dict(group_results)
         scores = [r.score for r in group_results if r.score is not None]
         base["score_statistics"] = _compute_score_statistics(scores, compute_ci)
@@ -352,7 +353,8 @@ def _compute_conversation_stats(
         grouped.setdefault(r.conversation_group_id, []).append(r)
 
     conv_stats: dict[str, ConversationStats] = {}
-    for conv_id, group_results in grouped.items():
+    for conv_id in sorted(grouped):
+        group_results = grouped[conv_id]
         base = _build_group_stats_dict(group_results)
         conv_stats[conv_id] = ConversationStats(**base)
 
@@ -372,7 +374,8 @@ def _compute_tag_stats(
         grouped.setdefault(r.tag, []).append(r)
 
     tag_stats: dict[str, TagStats] = {}
-    for tag, group_results in grouped.items():
+    for tag in sorted(grouped):
+        group_results = grouped[tag]
         base = _build_group_stats_dict(group_results)
         scores = [r.score for r in group_results if r.score is not None]
         base["score_statistics"] = _compute_score_statistics(scores, compute_ci)

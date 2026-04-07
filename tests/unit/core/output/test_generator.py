@@ -470,5 +470,5 @@ class TestOutputHandlerSave:
         custom_dir = tmp_path / "custom"
         handler.save(summary, formats=["json"], output_dir=str(custom_dir))
 
-        # Original output_dir should be restored
+        # handler.output_dir should remain unchanged (save() uses a local variable)
         assert handler.output_dir == tmp_path
