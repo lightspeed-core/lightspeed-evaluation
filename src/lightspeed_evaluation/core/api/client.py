@@ -159,6 +159,7 @@ class APIClient:
         query: str,
         conversation_id: Optional[str] = None,
         attachments: Optional[list[str]] = None,
+        extra_request_params: Optional[dict[str, Any]] = None,
     ) -> APIResponse:
         """Query the API using the configured endpoint type.
 
@@ -166,6 +167,7 @@ class APIClient:
             query: The question/query to ask
             conversation_id: Optional conversation ID for context
             attachments: Optional list of attachments
+            extra_request_params: Optional per-turn extra params (overrides system defaults)
 
         Returns:
             APIResponse with Response, Tool calls, Conversation ID
@@ -174,7 +176,9 @@ class APIClient:
             raise APIError("API client not initialized")
 
         try:
-            api_request = self._prepare_request(query, conversation_id, attachments)
+            api_request = self._prepare_request(
+                query, conversation_id, attachments, extra_request_params
+            )
             if self.config.cache_enabled:
                 cached_response = self._get_cached_response(api_request)
                 if cached_response is not None:
@@ -201,8 +205,13 @@ class APIClient:
         query: str,
         conversation_id: Optional[str] = None,
         attachments: Optional[list[str]] = None,
+        extra_request_params: Optional[dict[str, Any]] = None,
     ) -> APIRequest:
         """Prepare API request with common parameters."""
+        # Merge extra params: system defaults, then per-turn overrides
+        resolved_extra = {**(self.config.extra_request_params or {})}
+        if extra_request_params:
+            resolved_extra.update(extra_request_params)
         return APIRequest.create(
             query=query,
             provider=self.config.provider,
@@ -211,7 +220,20 @@ class APIClient:
             conversation_id=conversation_id,
             system_prompt=self.config.system_prompt,
             attachments=attachments,
+            extra_request_params=resolved_extra or None,
         )
+
+    @staticmethod
+    def _serialize_request(api_request: APIRequest) -> dict[str, Any]:
+        """Serialize API request, flattening extra_request_params into the payload."""
+        payload = api_request.model_dump(exclude_none=True)
+        extra = payload.pop("extra_request_params", None)
+        if extra:
+            reserved = set(APIRequest.model_fields)
+            for key, value in extra.items():
+                if key not in reserved and key not in payload:
+                    payload[key] = value
+        return payload
 
     def _standard_query(self, api_request: APIRequest) -> APIResponse:
         """Query the API using non-streaming endpoint with retry on 429."""
@@ -220,7 +242,7 @@ class APIClient:
         try:
             response = self.client.post(
                 f"/{self.config.version}/query",
-                json=api_request.model_dump(exclude_none=True),
+                json=self._serialize_request(api_request),
             )
             response.raise_for_status()
 
@@ -277,7 +299,7 @@ class APIClient:
             with self.client.stream(
                 "POST",
                 f"/{self.config.version}/streaming_query",
-                json=api_request.model_dump(exclude_none=True),
+                json=self._serialize_request(api_request),
             ) as response:
                 self._handle_response_errors(response)
                 raw_data = parse_streaming_response(response)
@@ -357,6 +379,7 @@ class APIClient:
             "no_tools",
             "system_prompt",
             "attachments",
+            "extra_request_params",
         ]
         str_request = ",".join([str(request_dict[k]) for k in keys_to_hash])
 

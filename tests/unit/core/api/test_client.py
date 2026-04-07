@@ -536,6 +536,157 @@ class TestAPIClientConfiguration:
         assert result.conversation_id == "conv_123"
 
 
+class TestExtraRequestParams:
+    """Tests for extra_request_params support in APIClient."""
+
+    def test_api_config_extra_request_params(self) -> None:
+        """Test APIConfig accepts extra_request_params."""
+        config = APIConfig(
+            enabled=True,
+            api_base="http://localhost:8080",
+            endpoint_type="query",
+            timeout=30,
+            extra_request_params={"mode": "troubleshooting"},
+        )
+        assert config.extra_request_params == {"mode": "troubleshooting"}
+
+    def test_api_config_extra_request_params_none_default(self) -> None:
+        """Test APIConfig defaults extra_request_params to None."""
+        config = APIConfig(
+            enabled=True,
+            api_base="http://localhost:8080",
+            endpoint_type="query",
+            timeout=30,
+        )
+        assert config.extra_request_params is None
+
+    def test_prepare_request_with_turn_extra_params(
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test request preparation with per-turn extra params."""
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        client = APIClient(basic_api_config_streaming_endpoint)
+        request = client._prepare_request(
+            "Test query",
+            extra_request_params={"mode": "troubleshooting"},
+        )
+
+        assert request.extra_request_params == {"mode": "troubleshooting"}
+
+    def test_prepare_request_extra_params_falls_back_to_config(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test extra params fall back to system config when not provided per-turn."""
+        config = APIConfig(
+            enabled=True,
+            api_base="http://localhost:8080",
+            endpoint_type="query",
+            timeout=30,
+            cache_enabled=False,
+            extra_request_params={"mode": "ask"},
+        )
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        client = APIClient(config)
+        request = client._prepare_request("Test query")
+
+        assert request.extra_request_params == {"mode": "ask"}
+
+    def test_prepare_request_turn_extra_params_overrides_config(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test per-turn extra params override system config values."""
+        config = APIConfig(
+            enabled=True,
+            api_base="http://localhost:8080",
+            endpoint_type="query",
+            timeout=30,
+            cache_enabled=False,
+            extra_request_params={"mode": "ask", "system_key": "default"},
+        )
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        client = APIClient(config)
+        request = client._prepare_request(
+            "Test query",
+            extra_request_params={"mode": "troubleshooting"},
+        )
+
+        # Per-turn overrides mode, system_key is inherited
+        assert request.extra_request_params == {
+            "mode": "troubleshooting",
+            "system_key": "default",
+        }
+
+    def test_cache_key_differs_by_extra_params(
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test that different extra params produce different cache keys."""
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        client = APIClient(basic_api_config_streaming_endpoint)
+        request_ask = client._prepare_request(
+            "Test query", extra_request_params={"mode": "ask"}
+        )
+        request_troubleshooting = client._prepare_request(
+            "Test query", extra_request_params={"mode": "troubleshooting"}
+        )
+
+        key_ask = client._get_cache_key(request_ask)
+        key_troubleshooting = client._get_cache_key(request_troubleshooting)
+
+        assert key_ask != key_troubleshooting
+
+    def test_query_flattens_extra_params_in_payload(
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test that extra_request_params are flattened into the API payload."""
+        mock_response = mocker.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "response": "Test response",
+            "conversation_id": "conv_123",
+        }
+
+        mock_client = mocker.Mock()
+        mock_client.post.return_value = mock_response
+        mock_client.headers = {}
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        client = APIClient(basic_api_config_query_endpoint)
+        client.query("Test query", extra_request_params={"mode": "ask"})
+
+        call_kwargs = mock_client.post.call_args
+        request_data = call_kwargs[1]["json"]
+        # mode should be flattened into top-level, not nested
+        assert request_data["mode"] == "ask"
+        assert "extra_request_params" not in request_data
+
+    def test_serialize_request_skips_reserved_fields(
+        self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test that extra_request_params cannot overwrite core request fields."""
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        client = APIClient(basic_api_config_streaming_endpoint)
+        request = client._prepare_request(
+            "Original query",
+            extra_request_params={"query": "injected", "mode": "troubleshooting"},
+        )
+
+        payload = client._serialize_request(request)
+
+        # Core field must not be overwritten
+        assert payload["query"] == "Original query"
+        # Non-reserved field should be added
+        assert payload["mode"] == "troubleshooting"
+
+
 class TestRetryLogic:
     """Unit tests for retry logic in APIClient."""
 

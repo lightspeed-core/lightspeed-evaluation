@@ -47,6 +47,9 @@ class APIRequest(BaseModel):
     attachments: Optional[list[AttachmentData]] = Field(
         default=None, description="File attachments"
     )
+    extra_request_params: Optional[dict[str, Any]] = Field(
+        default=None, description="Extra parameters merged into the API request payload"
+    )
 
     @classmethod
     def create(
@@ -62,6 +65,7 @@ class APIRequest(BaseModel):
         conversation_id = kwargs.get("conversation_id")
         system_prompt = kwargs.get("system_prompt")
         attachments = kwargs.get("attachments")
+        extra_request_params = kwargs.get("extra_request_params")
         attachment_data = None
         if attachments:
             attachment_data = [
@@ -76,6 +80,7 @@ class APIRequest(BaseModel):
             conversation_id=conversation_id,
             system_prompt=system_prompt,
             attachments=attachment_data,
+            extra_request_params=extra_request_params,
         )
 
 

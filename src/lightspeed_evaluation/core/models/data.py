@@ -43,6 +43,10 @@ class TurnData(StreamingMetricsMixin):
     attachments: Optional[list[str]] = Field(
         default=None, min_length=0, description="Attachments"
     )
+    extra_request_params: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Extra parameters merged into API request payload (overrides system defaults)",
+    )
     response: Optional[str] = Field(
         default=None,
         min_length=1,

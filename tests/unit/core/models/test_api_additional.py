@@ -107,6 +107,33 @@ class TestAPIRequest:
             == "file1"
         )
 
+    def test_create_request_with_extra_params(self) -> None:
+        """Test creating request with extra_request_params."""
+        request = APIRequest.create(
+            query="Test query",
+            extra_request_params={"mode": "ask"},
+        )
+
+        assert request.extra_request_params == {"mode": "ask"}
+
+    def test_create_request_without_extra_params(self) -> None:
+        """Test that extra_request_params is excluded from serialization when None."""
+        request = APIRequest.create(query="Test query")
+
+        assert request.extra_request_params is None
+        dumped = request.model_dump(exclude_none=True)
+        assert "extra_request_params" not in dumped
+
+    def test_create_request_extra_params_in_serialization(self) -> None:
+        """Test that extra_request_params is included in serialization when set."""
+        request = APIRequest.create(
+            query="Test query",
+            extra_request_params={"mode": "troubleshooting"},
+        )
+
+        dumped = request.model_dump(exclude_none=True)
+        assert dumped["extra_request_params"] == {"mode": "troubleshooting"}
+
     def test_request_empty_query_validation(self) -> None:
         """Test that empty query fails validation."""
         with pytest.raises(ValidationError):
