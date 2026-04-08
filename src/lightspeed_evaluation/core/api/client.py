@@ -232,6 +232,12 @@ class APIClient:
             for key, value in extra.items():
                 if key not in reserved and key not in payload:
                     payload[key] = value
+        try:
+            json.dumps(payload)
+        except TypeError as e:
+            raise ValueError(
+                "extra_request_params must contain only JSON-serializable values"
+            ) from e
         return payload
 
     def _standard_query(self, api_request: APIRequest) -> APIResponse:
