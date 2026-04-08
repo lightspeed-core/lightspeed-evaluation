@@ -58,9 +58,12 @@ class OutputHandler:
             results: List of evaluation results.
             evaluation_data: Optional evaluation data for API token calculation.
         """
-        # Build EvaluationSummary once, use it everywhere
+        # Build EvaluationSummary once, use it everywhere.
+        # CLI path computes confidence intervals by default (when sample size > 1).
         summary = EvaluationSummary.from_results(
-            results, evaluation_data=evaluation_data
+            results,
+            evaluation_data=evaluation_data,
+            compute_confidence_intervals=True,
         )
 
         # Prepare timestamped base filename

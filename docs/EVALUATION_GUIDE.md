@@ -1074,7 +1074,9 @@ print(f"Generated: {files}")
 
 ### Bootstrap Confidence Intervals
 
-By default, confidence intervals are not computed (they require 10,000 bootstrap iterations per metric). To enable them:
+When using the CLI, bootstrap confidence intervals are always computed for metrics with two or more scored results.
+
+When using the programmatic API, confidence intervals are disabled by default. To enable them:
 
 ```python
 summary = evaluate_with_summary(

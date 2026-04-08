@@ -150,13 +150,12 @@ class EvaluationSummary(BaseModel):
         """Create an EvaluationSummary from a list of results.
 
         Computes overall, per-metric, per-conversation, and per-tag statistics.
-        Bootstrap confidence intervals are only computed when explicitly requested.
 
         Args:
             results: List of evaluation results to summarize.
             evaluation_data: Optional evaluation data for API token and streaming stats.
             compute_confidence_intervals: Whether to compute bootstrap confidence
-                intervals (expensive: 10,000 iterations per metric). Default False.
+                intervals. Default False.
 
         Returns:
             A fully populated EvaluationSummary instance.

@@ -83,7 +83,7 @@ def evaluate_with_summary(
         data: List of EvaluationData conversations to evaluate.
         output_dir: Optional override for the output directory.
         compute_confidence_intervals: Whether to compute bootstrap confidence
-            intervals (expensive: 10,000 iterations per metric). Default False.
+            intervals. Default False.
 
     Returns:
         EvaluationSummary with results and computed statistics.
@@ -187,8 +187,6 @@ def evaluate_turn_with_summary(
     """Evaluate a single turn and return structured results.
 
     Like :func:`evaluate_turn`, but returns an :class:`EvaluationSummary`.
-    Confidence intervals are not computed for single-turn evaluations
-    as they require multiple results per metric to be meaningful.
 
     Args:
         config: A pre-built SystemConfig instance.
