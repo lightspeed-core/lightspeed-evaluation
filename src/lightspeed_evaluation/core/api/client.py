@@ -9,12 +9,12 @@ from typing import Any, Optional, cast
 import httpx
 from diskcache import Cache
 from tenacity import (
+    RetryError,
+    before_sleep_log,
     retry,
     retry_if_exception,
     stop_after_attempt,
     wait_exponential,
-    before_sleep_log,
-    RetryError,
 )
 
 from lightspeed_evaluation.core.api.streaming_parser import parse_streaming_response
@@ -118,7 +118,6 @@ class APIClient:
             and self.config.mcp_headers.enabled
             and self.config.mcp_headers.servers
         ):
-
             mcp_headers = {}
             for server_name, server_config in self.config.mcp_headers.servers.items():
                 # Get token from environment variable
@@ -379,10 +378,17 @@ class APIClient:
             "no_tools",
             "system_prompt",
             "attachments",
-            "extra_request_params",
         ]
-        str_request = ",".join([str(request_dict[k]) for k in keys_to_hash])
+        parts = [str(request_dict[k]) for k in keys_to_hash]
 
+        # Add individual extra_request_params keys in sorted order
+        # for deterministic cache keys
+        extra = request_dict.get("extra_request_params")
+        if extra:
+            for key in sorted(extra):
+                parts.append(f"{key}={extra[key]}")
+
+        str_request = ",".join(parts)
         return hashlib.sha256(str_request.encode()).hexdigest()
 
     def _add_response_to_cache(
