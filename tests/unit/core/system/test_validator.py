@@ -563,3 +563,44 @@ class TestFilterByScope:
         ]
         result = validator._filter_by_scope(data, tags=["nonexistent"])
         assert len(result) == 0
+
+    def test_skip_removes_conversation(self, mocker: MockerFixture) -> None:
+        """Test that conversations with skip=True are excluded."""
+        yaml_data = [
+            {
+                "conversation_group_id": "active",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+            {
+                "conversation_group_id": "skipped",
+                "skip": True,
+                "skip_reason": "Test needs rewrite",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+            {
+                "conversation_group_id": "also_active",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+        assert len(result) == 2
+        assert {r.conversation_group_id for r in result} == {"active", "also_active"}
+
+    def test_skip_false_keeps_conversation(self, mocker: MockerFixture) -> None:
+        """Test that skip=False does not exclude the conversation."""
+        yaml_data = [
+            {
+                "conversation_group_id": "explicit_no_skip",
+                "skip": False,
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+        assert len(result) == 1
+        assert result[0].conversation_group_id == "explicit_no_skip"

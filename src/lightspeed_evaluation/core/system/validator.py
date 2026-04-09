@@ -232,6 +232,9 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         # Filter by scope before validation
         evaluation_data = self._filter_by_scope(evaluation_data, tags, conv_ids)
 
+        # Remove skipped conversations
+        evaluation_data = [e for e in evaluation_data if not e.skip]
+
         # Filter turn_metrics if --metrics was specified
         if metrics:
             metrics_set = set(metrics)
