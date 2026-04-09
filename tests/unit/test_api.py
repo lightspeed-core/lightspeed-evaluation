@@ -3,13 +3,21 @@
 import pytest
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.api import evaluate, evaluate_conversation, evaluate_turn
+from lightspeed_evaluation.api import (
+    evaluate,
+    evaluate_conversation,
+    evaluate_conversation_with_summary,
+    evaluate_turn,
+    evaluate_turn_with_summary,
+    evaluate_with_summary,
+)
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
     SystemConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.models.summary import EvaluationSummary
 
 
 class TestEvaluate:
@@ -202,3 +210,108 @@ class TestEvaluateTurn:
 
         with pytest.raises(ValueError, match="must be in format"):
             evaluate_turn(config, turn, metrics=["bad_format"])
+
+
+class TestEvaluateWithSummary:
+    """Unit tests for the evaluate_with_summary() function."""
+
+    def test_returns_evaluation_summary(self, mocker: MockerFixture) -> None:
+        """Test that evaluate_with_summary returns an EvaluationSummary."""
+        mock_loader = mocker.Mock()
+        mocker.patch(
+            "lightspeed_evaluation.api.ConfigLoader"
+        ).from_config.return_value = mock_loader
+
+        mock_pipeline = mocker.Mock()
+        mock_results = [
+            EvaluationResult(
+                conversation_group_id="c1",
+                metric_identifier="m:1",
+                result="PASS",
+                score=0.9,
+                threshold=0.7,
+            )
+        ]
+        mock_pipeline.run_evaluation.return_value = mock_results
+        mocker.patch(
+            "lightspeed_evaluation.api.EvaluationPipeline",
+            return_value=mock_pipeline,
+        )
+
+        config = SystemConfig()
+        data = [
+            EvaluationData(
+                conversation_group_id="c1",
+                turns=[TurnData(turn_id="t1", query="hello")],
+            )
+        ]
+
+        summary = evaluate_with_summary(config, data)
+
+        assert isinstance(summary, EvaluationSummary)
+        assert summary.overall.total == 1
+        assert summary.overall.passed == 1
+        assert len(summary.results) == 1
+
+    def test_empty_data_returns_empty_summary(self) -> None:
+        """Test that empty data returns a summary with zero results."""
+        config = SystemConfig()
+        summary = evaluate_with_summary(config, [])
+
+        assert isinstance(summary, EvaluationSummary)
+        assert summary.overall.total == 0
+        assert not summary.results
+
+
+class TestSummaryConversationAndTurn:
+    """Unit tests for conversation and turn summary functions."""
+
+    def test_conversation_with_summary_delegates(self, mocker: MockerFixture) -> None:
+        """Test that it delegates to evaluate_with_summary with list-wrapped data."""
+        mock_eval = mocker.patch("lightspeed_evaluation.api.evaluate_with_summary")
+        mock_eval.return_value = mocker.Mock(spec=EvaluationSummary)
+
+        config = SystemConfig()
+        data = mocker.Mock(spec=EvaluationData)
+
+        result = evaluate_conversation_with_summary(config, data, output_dir="/out")
+
+        mock_eval.assert_called_once_with(
+            config,
+            [data],
+            output_dir="/out",
+            compute_confidence_intervals=False,
+        )
+        assert result == mock_eval.return_value
+
+    def test_turn_with_summary_wraps_turn(self, mocker: MockerFixture) -> None:
+        """Test that evaluate_turn_with_summary wraps turn and returns summary."""
+        mock_eval = mocker.patch("lightspeed_evaluation.api.evaluate_with_summary")
+        mock_eval.return_value = mocker.Mock(spec=EvaluationSummary)
+
+        config = SystemConfig()
+        turn = TurnData(turn_id="t1", query="What is OCP?")
+
+        result = evaluate_turn_with_summary(config, turn)
+
+        mock_eval.assert_called_once()
+        call_args = mock_eval.call_args
+        data_list = call_args[0][1]
+        assert len(data_list) == 1
+        assert data_list[0].conversation_group_id == "programmatic_eval"
+        assert call_args.kwargs.get("compute_confidence_intervals") is False
+        assert result == mock_eval.return_value
+
+    def test_turn_with_summary_metrics_override(self, mocker: MockerFixture) -> None:
+        """Test that metrics parameter overrides turn_metrics."""
+        mock_eval = mocker.patch("lightspeed_evaluation.api.evaluate_with_summary")
+        mock_eval.return_value = mocker.Mock(spec=EvaluationSummary)
+
+        config = SystemConfig()
+        turn = TurnData(turn_id="t1", query="hello")
+
+        evaluate_turn_with_summary(config, turn, metrics=["ragas:faithfulness"])
+
+        call_args = mock_eval.call_args
+        data_list = call_args[0][1]
+        assert data_list[0].turns[0].turn_metrics == ["ragas:faithfulness"]
