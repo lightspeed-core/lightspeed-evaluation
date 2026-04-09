@@ -393,13 +393,16 @@ def _try_bootstrap(scores: list[float]) -> Optional[dict[str, float]]:
         Confidence interval dict with low, mean, high, confidence_level, or None.
     """
     try:
+        confidence_level = 95.0
         scores_series = pd.Series(scores)
-        ci_low, ci_mean, ci_high = bootstrap_intervals(scores_series)
+        ci_low, ci_mean, ci_high = bootstrap_intervals(
+            scores_series, confidence=confidence_level
+        )
         return {
             "low": float(ci_low),
             "mean": float(ci_mean),
             "high": float(ci_high),
-            "confidence_level": 95.0,
+            "confidence_level": confidence_level,
         }
     except (ValueError, RuntimeError):
         return None
