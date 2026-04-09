@@ -45,7 +45,10 @@ class TestAPIDataAmender:
 
         # API client should be called once
         mock_client.query.assert_called_once_with(
-            query="Test query", conversation_id=None, attachments=None
+            query="Test query",
+            conversation_id=None,
+            attachments=None,
+            extra_request_params=None,
         )
 
         # Turn data should be amended
@@ -78,7 +81,10 @@ class TestAPIDataAmender:
 
         # API client should be called with existing conversation ID
         mock_client.query.assert_called_once_with(
-            query="Follow-up query", conversation_id="conv_123", attachments=None
+            query="Follow-up query",
+            conversation_id="conv_123",
+            attachments=None,
+            extra_request_params=None,
         )
 
         # Turn data should be amended
@@ -142,6 +148,7 @@ class TestAPIDataAmender:
             query="Attachment query",
             conversation_id=None,
             attachments=["file1.txt", "file2.pdf"],
+            extra_request_params=None,
         )
 
         # Turn data should be amended
@@ -222,3 +229,37 @@ class TestAPIDataAmender:
         # has empty tool_calls)
         assert turn.response == "No tools response"
         assert turn.tool_calls is None
+
+    def test_amend_single_turn_with_extra_request_params(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test amending turn data passes extra_request_params to API client."""
+        mock_client = mocker.Mock()
+        api_response = APIResponse(
+            response="Troubleshoot response",
+            conversation_id="conv_extra",
+            contexts=[],
+            tool_calls=[],
+        )
+        mock_client.query.return_value = api_response
+
+        amender = APIDataAmender(mock_client)
+
+        turn = TurnData(
+            turn_id="8",
+            query="Troubleshoot query",
+            response=None,
+            extra_request_params={"mode": "troubleshooting"},
+        )
+
+        error_msg, conversation_id = amender.amend_single_turn(turn)
+
+        assert error_msg is None
+        assert conversation_id == "conv_extra"
+
+        mock_client.query.assert_called_once_with(
+            query="Troubleshoot query",
+            conversation_id=None,
+            attachments=None,
+            extra_request_params={"mode": "troubleshooting"},
+        )

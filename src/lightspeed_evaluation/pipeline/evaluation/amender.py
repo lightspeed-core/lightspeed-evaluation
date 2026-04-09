@@ -41,6 +41,7 @@ class APIDataAmender:
                 query=turn_data.query,
                 conversation_id=conversation_id,
                 attachments=turn_data.attachments,
+                extra_request_params=turn_data.extra_request_params,
             )
 
             # AMEND EVALUATION DATA: This modifies the loaded TurnData object in-place

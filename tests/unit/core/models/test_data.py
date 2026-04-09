@@ -44,6 +44,33 @@ class TestTurnData:
         assert turn.turn_metrics_metadata == {"geval:custom": {"threshold": 0.8}}
 
 
+class TestTurnDataExtraRequestParams:
+    """Test cases for TurnData extra_request_params field."""
+
+    def test_extra_request_params_accepted(self) -> None:
+        """Test TurnData accepts extra_request_params dict."""
+        turn = TurnData(
+            turn_id="turn1",
+            query="Q",
+            extra_request_params={"mode": "troubleshooting"},
+        )
+        assert turn.extra_request_params == {"mode": "troubleshooting"}
+
+    def test_extra_request_params_none_default(self) -> None:
+        """Test TurnData defaults extra_request_params to None."""
+        turn = TurnData(turn_id="turn1", query="Q")
+        assert turn.extra_request_params is None
+
+    def test_extra_request_params_multiple_keys(self) -> None:
+        """Test TurnData accepts multiple extra params."""
+        turn = TurnData(
+            turn_id="turn1",
+            query="Q",
+            extra_request_params={"mode": "ask", "custom_flag": True},
+        )
+        assert turn.extra_request_params == {"mode": "ask", "custom_flag": True}
+
+
 class TestTurnDataToolCallsValidation:
     """Test cases for TurnData expected_tool_calls field validation and conversion."""
 

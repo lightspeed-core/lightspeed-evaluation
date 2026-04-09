@@ -86,6 +86,10 @@ api:
   model: "gpt-4o-mini"                 # Model to use for queries
   no_tools: null                       # Whether to bypass tools and MCP servers (optional)
   system_prompt: null                  # System prompt (default None)
+  # Extra parameters merged into API request payload (per-turn override in eval.yaml takes priority)
+  # Example: extra_request_params:
+  #            mode: troubleshooting
+  extra_request_params: null
 
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
   cache_enabled: true                  # Is lightspeed-stack cache enabled?
