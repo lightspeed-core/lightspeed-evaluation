@@ -1,0 +1,11 @@
+- conversation_group_id: openshift_basics
+  description: Basic OpenShift query
+  tag: basic
+  turns:
+  - turn_id: namespace_query
+    query: What is a namespace in OpenShift?
+    response: A namespace in OpenShift is a logical partition within a cluster that
+      provides scope for resource names and allows for resource isolation, access
+      control, and quota management. It helps organize and separate different projects
+      or teams.
+    expected_response: A namespace provides isolation and scope for resources in OpenShift.
