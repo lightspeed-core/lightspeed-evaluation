@@ -3,6 +3,7 @@
 import pytest
 from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.storage import FileBackendConfig
 
 
 @pytest.fixture
@@ -80,15 +81,18 @@ def sample_results_statistics() -> list[EvaluationResult]:
 @pytest.fixture
 def mock_system_config(mocker: MockerFixture) -> MockerFixture:
     """Create mock system config."""
+    file_config = FileBackendConfig(
+        enabled_outputs=["csv", "json", "txt"],
+        csv_columns=[
+            "conversation_group_id",
+            "turn_id",
+            "metric_identifier",
+            "result",
+            "score",
+        ],
+    )
     config = mocker.Mock()
-    config.output.enabled_outputs = ["csv", "json", "txt"]
-    config.output.csv_columns = [
-        "conversation_group_id",
-        "turn_id",
-        "metric_identifier",
-        "result",
-        "score",
-    ]
+    config.storage = [file_config]
     config.visualization.enabled_graphs = []
     # Mock model_fields to support iteration in _write_config_params and _build_config_dict
     config.model_fields.keys.return_value = []

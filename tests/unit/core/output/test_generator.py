@@ -11,6 +11,7 @@ from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.models import EvaluationResult
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
+from lightspeed_evaluation.core.storage import FileBackendConfig
 
 
 class TestOutputHandler:
@@ -123,9 +124,11 @@ class TestOutputHandler:
         mocker: MockerFixture,
     ) -> None:
         """Test generating only CSV."""
+        file_config = FileBackendConfig(
+            enabled_outputs=["csv"], csv_columns=["conversation_group_id", "result"]
+        )
         config = mocker.Mock()
-        config.output.enabled_outputs = ["csv"]
-        config.output.csv_columns = ["conversation_group_id", "result"]
+        config.storage = [file_config]
         config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
@@ -142,8 +145,9 @@ class TestOutputHandler:
         mocker: MockerFixture,
     ) -> None:
         """Test generating only JSON."""
+        file_config = FileBackendConfig(enabled_outputs=["json"])
         config = mocker.Mock()
-        config.output.enabled_outputs = ["json"]
+        config.storage = [file_config]
         config.visualization.enabled_graphs = []
         config.model_fields.keys.return_value = []
 
@@ -161,8 +165,9 @@ class TestOutputHandler:
         mocker: MockerFixture,
     ) -> None:
         """Test generating only TXT."""
+        file_config = FileBackendConfig(enabled_outputs=["txt"])
         config = mocker.Mock()
-        config.output.enabled_outputs = ["txt"]
+        config.storage = [file_config]
         config.visualization.enabled_graphs = []
         config.model_fields.keys.return_value = []
 
@@ -180,18 +185,21 @@ class TestOutputHandler:
         mocker: MockerFixture,
     ) -> None:
         """Test CSV with all available columns."""
+        file_config = FileBackendConfig(
+            csv_columns=[
+                "conversation_group_id",
+                "turn_id",
+                "metric_identifier",
+                "result",
+                "score",
+                "threshold",
+                "reason",
+                "query",
+                "response",
+            ]
+        )
         config = mocker.Mock()
-        config.output.csv_columns = [
-            "conversation_group_id",
-            "turn_id",
-            "metric_identifier",
-            "result",
-            "score",
-            "threshold",
-            "reason",
-            "query",
-            "response",
-        ]
+        config.storage = [file_config]
         config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
@@ -349,8 +357,11 @@ class TestOutputHandlerInitialization:
         ]
 
         # Test with custom system config
+        file_config = FileBackendConfig(
+            csv_columns=["conversation_group_id", "result", "score"]
+        )
         system_config = mocker.Mock()
-        system_config.output.csv_columns = ["conversation_group_id", "result", "score"]
+        system_config.storage = [file_config]
         system_config.visualization.enabled_graphs = []
 
         handler = OutputHandler(output_dir=str(tmp_path), system_config=system_config)

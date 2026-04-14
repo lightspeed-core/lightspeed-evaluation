@@ -18,7 +18,14 @@ from lightspeed_evaluation.core.models import (
 )
 from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
 from lightspeed_evaluation.core.script import ScriptExecutionManager
+from lightspeed_evaluation.core.storage import (
+    RunInfo,
+    BaseStorageBackend,
+    create_pipeline_storage_backend,
+    get_file_config,
+)
 from lightspeed_evaluation.core.system import ConfigLoader
+from lightspeed_evaluation.core.system.exceptions import StorageError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
@@ -48,7 +55,14 @@ class EvaluationPipeline:
 
         self.system_config: SystemConfig = config_loader.system_config
         self.original_data_path: Optional[str] = None
-        self.output_dir = output_dir or config_loader.system_config.output.output_dir
+        file_config = get_file_config(config_loader.system_config.storage)
+        self.output_dir = output_dir or file_config.output_dir
+
+        self.storage_backend: BaseStorageBackend = create_pipeline_storage_backend(
+            config_loader.system_config.storage,
+            system_config=config_loader.system_config,
+            output_dir_override=output_dir,
+        )
 
         # Initialize components
         self._initialize_components()
@@ -126,9 +140,17 @@ class EvaluationPipeline:
         self.original_data_path = original_data_path
         logger.info("Starting evaluation")
 
-        # Process each conversation
-        logger.info("Processing conversations")
-        results = self._process_eval_data(evaluation_data)
+        run_name = original_data_path or "evaluation"
+        self.storage_backend.initialize(RunInfo(name=run_name))
+
+        try:
+            # Process each conversation
+            logger.info("Processing conversations")
+            results = self._process_eval_data(evaluation_data)
+        finally:
+            self.storage_backend.set_evaluation_context(evaluation_data)
+            self.storage_backend.finalize()
+            self.storage_backend.close()
 
         # Save amended data if API was used
         config = self.config_loader.system_config
@@ -152,12 +174,19 @@ class EvaluationPipeline:
                 executor.submit(self.conversation_processor.process_conversation, c)
                 for c in evaluation_data
             )
-            res = []
+            results: list[EvaluationResult] = []
             for future in tqdm.tqdm(
                 concurrent.futures.as_completed(futures), total=len(evaluation_data)
             ):
-                res.extend(future.result())
-            return res
+                conversation_results = future.result()
+                # Batch save results per conversation (more efficient than individual saves)
+                if conversation_results:
+                    try:
+                        self.storage_backend.save_run(conversation_results)
+                    except StorageError as e:
+                        logger.warning("Failed to save results to storage: %s", e)
+                results.extend(conversation_results)
+            return results
 
     def _save_amended_data(self, evaluation_data: list[EvaluationData]) -> None:
         """Save amended evaluation data with API amendments to output directory."""
@@ -188,6 +217,8 @@ class EvaluationPipeline:
         """
         if self.api_client:
             self.api_client.close()
+
+        self.storage_backend.close()
 
         with litellm_state_lock:
             cache = litellm.cache

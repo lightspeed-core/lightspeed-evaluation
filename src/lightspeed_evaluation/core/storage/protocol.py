@@ -1,15 +1,16 @@
 """Storage protocol interface for evaluation results.
 
-This module defines the abstract interface that all storage backends must implement.
+:class:`BaseStorageBackend` is a :class:`~typing.Protocol` describing the pipeline
+storage surface. Implementations inherit default no-op lifecycle hooks and must
+implement :attr:`backend_name`.
 """
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Protocol
+from typing import Optional, Protocol
 from uuid import uuid4
 
-if TYPE_CHECKING:
-    from lightspeed_evaluation.core.models import EvaluationResult
+from lightspeed_evaluation.core.models.data import EvaluationData, EvaluationResult
 
 
 @dataclass
@@ -27,11 +28,11 @@ class RunInfo:
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class StorageProtocol(Protocol):
-    """Protocol defining the interface for storage backends.
+class BaseStorageBackend(Protocol):
+    """Protocol for storage backends with default no-op lifecycle hooks.
 
-    Storage backends persist evaluation results. They support both
-    incremental saving (one result at a time) and batch saving.
+    Implementations must provide :attr:`backend_name`. Override any lifecycle
+    method that should perform work (for example :class:`SQLStorageBackend`).
     """
 
     @property
@@ -40,7 +41,7 @@ class StorageProtocol(Protocol):
         ...  # pylint: disable=unnecessary-ellipsis  # Required for pyright
 
     def initialize(self, run_info: RunInfo) -> None:
-        """Initialize the backend for a new evaluation run.
+        """Prepare the backend for a new evaluation run.
 
         Args:
             run_info: Information about the evaluation run.
@@ -49,7 +50,7 @@ class StorageProtocol(Protocol):
             StorageError: If initialization fails.
         """
 
-    def save_result(self, result: "EvaluationResult") -> None:
+    def save_result(self, result: EvaluationResult) -> None:
         """Save a single evaluation result incrementally.
 
         Args:
@@ -59,7 +60,7 @@ class StorageProtocol(Protocol):
             StorageError: If saving fails.
         """
 
-    def save_run(self, results: list["EvaluationResult"]) -> None:
+    def save_run(self, results: list[EvaluationResult]) -> None:
         """Save all evaluation results in batch.
 
         Args:
@@ -78,3 +79,9 @@ class StorageProtocol(Protocol):
 
     def close(self) -> None:
         """Close the backend and release resources."""
+
+    def set_evaluation_context(
+        self, evaluation_data: Optional[list[EvaluationData]] = None
+    ) -> None:
+        """Optional full evaluation dataset for backends that need it at finalize."""
+        _ = evaluation_data
