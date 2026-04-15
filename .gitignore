@@ -181,6 +181,7 @@ cython_debug/
 
 # Evaluation output folder
 eval_output*/
+examples/**/eval_output/
 
 # DeepEval telemetry and configuration
 .deepeval/

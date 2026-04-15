@@ -1,0 +1,55 @@
+core:
+  max_threads: 1
+llm_pool:
+  defaults:
+    cache_enabled: false
+    timeout: 60
+    num_retries: 2
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 512
+  models:
+    judge_gpt_4o_mini:
+      provider: openai
+      model: gpt-4o-mini
+judge_panel:
+  judges:
+  - judge_gpt_4o_mini
+api:
+  enabled: false
+  cache_enabled: false
+metrics_metadata:
+  turn_level:
+    custom:answer_correctness:
+      threshold: 0.75
+      description: Compares response accuracy against expected answer
+      default: true
+output:
+  output_dir: examples/01_getting_started/basic_setup/eval_output
+  base_filename: evaluation
+  enabled_outputs:
+  - csv
+  - json
+  - txt
+  csv_columns:
+  - conversation_group_id
+  - turn_id
+  - metric_identifier
+  - score
+  - threshold
+  - result
+  - reason
+  - query
+  - response
+visualization:
+  figsize:
+  - 10
+  - 6
+  dpi: 150
+  enabled_graphs:
+  - status_breakdown
+logging:
+  source_level: INFO
+  package_level: WARNING
+  log_format: '%(asctime)s - %(levelname)s - %(message)s'
+  show_timestamps: true
