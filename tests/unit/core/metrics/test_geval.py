@@ -21,6 +21,8 @@ class TestGEvalHandler:
         mock_manager = mocker.MagicMock()
         mock_llm = mocker.MagicMock()
         mock_manager.get_llm.return_value = mock_llm
+        # Mock llm_params to return valid num_retries (needed for retry logic)
+        mock_manager.llm_params = {"num_retries": 3}
         return mock_manager
 
     @pytest.fixture
