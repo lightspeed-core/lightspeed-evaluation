@@ -25,7 +25,7 @@ core:
 llm_pool:
   defaults:
     timeout: 300
-    num_retries: 3
+    num_retries: 3  # Retry attempts for LLM judge (applies to GEval, custom metrics, etc.; default: 6 if not specified)
     parameters:
       temperature: 0.0
       max_completion_tokens: 1024
