@@ -15,6 +15,7 @@ from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
     DataValidationError,
+    StorageError,
 )
 
 
@@ -202,6 +203,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         RuntimeError,
         ConfigurationError,
         DataValidationError,
+        StorageError,
     ) as e:
         print(f"\n❌ Evaluation failed: {e}")
         traceback.print_exc()

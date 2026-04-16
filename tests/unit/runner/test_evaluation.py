@@ -18,8 +18,35 @@ from lightspeed_evaluation.core.models.system import (
     LLMProviderConfig,
     SystemConfig,
 )
-from lightspeed_evaluation.core.system.exceptions import DataValidationError
+from lightspeed_evaluation.core.system.exceptions import (
+    DataValidationError,
+    StorageError,
+)
 from lightspeed_evaluation.runner.evaluation import _clear_caches, main, run_evaluation
+
+_MAIN_STATS: dict[str, int] = {
+    "TOTAL": 1,
+    "PASS": 1,
+    "FAIL": 0,
+    "ERROR": 0,
+    "SKIPPED": 0,
+}
+_DEFAULT_MAIN_RUN = object()
+
+
+def _patch_main_cli(
+    mocker: MockerFixture,
+    argv: list[str],
+    *,
+    run_return: Any = _DEFAULT_MAIN_RUN,
+) -> Any:
+    """Patch ``sys.argv`` and mocked ``run_evaluation``; return the mock."""
+    mocker.patch("sys.argv", argv)
+    ret = _MAIN_STATS if run_return is _DEFAULT_MAIN_RUN else run_return
+    return mocker.patch(
+        "lightspeed_evaluation.runner.evaluation.run_evaluation",
+        return_value=ret,
+    )
 
 
 def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
@@ -411,6 +438,46 @@ class TestRunEvaluation:
             conv_ids=["conv_1"],
         )
 
+    def test_run_evaluation_storage_error(
+        self,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """StorageError from the pipeline ends the run with a clear message."""
+        mock_loader = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_config.llm.provider = "openai"
+        mock_config.llm.model = "gpt-4"
+        mock_config.api.enabled = False
+        mock_config.storage = []
+        mock_loader.system_config = mock_config
+        mock_loader.load_system_config.return_value = mock_config
+
+        mock_config_loader_class = mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
+        )
+        mock_config_loader_class.return_value = mock_loader
+
+        mock_eval_data = [mocker.Mock()]
+        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
+
+        mocker.patch(
+            "lightspeed_evaluation.api.evaluate",
+            side_effect=StorageError(
+                "Database schema mismatch: the existing table 'evaluation_results' "
+                "is missing required column(s): score.",
+                backend_name="sqlite",
+            ),
+        )
+
+        result = run_evaluation(_make_eval_args())
+
+        assert result is None
+        captured = capsys.readouterr()
+        assert "Evaluation failed" in captured.out
+        assert "schema mismatch" in captured.out
+
 
 class TestClearCaches:
     """Unit tests for _clear_caches function."""
@@ -792,35 +859,18 @@ class TestMain:
 
     def test_main_default_args(self, mocker: MockerFixture) -> None:
         """Test main with default arguments."""
-        mocker.patch(
-            "sys.argv",
-            ["lightspeed-eval"],
-        )
-
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-
-        exit_code = main()
-
-        assert exit_code == 0
+        mock_run = _patch_main_cli(mocker, ["lightspeed-eval"])
+        assert main() == 0
         mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args.system_config == "config/system.yaml"
-        assert args.eval_data == "config/evaluation_data.yaml"
-        assert args.output_dir is None
+        ev = mock_run.call_args[0][0]
+        assert ev.system_config == "config/system.yaml"
+        assert ev.eval_data == "config/evaluation_data.yaml"
+        assert ev.output_dir is None
 
     def test_main_custom_args(self, mocker: MockerFixture) -> None:
         """Test main with custom arguments."""
-        mocker.patch(
-            "sys.argv",
+        mock_run = _patch_main_cli(
+            mocker,
             [
                 "lightspeed-eval",
                 "--system-config",
@@ -831,44 +881,20 @@ class TestMain:
                 "/custom/output",
             ],
         )
-
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-
-        exit_code = main()
-
-        assert exit_code == 0
+        assert main() == 0
         mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args.system_config == "custom/system.yaml"
-        assert args.eval_data == "custom/eval.yaml"
-        assert args.output_dir == "/custom/output"
+        ev = mock_run.call_args[0][0]
+        assert ev.system_config == "custom/system.yaml"
+        assert ev.eval_data == "custom/eval.yaml"
+        assert ev.output_dir == "/custom/output"
 
     def test_main_returns_error_on_failure(self, mocker: MockerFixture) -> None:
         """Test main returns error code on failure."""
-        mocker.patch(
-            "sys.argv",
-            ["lightspeed-eval"],
-        )
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = None  # Indicates failure
-
-        exit_code = main()
-
-        assert exit_code == 1
+        _patch_main_cli(mocker, ["lightspeed-eval"], run_return=None)
+        assert main() == 1
 
     @pytest.mark.parametrize(
-        "args,expected_tags,expected_conv_ids",
+        "extra_argv, expected_tags, expected_conv_ids",
         [
             (["--tags", "basic", "advanced"], ["basic", "advanced"], None),
             (["--conv-ids", "conv_1", "conv_2"], None, ["conv_1", "conv_2"]),
@@ -882,110 +908,53 @@ class TestMain:
     def test_main_with_filters(
         self,
         mocker: MockerFixture,
-        args: list[str],
+        extra_argv: list[str],
         expected_tags: list[str] | None,
         expected_conv_ids: list[str] | None,
     ) -> None:
         """Test main with filter arguments."""
-        mocker.patch("sys.argv", ["lightspeed-eval"] + args)
-
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-
-        exit_code = main()
-
-        assert exit_code == 0
+        mock_run = _patch_main_cli(mocker, ["lightspeed-eval"] + extra_argv)
+        assert main() == 0
         mock_run.assert_called_once()
-        eval_args = mock_run.call_args[0][0]
-        assert eval_args.tags == expected_tags
-        assert eval_args.conv_ids == expected_conv_ids
+        ev = mock_run.call_args[0][0]
+        assert ev.tags == expected_tags
+        assert ev.conv_ids == expected_conv_ids
 
-    def test_main_with_cache_warmup_flag(self, mocker: MockerFixture) -> None:
-        """Test main with --cache-warmup flag."""
-        mocker.patch(
-            "sys.argv",
-            ["lightspeed-eval", "--cache-warmup"],
-        )
-
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-
-        exit_code = main()
-
-        assert exit_code == 0
+    @pytest.mark.parametrize(
+        "argv, expected",
+        [
+            (
+                ["lightspeed-eval"],
+                {"cache_warmup": False, "tags": None, "conv_ids": None},
+            ),
+            (
+                ["lightspeed-eval", "--cache-warmup"],
+                {"cache_warmup": True, "tags": None, "conv_ids": None},
+            ),
+            (
+                [
+                    "lightspeed-eval",
+                    "--cache-warmup",
+                    "--tags",
+                    "basic",
+                    "--conv-ids",
+                    "conv_1",
+                ],
+                {"cache_warmup": True, "tags": ["basic"], "conv_ids": ["conv_1"]},
+            ),
+        ],
+    )
+    def test_main_cache_warmup_and_related_flags(
+        self,
+        mocker: MockerFixture,
+        argv: list[str],
+        expected: dict[str, Any],
+    ) -> None:
+        """Cache warmup default, flag alone, and combined with filters."""
+        mock_run = _patch_main_cli(mocker, argv)
+        assert main() == 0
         mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args.cache_warmup is True
-
-    def test_main_without_cache_warmup_flag(self, mocker: MockerFixture) -> None:
-        """Test main without --cache-warmup flag defaults to False."""
-        mocker.patch(
-            "sys.argv",
-            ["lightspeed-eval"],
-        )
-
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-
-        exit_code = main()
-
-        assert exit_code == 0
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args.cache_warmup is False
-
-    def test_main_with_cache_warmup_and_filters(self, mocker: MockerFixture) -> None:
-        """Test main with both --cache-warmup and filter flags."""
-        mocker.patch(
-            "sys.argv",
-            [
-                "lightspeed-eval",
-                "--cache-warmup",
-                "--tags",
-                "basic",
-                "--conv-ids",
-                "conv_1",
-            ],
-        )
-
-        mock_run = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.run_evaluation"
-        )
-        mock_run.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-
-        exit_code = main()
-        assert exit_code == 0
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args.cache_warmup is True and args.tags == ["basic"]
-        assert args.conv_ids == ["conv_1"]
+        ev = mock_run.call_args[0][0]
+        assert ev.cache_warmup is expected["cache_warmup"]
+        assert ev.tags == expected["tags"]
+        assert ev.conv_ids == expected["conv_ids"]

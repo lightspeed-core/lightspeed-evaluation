@@ -7,6 +7,7 @@ import tempfile
 from typing import Generator
 
 import pytest
+from pytest_mock import MockerFixture
 from sqlalchemy import create_engine, text
 
 from lightspeed_evaluation.core.models import EvaluationResult
@@ -130,6 +131,38 @@ class TestSQLStorageBackendInitialize:
         backend.initialize(RunInfo())
         assert backend.results_count == 0
         backend.close()
+
+    def test_initialize_fails_on_stale_table_schema(
+        self, temp_db_url: str, mocker: MockerFixture
+    ) -> None:
+        """Existing evaluation_results table must define every ORM column."""
+        engine = create_engine(temp_db_url)
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE evaluation_results ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "run_id VARCHAR(36) NOT NULL"
+                    ")"
+                )
+            )
+        engine.dispose()
+
+        backend = SQLStorageBackend(temp_db_url, backend_name="sqlite")
+        real_engine = create_engine(temp_db_url, echo=False)
+        dispose_spy = mocker.patch.object(
+            real_engine, "dispose", wraps=real_engine.dispose
+        )
+        mocker.patch(
+            "lightspeed_evaluation.core.storage.sql_storage.create_engine",
+            return_value=real_engine,
+        )
+
+        with pytest.raises(StorageError, match="schema mismatch"):
+            backend.initialize(RunInfo())
+
+        dispose_spy.assert_called_once()
+        assert backend._engine is None
 
 
 class TestSQLStorageBackendSaveResult:

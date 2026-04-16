@@ -9,7 +9,16 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    inspect,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -116,19 +125,26 @@ class SQLStorageBackend(BaseStorageBackend):
     def initialize(self, run_info: RunInfo) -> None:
         """Initialize the database backend for a new evaluation run.
 
-        Creates the tables if they don't exist.
+        If the ``evaluation_results`` table already exists, its columns are
+        checked against the ORM model so mismatched schemas fail before any
+        evaluation work runs. Otherwise missing tables are created.
 
         Args:
             run_info: Information about the evaluation run.
 
         Raises:
-            StorageError: If database initialization fails.
+            StorageError: If database initialization fails or the existing
+                table schema does not match the expected model.
         """
         self._run_info = run_info
         self._results_count = 0
 
         try:
             self._engine = create_engine(self._connection_url, echo=False)
+            table_name = EvaluationResultDB.__tablename__
+            db_inspector = inspect(self._engine)
+            if db_inspector.has_table(table_name):
+                self._validate_evaluation_results_schema(db_inspector, table_name)
             Base.metadata.create_all(self._engine)
             self._session_factory = sessionmaker(bind=self._engine)
             logger.info(
@@ -136,11 +152,51 @@ class SQLStorageBackend(BaseStorageBackend):
                 self._backend_name,
                 run_info.run_id,
             )
-        except SQLAlchemyError as e:
+        except (StorageError, SQLAlchemyError) as e:
+            if self._engine is not None:
+                self._engine.dispose()
+                self._engine = None
+            if isinstance(e, StorageError):
+                raise
             raise StorageError(
                 f"Failed to initialize database: {e}",
                 backend_name=self.backend_name,
             ) from e
+
+    def _validate_evaluation_results_schema(
+        self, db_inspector: Any, table_name: str
+    ) -> None:
+        """Ensure an existing results table defines every required ORM column.
+
+        This check intentionally validates column presence only. It tolerates
+        extra columns and does not compare SQL types or nullability because
+        those details vary by dialect and SQLAlchemy reflection behavior.
+        Name mismatches are treated as fatal so stale/incompatible schemas
+        fail early during initialization.
+
+        Args:
+            db_inspector: SQLAlchemy inspector for the bound engine.
+            table_name: Physical table name (must match :class:`EvaluationResultDB`).
+
+        Raises:
+            StorageError: If required columns are missing from the existing table.
+        """
+        reflected_columns = db_inspector.get_columns(table_name)
+        existing = {col["name"] for col in reflected_columns}
+        required = {col.name for col in EvaluationResultDB.__table__.columns}
+        missing = sorted(required - existing)
+        if not missing:
+            return
+        missing_list = ", ".join(missing)
+        raise StorageError(
+            "Database schema mismatch: the existing table "
+            f"{table_name!r} is missing required column(s): {missing_list}. "
+            "This database was likely created by an older version of the framework, "
+            "or the file is not an evaluation results database. "
+            "Use a different database path, or remove or migrate this database "
+            "before running the evaluation again.",
+            backend_name=self.backend_name,
+        )
 
     def save_result(self, result: EvaluationResult) -> None:
         """Save a single evaluation result to the database.
