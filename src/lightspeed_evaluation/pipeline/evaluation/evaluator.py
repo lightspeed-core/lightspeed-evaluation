@@ -353,7 +353,8 @@ class MetricsEvaluator:
                         request.conv_data.conversation_group_id,
                         str(e),
                     )
-                    input_tokens, output_tokens = token_tracker.get_counts()
+                    input_tokens, output_tokens = token_tracker.get_judge_counts()
+                    embedding_tokens = token_tracker.get_embedding_counts()
                     metric_result = MetricResult(
                         result="ERROR",
                         score=None,
@@ -361,6 +362,7 @@ class MetricsEvaluator:
                         reason=f"Evaluation error: {e}",
                         judge_llm_input_tokens=input_tokens,
                         judge_llm_output_tokens=output_tokens,
+                        embedding_tokens=embedding_tokens,
                     )
         finally:
             # Ensure callback is unregistered even on error
@@ -389,8 +391,8 @@ class MetricsEvaluator:
         Returns:
             MetricResult with highest score or first PASS, with accumulated judge llm token counts.
         """
-        # Initialize helper variables
-        judge_llm_input_tokens, judge_llm_output_tokens = 0, 0
+        # Initialize helper variables - use dict to reduce local variable count
+        tokens = {"judge_in": 0, "judge_out": 0, "embedding": 0}
 
         # This check satisfies the linter but is logically redundant
         if (
@@ -414,25 +416,34 @@ class MetricsEvaluator:
                 len(evaluation_scope.turn_data.expected_response),
                 expected_response,
             )
-            alt_turn_data = evaluation_scope.turn_data.model_copy(
-                update={"expected_response": expected_response}
-            )
             alt_scope = EvaluationScope(
                 turn_idx=evaluation_scope.turn_idx,
-                turn_data=alt_turn_data,
+                turn_data=evaluation_scope.turn_data.model_copy(
+                    update={"expected_response": expected_response}
+                ),
                 is_conversation=evaluation_scope.is_conversation,
             )
 
             # Evaluate metric - catch exceptions to preserve accumulated tokens
+            before_tokens = (
+                *token_tracker.get_judge_counts(),
+                token_tracker.get_embedding_counts(),
+            )
             try:
                 metric_result = self._evaluate(
                     request, alt_scope, token_tracker, threshold
                 )
             except EvaluationError as e:
+                # Use deltas, not totals to prevent double counting
+                after_tokens = (
+                    *token_tracker.get_judge_counts(),
+                    token_tracker.get_embedding_counts(),
+                )
                 # Include tokens from failing call (LLM may have used tokens before error)
                 # Add current iteration's tokens to accumulated total
-                judge_llm_input_tokens += token_tracker.get_counts()[0]
-                judge_llm_output_tokens += token_tracker.get_counts()[1]
+                tokens["judge_in"] += after_tokens[0] - before_tokens[0]
+                tokens["judge_out"] += after_tokens[1] - before_tokens[1]
+                tokens["embedding"] += after_tokens[2] - before_tokens[2]
                 logger.error(
                     "Conv %s: Error during evaluation iteration %d: %s",
                     request.conv_data.conversation_group_id,
@@ -444,18 +455,20 @@ class MetricsEvaluator:
                     score=None,
                     threshold=threshold,
                     reason=f"Evaluation error at iteration {idx + 1}: {e}",
-                    judge_llm_input_tokens=judge_llm_input_tokens,
-                    judge_llm_output_tokens=judge_llm_output_tokens,
+                    judge_llm_input_tokens=tokens["judge_in"],
+                    judge_llm_output_tokens=tokens["judge_out"],
+                    embedding_tokens=tokens["embedding"],
                 )
 
             # Accumulate token counts
-            judge_llm_input_tokens += metric_result.judge_llm_input_tokens
-            judge_llm_output_tokens += metric_result.judge_llm_output_tokens
+            tokens["judge_in"] += metric_result.judge_llm_input_tokens
+            tokens["judge_out"] += metric_result.judge_llm_output_tokens
+            tokens["embedding"] += metric_result.embedding_tokens
             logger.debug(
                 "Conv %s: Cumulative judge input tokens: %s, Cumulative judge output tokens: %s",
                 request.conv_data.conversation_group_id,
-                judge_llm_input_tokens,
-                judge_llm_output_tokens,
+                tokens["judge_in"],
+                tokens["judge_out"],
             )
             logger.debug("Metric result: %s", metric_result)
 
@@ -484,8 +497,9 @@ class MetricsEvaluator:
             metric_result.reason = reason_acc.strip()
 
         # Update token counts in final result
-        metric_result.judge_llm_input_tokens = judge_llm_input_tokens
-        metric_result.judge_llm_output_tokens = judge_llm_output_tokens
+        metric_result.judge_llm_input_tokens = tokens["judge_in"]
+        metric_result.judge_llm_output_tokens = tokens["judge_out"]
+        metric_result.embedding_tokens = tokens["embedding"]
 
         return metric_result
 
@@ -539,7 +553,8 @@ class MetricsEvaluator:
                 request.conv_data.conversation_group_id,
                 str(e),
             )
-            input_tokens, output_tokens = token_tracker.get_counts()
+            input_tokens, output_tokens = token_tracker.get_judge_counts()
+            embedding_tokens = token_tracker.get_embedding_counts()
             return MetricResult(
                 result="ERROR",
                 score=None,
@@ -547,6 +562,7 @@ class MetricsEvaluator:
                 reason=f"Evaluation error: {e}",
                 judge_llm_input_tokens=input_tokens,
                 judge_llm_output_tokens=output_tokens,
+                embedding_tokens=embedding_tokens,
             )
 
         return metric_result
@@ -605,7 +621,8 @@ class MetricsEvaluator:
                 request.conv_data.conversation_group_id,
                 str(e),
             )
-            input_tokens, output_tokens = token_tracker.get_counts()
+            input_tokens, output_tokens = token_tracker.get_judge_counts()
+            embedding_tokens = token_tracker.get_embedding_counts()
             return MetricResult(
                 result="ERROR",
                 score=None,
@@ -613,6 +630,7 @@ class MetricsEvaluator:
                 reason=f"Panel evaluation error: {e}",
                 judge_llm_input_tokens=input_tokens,
                 judge_llm_output_tokens=output_tokens,
+                embedding_tokens=embedding_tokens,
             )
 
         return metric_result
@@ -678,6 +696,7 @@ class MetricsEvaluator:
             reason=reason,
             judge_llm_input_tokens=0,
             judge_llm_output_tokens=0,
+            embedding_tokens=0,
             judge_scores=None,  # No judge LLM involved
         )
 

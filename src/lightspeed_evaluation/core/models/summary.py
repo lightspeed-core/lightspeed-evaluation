@@ -64,6 +64,7 @@ class OverallStats(BaseModel):
         default=0, description="Total judge LLM output tokens"
     )
     total_judge_llm_tokens: int = Field(default=0, description="Total judge LLM tokens")
+    total_embedding_tokens: int = Field(default=0, description="Total embedding tokens")
 
 
 class MetricStats(OverallStats):
@@ -202,6 +203,7 @@ def _compute_overall_stats(results: list[EvaluationResult]) -> OverallStats:
 
     total_judge_input = sum(r.judge_llm_input_tokens for r in results)
     total_judge_output = sum(r.judge_llm_output_tokens for r in results)
+    total_embedding = sum(r.embedding_tokens for r in results)
 
     return OverallStats(
         total=total,
@@ -216,6 +218,7 @@ def _compute_overall_stats(results: list[EvaluationResult]) -> OverallStats:
         total_judge_llm_input_tokens=total_judge_input,
         total_judge_llm_output_tokens=total_judge_output,
         total_judge_llm_tokens=total_judge_input + total_judge_output,
+        total_embedding_tokens=total_embedding,
     )
 
 
@@ -300,6 +303,7 @@ def _build_group_stats_dict(
     )
     judge_input = sum(r.judge_llm_input_tokens for r in group_results)
     judge_output = sum(r.judge_llm_output_tokens for r in group_results)
+    embedding_tokens = sum(r.embedding_tokens for r in group_results)
 
     return {
         "total": total,
@@ -314,6 +318,7 @@ def _build_group_stats_dict(
         "total_judge_llm_input_tokens": judge_input,
         "total_judge_llm_output_tokens": judge_output,
         "total_judge_llm_tokens": judge_input + judge_output,
+        "total_embedding_tokens": embedding_tokens,
     }
 
 

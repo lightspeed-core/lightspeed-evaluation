@@ -541,15 +541,17 @@ class TestJudgeScore:
             judge_id="gpt-4o-mini",
             score=0.85,
             reason="Response is accurate and relevant",
-            input_tokens=150,
-            output_tokens=50,
+            judge_input_tokens=150,
+            judge_output_tokens=50,
+            embedding_tokens=5,
         )
 
         assert judge_score.judge_id == "gpt-4o-mini"
         assert judge_score.score == 0.85
         assert judge_score.reason == "Response is accurate and relevant"
-        assert judge_score.input_tokens == 150
-        assert judge_score.output_tokens == 50
+        assert judge_score.judge_input_tokens == 150
+        assert judge_score.judge_output_tokens == 50
+        assert judge_score.embedding_tokens == 5
 
     def test_default_values(self) -> None:
         """Test JudgeScore has correct default values."""
@@ -557,8 +559,9 @@ class TestJudgeScore:
 
         assert judge_score.score is None
         assert judge_score.reason == ""
-        assert judge_score.input_tokens == 0
-        assert judge_score.output_tokens == 0
+        assert judge_score.judge_input_tokens == 0
+        assert judge_score.judge_output_tokens == 0
+        assert judge_score.embedding_tokens == 0
 
     def test_empty_judge_id_rejected(self) -> None:
         """Test that empty judge_id is rejected."""
@@ -576,10 +579,13 @@ class TestJudgeScore:
     def test_negative_tokens_rejected(self) -> None:
         """Test that negative token counts are rejected."""
         with pytest.raises(ValidationError):
-            JudgeScore(judge_id="gpt-4o", input_tokens=-1)
+            JudgeScore(judge_id="gpt-4o", judge_input_tokens=-1)
 
         with pytest.raises(ValidationError):
-            JudgeScore(judge_id="gpt-4o", output_tokens=-1)
+            JudgeScore(judge_id="gpt-4o", judge_output_tokens=-1)
+
+        with pytest.raises(ValidationError):
+            JudgeScore(judge_id="gpt-4o", embedding_tokens=-1)
 
 
 class TestMetricResultJudgeScores:
@@ -588,9 +594,9 @@ class TestMetricResultJudgeScores:
     def test_metric_result_with_judge_scores(self) -> None:
         """Test MetricResult with judge_scores populated."""
         judge_scores = [
-            JudgeScore(judge_id="gpt-4o-mini", score=0.8, input_tokens=100),
-            JudgeScore(judge_id="gpt-4o", score=0.9, input_tokens=120),
-            JudgeScore(judge_id="gemini-flash", score=0.85, input_tokens=110),
+            JudgeScore(judge_id="gpt-4o-mini", score=0.8, judge_input_tokens=100),
+            JudgeScore(judge_id="gpt-4o", score=0.9, judge_input_tokens=120),
+            JudgeScore(judge_id="gemini-flash", score=0.85, judge_input_tokens=110),
         ]
 
         result = MetricResult(

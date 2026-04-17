@@ -375,6 +375,10 @@ class OutputHandler:
         f.write(f"Output Tokens: {basic_stats['total_judge_llm_output_tokens']:,}\n")
         f.write(f"Total Tokens: {basic_stats['total_judge_llm_tokens']:,}\n\n")
 
+        f.write("Token Usage (Embeddings):\n")
+        f.write("-" * 20 + "\n")
+        f.write(f"Input Tokens: {basic_stats['total_embedding_tokens']:,}\n\n")
+
         f.write("Token Usage (API Calls):\n")
         f.write("-" * 20 + "\n")
         f.write(f"Input Tokens: {api_tokens.get('total_api_input_tokens', 0):,}\n")
@@ -688,6 +692,7 @@ def _overall_to_basic_stats_dict(
         "total_judge_llm_input_tokens": overall.total_judge_llm_input_tokens,
         "total_judge_llm_output_tokens": overall.total_judge_llm_output_tokens,
         "total_judge_llm_tokens": overall.total_judge_llm_tokens,
+        "total_embedding_tokens": overall.total_embedding_tokens,
     }
 
 

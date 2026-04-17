@@ -91,7 +91,7 @@ class JudgeOrchestrator:
         )
 
         # Evaluate with each judge
-        judge_scores, total_input, total_output = self._evaluate_all_judges(
+        judge_scores, token_totals = self._evaluate_all_judges(
             judge_managers,
             framework,
             metric_name,
@@ -117,8 +117,9 @@ class JudgeOrchestrator:
             score=aggregated_score,
             threshold=threshold,
             reason=aggregated_reason,
-            judge_llm_input_tokens=total_input,
-            judge_llm_output_tokens=total_output,
+            judge_llm_input_tokens=token_totals["judge_input_tokens"],
+            judge_llm_output_tokens=token_totals["judge_output_tokens"],
+            embedding_tokens=token_totals["embedding_tokens"],
             judge_scores=judge_scores,
         )
 
@@ -130,7 +131,7 @@ class JudgeOrchestrator:
         request: EvaluationRequest,
         evaluation_scope: EvaluationScope,
         token_tracker: TokenTracker,
-    ) -> tuple[list[JudgeScore], int, int]:
+    ) -> tuple[list[JudgeScore], dict[str, int]]:
         """Evaluate metric with all judges and collect results.
 
         Args:
@@ -142,14 +143,19 @@ class JudgeOrchestrator:
             token_tracker: Tracks token usage per judge call.
 
         Returns:
-            Tuple of (judge_scores, total_input_tokens, total_output_tokens).
+            Tuple of (judge_scores, token_totals) where token_totals is a dict
+                containing judge_input_tokens, judge_output_tokens, and
+                embedding_tokens.
         """
         judge_scores: list[JudgeScore] = []
-        total_input_tokens = 0
-        total_output_tokens = 0
+        token_totals = {
+            "judge_input_tokens": 0,
+            "judge_output_tokens": 0,
+            "embedding_tokens": 0,
+        }
 
         for judge_manager in judge_managers:
-            score_entry, input_tokens, output_tokens = self._evaluate_single_judge(
+            score_entry = self._evaluate_single_judge(
                 judge_manager,
                 framework,
                 metric_name,
@@ -158,10 +164,11 @@ class JudgeOrchestrator:
                 token_tracker,
             )
             judge_scores.append(score_entry)
-            total_input_tokens += input_tokens
-            total_output_tokens += output_tokens
+            token_totals["judge_input_tokens"] += score_entry.judge_input_tokens
+            token_totals["judge_output_tokens"] += score_entry.judge_output_tokens
+            token_totals["embedding_tokens"] += score_entry.embedding_tokens
 
-        return judge_scores, total_input_tokens, total_output_tokens
+        return judge_scores, token_totals
 
     def _evaluate_single_judge(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -171,7 +178,7 @@ class JudgeOrchestrator:
         request: EvaluationRequest,
         evaluation_scope: EvaluationScope,
         token_tracker: TokenTracker,
-    ) -> tuple[JudgeScore, int, int]:
+    ) -> JudgeScore:
         """Evaluate metric with a single judge.
 
         On evaluation error, returns a JudgeScore with score=None instead
@@ -186,7 +193,7 @@ class JudgeOrchestrator:
             token_tracker: Tracks token usage for this call.
 
         Returns:
-            Tuple of (JudgeScore, input_tokens, output_tokens).
+            JudgeScore: Contains score, reason, and token usage for this judge.
         """
         # Use judge_id from manager (pool key) - ensures uniqueness even when
         # multiple pool entries use the same underlying model
@@ -198,44 +205,41 @@ class JudgeOrchestrator:
             score, reason = handler.evaluate(
                 metric_name, request.conv_data, evaluation_scope
             )
-            input_tokens, output_tokens = token_tracker.get_counts()
+            judge_input_tokens, judge_output_tokens = token_tracker.get_judge_counts()
+            embedding_tokens = token_tracker.get_embedding_counts()
 
             logger.debug(
-                "Judge %s: score=%s, tokens=%d/%d",
+                "Judge %s: score=%s, tokens=%d/%d, embeddings=%d",
                 judge_id,
                 score,
-                input_tokens,
-                output_tokens,
+                judge_input_tokens,
+                judge_output_tokens,
+                embedding_tokens,
             )
 
-            return (
-                JudgeScore(
-                    judge_id=judge_id,
-                    score=score,
-                    reason=reason,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                ),
-                input_tokens,
-                output_tokens,
+            return JudgeScore(
+                judge_id=judge_id,
+                score=score,
+                reason=reason,
+                judge_input_tokens=judge_input_tokens,
+                judge_output_tokens=judge_output_tokens,
+                embedding_tokens=embedding_tokens,
             )
 
         except EvaluationError as e:
             # Catch expected evaluation errors (LLM errors, metric errors, etc.)
             # Let unexpected exceptions (ConfigurationError, bugs) propagate
             logger.error("Judge %s failed: %s", judge_id, e)
-            input_tokens, output_tokens = token_tracker.get_counts()
+            judge_input_tokens, judge_output_tokens = token_tracker.get_judge_counts()
+            embedding_tokens = token_tracker.get_embedding_counts()
 
-            return (
-                JudgeScore(
-                    judge_id=judge_id,
-                    score=None,
-                    reason=f"Evaluation error: {e}",
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                ),
-                input_tokens,
-                output_tokens,
+            return JudgeScore(
+                judge_id=judge_id,
+                score=None,
+                reason=f"Evaluation error: {e}",
+                judge_input_tokens=judge_input_tokens,
+                judge_output_tokens=judge_output_tokens,
+                embedding_tokens=embedding_tokens,
             )
 
     def _get_handler_for_judge(self, framework: str, judge_manager: LLMManager) -> Any:

@@ -100,6 +100,7 @@ SUPPORTED_CSV_COLUMNS = [
     "api_output_tokens",
     "judge_llm_input_tokens",
     "judge_llm_output_tokens",
+    "embedding_tokens",
     # Per-judge scores (JSON array with one entry for single judge)
     "judge_scores",
     # Streaming performance metrics

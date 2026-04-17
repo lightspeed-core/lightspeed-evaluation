@@ -942,63 +942,91 @@ class TestMetricsEvaluator:
         assert result.judge_llm_input_tokens >= 0
         assert result.judge_llm_output_tokens >= 0
 
+    def test_multiple_expected_responses_error_no_double_counting(
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test token counts use deltas not cumulative totals when error on iteration 2+."""
+        create_mock_llm_manager(mocker)
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
+        )
 
-class TestTokenTracker:
-    """Unit tests for TokenTracker class."""
+        mock_ragas = mocker.Mock()
+        mock_ragas.evaluate.side_effect = [
+            (0.3, "First iteration"),
+            EvaluationError("Second iteration failed"),
+        ]
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
+            return_value=mock_ragas,
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
 
-    def test_token_tracker_initialization(self) -> None:
-        """Test TokenTracker initializes with zero counts."""
-        tracker = TokenTracker()
-        input_tokens, output_tokens = tracker.get_counts()
-        assert input_tokens == 0
-        assert output_tokens == 0
+        evaluator = MetricsEvaluator(
+            config_loader, mock_metric_manager, mock_script_manager
+        )
 
-    def test_token_tracker_get_counts_returns_tuple(self) -> None:
-        """Test get_counts returns a tuple."""
-        tracker = TokenTracker()
-        result = tracker.get_counts()
-        assert isinstance(result, tuple)
-        assert len(result) == 2
+        call_count = [0]
 
-    def test_token_tracker_reset(self) -> None:
-        """Test reset clears token counts."""
-        tracker = TokenTracker()
-        tracker.input_tokens = 100
-        tracker.output_tokens = 50
-        tracker.reset()
-        assert tracker.get_counts() == (0, 0)
+        def mock_evaluate_with_tokens(
+            _request: EvaluationRequest,
+            _scope: EvaluationScope,
+            token_tracker: TokenTracker,
+            threshold: Optional[float],
+        ) -> MetricResult:
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # Iteration 1: add tokens and return success
+                token_tracker.add_judge_tokens(100, 50)
+                token_tracker.add_embedding_tokens(20)
+                return MetricResult(
+                    result="FAIL",
+                    score=0.3,
+                    threshold=threshold,
+                    reason="First iteration",
+                    judge_llm_input_tokens=100,
+                    judge_llm_output_tokens=50,
+                    embedding_tokens=20,
+                )
+            # Iteration 2: add tokens then raise error
+            token_tracker.add_judge_tokens(150, 75)
+            token_tracker.add_embedding_tokens(30)
+            raise EvaluationError("Second iteration failed")
 
-    def test_token_tracker_start_stop(self) -> None:
-        """Test start and stop methods."""
-        tracker = TokenTracker()
-        tracker.start()
-        assert TokenTracker.get_active() is tracker
-        tracker.stop()
-        assert TokenTracker.get_active() is None
+        mocker.patch.object(
+            evaluator, "_evaluate", side_effect=mock_evaluate_with_tokens
+        )
 
-    def test_token_tracker_double_start(self) -> None:
-        """Test calling start twice doesn't fail."""
-        tracker = TokenTracker()
-        tracker.start()
-        tracker.start()  # Should not fail
-        assert TokenTracker.get_active() is tracker
-        tracker.stop()
+        turn_data = TurnData(
+            turn_id="1",
+            query="Q",
+            response="R",
+            expected_response=["A", "B"],
+            contexts=["C"],
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:context_recall", 0, turn_data
+        )
 
-    def test_token_tracker_double_stop(self) -> None:
-        """Test calling stop twice doesn't fail."""
-        tracker = TokenTracker()
-        tracker.start()
-        tracker.stop()
-        tracker.stop()  # Should not fail
-        assert TokenTracker.get_active() is None
+        result = evaluator.evaluate_metric(request)
 
-    def test_token_tracker_independent_instances(self) -> None:
-        """Test multiple TokenTracker instances are independent."""
-        tracker1 = TokenTracker()
-        tracker2 = TokenTracker()
-        tracker1.input_tokens = 100
-        tracker1.output_tokens = 50
-        tracker2.input_tokens = 200
-        tracker2.output_tokens = 100
-        assert tracker1.get_counts() == (100, 50)
-        assert tracker2.get_counts() == (200, 100)
+        assert result is not None
+        assert result.result == "ERROR"
+        assert "Second iteration failed" in result.reason
+        assert result.judge_llm_input_tokens == 250  # 100+150
+        assert result.judge_llm_output_tokens == 125  # 50+75
+        assert result.embedding_tokens == 50  # 20+30

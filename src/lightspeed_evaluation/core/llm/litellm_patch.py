@@ -2,10 +2,10 @@
 
 This module configures litellm for two purposes:
 
-1. TOKEN TRACKING: Wraps litellm.completion and litellm.acompletion to track
-   token usage for all LLM calls (Judge LLM metrics). We use function wrapping
-   rather than litellm's callback system because callbacks don't reliably
-   capture tokens in all execution paths.
+1. TOKEN TRACKING: Wraps litellm.completion, litellm.acompletion, litellm.embedding,
+   and litellm.aembedding to track token usage for all LLM and embedding calls.
+   We use function wrapping rather than litellm's callback system because callbacks
+   don't reliably capture tokens in all execution paths.
 
 2. RAGAS 0.4 COMPATIBILITY: Ragas 0.4's score() method internally uses
    asyncio.run() which creates a new event loop. LiteLLM's background
@@ -33,7 +33,10 @@ warnings.filterwarnings(
 )
 
 # pylint: disable=wrong-import-position
-from lightspeed_evaluation.core.llm.token_tracker import track_tokens  # noqa: E402
+from lightspeed_evaluation.core.llm.token_tracker import (  # noqa: E402
+    track_judge_tokens,
+    track_embedding_tokens,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,21 +90,24 @@ litellm.suppress_debug_info = True
 
 
 # =============================================================================
-# TOKEN TRACKING: Wrap completion functions
+# TOKEN TRACKING: Wrap completion and embedding functions
 # =============================================================================
-# We wrap the completion functions rather than using callbacks because
-# callbacks don't reliably capture tokens in all execution paths.
+# We wrap the completion and embedding functions rather than using callbacks
+# because callbacks don't reliably capture tokens in all execution paths.
 
 _original_completion = litellm.completion
 _original_acompletion = litellm.acompletion
+_original_embedding = litellm.embedding
+_original_aembedding = litellm.aembedding
 
 
+# Patch litellm's completion functions to include token tracking
 @wraps(_original_completion)
 def _completion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
     """Wrapper around litellm.completion that tracks tokens."""
     response = _original_completion(*args, **kwargs)
     try:
-        track_tokens(response)
+        track_judge_tokens(response)
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to track tokens for completion: %s", e)
     return response
@@ -112,15 +118,40 @@ async def _acompletion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
     """Wrapper around litellm.acompletion that tracks tokens."""
     response = await _original_acompletion(*args, **kwargs)
     try:
-        track_tokens(response)
+        track_judge_tokens(response)
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to track tokens for acompletion: %s", e)
     return response
 
 
-# Patch litellm's completion functions to include token tracking
+# Patch litellm's embedding functions to include token tracking
+@wraps(_original_embedding)
+def _embedding_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
+    """Wrapper around litellm.embedding that tracks tokens."""
+    response = _original_embedding(*args, **kwargs)
+    try:
+        track_embedding_tokens(response)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.exception("Failed to track tokens for embedding: %s", e)
+    return response
+
+
+@wraps(_original_aembedding)
+async def _aembedding_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
+    """Wrapper around litellm.aembedding that tracks tokens."""
+    response = await _original_aembedding(*args, **kwargs)
+    try:
+        track_embedding_tokens(response)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.exception("Failed to track tokens for aembedding: %s", e)
+    return response
+
+
+# Patch litellm's completion and embedding functions to include token tracking
 litellm.completion = _completion_with_token_tracking
 litellm.acompletion = _acompletion_with_token_tracking
+litellm.embedding = _embedding_with_token_tracking
+litellm.aembedding = _aembedding_with_token_tracking
 
 
 # =============================================================================

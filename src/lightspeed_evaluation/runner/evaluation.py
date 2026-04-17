@@ -75,14 +75,25 @@ def _print_summary(
         f"(Input: {summary['total_judge_llm_input_tokens']:,}, "
         f"Output: {summary['total_judge_llm_output_tokens']:,})"
     )
+
+    print(f"Embeddings: {summary['total_embedding_tokens']:,} tokens")
+
     if api_tokens:
         print(
             f"API Calls: {api_tokens['total_api_tokens']:,} tokens "
             f"(Input: {api_tokens['total_api_input_tokens']:,}, "
             f"Output: {api_tokens['total_api_output_tokens']:,})"
         )
-        total = summary["total_judge_llm_tokens"] + api_tokens["total_api_tokens"]
+        total = (
+            summary["total_judge_llm_tokens"]
+            + summary["total_embedding_tokens"]
+            + api_tokens["total_api_tokens"]
+        )
         print(f"Total: {total:,} tokens")
+    else:
+        total = summary["total_judge_llm_tokens"] + summary["total_embedding_tokens"]
+        if total > 0:
+            print(f"Total: {total:,} tokens")
 
 
 def run_evaluation(  # pylint: disable=too-many-locals

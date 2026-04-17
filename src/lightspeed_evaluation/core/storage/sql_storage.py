@@ -53,6 +53,7 @@ class EvaluationResultDB(Base):  # pylint: disable=too-few-public-methods
     api_output_tokens = Column(Integer, nullable=True)
     judge_llm_input_tokens = Column(Integer, nullable=True)
     judge_llm_output_tokens = Column(Integer, nullable=True)
+    embedding_tokens = Column(Integer, nullable=True)
     judge_scores = Column(Text, nullable=True)
     time_to_first_token = Column(Float, nullable=True)
     streaming_duration = Column(Float, nullable=True)
@@ -265,6 +266,7 @@ class SQLStorageBackend(BaseStorageBackend):
             api_output_tokens=result.api_output_tokens,
             judge_llm_input_tokens=result.judge_llm_input_tokens,
             judge_llm_output_tokens=result.judge_llm_output_tokens,
+            embedding_tokens=result.embedding_tokens,
             judge_scores=self._serialize_judge_scores(result.judge_scores),
             time_to_first_token=result.time_to_first_token,
             streaming_duration=result.streaming_duration,

@@ -308,6 +308,7 @@ class TestCalculateBasicStats:
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
+            "total_embedding_tokens": 0,
         }
         assert stats == expected
 
@@ -340,6 +341,7 @@ class TestCalculateBasicStats:
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
+            "total_embedding_tokens": 0,
         }
         assert stats == expected
 
@@ -845,12 +847,15 @@ class TestCalculateBasicStatsWithTokens:
                 threshold=0.7,
                 judge_llm_input_tokens=100,
                 judge_llm_output_tokens=50,
+                embedding_tokens=150,
             )
         ]
         stats = calculate_basic_stats(results)
         assert "total_judge_llm_input_tokens" in stats
         assert "total_judge_llm_output_tokens" in stats
         assert "total_judge_llm_tokens" in stats
+
+        assert "total_embedding_tokens" in stats
 
     def test_basic_stats_sums_token_values(self) -> None:
         """Test that basic stats correctly sums token values."""
@@ -864,6 +869,7 @@ class TestCalculateBasicStatsWithTokens:
                 threshold=0.7,
                 judge_llm_input_tokens=100,
                 judge_llm_output_tokens=50,
+                embedding_tokens=100,
             ),
             EvaluationResult(
                 conversation_group_id="conv1",
@@ -874,12 +880,16 @@ class TestCalculateBasicStatsWithTokens:
                 threshold=0.7,
                 judge_llm_input_tokens=200,
                 judge_llm_output_tokens=100,
+                embedding_tokens=250,
             ),
         ]
         stats = calculate_basic_stats(results)
         assert stats["total_judge_llm_input_tokens"] == 300
         assert stats["total_judge_llm_output_tokens"] == 150
         assert stats["total_judge_llm_tokens"] == 450
+
+        assert stats["total_embedding_tokens"] == 350
+        assert stats["total_embedding_tokens"] == 350
 
     def test_basic_stats_zero_tokens_by_default(self) -> None:
         """Test that results without tokens default to zero."""
@@ -898,9 +908,14 @@ class TestCalculateBasicStatsWithTokens:
         assert stats["total_judge_llm_output_tokens"] == 0
         assert stats["total_judge_llm_tokens"] == 0
 
+        assert stats["total_embedding_tokens"] == 0
+        assert stats["total_embedding_tokens"] == 0
+
     def test_basic_stats_empty_results_zero_tokens(self) -> None:
         """Test that empty results have zero tokens."""
         stats = calculate_basic_stats([])
         assert stats["total_judge_llm_input_tokens"] == 0
         assert stats["total_judge_llm_output_tokens"] == 0
         assert stats["total_judge_llm_tokens"] == 0
+        assert stats["total_embedding_tokens"] == 0
+        assert stats["total_embedding_tokens"] == 0
