@@ -36,6 +36,19 @@ def basic_api_config_streaming_endpoint() -> APIConfig:
 
 
 @pytest.fixture
+def basic_api_config_infer_endpoint() -> APIConfig:
+    """Create test API config for infer endpoint."""
+    return APIConfig(
+        enabled=True,
+        api_base="http://localhost:8080",
+        version="v1",
+        endpoint_type="infer",
+        timeout=30,
+        cache_enabled=False,
+    )
+
+
+@pytest.fixture
 def mock_response(mocker: MockerFixture) -> Any:
     """Create a mock streaming response."""
     response = mocker.Mock()

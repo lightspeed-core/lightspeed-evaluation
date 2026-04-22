@@ -301,7 +301,7 @@ class APIConfig(BaseModel):
         ge=0,
         description=(
             "Maximum number of retry attempts for API calls on "
-            "429 Too Many Requests errors"
+            "retryable server errors (HTTP 429/5xx)"
         ),
     )
 
