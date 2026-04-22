@@ -1,0 +1,24 @@
+- conversation_group_id: good_retrieval
+  description: Well-retrieved, relevant context
+  tag: rag
+  turns:
+  - turn_id: pod_status
+    query: How do I check pod status in OpenShift?
+    response: You can check pod status using 'oc get pods' command or through the OpenShift web console.
+    contexts:
+    - The 'oc get pods' command displays the status of all pods in the current namespace.
+    - The OpenShift web console provides a visual interface to view pod status and details.
+    - You can use 'oc describe pod <pod-name>' for detailed pod information including status.
+    expected_response: Use 'oc get pods' command or the OpenShift web console to check pod status.
+- conversation_group_id: poor_retrieval
+  description: Irrelevant context retrieved
+  tag: rag
+  turns:
+  - turn_id: pod_status_bad_context
+    query: How do I check pod status in OpenShift?
+    response: You can check pod status using 'oc get pods' command.
+    contexts:
+    - OpenShift uses Kubernetes as its underlying container orchestration platform.
+    - Docker containers are the foundation of containerized applications.
+    - Helm charts can be used to package Kubernetes applications.
+    expected_response: Use 'oc get pods' command to check pod status.

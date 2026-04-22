@@ -1,0 +1,45 @@
+- conversation_group_id: excellent_response
+  description: High-quality response passing all dimensions
+  tag: quality
+  turns:
+  - turn_id: virtualization_good
+    query: What is OpenShift Virtualization?
+    response: >
+      OpenShift Virtualization is an add-on to Red Hat OpenShift Container Platform
+      that allows you to run and manage virtual machine workloads alongside container
+      workloads. It adds new objects into your cluster using Kubernetes custom resources
+      to enable virtualization tasks.
+    contexts:
+    - >
+      OpenShift Virtualization is an add-on to Red Hat OpenShift Container Platform
+      that allows you to run and manage virtual machine workloads alongside container
+      workloads.
+    - >
+      It adds new objects into your OpenShift cluster using Kubernetes custom resources
+      to enable virtualization tasks.
+    expected_response: >
+      OpenShift Virtualization is an add-on that allows running virtual machines
+      alongside containers in OpenShift.
+    expected_intent: information_request
+- conversation_group_id: hallucination_response
+  description: Response with hallucinated information
+  tag: quality
+  turns:
+  - turn_id: virtualization_hallucinated
+    query: What is OpenShift Virtualization?
+    response: >
+      OpenShift Virtualization is an add-on that allows you to run virtual machines
+      alongside containers. It also includes advanced GPU acceleration for blockchain
+      mining and AI training workloads.
+    contexts:
+    - >
+      OpenShift Virtualization is an add-on to Red Hat OpenShift Container Platform
+      that allows you to run and manage virtual machine workloads alongside container
+      workloads.
+    - >
+      It adds new objects into your OpenShift cluster using Kubernetes custom resources
+      to enable virtualization tasks.
+    expected_response: >
+      OpenShift Virtualization is an add-on that allows running virtual machines
+      alongside containers in OpenShift.
+    expected_intent: information_request
