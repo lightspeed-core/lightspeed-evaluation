@@ -1,0 +1,76 @@
+core:
+  max_threads: 1
+llm_pool:
+  defaults:
+    cache_enabled: false
+    timeout: 60
+    num_retries: 1
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 512
+  models:
+    judge_gpt_4o_mini:
+      provider: openai
+      model: gpt-4o-mini
+judge_panel:
+  judges:
+  - judge_gpt_4o_mini
+embedding:
+  provider: openai
+  model: text-embedding-3-small
+  cache_enabled: false
+api:
+  enabled: false
+  cache_enabled: false
+metrics_metadata:
+  turn_level:
+    ragas:faithfulness:  # Faithfulness
+      threshold: 0.8
+      description: Detects hallucinations by comparing response to provided context
+      default: true
+    ragas:response_relevancy:  # AnswerRelevancy
+      threshold: 0.7
+      description: Measures how well response addresses the query
+      default: true
+    custom:answer_correctness:
+      threshold: 0.75
+      description: Compares response accuracy against expected answer
+      default: true
+    custom:intent_eval:
+      threshold: 1
+      description: Binary check if response addresses user intent
+      default: true
+storage:
+- type: file
+  output_dir: examples/02_metrics/response_quality/eval_output
+  base_filename: evaluation
+  enabled_outputs:
+  - csv
+  - json
+  - txt
+  csv_columns:
+  - conversation_group_id
+  - turn_id
+  - metric_identifier
+  - score
+  - threshold
+  - result
+  - reason
+  - query
+  - response
+visualization:
+  figsize:
+  - 14
+  - 10
+  dpi: 150
+  enabled_graphs:
+  - pass_rates
+  - score_distribution
+  - status_breakdown
+environment:
+  LITELLM_LOG: ERROR
+logging:
+  source_level: INFO
+  package_level: WARNING
+  log_format: '%(asctime)s - %(levelname)s - %(message)s'
+  show_timestamps: true
