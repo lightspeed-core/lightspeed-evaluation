@@ -335,15 +335,35 @@ metrics_metadata:
       description: "How completely the conversation addresses user intentions"
 ```
 
-## Output
-Lightspeed Evaluation produces several outputs with the results and possibly modified input file with responses from Lightspeed Core API.
+## Storage
+Lightspeed Evaluation can persist results to files and/or databases. The `storage` section configures one or more storage backends.
 
-| Setting (output.) | Default | Description |
-|-------------------|---------|-------------|
-| output_dir | `"./eval_output"` | Directory with output files. |
-| base_filename | `"evaluation"` | Prefix for output filenames. |
-| enabled_outputs | `["csv", "json", "txt"]` | List with a specific output types, see below |
-| csv_columns | all listed in the table below | List of columns to include in the "detailed results CSV" file, see below |
+### File Backend
+The file backend generates CSV, JSON, and TXT reports.
+
+| Setting (storage[type="file"].) | Default | Description |
+|---------------------------------|---------|-------------|
+| type | `"file"` | Backend type (required) |
+| output_dir | `"./eval_output"` | Directory for output files |
+| base_filename | `"evaluation"` | Prefix for output filenames |
+| enabled_outputs | `["csv", "json", "txt"]` | Output types to generate |
+| csv_columns | all listed below | Columns to include in CSV |
+| summary_config_sections | `["llm", "embedding", "api"]` | Config sections in summary |
+
+### Database Backend (Optional)
+Save results to a database for querying and analysis. Supports SQLite, PostgreSQL, and MySQL.
+
+| Setting (storage[type="sqlite/postgres/mysql"].) | Default | Description |
+|--------------------------------------------------|---------|-------------|
+| type | required | `"sqlite"`, `"postgres"`, or `"mysql"` |
+| database | required | Database name or file path (SQLite) |
+| table_name | `"evaluation_results"` | Table name for results |
+| host | required* | Database host (*required for postgres/mysql) |
+| port | default per type | Database port (5432 for postgres, 3306 for mysql) |
+| user | required* | Database user (*required for postgres/mysql) |
+| password | required* | Database password (*required for postgres/mysql) |
+
+> **Note:** Database storage is incremental - results are saved as each conversation completes. Storage failures are logged as warnings but don't stop the evaluation.
 
 ### Output types
 
@@ -383,39 +403,50 @@ For **turn-level** metrics, `api_input_tokens` and `api_output_tokens` reflect t
 
 > **Note:** The `api_input_tokens` and `api_output_tokens` columns repeat the same value for every metric row belonging to the same turn (or conversation). Summing these columns across all CSV rows will **over-count**. For accurate API token totals, use the summary statistics in the JSON or TXT reports.
 
-### Example
+### Example: File Backend Only
 ```yaml
-output:
-  output_dir: "./eval_output"
-  base_filename: "evaluation"
-  enabled_outputs:
-    - "csv"
-    - "json"
-    - "txt"
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+    base_filename: "evaluation"
+    enabled_outputs:
+      - "csv"
+      - "json"
+      - "txt"
+    csv_columns:
+      - "conversation_group_id"
+      - "turn_id"
+      - "metric_identifier"
+      - "result"
+      - "score"
+      - "reason"
+```
 
-  csv_columns:
-    - "conversation_group_id"
-    - "tag"
-    - "turn_id"
-    - "metric_identifier"
-    - "result"
-    - "score"
-    - "threshold"
-    - "reason"
-    - "query"
-    - "response"
-    - "execution_time"
-    - "api_input_tokens"
-    - "api_output_tokens"
-    - "judge_llm_input_tokens"
-    - "judge_llm_output_tokens"
-    - "tool_calls"
-    - "contexts"
-    - "expected_response"
-    - "expected_intent"
-    - "expected_keywords"
-    - "expected_tool_calls"
-    - "metric_metadata"
+### Example: File + SQLite Database
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+    base_filename: "evaluation"
+    enabled_outputs:
+      - csv
+      - json
+  - type: "sqlite"
+    database: "./eval_results.db"
+    table_name: "evaluation_results"
+```
+
+### Example: File + PostgreSQL Database
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "postgres"
+    database: "evaluations"
+    host: "localhost"
+    port: 5432
+    user: "admin"
+    password: "secret"
 ```
 
 ## Visualization of the results

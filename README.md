@@ -17,6 +17,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **Streaming Performance Metrics**: Capture time-to-first-token (TTFT), streaming duration, and tokens/second when using streaming endpoint
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)
+- **Database Storage**: Optional persistence to SQLite, PostgreSQL, or MySQL for querying and analysis
 - **Flexible Configuration**: Configurable environment & metric metadata, Global defaults with per-conversation/per-turn metric overrides
 - **Early Validation**: Catch configuration errors before expensive LLM calls
 - **Concurrent Evaluation**: Multi-threaded evaluation with configurable thread count
@@ -242,6 +243,16 @@ See [Configuration → Metrics](docs/configuration.md#metrics) for GEval options
 The default system config file is [`config/system.yaml`](config/system.yaml).
 See [`docs/configuration.md`](docs/configuration.md) for the detailed description.
 
+### Storage Configuration
+
+The `storage` list in [`config/system.yaml`](config/system.yaml) selects where results go. You can use **several backends at once** (for example file outputs plus a database).
+
+| Aspect | Summary |
+|--------|---------|
+| **File backend** | CSV, JSON, and TXT under `output_dir`; tune formats with `enabled_outputs` and columns with `csv_columns`. |
+| **Database (optional)** | SQLite, PostgreSQL, or MySQL for querying and analysis; writes are **incremental** per conversation; storage errors are logged as warnings and **do not** abort the evaluation run. |
+
+For field tables, full YAML examples (file-only, file + SQLite, file + Postgres), CSV column reference, and notes on API token columns, see **[Storage](docs/configuration.md#storage)** in the configuration guide.
 
 ### Input File Data Structure (`config/evaluation_data.yaml`)
 
@@ -487,6 +498,7 @@ export API_KEY="your-api-endpoint-key"
 - **JSON**: Summary statistics with score distributions
 - **TXT**: Human-readable summary
 - **PNG**: 4 visualization types (pass rates, score distributions, heatmaps, status breakdown)
+- **Database**: Optional persistence to SQLite, PostgreSQL, or MySQL (see [Storage Configuration](#storage-configuration))
 
 ### Key Metrics in Output
 - **Status**: PASS/FAIL/ERROR/SKIPPED
