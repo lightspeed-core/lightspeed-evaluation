@@ -5,7 +5,6 @@ from pydantic import ValidationError
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
-    DEFAULT_API_CACHE_DIR,
     DEFAULT_API_NUM_RETRIES,
     DEFAULT_API_TIMEOUT,
     DEFAULT_API_VERSION,
@@ -32,7 +31,7 @@ class TestHttpApiAgentConfig:
         assert config.version == DEFAULT_API_VERSION
         assert config.endpoint_type == DEFAULT_ENDPOINT_TYPE
         assert config.timeout == DEFAULT_API_TIMEOUT
-        assert config.cache_dir == DEFAULT_API_CACHE_DIR
+        assert config.cache_dir is None
         assert config.cache_enabled is True
         assert config.num_retries == DEFAULT_API_NUM_RETRIES
         assert config.provider is None
