@@ -11,7 +11,7 @@ from lightspeed_evaluation.core.models import (
     LLMPoolConfig,
     JudgePanelConfig,
 )
-from lightspeed_evaluation.core.models.system import (
+from lightspeed_evaluation.core.models.llm import (
     LLMDefaultsConfig,
     LLMParametersConfig,
     LLMProviderConfig,
