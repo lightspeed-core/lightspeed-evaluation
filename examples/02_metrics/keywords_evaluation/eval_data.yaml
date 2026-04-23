@@ -1,0 +1,45 @@
+- conversation_group_id: single_keyword_set
+  description: All keywords from single set must match
+  tag: keywords
+  turns:
+  - turn_id: namespace_keywords
+    query: What is a namespace in OpenShift?
+    response: A namespace in OpenShift is a logical partition within a cluster that provides scope for resource names and allows for resource isolation, access control, and quota management.
+    expected_keywords:
+    - - namespace
+      - isolation
+      - openshift
+- conversation_group_id: alternative_keywords
+  description: Match any of the alternative keyword sets
+  tag: keywords
+  turns:
+  - turn_id: deployment_alternatives
+    query: What is a namespace in OpenShift?
+    response: You can use namespaces or projects to organize resources in OpenShift.
+    expected_keywords:
+    - - namespace
+      - organize
+    - - project
+      - organize
+- conversation_group_id: case_insensitive
+  description: Keywords match regardless of case
+  tag: keywords
+  turns:
+  - turn_id: case_test
+    query: What is a namespace in OpenShift?
+    response: A NAMESPACE provides ISOLATION and SCOPE for resources in OpenShift.
+    expected_keywords:
+    - - namespace
+      - isolation
+      - scope
+- conversation_group_id: missing_keyword
+  description: Missing required keyword should fail
+  tag: keywords
+  turns:
+  - turn_id: incomplete_match
+    query: What is a namespace in OpenShift?
+    response: A namespace provides isolation for resources.
+    expected_keywords:
+    - - namespace
+      - isolation
+      - openshift

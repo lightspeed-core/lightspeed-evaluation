@@ -1,0 +1,24 @@
+- conversation_group_id: near_exact_match
+  description: Very close match with reference
+  tag: nlp
+  turns:
+  - turn_id: namespace_near_exact
+    query: What is a namespace in OpenShift?
+    response: A namespace provides isolation and scope for resources in OpenShift.
+    expected_response: A namespace provides isolation and scope for resources in OpenShift
+- conversation_group_id: similar_phrasing
+  description: Same meaning, different wording
+  tag: nlp
+  turns:
+  - turn_id: namespace_similar
+    query: What is a namespace in OpenShift?
+    response: In OpenShift, namespaces offer resource isolation and scoping capabilities.
+    expected_response: A namespace provides isolation and scope for resources in OpenShift
+- conversation_group_id: different_content
+  description: Completely different response
+  tag: nlp
+  turns:
+  - turn_id: namespace_wrong
+    query: What is a namespace in OpenShift?
+    response: A pod is the smallest deployable unit in OpenShift.
+    expected_response: A namespace provides isolation and scope for resources in OpenShift
