@@ -1,4 +1,4 @@
-# pylint: disable=unused-argument
+# pylint: disable=unused-argument, too-many-lines
 """Unit tests for runner/evaluation.py."""
 
 import argparse
@@ -131,6 +131,7 @@ class TestRunEvaluation:
             "total_judge_llm_input_tokens": 100,
             "total_judge_llm_output_tokens": 50,
             "total_judge_llm_tokens": 150,
+            "total_embedding_tokens": 10,
         }
 
         result = run_evaluation(_make_eval_args())
@@ -189,6 +190,7 @@ class TestRunEvaluation:
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
+            "total_embedding_tokens": 0,
         }
 
         run_evaluation(_make_eval_args(output_dir="/custom/output"))
@@ -286,6 +288,7 @@ class TestRunEvaluation:
             "total_judge_llm_input_tokens": 500,
             "total_judge_llm_output_tokens": 250,
             "total_judge_llm_tokens": 750,
+            "total_embedding_tokens": 10,
         }
 
         result = run_evaluation(_make_eval_args())
@@ -400,6 +403,7 @@ class TestRunEvaluation:
                 "total_judge_llm_input_tokens": 100,
                 "total_judge_llm_output_tokens": 50,
                 "total_judge_llm_tokens": 150,
+                "total_embedding_tokens": 10,
             },
         )
 
@@ -702,6 +706,7 @@ class TestRunEvaluationCacheWarmup:
             "total_judge_llm_input_tokens": 100,
             "total_judge_llm_output_tokens": 50,
             "total_judge_llm_tokens": 150,
+            "total_embedding_tokens": 10,
         }
 
         # Run evaluation with cache warmup flag
@@ -773,6 +778,7 @@ class TestRunEvaluationCacheWarmup:
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
+            "total_embedding_tokens": 0,
         }
 
         # Run evaluation WITHOUT cache warmup flag

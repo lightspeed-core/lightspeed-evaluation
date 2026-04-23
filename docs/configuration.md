@@ -391,6 +391,7 @@ Save results to a database for querying and analysis. Supports SQLite, PostgreSQ
 | api_output_tokens | Number of output tokens from API call (see below) |
 | judge_llm_input_tokens | Number of input tokens used by Judge LLM |
 | judge_llm_output_tokens | Number of output tokens from Judge LLM |
+| embedding_tokens | Number of tokens used for embedding calls |
 | tool_calls | Tool calls made during the turn (JSON format) |
 | contexts | Context documents used for evaluation |
 | expected_response | Expected response for comparison |

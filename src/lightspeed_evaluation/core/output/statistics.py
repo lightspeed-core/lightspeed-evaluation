@@ -50,6 +50,7 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
             "total_judge_llm_input_tokens": 0,
             "total_judge_llm_output_tokens": 0,
             "total_judge_llm_tokens": 0,
+            "total_embedding_tokens": 0,
         }
 
     total = len(results)
@@ -61,6 +62,7 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
     # Calculate token totals
     total_judge_input = sum(r.judge_llm_input_tokens for r in results)
     total_judge_output = sum(r.judge_llm_output_tokens for r in results)
+    total_embedding = sum(r.embedding_tokens for r in results)
 
     return {
         "TOTAL": total,
@@ -75,6 +77,7 @@ def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
         "total_judge_llm_input_tokens": total_judge_input,
         "total_judge_llm_output_tokens": total_judge_output,
         "total_judge_llm_tokens": total_judge_input + total_judge_output,
+        "total_embedding_tokens": total_embedding,
     }
 
 

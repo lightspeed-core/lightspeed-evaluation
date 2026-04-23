@@ -263,6 +263,54 @@ class TestEvaluationSummaryFromResults:
         assert len(summary.results) == 1
         assert summary.results[0].result == "PASS"
 
+    def test_token_aggregation_in_summary(self) -> None:
+        """Test that judge_llm and embedding tokens are aggregated correctly."""
+        results = [
+            _make_result(
+                judge_llm_input_tokens=100,
+                judge_llm_output_tokens=50,
+                embedding_tokens=150,
+                turn_id="t1",
+            ),
+            _make_result(
+                judge_llm_input_tokens=200,
+                judge_llm_output_tokens=100,
+                embedding_tokens=250,
+                turn_id="t2",
+                metric_identifier="m:2",
+                conversation_group_id="conv2",
+                tag="perf",
+            ),
+        ]
+
+        summary = EvaluationSummary.from_results(results)
+
+        # Overall stats
+        assert summary.overall.total_judge_llm_input_tokens == 300
+        assert summary.overall.total_judge_llm_output_tokens == 150
+        assert summary.overall.total_judge_llm_tokens == 450
+        assert summary.overall.total_embedding_tokens == 400
+
+        # By metric stats
+        assert (
+            summary.by_metric["ragas:faithfulness"].total_judge_llm_input_tokens == 100
+        )
+        assert summary.by_metric["ragas:faithfulness"].total_embedding_tokens == 150
+        assert summary.by_metric["m:2"].total_judge_llm_input_tokens == 200
+        assert summary.by_metric["m:2"].total_embedding_tokens == 250
+
+        # By conversation stats
+        assert summary.by_conversation["conv1"].total_judge_llm_input_tokens == 100
+        assert summary.by_conversation["conv1"].total_embedding_tokens == 150
+        assert summary.by_conversation["conv2"].total_judge_llm_input_tokens == 200
+        assert summary.by_conversation["conv2"].total_embedding_tokens == 250
+
+        # By tag stats
+        assert summary.by_tag["eval"].total_judge_llm_input_tokens == 100
+        assert summary.by_tag["eval"].total_embedding_tokens == 150
+        assert summary.by_tag["perf"].total_judge_llm_input_tokens == 200
+        assert summary.by_tag["perf"].total_embedding_tokens == 250
+
 
 class TestEvaluationSummaryModelDumpAndValidation:
     """Tests for EvaluationSummary.model_dump() and Pydantic validation."""
@@ -321,6 +369,7 @@ class TestEvaluationSummaryModelDumpAndValidation:
                 total_judge_llm_input_tokens=0,
                 total_judge_llm_output_tokens=0,
                 total_judge_llm_tokens=0,
+                total_embedding_tokens=0,
             ),
             by_metric={},
             by_conversation={},
