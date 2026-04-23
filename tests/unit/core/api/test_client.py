@@ -898,12 +898,26 @@ class TestInferEndpoint:
                 "text": "Response with tools",
                 "request_id": "req_abc",
                 "tool_calls": [
-                    {"id": "tc1", "name": "search_documentation", "args": {"q": "rhel"}},
+                    {
+                        "id": "tc1",
+                        "name": "search_documentation",
+                        "args": {"q": "rhel"},
+                    },
                     {"id": "tc2", "tool_name": "mcp_list_tools", "arguments": {}},
                 ],
                 "tool_results": [
-                    {"id": "tc1", "type": "mcp_call", "status": "success", "content": "result1"},
-                    {"id": "tc2", "type": "tool_list", "status": "completed", "content": "tools"},
+                    {
+                        "id": "tc1",
+                        "type": "mcp_call",
+                        "status": "success",
+                        "content": "result1",
+                    },
+                    {
+                        "id": "tc2",
+                        "type": "tool_list",
+                        "status": "completed",
+                        "content": "tools",
+                    },
                 ],
             }
         }

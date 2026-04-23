@@ -66,9 +66,7 @@ class APIClient:
         retry_decorator = self._create_retry_decorator()
         self._standard_query_with_retry = retry_decorator(self._standard_query)
         self._streaming_query_with_retry = retry_decorator(self._streaming_query)
-        self._rlsapi_infer_query_with_retry = retry_decorator(
-            self._rlsapi_infer_query
-        )
+        self._rlsapi_infer_query_with_retry = retry_decorator(self._rlsapi_infer_query)
 
     def _create_retry_decorator(self) -> Any:
         return retry(
