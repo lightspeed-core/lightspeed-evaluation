@@ -1,0 +1,13 @@
+- conversation_group_id: namespace_learning_conversation
+  description: Multi-turn conversation about namespaces
+  tag: multi-turn
+  turns:
+  - turn_id: turn_1
+    query: What is a namespace in OpenShift?
+    response: A namespace in OpenShift is a logical partition that provides scope for resource names and isolation between different projects or teams.
+  - turn_id: turn_2
+    query: How do I create a namespace?
+    response: You can create a namespace using the command 'oc create namespace <name>'. For example, 'oc create namespace my-project' creates a namespace called my-project.
+  - turn_id: turn_3
+    query: Can I use the namespace I just created?
+    response: Yes, to use the namespace you created (my-project), run 'oc project my-project'. This switches your current context to that namespace.
