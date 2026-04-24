@@ -14,6 +14,7 @@ from lightspeed_evaluation.core.storage.composite_storage import (
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
+    LangfuseBackendConfig,
     StorageBackendConfig,
 )
 from lightspeed_evaluation.core.storage.file_storage import FileStorageBackend
@@ -75,6 +76,27 @@ def get_database_config(
     return None
 
 
+def get_langfuse_storage_config(
+    storage_configs: Sequence[StorageBackendConfig],
+) -> Optional[LangfuseBackendConfig]:
+    """Return the first Langfuse storage entry, if any.
+
+    Multiple ``langfuse`` rows are allowed in YAML; only the first is used for
+    export settings (same rule as :func:`get_file_config` for file backends).
+
+    Args:
+        storage_configs: Parsed ``SystemConfig.storage`` list.
+
+    Returns:
+        The first :class:`~lightspeed_evaluation.core.storage.config.LangfuseBackendConfig`,
+        or ``None`` when none are configured.
+    """
+    for config in storage_configs:
+        if isinstance(config, LangfuseBackendConfig):
+            return config
+    return None
+
+
 def get_file_config(
     storage_configs: Sequence[StorageBackendConfig],
 ) -> FileBackendConfig:
@@ -127,6 +149,11 @@ def create_pipeline_storage_backend(
                     "File storage entries in ``storage`` require ``system_config`` "
                     "when building the pipeline storage backend."
                 )
+        elif isinstance(config, LangfuseBackendConfig):
+            logger.info(
+                "Storage entry type langfuse: export is handled at run completion "
+                "(not part of pipeline incremental storage)"
+            )
         else:
             raise ConfigurationError(
                 f"Unknown storage backend type: {type(config).__name__!r}"

@@ -294,6 +294,10 @@ storage:
   #   database: "./eval_results.db"
   #   table_name: "evaluation_results"
 
+  # Langfuse backend (optional) - stores results incrementally to Langfuse
+  # - type: "langfuse"
+  #   host: "https://cloud.langfuse.com"
+
 # Visualization settings
 visualization:
   figsize: [12, 8]            # Graph size (width, height)

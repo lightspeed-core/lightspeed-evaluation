@@ -28,6 +28,7 @@ Example usage:
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
+    LangfuseBackendConfig,
     StorageBackendConfig,
 )
 from lightspeed_evaluation.core.storage.composite_storage import (
@@ -39,6 +40,7 @@ from lightspeed_evaluation.core.storage.factory import (
     create_pipeline_storage_backend,
     get_database_config,
     get_file_config,
+    get_langfuse_storage_config,
 )
 from lightspeed_evaluation.core.storage.file_storage import FileStorageBackend
 from lightspeed_evaluation.core.storage.protocol import BaseStorageBackend, RunInfo
@@ -56,6 +58,7 @@ __all__ = [
     "StorageError",
     "FileBackendConfig",
     "DatabaseBackendConfig",
+    "LangfuseBackendConfig",
     "StorageBackendConfig",
     "CompositeStorageBackend",
     "NoOpStorageBackend",
@@ -64,4 +67,5 @@ __all__ = [
     "create_pipeline_storage_backend",
     "get_database_config",
     "get_file_config",
+    "get_langfuse_storage_config",
 ]
