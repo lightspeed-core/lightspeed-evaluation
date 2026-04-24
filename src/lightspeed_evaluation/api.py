@@ -23,11 +23,13 @@ For structured results with computed statistics::
     print(summary.by_metric)
 """
 
+from collections.abc import Callable
 from typing import Optional
 
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
+    EvaluationRunContext,
     SystemConfig,
     TurnData,
 )
@@ -36,10 +38,15 @@ from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
 
-def evaluate(
+def evaluate(  # pylint: disable=too-many-arguments
     config: SystemConfig,
     data: list[EvaluationData],
     output_dir: Optional[str] = None,
+    *,
+    evaluation_data_path: Optional[str] = None,
+    on_complete: Optional[
+        Callable[[list[EvaluationResult], EvaluationRunContext], None]
+    ] = None,
 ) -> list[EvaluationResult]:
     """Run evaluation on the provided data using the given configuration.
 
@@ -51,6 +58,12 @@ def evaluate(
         config: A pre-built SystemConfig instance.
         data: List of EvaluationData conversations to evaluate.
         output_dir: Optional override for the output directory.
+        evaluation_data_path: Optional path to the evaluation data file, used
+            for run naming and in :class:`EvaluationRunContext` (e.g. Langfuse).
+        on_complete: Optional callback after a successful run; receives results
+            and an :class:`EvaluationRunContext`. See
+            :mod:`lightspeed_evaluation.integrations.langfuse_reporter` for
+            a Langfuse helper. Failures in the callback do not fail the run.
 
     Returns:
         List of EvaluationResult objects (one per metric per turn/conversation).
@@ -61,16 +74,25 @@ def evaluate(
     loader = ConfigLoader.from_config(config)
     pipeline = EvaluationPipeline(loader, output_dir)
     try:
-        return pipeline.run_evaluation(data)
+        return pipeline.run_evaluation(
+            data,
+            original_data_path=evaluation_data_path,
+            on_complete=on_complete,
+        )
     finally:
         pipeline.close()
 
 
-def evaluate_with_summary(
+def evaluate_with_summary(  # pylint: disable=too-many-arguments
     config: SystemConfig,
     data: list[EvaluationData],
     output_dir: Optional[str] = None,
     compute_confidence_intervals: bool = False,
+    *,
+    evaluation_data_path: Optional[str] = None,
+    on_complete: Optional[
+        Callable[[list[EvaluationResult], EvaluationRunContext], None]
+    ] = None,
 ) -> EvaluationSummary:
     """Run evaluation and return structured results with computed statistics.
 
@@ -84,11 +106,19 @@ def evaluate_with_summary(
         output_dir: Optional override for the output directory.
         compute_confidence_intervals: Whether to compute bootstrap confidence
             intervals. Default False.
+        evaluation_data_path: Same as for :func:`evaluate`.
+        on_complete: Same as for :func:`evaluate`.
 
     Returns:
         EvaluationSummary with results and computed statistics.
     """
-    results = evaluate(config, data, output_dir=output_dir)
+    results = evaluate(
+        config,
+        data,
+        output_dir=output_dir,
+        evaluation_data_path=evaluation_data_path,
+        on_complete=on_complete,
+    )
     return EvaluationSummary.from_results(
         results,
         evaluation_data=data if data else None,
@@ -96,10 +126,15 @@ def evaluate_with_summary(
     )
 
 
-def evaluate_conversation(
+def evaluate_conversation(  # pylint: disable=too-many-arguments
     config: SystemConfig,
     data: EvaluationData,
     output_dir: Optional[str] = None,
+    *,
+    evaluation_data_path: Optional[str] = None,
+    on_complete: Optional[
+        Callable[[list[EvaluationResult], EvaluationRunContext], None]
+    ] = None,
 ) -> list[EvaluationResult]:
     """Evaluate a single conversation group.
 
@@ -109,18 +144,31 @@ def evaluate_conversation(
         config: A pre-built SystemConfig instance.
         data: A single EvaluationData conversation to evaluate.
         output_dir: Optional override for the output directory.
+        evaluation_data_path: Same as for :func:`evaluate`.
+        on_complete: Same as for :func:`evaluate`.
 
     Returns:
         List of EvaluationResult objects.
     """
-    return evaluate(config, [data], output_dir=output_dir)
+    return evaluate(
+        config,
+        [data],
+        output_dir=output_dir,
+        evaluation_data_path=evaluation_data_path,
+        on_complete=on_complete,
+    )
 
 
-def evaluate_conversation_with_summary(
+def evaluate_conversation_with_summary(  # pylint: disable=too-many-arguments
     config: SystemConfig,
     data: EvaluationData,
     output_dir: Optional[str] = None,
     compute_confidence_intervals: bool = False,
+    *,
+    evaluation_data_path: Optional[str] = None,
+    on_complete: Optional[
+        Callable[[list[EvaluationResult], EvaluationRunContext], None]
+    ] = None,
 ) -> EvaluationSummary:
     """Evaluate a single conversation and return structured results.
 
@@ -132,6 +180,8 @@ def evaluate_conversation_with_summary(
         output_dir: Optional override for the output directory.
         compute_confidence_intervals: Whether to compute bootstrap confidence
             intervals. Default False.
+        evaluation_data_path: Same as for :func:`evaluate`.
+        on_complete: Same as for :func:`evaluate`.
 
     Returns:
         EvaluationSummary with results and computed statistics.
@@ -141,15 +191,22 @@ def evaluate_conversation_with_summary(
         [data],
         output_dir=output_dir,
         compute_confidence_intervals=compute_confidence_intervals,
+        evaluation_data_path=evaluation_data_path,
+        on_complete=on_complete,
     )
 
 
-def evaluate_turn(
+def evaluate_turn(  # pylint: disable=too-many-arguments
     config: SystemConfig,
     turn: TurnData,
     metrics: Optional[list[str]] = None,
     conversation_group_id: str = "programmatic_eval",
     output_dir: Optional[str] = None,
+    *,
+    evaluation_data_path: Optional[str] = None,
+    on_complete: Optional[
+        Callable[[list[EvaluationResult], EvaluationRunContext], None]
+    ] = None,
 ) -> list[EvaluationResult]:
     """Evaluate a single turn.
 
@@ -163,6 +220,8 @@ def evaluate_turn(
         metrics: Optional list of metric identifiers to override turn_metrics.
         conversation_group_id: Conversation group ID for the wrapper.
         output_dir: Optional override for the output directory.
+        evaluation_data_path: Same as for :func:`evaluate`.
+        on_complete: Same as for :func:`evaluate`.
 
     Returns:
         List of EvaluationResult objects.
@@ -174,15 +233,26 @@ def evaluate_turn(
         conversation_group_id=conversation_group_id,
         turns=[turn],
     )
-    return evaluate(config, [data], output_dir=output_dir)
+    return evaluate(
+        config,
+        [data],
+        output_dir=output_dir,
+        evaluation_data_path=evaluation_data_path,
+        on_complete=on_complete,
+    )
 
 
-def evaluate_turn_with_summary(
+def evaluate_turn_with_summary(  # pylint: disable=too-many-arguments
     config: SystemConfig,
     turn: TurnData,
     metrics: Optional[list[str]] = None,
     conversation_group_id: str = "programmatic_eval",
     output_dir: Optional[str] = None,
+    *,
+    evaluation_data_path: Optional[str] = None,
+    on_complete: Optional[
+        Callable[[list[EvaluationResult], EvaluationRunContext], None]
+    ] = None,
 ) -> EvaluationSummary:
     """Evaluate a single turn and return structured results.
 
@@ -194,6 +264,8 @@ def evaluate_turn_with_summary(
         metrics: Optional list of metric identifiers to override turn_metrics.
         conversation_group_id: Conversation group ID for the wrapper.
         output_dir: Optional override for the output directory.
+        evaluation_data_path: Same as for :func:`evaluate`.
+        on_complete: Same as for :func:`evaluate`.
 
     Returns:
         EvaluationSummary with results and computed statistics.
@@ -210,4 +282,6 @@ def evaluate_turn_with_summary(
         [data],
         output_dir=output_dir,
         compute_confidence_intervals=False,
+        evaluation_data_path=evaluation_data_path,
+        on_complete=on_complete,
     )

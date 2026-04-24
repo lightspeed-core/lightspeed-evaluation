@@ -491,6 +491,9 @@ export AZURE_API_BASE="https://your-resource.openai.azure.com/"
 export API_KEY="your-api-endpoint-key"
 ```
 
+#### Optional: Langfuse
+After a run, you can send one trace with per-metric scores to [Langfuse](https://langfuse.com/). Install `lightspeed-evaluation[langfuse]`, set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` (and `LANGFUSE_HOST` if not using the default cloud), then use `lightspeed-eval --langfuse` or set `LIGHTSPEED_USE_LANGFUSE=1`. From Python, pass `on_complete=build_langfuse_on_complete_callback()` (from `lightspeed_evaluation.integrations.langfuse_reporter`) to `evaluate()`.
+
 ## 📈 Output & Visualization
 
 ### Generated Reports

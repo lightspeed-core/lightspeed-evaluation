@@ -6,6 +6,7 @@ from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
+    EvaluationRunContext,
 )
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
@@ -158,6 +159,105 @@ class TestEvaluationPipeline:
 
         assert len(results) == 1
         assert results[0].result == "PASS"
+
+    def test_on_complete_receives_results_and_context(
+        self,
+        mock_config_loader: ConfigLoader,
+        sample_evaluation_data: list[EvaluationData],
+        mocker: MockerFixture,
+    ) -> None:
+        """Test optional on_complete is invoked with results and EvaluationRunContext."""
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.ScriptExecutionManager"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.MetricsEvaluator"
+        )
+
+        mock_result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="turn1",
+            metric_identifier="ragas:faithfulness",
+            score=0.85,
+            result="PASS",
+            threshold=0.7,
+            reason="Good",
+        )
+        mock_processor = mocker.Mock()
+        mock_processor.process_conversation.return_value = [mock_result]
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.ConversationProcessor",
+            return_value=mock_processor,
+        )
+
+        received: list[tuple[list[EvaluationResult], EvaluationRunContext]] = []
+
+        def on_complete(res: list[EvaluationResult], ctx: EvaluationRunContext) -> None:
+            received.append((res, ctx))
+
+        pipeline = EvaluationPipeline(mock_config_loader)
+        path = "/tmp/eval_data.yaml"
+        results = pipeline.run_evaluation(
+            sample_evaluation_data, path, on_complete=on_complete
+        )
+
+        assert results[0] is mock_result
+        assert len(received) == 1
+        assert received[0][0] == results
+        assert received[0][1].run_name == path
+        assert received[0][1].original_data_path == path
+
+    def test_on_complete_error_does_not_prevent_result_return(
+        self,
+        mock_config_loader: ConfigLoader,
+        sample_evaluation_data: list[EvaluationData],
+        mocker: MockerFixture,
+    ) -> None:
+        """If the optional callback raises, the pipeline still returns results."""
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.ScriptExecutionManager"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.MetricsEvaluator"
+        )
+        mock_result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="t1",
+            metric_identifier="m1",
+            score=1.0,
+            result="PASS",
+            reason="x",
+        )
+        mock_processor = mocker.Mock()
+        mock_processor.process_conversation.return_value = [mock_result]
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.ConversationProcessor",
+            return_value=mock_processor,
+        )
+
+        def on_complete(
+            _res: list[EvaluationResult], _ctx: EvaluationRunContext
+        ) -> None:
+            raise RuntimeError("integration failed")
+
+        pipeline = EvaluationPipeline(mock_config_loader)
+        out = pipeline.run_evaluation(sample_evaluation_data, on_complete=on_complete)
+        assert len(out) == 1
+        assert out[0] is mock_result
 
     def test_run_evaluation_saves_amended_data_when_api_enabled(
         self,
