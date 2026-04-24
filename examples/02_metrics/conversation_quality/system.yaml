@@ -1,0 +1,67 @@
+core:
+  max_threads: 1
+llm_pool:
+  defaults:
+    cache_enabled: false
+    timeout: 120
+    num_retries: 1
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 1024
+  models:
+    judge_gpt_4o_mini:
+      provider: openai
+      model: gpt-4o-mini
+judge_panel:
+  judges:
+  - judge_gpt_4o_mini
+api:
+  enabled: false
+  cache_enabled: false
+metrics_metadata:
+  conversation_level:
+    deepeval:conversation_completeness:
+      threshold: 0.7
+      description: Evaluates if conversation fully addresses all aspects of the task
+      default: true
+    deepeval:conversation_relevancy:
+      threshold: 0.7
+      description: Measures relevance of turns throughout the conversation
+      default: true
+    deepeval:knowledge_retention:
+      threshold: 0.7
+      description: Checks if AI retains and uses information from earlier turns
+      default: true
+storage:
+- type: file
+  output_dir: examples/02_metrics/conversation_quality/eval_output
+  base_filename: evaluation
+  enabled_outputs:
+  - csv
+  - json
+  - txt
+  csv_columns:
+  - conversation_group_id
+  - metric_identifier
+  - score
+  - threshold
+  - result
+  - reason
+visualization:
+  figsize:
+  - 12
+  - 8
+  dpi: 150
+  enabled_graphs:
+  - pass_rates
+  - score_distribution
+  - status_breakdown
+environment:
+  DEEPEVAL_TELEMETRY_OPT_OUT: 'YES'
+  DEEPEVAL_DISABLE_PROGRESS_BAR: 'YES'
+  LITELLM_LOG: ERROR
+logging:
+  source_level: INFO
+  package_level: WARNING
+  log_format: '%(asctime)s - %(levelname)s - %(message)s'
+  show_timestamps: true
