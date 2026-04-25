@@ -24,7 +24,7 @@ api:
   cache_enabled: false
 metrics_metadata:
   turn_level:
-    ragas:faithfulness:  # Faithfulness
+    ragas:faithfulness:
       threshold: 0.8
       description: Detects hallucinations by comparing response to provided context
       default: true
@@ -37,7 +37,6 @@ metrics_metadata:
       description: Compares response accuracy against expected answer
       default: true
     custom:intent_eval:
-      threshold: 1
       description: Binary check if response addresses user intent
       default: true
 storage:
