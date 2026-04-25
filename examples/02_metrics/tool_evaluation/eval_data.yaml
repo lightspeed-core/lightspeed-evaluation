@@ -1,0 +1,100 @@
+- conversation_group_id: correct_tool_usage
+  description: Agent uses correct tool with right parameters
+  tag: tools
+  turns:
+  - turn_id: get_pods
+    query: Show me all pods in the openshift-monitoring namespace
+    tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: openshift-monitoring
+    expected_tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: openshift-monitoring
+- conversation_group_id: regex_pattern_matching
+  description: Tool calls with dynamic values (regex patterns)
+  tag: tools
+  turns:
+  - turn_id: describe_pod_pattern
+    query: Describe any lightspeed pod
+    tool_calls:
+    - - tool_name: oc_describe
+        arguments:
+          kind: pod
+          name: lightspeed-app-controller-7d5f8c9b-xyz
+          namespace: openshift-lightspeed
+    expected_tool_calls:
+    - - tool_name: oc_describe
+        arguments:
+          kind: pod
+          name: lightspeed-.*
+          namespace: openshift-lightspeed
+- conversation_group_id: wrong_tool
+  description: Agent uses wrong tool
+  tag: tools
+  turns:
+  - turn_id: wrong_tool_call
+    query: Get pods in default namespace
+    tool_calls:
+    - - tool_name: kubectl_list
+        arguments:
+          resource: pods
+          namespace: default
+    expected_tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: default
+- conversation_group_id: tool_result_validation
+  description: Validate tool call result/output
+  tag: tools
+  turns:
+  - turn_id: check_pod_status
+    query: Check if the namespace pod is running
+    tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          name: my-namespace-pod
+          namespace: default
+        result: 'STATUS: Running'
+    expected_tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          name: my-namespace-pod
+          namespace: default
+        result: '.*Running.*'
+- conversation_group_id: alternative_tool_paths
+  description: Alternative approaches - 2-step sequence OR single tool
+  tag: tools
+  # NOTE: This example demonstrates OR logic with alternatives. Alternatively,
+  # this could be handled by setting full_match: false and expecting only
+  # the minimum required tool (oc_get), which would pass with or without
+  # the additional oc_describe step.
+  turns:
+  - turn_id: get_namespace_info
+    query: Get namespace information for default
+    tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: namespace
+          name: default
+    expected_tool_calls:
+    # Alternative 1: Two-step approach (check then describe)
+    - - - tool_name: oc_get
+          arguments:
+            kind: namespace
+            name: default
+      - - tool_name: oc_describe
+          arguments:
+            kind: namespace
+            name: default
+    # Alternative 2: Single-step approach (just get) - matches actual
+    - - - tool_name: oc_get
+          arguments:
+            kind: namespace
+            name: default
