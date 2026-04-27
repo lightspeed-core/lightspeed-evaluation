@@ -28,7 +28,11 @@ logger = logging.getLogger(__name__)
 
 
 def _is_retryable_server_error(exception: BaseException) -> bool:
-    """Check if exception is a retryable HTTP error (429 or 5xx).
+    """Check if exception is a retryable HTTP error (429 or transient 5xx).
+
+    Only 502 Bad Gateway, 503 Service Unavailable, and 504 Gateway Timeout
+    are retried. 500 Internal Server Error is excluded as it may indicate
+    permanent server bugs.
 
     Args:
         exception: The exception to check.
@@ -39,7 +43,7 @@ def _is_retryable_server_error(exception: BaseException) -> bool:
     if not isinstance(exception, httpx.HTTPStatusError):
         return False
     status = exception.response.status_code
-    return status == 429 or 500 <= status < 600
+    return status in (429, 502, 503, 504)
 
 
 class APIClient:
@@ -352,6 +356,10 @@ class APIClient:
             raise APIError("HTTP client not initialized")
         try:
             request_data = api_request.model_dump(exclude_none=True)
+            # `extra_request_params` are not forwarded to `/infer` — the
+            # endpoint only accepts `question` and `include_metadata`.
+            # Other params (model, provider, etc.) are not part of the
+            # RLSAPI `/infer` API contract.
             infer_request: dict[str, object] = {
                 "question": request_data.pop("query"),
                 "include_metadata": True,
@@ -361,7 +369,13 @@ class APIClient:
                 "RLSAPI infer request URL: /api/lightspeed/%s/infer",
                 self.config.version,
             )
-            logger.debug("RLSAPI infer request body: %s", infer_request)
+            logger.debug(
+                "RLSAPI infer request: version=%s, include_metadata=%s, "
+                "question_length=%d",
+                self.config.version,
+                True,
+                len(str(infer_request.get("question", ""))),
+            )
 
             response = self.client.post(
                 f"/api/lightspeed/{self.config.version}/infer",
@@ -385,12 +399,12 @@ class APIClient:
                     response_data["tool_calls"] = data["tool_calls"]
                 if "tool_results" in data:
                     tool_results = data["tool_results"]
+                    rag_chunks: list[dict[str, str]] = []
                     for result in tool_results:
                         if result.get("type") == "mcp_call":
                             content = result["content"].split("---")
-                            response_data["rag_chunks"] = [
-                                {"content": chunk} for chunk in content
-                            ]
+                            rag_chunks.extend([{"content": chunk} for chunk in content])
+                    response_data["rag_chunks"] = rag_chunks
 
             if "response" not in response_data:
                 raise APIError("API response missing 'response' field")
@@ -402,16 +416,8 @@ class APIClient:
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
                         formatted_tool: dict[str, object] = {
-                            "tool_name": (
-                                tool_call.get("tool_name")
-                                or tool_call.get("name")
-                                or ""
-                            ),
-                            "arguments": (
-                                tool_call.get("arguments")
-                                or tool_call.get("args")
-                                or {}
-                            ),
+                            "tool_name": tool_call.get("name", ""),
+                            "arguments": tool_call.get("args", {}),
                         }
                         if "tool_results" in response_data.get("data", {}):
                             tool_call_id = tool_call.get("id")
@@ -424,7 +430,12 @@ class APIClient:
                                 None,
                             )
                             if matching_result:
-                                formatted_tool["result"] = matching_result["status"]
+                                formatted_tool["result"] = matching_result.get(
+                                    "content", matching_result.get("status", "")
+                                )
+                                formatted_tool["status"] = matching_result.get(
+                                    "status", ""
+                                )
                         formatted_tool_calls.append([formatted_tool])
 
                 response_data["tool_calls"] = formatted_tool_calls

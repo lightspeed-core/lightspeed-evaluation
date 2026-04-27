@@ -159,6 +159,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         self.api_enabled = api_enabled
         self.original_data_path: Optional[str] = None
         self.fail_on_invalid_data = fail_on_invalid_data
+        self._system_config = system_config
         self._turn_level_metrics: set[str] = (
             system_config.turn_level_metric_names if system_config else set()
         )
@@ -235,15 +236,38 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         # Remove skipped conversations
         evaluation_data = [e for e in evaluation_data if not e.skip]
 
-        # Filter turn_metrics if --metrics was specified
+        # Filter turn_metrics and conversation_metrics if --metrics was specified
         if metrics:
             metrics_set = set(metrics)
             for eval_data in evaluation_data:
                 for turn in eval_data.turns:
-                    if turn.turn_metrics:
+                    if turn.turn_metrics is not None:
                         turn.turn_metrics = [
                             m for m in turn.turn_metrics if m in metrics_set
                         ]
+                    elif self._system_config is not None:
+                        turn_defaults = (
+                            self._system_config.default_turn_metrics_metadata
+                        )
+                        turn.turn_metrics = [
+                            m
+                            for m, meta in turn_defaults.items()
+                            if meta.get("default", False) and m in metrics_set
+                        ]
+
+                if eval_data.conversation_metrics is not None:
+                    eval_data.conversation_metrics = [
+                        m for m in eval_data.conversation_metrics if m in metrics_set
+                    ]
+                elif self._system_config is not None:
+                    conv_defaults = (
+                        self._system_config.default_conversation_metrics_metadata
+                    )
+                    eval_data.conversation_metrics = [
+                        m
+                        for m, meta in conv_defaults.items()
+                        if meta.get("default", False) and m in metrics_set
+                    ]
 
         # Semantic validation (metrics availability and requirements)
         if not self._validate_evaluation_data(evaluation_data):

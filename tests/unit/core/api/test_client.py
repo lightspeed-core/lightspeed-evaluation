@@ -697,7 +697,7 @@ class TestRetryLogic:
         )
 
         resp_500 = mocker.Mock(status_code=500)
-        assert _is_retryable_server_error(
+        assert not _is_retryable_server_error(
             httpx.HTTPStatusError("", request=mocker.Mock(), response=resp_500)
         )
 
@@ -814,23 +814,23 @@ class TestRetryLogic:
 
         assert mock_client.post.call_count == 4  # 3 retries + 1 initial attempt
 
-    def test_standard_query_retries_on_500_then_succeeds(
+    def test_standard_query_retries_on_502_then_succeeds(
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
-        """Test standard query retries on 500 error and succeeds on retry."""
-        mock_response_500 = mocker.Mock(status_code=500, text="Internal server error")
-        mock_response_500.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "500 error", request=mocker.Mock(), response=mock_response_500
+        """Test standard query retries on 502 error and succeeds on retry."""
+        mock_response_502 = mocker.Mock(status_code=502, text="Bad gateway")
+        mock_response_502.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "502 error", request=mocker.Mock(), response=mock_response_502
         )
 
         mock_response_success = mocker.Mock(status_code=200)
         mock_response_success.json.return_value = {
-            "response": "Success after 500 retry",
+            "response": "Success after 502 retry",
             "conversation_id": "conv_123",
         }
 
         mock_client = mocker.Mock()
-        mock_client.post.side_effect = [mock_response_500, mock_response_success]
+        mock_client.post.side_effect = [mock_response_502, mock_response_success]
         mock_client.headers = {}
 
         mocker.patch(
@@ -841,7 +841,7 @@ class TestRetryLogic:
         client = APIClient(basic_api_config_query_endpoint)
         result = client.query("Test standard query")
 
-        assert result.response == "Success after 500 retry"
+        assert result.response == "Success after 502 retry"
         assert mock_client.post.call_count == 2
 
 
@@ -903,7 +903,7 @@ class TestInferEndpoint:
                         "name": "search_documentation",
                         "args": {"q": "rhel"},
                     },
-                    {"id": "tc2", "tool_name": "mcp_list_tools", "arguments": {}},
+                    {"id": "tc2", "name": "mcp_list_tools", "args": {}},
                 ],
                 "tool_results": [
                     {
@@ -938,9 +938,11 @@ class TestInferEndpoint:
         assert isinstance(result.tool_calls[0], list)
         assert result.tool_calls[0][0]["tool_name"] == "search_documentation"
         assert result.tool_calls[0][0]["arguments"] == {"q": "rhel"}
-        assert result.tool_calls[0][0]["result"] == "success"
+        assert result.tool_calls[0][0]["result"] == "result1"
+        assert result.tool_calls[0][0]["status"] == "success"
         assert result.tool_calls[1][0]["tool_name"] == "mcp_list_tools"
-        assert result.tool_calls[1][0]["result"] == "completed"
+        assert result.tool_calls[1][0]["result"] == "tools"
+        assert result.tool_calls[1][0]["status"] == "completed"
 
     def test_infer_query_extracts_rag_chunks(
         self, basic_api_config_infer_endpoint: APIConfig, mocker: MockerFixture
