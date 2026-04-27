@@ -27,12 +27,23 @@ from lightspeed_evaluation.core.system.exceptions import APIError
 logger = logging.getLogger(__name__)
 
 
-def _is_too_many_requests_error(exception: BaseException) -> bool:
-    """Check if exception is a 429 error."""
-    return (
-        isinstance(exception, httpx.HTTPStatusError)
-        and exception.response.status_code == 429
-    )
+def _is_retryable_server_error(exception: BaseException) -> bool:
+    """Check if exception is a retryable HTTP error (429 or transient 5xx).
+
+    Only 502 Bad Gateway, 503 Service Unavailable, and 504 Gateway Timeout
+    are retried. 500 Internal Server Error is excluded as it may indicate
+    permanent server bugs.
+
+    Args:
+        exception: The exception to check.
+
+    Returns:
+        True if the exception is a retryable HTTP status error.
+    """
+    if not isinstance(exception, httpx.HTTPStatusError):
+        return False
+    status = exception.response.status_code
+    return status in (429, 502, 503, 504)
 
 
 class APIClient:
@@ -59,10 +70,11 @@ class APIClient:
         retry_decorator = self._create_retry_decorator()
         self._standard_query_with_retry = retry_decorator(self._standard_query)
         self._streaming_query_with_retry = retry_decorator(self._streaming_query)
+        self._rlsapi_infer_query_with_retry = retry_decorator(self._rlsapi_infer_query)
 
     def _create_retry_decorator(self) -> Any:
         return retry(
-            retry=retry_if_exception(_is_too_many_requests_error),
+            retry=retry_if_exception(_is_retryable_server_error),
             stop=stop_after_attempt(
                 self.config.num_retries + 1
             ),  # +1 to account for the initial attempt
@@ -186,6 +198,8 @@ class APIClient:
 
             if self.config.endpoint_type == "streaming":
                 response = self._streaming_query_with_retry(api_request)
+            elif self.config.endpoint_type == "infer":
+                response = self._rlsapi_infer_query_with_retry(api_request)
             else:
                 response = self._standard_query_with_retry(api_request)
 
@@ -196,7 +210,7 @@ class APIClient:
         except RetryError as e:
             raise APIError(
                 f"Maximum retry attempts ({self.config.num_retries}) reached "
-                "due to persistent rate limiting (HTTP 429)."
+                "due to retryable server errors (HTTP 429/5xx)."
             ) from e
 
     def _prepare_request(
@@ -285,8 +299,7 @@ class APIClient:
         except httpx.TimeoutException as e:
             raise self._handle_timeout_error("standard", self.config.timeout) from e
         except httpx.HTTPStatusError as e:
-            # Re-raise 429 errors without conversion to allow retry decorator to handle them
-            if e.response.status_code == 429:
+            if _is_retryable_server_error(e):
                 raise
             raise self._handle_http_error(e) from e
         except ValueError as e:
@@ -313,8 +326,7 @@ class APIClient:
         except httpx.TimeoutException as e:
             raise self._handle_timeout_error("streaming", self.config.timeout) from e
         except httpx.HTTPStatusError as e:
-            # Re-raise 429 errors without conversion to allow retry decorator to handle them
-            if e.response.status_code == 429:
+            if _is_retryable_server_error(e):
                 raise
             raise self._handle_http_error(e) from e
         except ValueError as e:
@@ -323,6 +335,125 @@ class APIClient:
             raise
         except Exception as e:
             raise self._handle_unexpected_error(e, "streaming query") from e
+
+    def _rlsapi_infer_query(self, api_request: APIRequest) -> APIResponse:
+        """Query the RLSAPI /infer endpoint for tool call and RAG metadata.
+
+        The infer endpoint uses a different request/response format than
+        the standard query/streaming endpoints, converting "query" to
+        "question" and parsing tool_calls and rag_chunks from tool_results.
+
+        Args:
+            api_request: The prepared API request.
+
+        Returns:
+            APIResponse with response text, tool calls, and RAG contexts.
+
+        Raises:
+            APIError: If the request fails or response is invalid.
+        """
+        if not self.client:
+            raise APIError("HTTP client not initialized")
+        try:
+            request_data = api_request.model_dump(exclude_none=True)
+            # `extra_request_params` are not forwarded to `/infer` — the
+            # endpoint only accepts `question` and `include_metadata`.
+            # Other params (model, provider, etc.) are not part of the
+            # RLSAPI `/infer` API contract.
+            infer_request: dict[str, object] = {
+                "question": request_data.pop("query"),
+                "include_metadata": True,
+            }
+
+            logger.debug(
+                "RLSAPI infer request URL: /api/lightspeed/%s/infer",
+                self.config.version,
+            )
+            logger.debug(
+                "RLSAPI infer request: version=%s, include_metadata=%s, "
+                "question_length=%d",
+                self.config.version,
+                True,
+                len(str(infer_request.get("question", ""))),
+            )
+
+            response = self.client.post(
+                f"/api/lightspeed/{self.config.version}/infer",
+                json=infer_request,
+            )
+            response.raise_for_status()
+
+            response_data = response.json()
+
+            if "data" in response_data:
+                data = response_data["data"]
+                if "text" in data:
+                    response_data["response"] = data["text"]
+                if "request_id" in data:
+                    response_data["conversation_id"] = data["request_id"]
+                if "input_tokens" in data:
+                    response_data["input_tokens"] = data["input_tokens"]
+                if "output_tokens" in data:
+                    response_data["output_tokens"] = data["output_tokens"]
+                if "tool_calls" in data:
+                    response_data["tool_calls"] = data["tool_calls"]
+                if "tool_results" in data:
+                    tool_results = data["tool_results"]
+                    rag_chunks: list[dict[str, str]] = []
+                    for result in tool_results:
+                        if result.get("type") == "mcp_call":
+                            content = result["content"].split("---")
+                            rag_chunks.extend([{"content": chunk} for chunk in content])
+                    response_data["rag_chunks"] = rag_chunks
+
+            if "response" not in response_data:
+                raise APIError("API response missing 'response' field")
+
+            if "tool_calls" in response_data and response_data["tool_calls"]:
+                raw_tool_calls = response_data["tool_calls"]
+                formatted_tool_calls = []
+
+                for tool_call in raw_tool_calls:
+                    if isinstance(tool_call, dict):
+                        formatted_tool: dict[str, object] = {
+                            "tool_name": tool_call.get("name", ""),
+                            "arguments": tool_call.get("args", {}),
+                        }
+                        if "tool_results" in response_data.get("data", {}):
+                            tool_call_id = tool_call.get("id")
+                            matching_result = next(
+                                (
+                                    r
+                                    for r in response_data["data"]["tool_results"]
+                                    if r.get("id") == tool_call_id
+                                ),
+                                None,
+                            )
+                            if matching_result:
+                                formatted_tool["result"] = matching_result.get(
+                                    "content", matching_result.get("status", "")
+                                )
+                                formatted_tool["status"] = matching_result.get(
+                                    "status", ""
+                                )
+                        formatted_tool_calls.append([formatted_tool])
+
+                response_data["tool_calls"] = formatted_tool_calls
+
+            return APIResponse.from_raw_response(response_data)
+
+        except httpx.TimeoutException as e:
+            raise self._handle_timeout_error("infer", self.config.timeout) from e
+        except httpx.HTTPStatusError as e:
+            if _is_retryable_server_error(e):
+                raise
+            raise self._handle_http_error(e) from e
+        except ValueError as e:
+            raise self._handle_validation_error(e) from e
+        except APIError:
+            raise
+        except Exception as e:
+            raise self._handle_unexpected_error(e, "infer query") from e
 
     def _handle_response_errors(self, response: httpx.Response) -> None:
         """Handle HTTP response errors for streaming endpoint."""

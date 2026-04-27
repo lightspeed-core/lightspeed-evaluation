@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pytest_mock import MockerFixture
 
 from pydantic import ValidationError
 
@@ -463,6 +464,47 @@ class TestDataValidator:
         # Should have errors for both issues
         assert len(validator.validation_errors) >= 2
 
+    def test_skip_removes_conversation(self, mocker: MockerFixture) -> None:
+        """Test that conversations with skip=True are excluded."""
+        yaml_data = [
+            {
+                "conversation_group_id": "active",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+            {
+                "conversation_group_id": "skipped",
+                "skip": True,
+                "skip_reason": "Test needs rewrite",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+            {
+                "conversation_group_id": "also_active",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+        assert len(result) == 2
+        assert {r.conversation_group_id for r in result} == {"active", "also_active"}
+
+    def test_skip_false_keeps_conversation(self, mocker: MockerFixture) -> None:
+        """Test that skip=False does not exclude the conversation."""
+        yaml_data = [
+            {
+                "conversation_group_id": "explicit_no_skip",
+                "skip": False,
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+        assert len(result) == 1
+        assert result[0].conversation_group_id == "explicit_no_skip"
+
 
 class TestFilterByScope:
     """Unit test for filter by scope."""
@@ -563,3 +605,110 @@ class TestFilterByScope:
         ]
         result = validator._filter_by_scope(data, tags=["nonexistent"])
         assert len(result) == 0
+
+
+class TestMetricsFilter:
+    """Tests for --metrics filter in load_evaluation_data."""
+
+    def test_turn_metrics_none_materializes_defaults_and_filters(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test turn_metrics=None materializes system defaults, then filters."""
+        yaml_data = [
+            {
+                "conversation_group_id": "conv1",
+                "turns": [
+                    {
+                        "turn_id": "t1",
+                        "query": "Q",
+                        "response": "A",
+                        "contexts": ["C"],
+                        "expected_response": "E",
+                    },
+                ],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"default": True, "threshold": 0.7},
+                "ragas:response_relevancy": {"default": True, "threshold": 0.7},
+                "custom:answer_correctness": {"default": False, "threshold": 0.8},
+            },
+        )
+        validator = DataValidator(system_config=config)
+        result = validator.load_evaluation_data(
+            "dummy.yaml", metrics=["ragas:faithfulness"]
+        )
+        assert result[0].turns[0].turn_metrics == ["ragas:faithfulness"]
+
+    def test_conversation_metrics_none_materializes_defaults_and_filters(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test conversation_metrics=None materializes defaults, then filters."""
+        yaml_data = [
+            {
+                "conversation_group_id": "conv1",
+                "turns": [
+                    {"turn_id": "t1", "query": "Q", "response": "A"},
+                ],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        config = SystemConfig(
+            default_conversation_metrics_metadata={
+                "deepeval:conversation_completeness": {
+                    "default": True,
+                    "threshold": 0.6,
+                },
+                "deepeval:conversation_relevancy": {
+                    "default": False,
+                    "threshold": 0.5,
+                },
+            },
+        )
+        validator = DataValidator(system_config=config)
+        result = validator.load_evaluation_data(
+            "dummy.yaml",
+            metrics=["deepeval:conversation_completeness"],
+        )
+        assert result[0].conversation_metrics == ["deepeval:conversation_completeness"]
+
+    def test_conversation_metrics_explicit_list_filters(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test explicit conversation_metrics list is filtered by --metrics."""
+        yaml_data = [
+            {
+                "conversation_group_id": "conv1",
+                "conversation_metrics": [
+                    "deepeval:conversation_completeness",
+                    "deepeval:conversation_relevancy",
+                ],
+                "turns": [
+                    {"turn_id": "t1", "query": "Q", "response": "A"},
+                ],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        config = SystemConfig(
+            default_conversation_metrics_metadata={
+                "deepeval:conversation_completeness": {
+                    "default": True,
+                    "threshold": 0.6,
+                },
+                "deepeval:conversation_relevancy": {
+                    "default": True,
+                    "threshold": 0.5,
+                },
+            },
+        )
+        validator = DataValidator(system_config=config)
+        result = validator.load_evaluation_data(
+            "dummy.yaml",
+            metrics=["deepeval:conversation_completeness"],
+        )
+        assert result[0].conversation_metrics == ["deepeval:conversation_completeness"]

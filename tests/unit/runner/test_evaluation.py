@@ -57,6 +57,7 @@ def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
         "output_dir": None,
         "tags": None,
         "conv_ids": None,
+        "metrics": None,
         "cache_warmup": False,
     }
     defaults.update(kwargs)
@@ -383,7 +384,10 @@ class TestRunEvaluation:
         assert result is not None
         assert result["TOTAL"] == 0
         mock_validator.return_value.load_evaluation_data.assert_called_once_with(
-            "config/evaluation_data.yaml", tags=["nonexistent"], conv_ids=None
+            "config/evaluation_data.yaml",
+            tags=["nonexistent"],
+            conv_ids=None,
+            metrics=None,
         )
 
         # Verify warning message appears
@@ -440,6 +444,7 @@ class TestRunEvaluation:
             "config/evaluation_data.yaml",
             tags=["basic"],
             conv_ids=["conv_1"],
+            metrics=None,
         )
 
     def test_run_evaluation_storage_error(

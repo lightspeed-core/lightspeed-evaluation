@@ -370,6 +370,14 @@ class EvaluationData(BaseModel):
         min_length=1,
         description="Tag for grouping and filtering conversations",
     )
+    skip: bool = Field(
+        default=False,
+        description="Skip this conversation during evaluation",
+    )
+    skip_reason: Optional[str] = Field(
+        default=None,
+        description="Why this conversation is skipped (documentation only)",
+    )
 
     # Conversation-level metrics
     conversation_metrics: Optional[list[str]] = Field(
