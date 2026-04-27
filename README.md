@@ -157,10 +157,14 @@ data = EvaluationData(
 results = evaluate(config, [data])
 ```
 
-**See [Evaluation Guide - Programmatic API](docs/EVALUATION_GUIDE.md#10-programmatic-api) for detailed examples.**
-
 ### Usage Scenarios
-Please make any necessary modifications to system.yaml and evaluation_data.yaml. The evaluation_data.yaml file includes sample data for guidance.
+**Resources:**
+- **[examples/](examples/)** - Examples for specific use cases/scenarios
+- **[config/](config/)** - Comprehensive reference with all available options
+- **[docs/configuration.md](docs/configuration.md)** - Detailed configuration documentation
+- **[docs/EVALUATION_GUIDE.md](docs/EVALUATION_GUIDE.md)** - Complete evaluation guide
+
+Please make any necessary modifications to system configuration yaml and evaluation data yaml files.
 
 #### 1. API-Enabled Real-time data collection
 ```bash
@@ -173,7 +177,7 @@ export API_KEY="your-api-endpoint-key"
 # Default: http://localhost:8080/v1/
 
 # Run with API-enabled configuration
-lightspeed-eval --system-config config/system.yaml --eval-data config/evaluation_data.yaml
+uv run lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml>
 ```
 
 #### 2. Static Data Evaluation (API Disabled)
@@ -183,7 +187,7 @@ export OPENAI_API_KEY="your-key"
 
 # Use system configuration with api.enabled: false
 # You have to pre-generate response, contexts & tool_calls data in the input evaluation data file
-lightspeed-eval --system-config config/system_api_disabled.yaml --eval-data config/evaluation_data.yaml
+uv run lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml>
 ```
 
 ## 📊 Supported Metrics
@@ -234,18 +238,15 @@ metrics_metadata:
       description: "Metric description"
 ```
 
-See [Configuration → Metrics](docs/configuration.md#metrics) for GEval options (evaluation_steps, rubrics) and [config/system.yaml](config/system.yaml) for full examples.
-
 ## ⚙️ Configuration
 
-### System Config (`config/system.yaml`)
+### System Config
 
-The default system config file is [`config/system.yaml`](config/system.yaml).
 See [`docs/configuration.md`](docs/configuration.md) for the detailed description.
 
 ### Storage Configuration
 
-The `storage` list in [`config/system.yaml`](config/system.yaml) selects where results go. You can use **several backends at once** (for example file outputs plus a database).
+The `storage` list in `system.yaml` selects where results go. You can use **several backends at once** (for example file outputs plus a database).
 
 | Aspect | Summary |
 |--------|---------|
@@ -254,7 +255,7 @@ The `storage` list in [`config/system.yaml`](config/system.yaml) selects where r
 
 For field tables, full YAML examples (file-only, file + SQLite, file + Postgres), CSV column reference, and notes on API token columns, see **[Storage](docs/configuration.md#storage)** in the configuration guide.
 
-### Input File Data Structure (`config/evaluation_data.yaml`)
+### Input File Data Structure
 
 ```yaml
 - conversation_group_id: "test_conversation"
@@ -549,7 +550,7 @@ make test            # Or: uv run pytest tests --cov=src
 
 | Issue | Solution |
 |-------|----------|
-| Parsing error with context-related metrics (e.g., `faithfulness`) | Increase [`max_tokens`](config/system.yaml#L16) to a higher value (e.g., 2048 or higher - depends on number of the context & size) |
+| Parsing error with context-related metrics (e.g., `faithfulness`) | Increase `max_completion_tokens` in system.yaml to a higher value (e.g., 2048 or higher - depends on number of the context & size) |
 | Expected changes not reflected in results | Clear caches with `--cache-warmup` flag, or set `cache_enabled: false` in config, or manually delete `.caches/` folders |
 
 **For comprehensive troubleshooting, see [Evaluation Guide - Troubleshooting](docs/EVALUATION_GUIDE.md#14-troubleshooting)**

@@ -4,7 +4,7 @@ llm_pool:
   defaults:
     cache_enabled: false
     timeout: 60
-    num_retries: 2
+    num_retries: 1
     parameters:
       temperature: 0.0
       max_completion_tokens: 512
@@ -24,7 +24,8 @@ metrics_metadata:
       threshold: 0.75
       description: Compares response accuracy against expected answer
       default: true
-output:
+storage:
+- type: file
   output_dir: examples/01_getting_started/basic_setup/eval_output
   base_filename: evaluation
   enabled_outputs:
@@ -48,6 +49,8 @@ visualization:
   dpi: 150
   enabled_graphs:
   - status_breakdown
+environment:
+  LITELLM_LOG: ERROR
 logging:
   source_level: INFO
   package_level: WARNING

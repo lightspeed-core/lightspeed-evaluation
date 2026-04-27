@@ -6,7 +6,6 @@ api:
 metrics_metadata:
   turn_level:
     custom:keywords_eval:
-      threshold: 1
       description: Binary keyword matching (ALL keywords must match, case insensitive)
       default: true
 storage:
