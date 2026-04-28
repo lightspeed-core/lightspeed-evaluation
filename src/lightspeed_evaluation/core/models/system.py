@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """System configuration models."""
 
 import os
@@ -804,6 +805,39 @@ class GEvalConfig(BaseModel):
         return cls.model_validate(data)
 
 
+class QualityScoreConfig(BaseModel):
+    """Quality score configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    metrics: list[str] = Field(
+        default_factory=list,
+        description="List of metric identifiers to use for quality score computation",
+    )
+    default: bool = Field(
+        default=False,
+        description="If true, set default: true for all metrics in the list",
+    )
+
+    @field_validator("metrics")
+    @classmethod
+    def validate_metrics(cls, v: list[str]) -> list[str]:
+        """Ensure metrics list is not empty and contains no duplicates."""
+        if len(v) == 0:
+            raise ValueError(
+                "Quality score metrics list cannot be empty. "
+                "Either specify at least one metric or "
+                "remove the quality_score section from configuration."
+            )
+        if len(v) != len(set(v)):
+            duplicates = [m for m in v if v.count(m) > 1]
+            raise ValueError(
+                f"Quality score metrics contains duplicates: {set(duplicates)}. "
+                "Each metric should appear only once."
+            )
+        return v
+
+
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
 
@@ -848,6 +882,11 @@ class SystemConfig(BaseModel):
         default_factory=VisualizationConfig, description="Visualization configuration"
     )
 
+    # Quality score configuration
+    quality_score: Optional[QualityScoreConfig] = Field(
+        default=None, description="Quality score configuration"
+    )
+
     # Default metrics metadata from system config
     default_turn_metrics_metadata: dict[str, dict[str, Any]] = Field(
         default_factory=dict, description="Default turn metrics metadata"
@@ -888,6 +927,33 @@ class SystemConfig(BaseModel):
                         f"Invalid GEval config for '{metric_id}': {e!s}"
                     ) from e
         return v
+
+    @model_validator(mode="after")
+    def validate_quality_score_metrics(self) -> "SystemConfig":
+        """Validate quality_score metrics exist in metrics_metadata.
+
+        Raises:
+            ConfigurationError: When quality_score contains metrics not defined
+                in turn or conversation level metrics_metadata.
+        """
+        if not self.quality_score:
+            return self
+
+        # Combine all available metrics from both turn and conversation level metadata
+        all_metrics = set(self.default_turn_metrics_metadata.keys()) | set(
+            self.default_conversation_metrics_metadata.keys()
+        )
+
+        # Check for invalid metrics
+        invalid = [m for m in self.quality_score.metrics if m not in all_metrics]
+        if invalid:
+            raise ConfigurationError(
+                f"Invalid quality_score metrics: {invalid}. "
+                "Must be defined in default_turn_metrics_metadata or "
+                "default_conversation_metrics_metadata."
+            )
+
+        return self
 
     @property
     def turn_level_metric_names(self) -> set[str]:

@@ -25,6 +25,7 @@ from lightspeed_evaluation.core.models.summary import (
     StreamingStats,
     TagStats,
 )
+from lightspeed_evaluation.core.models.quality import QualityReport
 from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
 from lightspeed_evaluation.core.output.visualization import GraphGenerator
 
@@ -69,6 +70,14 @@ class OutputHandler:
             results: List of evaluation results.
             evaluation_data: Optional evaluation data for API token calculation.
         """
+        # Get quality_score_metrics from system config if available
+        quality_score_metrics = None
+        if (
+            self.system_config is not None
+            and self.system_config.quality_score is not None
+        ):
+            quality_score_metrics = self.system_config.quality_score.metrics
+
         # Build EvaluationSummary once, use it everywhere.
         # CLI path computes confidence intervals by default (when sample size > 1).
         summary = EvaluationSummary.from_results(
@@ -76,6 +85,14 @@ class OutputHandler:
             evaluation_data=evaluation_data,
             compute_confidence_intervals=True,
         )
+
+        # Generate QualityReport separately if quality score metrics are configured
+        quality_report = None
+        if quality_score_metrics:
+            quality_report = QualityReport.create_report(
+                summary.by_metric,
+                quality_score_metrics,
+            )
 
         # Prepare timestamped base filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -92,7 +109,7 @@ class OutputHandler:
 
         # Generate individual reports based on configuration
         self._generate_individual_reports(
-            results, base_filename, enabled_outputs, summary
+            results, base_filename, enabled_outputs, summary, quality_report
         )
 
         # Generate graphs if enabled
@@ -155,12 +172,13 @@ class OutputHandler:
 
         return generated_files
 
-    def _generate_individual_reports(
+    def _generate_individual_reports(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         results: list[EvaluationResult],
         base_filename: str,
         enabled_outputs: list[str],
         summary: EvaluationSummary,
+        quality_report: Optional[QualityReport] = None,
     ) -> None:
         """Generate reports based on enabled outputs."""
         if "csv" in enabled_outputs:
@@ -170,6 +188,12 @@ class OutputHandler:
         if "json" in enabled_outputs:
             json_file = self._generate_json_summary_from_model(summary, base_filename)
             logger.info("JSON: %s", json_file)
+            # Generate quality_report.json if quality score is configured
+            if quality_report is not None:
+                quality_report_file = self._generate_quality_score_report(
+                    quality_report, base_filename
+                )
+                logger.info("JSON: %s", quality_report_file)
 
         if "txt" in enabled_outputs:
             txt_file = self._generate_text_summary_from_model(summary, base_filename)
@@ -288,6 +312,53 @@ class OutputHandler:
             json.dump(output, f, indent=2)
 
         return json_file
+
+    def _generate_quality_score_report(
+        self,
+        quality_report: QualityReport,
+        base_filename: str,
+        target_dir: Optional[Path] = None,
+    ) -> Path:
+        """Generate quality score JSON report.
+
+        Args:
+            quality_report: The QualityReport model instance.
+            base_filename: Base filename for the output file.
+            target_dir: Optional directory override for output file location.
+
+        Returns:
+            Path to the generated quality_score.json file.
+        """
+        out = target_dir if target_dir is not None else self.output_dir
+        quality_score_file = out / f"{base_filename}_quality_report.json"
+
+        output = {
+            "timestamp": datetime.now().isoformat(),
+            "quality_score": quality_report.quality_score,
+            "quality_metrics": {
+                metric_id: {
+                    "mean": metric.statistics.mean,
+                    "count": metric.statistics.count,
+                    "weight": metric.weight,
+                }
+                for metric_id, metric in quality_report.quality_metrics.items()
+            },
+            "extra_metrics": {
+                metric_id: {
+                    "mean": stats.mean,
+                    "count": stats.count,
+                }
+                for metric_id, stats in quality_report.extra_metrics.items()
+            },
+            "api_latency": quality_report.api_latency,
+            "api_tokens": quality_report.api_tokens,
+            "warnings": quality_report.warnings,
+        }
+
+        with open(quality_score_file, "w", encoding="utf-8") as f:
+            json.dump(output, f, indent=2)
+
+        return quality_score_file
 
     def _generate_text_summary_from_model(
         self,

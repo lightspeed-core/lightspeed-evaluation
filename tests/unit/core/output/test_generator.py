@@ -10,6 +10,7 @@ from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import EvaluationResult
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
+from lightspeed_evaluation.core.models.quality import QualityReport
 from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.storage import FileBackendConfig
 
@@ -157,6 +158,41 @@ class TestOutputHandler:
         handler._generate_individual_reports(sample_results, "test", ["json"], summary)
 
         assert (tmp_path / "test_summary.json").exists()
+
+    def test_generate_individual_reports_with_quality_report(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
+        """Test _generate_individual_reports creates quality_report when configured."""
+        # Mock system config with quality score metrics
+        file_config = FileBackendConfig(enabled_outputs=["json"])
+        config = mocker.Mock()
+        config.storage = [file_config]
+        config.visualization.enabled_graphs = []
+        config.model_fields.keys.return_value = []
+        # Quality Score configuration
+        config.quality_score.metrics = ["ragas:faithfulness", "ragas:answer_relevancy"]
+
+        handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
+        summary = EvaluationSummary.from_results(sample_results)
+
+        # Create a quality report
+        quality_report = QualityReport.create_report(
+            summary.by_metric,
+            ["ragas:faithfulness", "ragas:answer_relevancy"],
+        )
+        assert quality_report is not None
+
+        # Generate reports
+        handler._generate_individual_reports(
+            sample_results, "test", ["json"], summary, quality_report
+        )
+
+        # Check that quality_report.json was created
+        quality_report_file = tmp_path / "test_quality_report.json"
+        assert quality_report_file.exists()
 
     def test_generate_individual_reports_txt_only(
         self,
@@ -388,6 +424,118 @@ class TestOutputHandlerInitialization:
 
         assert "test_20240101_120000" in csv_file.name
         assert csv_file.suffix == ".csv"
+
+
+class TestQualityReportGeneration:
+    """Tests for quality report generation."""
+
+    def test_generate_quality_score_report_all_fields(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+    ) -> None:
+        """Test that _generate_quality_score_report includes all important fields."""
+        handler = OutputHandler(output_dir=str(tmp_path))
+        summary = EvaluationSummary.from_results(sample_results)
+
+        # Create a quality report
+        quality_report = QualityReport.create_report(
+            summary.by_metric,
+            ["ragas:faithfulness", "ragas:answer_relevancy"],
+        )
+
+        assert quality_report is not None
+
+        # Generate the quality score report
+        quality_file = handler._generate_quality_score_report(
+            quality_report, "test_quality"
+        )
+
+        assert quality_file.exists()
+
+        # Load and verify all important fields
+        with open(quality_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Check top-level fields
+        assert "timestamp" in data
+        assert "quality_score" in data
+        assert "quality_metrics" in data
+        assert "extra_metrics" in data
+        assert "api_latency" in data
+        assert "api_tokens" in data
+        assert "warnings" in data
+
+        # Check quality_score is a number
+        assert isinstance(data["quality_score"], (int, float))
+
+        # Check quality_metrics structure
+        assert isinstance(data["quality_metrics"], dict)
+        assert data["quality_metrics"], "quality_metrics must not be empty"
+        for _, stats in data["quality_metrics"].items():
+            assert "mean" in stats
+            assert "count" in stats
+            assert "weight" in stats
+            assert isinstance(stats["mean"], (int, float))
+            assert isinstance(stats["count"], int)
+            assert isinstance(stats["weight"], (int, float))
+            # Weight should be between 0 and 1
+            assert 0 <= stats["weight"] <= 1
+
+        # Check extra_metrics structure
+        assert isinstance(data["extra_metrics"], dict)
+
+        # Check API fields are numeric
+        assert isinstance(data["api_latency"], (int, float))
+        assert isinstance(data["api_tokens"], int)
+
+        # Check warnings is a list
+        assert isinstance(data["warnings"], list)
+
+    def test_quality_report_with_partial_metrics(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test quality report generation when only some metrics are available."""
+        # Create results with only one of the configured quality metrics
+        results = [
+            EvaluationResult(
+                conversation_group_id="conv1",
+                turn_id="turn1",
+                metric_identifier="ragas:faithfulness",
+                score=0.85,
+                result="PASS",
+                threshold=0.7,
+                reason="Good",
+            ),
+        ]
+
+        handler = OutputHandler(output_dir=str(tmp_path))
+        summary = EvaluationSummary.from_results(results)
+
+        # Try to create quality report with metrics that don't exist
+        quality_report = QualityReport.create_report(
+            summary.by_metric,
+            ["ragas:faithfulness", "ragas:answer_relevancy", "nonexistent:metric"],
+        )
+
+        assert quality_report is not None
+
+        # Generate the quality score report
+        quality_file = handler._generate_quality_score_report(
+            quality_report, "test_partial"
+        )
+
+        with open(quality_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Should have warnings about missing metrics
+        assert len(data["warnings"]) > 0
+        assert any("nonexistent:metric" in w for w in data["warnings"])
+        assert any("ragas:answer_relevancy" in w for w in data["warnings"])
+
+        # Should still have the available metric
+        assert "ragas:faithfulness" in data["quality_metrics"]
 
 
 class TestOutputHandlerSave:
