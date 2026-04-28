@@ -75,6 +75,116 @@ class MetricStats(OverallStats):
     )
 
 
+class QualityScoreStatistics(ScoreStatistics):
+    """Score statistics with weight for quality score calculation."""
+
+    weight: float = Field(
+        default=0.0,
+        description="Weight proportion (sample_size / total_samples) used in weighted average",
+    )
+
+
+class SystemReport(BaseModel):
+    """Aggregated quality score from selected metrics."""
+
+    aggregated_quality_score: float = Field(
+        default=0.0, description="Weighted average of quality score metrics"
+    )
+    quality_metrics: dict[str, QualityScoreStatistics] = Field(
+        default_factory=dict,
+        description="Individual metrics used in quality score calculation",
+    )
+    extra_metrics: dict[str, ScoreStatistics] = Field(
+        default_factory=dict,
+        description="Other evaluated metrics calculated, not used for quality score calculation",
+    )
+    api_latency: float = Field(
+        default=0.0, description="[Placeholder] Average API response time in seconds"
+    )
+    api_tokens: int = Field(
+        default=0,
+        description="[Placeholder] Total number of tokens consumed across all API calls",
+    )
+
+    @staticmethod
+    def from_results(
+        by_metric: dict[str, MetricStats],
+        quality_score_metrics: list[str],
+    ) -> Optional["SystemReport"]:
+        """Compute aggregated quality score from specified metrics.
+
+        Calculates a weighted average (by sample size) of the mean scores
+        for each specified metric using pre-computed metric statistics.
+
+        Args:
+            by_metric: Dictionary of metric statistics (from _compute_metric_stats).
+            quality_score_metrics: List of metric identifiers to include in quality score.
+
+        Returns:
+            SystemReport instance with aggregated score and individual metric stats,
+            or None if no valid metrics found.
+        """
+        # Validate all quality score metrics exist in by_metric
+        missing_metrics = [m for m in quality_score_metrics if m not in by_metric]
+        if missing_metrics:
+            raise ValueError(
+                f"Quality score metrics not found in evaluation results: {missing_metrics}. "
+                f"Available metrics: {list(by_metric.keys())}"
+            )
+
+        # Calculate total samples from quality score metrics only
+        total_samples = sum(
+            by_metric[metric_id].score_statistics.count
+            for metric_id in quality_score_metrics
+        )
+
+        if total_samples == 0:
+            return None
+
+        quality_metrics: dict[str, QualityScoreStatistics] = {}
+        extra_metrics: dict[str, ScoreStatistics] = {}
+
+        # Separate quality metrics from extra metrics
+        for metric_id in by_metric:
+            if metric_id in quality_score_metrics:
+                score_stats = by_metric[metric_id].score_statistics
+                sample_size = score_stats.count
+                weight = sample_size / total_samples
+
+                quality_metrics[metric_id] = QualityScoreStatistics(
+                    **score_stats.model_dump(),
+                    weight=weight,
+                )
+            else:
+                extra_metrics[metric_id] = by_metric[metric_id].score_statistics
+
+        # Calculate aggregated quality score
+        aggregated_score = SystemReport._calculate_quality_score(quality_metrics)
+
+        return SystemReport(
+            aggregated_quality_score=aggregated_score,
+            quality_metrics=quality_metrics,
+            extra_metrics=extra_metrics,
+        )
+
+    @staticmethod
+    def _calculate_quality_score(
+        quality_metrics: dict[str, QualityScoreStatistics],
+    ) -> float:
+        """Calculate weighted average quality score from quality metrics.
+
+        Args:
+            quality_metrics: Dictionary of quality score statistics with weights.
+
+        Returns:
+            Weighted average quality score.
+        """
+        weighted_sum = 0.0
+        for stats in quality_metrics.values():
+            weighted_sum += stats.mean * stats.weight
+        return weighted_sum
+
+
 class ConversationStats(OverallStats):
     """Statistics for a specific conversation group."""
 
