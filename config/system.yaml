@@ -104,6 +104,16 @@ api:
   # Legacy authentication (fallback when mcp_headers is not configured or disabled)
   # Authentication via API_KEY environment variable only for MCP server (without Server name)
 
+# Quality Score Configuration
+# Aggregated score from selected metrics for overall system quality assessment
+quality_score:
+  metrics:
+    - "ragas:faithfulness"
+    - "ragas:context_precision_with_reference"
+    - "custom:tool_eval"
+    - "custom:answer_correctness"
+  default: true # If true, all metrics in this list get default: true
+
 # Default metrics metadata
 metrics_metadata:
   # Turn-level metrics metadata

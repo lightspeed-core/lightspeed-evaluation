@@ -18,6 +18,7 @@ from lightspeed_evaluation.core.models import (
 from lightspeed_evaluation.core.models.system import (
     JudgePanelConfig,
     LLMPoolConfig,
+    QualityScoreConfig,
 )
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
@@ -121,6 +122,23 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
     def _create_system_config(self, config_data: dict[str, Any]) -> SystemConfig:
         """Create SystemConfig object from validated configuration data."""
         metrics_metadata = config_data.get("metrics_metadata", {})
+        quality_score_data = config_data.get("quality_score")
+
+        # Process quality_score defaults before creating SystemConfig
+        turn_level_metadata = metrics_metadata.get("turn_level", {})
+        conversation_level_metadata = metrics_metadata.get("conversation_level", {})
+
+        if quality_score_data:
+            self._process_quality_score_defaults(
+                quality_score_data,
+                turn_level_metadata,
+                conversation_level_metadata,
+            )
+
+        # Parse quality_score config if present
+        quality_score_config = (
+            QualityScoreConfig(**quality_score_data) if quality_score_data else None
+        )
 
         # Parse llm_pool and judge_panel if present (Optional sections)
         llm_pool_data = config_data.get("llm_pool")
@@ -129,7 +147,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         judge_panel_data = config_data.get("judge_panel")
         judge_panel = JudgePanelConfig(**judge_panel_data) if judge_panel_data else None
 
-        # Parse storage backends with backward compatibility for legacy 'output' section
+        # Parse storage backends with backward compatibility
         storage_data = self._get_storage_config_with_backward_compat(config_data)
         storage_backends = self._parse_storage_config(storage_data)
 
@@ -143,11 +161,68 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
             visualization=VisualizationConfig(**config_data.get("visualization", {})),
             llm_pool=llm_pool,
             judge_panel=judge_panel,
-            default_turn_metrics_metadata=metrics_metadata.get("turn_level", {}),
-            default_conversation_metrics_metadata=metrics_metadata.get(
-                "conversation_level", {}
-            ),
+            quality_score=quality_score_config,
+            default_turn_metrics_metadata=turn_level_metadata,
+            default_conversation_metrics_metadata=conversation_level_metadata,
         )
+
+    def _process_quality_score_defaults(
+        self,
+        quality_score_config: dict[str, Any],
+        turn_level_metadata: dict[str, dict[str, Any]],
+        conversation_level_metadata: dict[str, dict[str, Any]],
+    ) -> None:
+        """Process quality_score.default to set defaults for quality score metrics.
+
+        If quality_score.default is true, sets default: true for all metrics
+        listed in quality_score.metrics. Raises error if a metric is not defined
+        in turn_level or conversation_level metadata.
+
+        Args:
+            quality_score_config: The quality_score configuration dict
+            turn_level_metadata: Turn-level metrics metadata (modified in-place)
+            conversation_level_metadata: Conversation-level metrics metadata (modified in-place)
+
+        Raises:
+            ConfigurationError: If quality_score.default is true but a metric is not
+                defined in metadata, or if metrics list is empty/missing.
+        """
+        if not quality_score_config:
+            return
+
+        # Check if default flag is set to true
+        default_flag = quality_score_config.get("default", False)
+        if not default_flag:
+            return
+
+        # Get the list of metrics for quality score
+        quality_score_metrics = quality_score_config.get("metrics", [])
+        if not quality_score_metrics:
+            raise ConfigurationError(
+                "quality_score.default is true but quality_score.metrics is empty or missing. "
+                "Please specify at least one metric in quality_score.metrics."
+            )
+
+        # Process each metric
+        for metric_id in quality_score_metrics:
+            # Check if metric exists in turn_level or conversation_level
+            if metric_id in turn_level_metadata:
+                # Set default: true for this metric
+                if not isinstance(turn_level_metadata[metric_id], dict):
+                    turn_level_metadata[metric_id] = {}
+                turn_level_metadata[metric_id]["default"] = True
+            elif metric_id in conversation_level_metadata:
+                # Set default: true for this metric
+                if not isinstance(conversation_level_metadata[metric_id], dict):
+                    conversation_level_metadata[metric_id] = {}
+                conversation_level_metadata[metric_id]["default"] = True
+            else:
+                # Metric not found - raise error
+                raise ConfigurationError(
+                    f"Metric '{metric_id}' is listed in quality_score.metrics but not defined "
+                    f"in metrics_metadata.turn_level or metrics_metadata.conversation_level. "
+                    f"Please add metadata configuration for this metric before using it in quality_score."
+                )
 
     def _get_storage_config_with_backward_compat(
         self, config_data: dict[str, Any]

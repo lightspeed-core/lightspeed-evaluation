@@ -804,6 +804,21 @@ class GEvalConfig(BaseModel):
         return cls.model_validate(data)
 
 
+class QualityScoreConfig(BaseModel):
+    """Quality score configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    metrics: list[str] = Field(
+        default_factory=list,
+        description="List of metric identifiers to use for quality score computation",
+    )
+    default: bool = Field(
+        default=False,
+        description="If true, set default: true for all metrics in the list",
+    )
+
+
 class SystemConfig(BaseModel):
     """System configuration using individual config models."""
 
@@ -846,6 +861,11 @@ class SystemConfig(BaseModel):
     )
     visualization: VisualizationConfig = Field(
         default_factory=VisualizationConfig, description="Visualization configuration"
+    )
+
+    # Quality score configuration
+    quality_score: Optional[QualityScoreConfig] = Field(
+        default=None, description="Quality score configuration"
     )
 
     # Default metrics metadata from system config
