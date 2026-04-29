@@ -58,6 +58,7 @@ def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
         "tags": None,
         "conv_ids": None,
         "cache_warmup": False,
+        "langfuse": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -167,7 +168,11 @@ class TestRunEvaluation:
         assert result["TOTAL"] == 1
         assert result["PASS"] == 1
         mock_evaluate.assert_called_once_with(
-            mock_config, mock_eval_data, output_dir=None
+            mock_config,
+            mock_eval_data,
+            output_dir=None,
+            evaluation_data_path="config/evaluation_data.yaml",
+            on_complete=None,
         )
 
     def test_run_evaluation_with_output_dir_override(
@@ -224,7 +229,11 @@ class TestRunEvaluation:
 
         # Verify custom output dir was passed to evaluate()
         mock_evaluate.assert_called_once_with(
-            mock_config, mock_eval_data, output_dir="/custom/output"
+            mock_config,
+            mock_eval_data,
+            output_dir="/custom/output",
+            evaluation_data_path="config/evaluation_data.yaml",
+            on_complete=None,
         )
 
     def test_run_evaluation_file_not_found(

@@ -44,7 +44,9 @@ class TestEvaluate:
         results = evaluate(config, data)
 
         assert results == mock_results
-        mock_pipeline.run_evaluation.assert_called_once_with(data)
+        mock_pipeline.run_evaluation.assert_called_once_with(
+            data, original_data_path=None, on_complete=None
+        )
         mock_pipeline.close.assert_called_once()
 
     def test_evaluate_empty_data(self) -> None:
@@ -111,7 +113,13 @@ class TestEvaluateConversation:
 
         results = evaluate_conversation(config, data, output_dir="/output")
 
-        mock_evaluate.assert_called_once_with(config, [data], output_dir="/output")
+        mock_evaluate.assert_called_once_with(
+            config,
+            [data],
+            output_dir="/output",
+            evaluation_data_path=None,
+            on_complete=None,
+        )
         assert results == mock_evaluate.return_value
 
     def test_delegates_without_output_dir(self, mocker: MockerFixture) -> None:
@@ -124,7 +132,13 @@ class TestEvaluateConversation:
 
         evaluate_conversation(config, data)
 
-        mock_evaluate.assert_called_once_with(config, [data], output_dir=None)
+        mock_evaluate.assert_called_once_with(
+            config,
+            [data],
+            output_dir=None,
+            evaluation_data_path=None,
+            on_complete=None,
+        )
 
 
 class TestEvaluateTurn:
@@ -281,6 +295,8 @@ class TestSummaryConversationAndTurn:
             [data],
             output_dir="/out",
             compute_confidence_intervals=False,
+            evaluation_data_path=None,
+            on_complete=None,
         )
         assert result == mock_eval.return_value
 

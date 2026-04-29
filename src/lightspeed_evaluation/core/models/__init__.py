@@ -14,6 +14,9 @@ from lightspeed_evaluation.core.models.data import (
     MetricResult,
     TurnData,
 )
+from lightspeed_evaluation.core.models.evaluation_run_context import (
+    EvaluationRunContext,
+)
 from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
@@ -37,6 +40,7 @@ __all__ = [
     "JudgeScore",
     "MetricResult",
     "EvaluationResult",
+    "EvaluationRunContext",
     "EvaluationScope",
     # Metric metadata models (GEval config, etc.)
     "GEvalConfig",

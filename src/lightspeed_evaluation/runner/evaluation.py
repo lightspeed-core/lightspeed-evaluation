@@ -1,6 +1,7 @@
 """LightSpeed Evaluation Framework - Main Evaluation Runner."""
 
 import argparse
+import os
 import shutil
 import sys
 import traceback
@@ -160,8 +161,28 @@ def run_evaluation(  # pylint: disable=too-many-locals
         print("\n⚙️ Initializing Evaluation Pipeline...")
 
         print("\n🔄 Running Evaluation...")
+        on_complete = None
+        use_langfuse = bool(eval_args.langfuse) or os.environ.get(
+            "LIGHTSPEED_USE_LANGFUSE", ""
+        ).lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if use_langfuse:
+            # Optional extra: pip install 'lightspeed-evaluation[langfuse]'
+            from lightspeed_evaluation.integrations.langfuse_reporter import (  # pylint: disable=import-outside-toplevel
+                build_langfuse_on_complete_callback,
+            )
+
+            on_complete = build_langfuse_on_complete_callback()
+
         results = evaluate(
-            system_config, evaluation_data, output_dir=eval_args.output_dir
+            system_config,
+            evaluation_data,
+            output_dir=eval_args.output_dir,
+            evaluation_data_path=eval_args.eval_data,
+            on_complete=on_complete,
         )
 
         file_entries = [
@@ -253,6 +274,15 @@ def main() -> int:
         "--cache-warmup",
         action="store_true",
         help="Enable cache warmup mode - rebuild caches without reading existing entries",
+    )
+    parser.add_argument(
+        "--langfuse",
+        action="store_true",
+        help=(
+            "After the run, send scores to Langfuse (requires the "
+            "'langfuse' extra and LANGFUSE_* credentials). Or set "
+            "LIGHTSPEED_USE_LANGFUSE=1."
+        ),
     )
 
     eval_args = parser.parse_args()

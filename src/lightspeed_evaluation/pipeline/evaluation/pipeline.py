@@ -3,6 +3,7 @@
 import asyncio
 import concurrent.futures
 import logging
+from collections.abc import Callable
 from typing import Optional
 
 import litellm
@@ -14,6 +15,7 @@ from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
+    EvaluationRunContext,
     SystemConfig,
 )
 from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
@@ -127,12 +129,20 @@ class EvaluationPipeline:
         self,
         evaluation_data: list[EvaluationData],
         original_data_path: Optional[str] = None,
+        *,
+        on_complete: Optional[
+            Callable[[list[EvaluationResult], EvaluationRunContext], None]
+        ] = None,
     ) -> list[EvaluationResult]:
         """Run evaluation on provided data.
 
         Args:
             evaluation_data: List of conversation data to evaluate
             original_data_path: Path to original data file for saving updates
+            on_complete: Optional callback invoked with raw results and run
+                context after a successful run (and after amended-data save
+                when API is enabled). Exceptions in the callback are logged
+                and do not fail the evaluation.
 
         Returns:
             List of evaluation results.
@@ -161,6 +171,19 @@ class EvaluationPipeline:
             self._save_amended_data(evaluation_data)
 
         logger.info("Evaluation complete: %d results generated", len(results))
+
+        if on_complete is not None:
+            run_ctx = EvaluationRunContext(
+                run_name=run_name,
+                original_data_path=original_data_path,
+            )
+            try:
+                on_complete(results, run_ctx)
+            except Exception:  # pylint: disable=broad-exception-caught
+                logger.exception(
+                    "on_complete callback raised; evaluation results are still valid"
+                )
+
         return results
 
     def _process_eval_data(

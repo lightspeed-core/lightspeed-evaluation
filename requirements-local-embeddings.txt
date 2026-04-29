@@ -293,7 +293,7 @@ orjson==3.11.8
     #   langsmith
 ormsgpack==1.12.2
     # via langgraph-checkpoint
-packaging==26.0
+packaging==24.2
     # via
     #   datasets
     #   huggingface-hub

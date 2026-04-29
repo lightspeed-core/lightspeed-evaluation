@@ -52,8 +52,18 @@ nlp-metrics = [
     "rapidfuzz>=3.0.0,<=3.14.3",     # Required for semantic_similarity_distance
 ]
 
+# Optional Langfuse reporting (on_complete / CLI --langfuse). Uses the v2 SDK.
+#   pip install 'lightspeed-evaluation[langfuse]'
+# or
+#   uv sync --extra langfuse
+langfuse = [
+    "langfuse>=2.0.0,<3.0.0",
+]
+
 [dependency-groups]
 dev = [
+    # Matches [project.optional-dependencies] langfuse — for typecheck/tests.
+    "langfuse>=2.0.0,<3.0.0",
     "bandit>=1.7.0,<=1.9.2",
     "black==25.1.0",
     "mypy>=1.15.0,<=1.17.1",
