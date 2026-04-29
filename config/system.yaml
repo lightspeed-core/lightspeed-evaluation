@@ -5,6 +5,8 @@ core:
   max_threads: 50             # Maximum number of threads, set to null for Python default. 50 is OK for bigger datasets
   fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
   skip_on_failure: false      # If True, skip remaining turns when a turn evaluation fails (can be overridden per conversation)
+  cache_enabled: true         # Global cache toggle, if True LLM as a judge, embeddings and API queries are cached
+  cache_base_dir: .caches     # Global base cache dir (queries cached separately under /llm (LLM as a judge + embeddings) and /api)
 
 # LLM as a judge configuration (Legacy)
 # Deprecated: top-level llm: (single judge) will be removed — use llm_pool + judge_panel only.
@@ -17,15 +19,16 @@ core:
 #   max_tokens: 512                     # Maximum tokens in response
 #   timeout: 300                        # Request timeout in seconds
 #   num_retries: 3                      # Retry attempts
-#   cache_dir: ".caches/llm_cache"      # Directory with LLM cache
+#   cache_dir: ".caches/llm"            # Directory with LLM cache
 #   cache_enabled: true                 # Is LLM cache enabled?
 
 # Pool of named models (judges reference these IDs)
 # Default values merge into each model; parameters supports extra provider keys; null removes an inherited parameter.
 llm_pool:
   defaults:
-    cache_enabled: true
-    cache_dir: ".caches/llm_cache"
+    # OPTIONAL: Override core cache settings (cache_dir replaces the path derived from core.cache_base_dir) for LLM pool only.
+    # cache_enabled: true
+    # cache_dir: ".caches/llm"
     timeout: 300
     num_retries: 3
     parameters:
@@ -64,9 +67,9 @@ embedding:
   provider: "openai"
   model: "text-embedding-3-small"
   provider_kwargs: {}
-  cache_dir: ".caches/embedding_cache"
-  cache_enabled: true
-
+  # OPTIONAL: Override core cache settings (core.cache_enabled) for embeddings only.
+  #           Embeddings are cached along with the LLM pool.
+  # cache_enabled: false
 
 # Lightspeed-stack API Configuration
 # To get real time data. Currently it supports lightspeed-stack API.
@@ -90,9 +93,9 @@ api:
   # Example: extra_request_params:
   #            mode: troubleshooting
   extra_request_params: null
-
-  cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache
-  cache_enabled: true                  # Is lightspeed-stack cache enabled?
+  # OPTIONAL: Override core cache settings (cache_dir replaces the path derived from core.cache_base_dir) for API only.
+  # cache_dir: ".caches/api"          # Directory with lightspeed-stack cache
+  # cache_enabled: true               # Is lightspeed-stack cache enabled?
   
   # MCP Server Authentication Configuration
   mcp_headers:

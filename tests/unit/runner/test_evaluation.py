@@ -9,14 +9,16 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.models.system import (
+from lightspeed_evaluation.core.models import (
     APIConfig,
     EmbeddingConfig,
     LLMConfig,
-    LLMDefaultsConfig,
     LLMPoolConfig,
-    LLMProviderConfig,
     SystemConfig,
+)
+from lightspeed_evaluation.core.models.llm import (
+    LLMDefaultsConfig,
+    LLMProviderConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import (
     DataValidationError,
@@ -64,22 +66,23 @@ def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
 
 
 def _system_config_all_caches_under_tmp(tmp_path: Path) -> SystemConfig:
-    """Dirs + SystemConfig for _clear_caches covering pool, llm, API, embedding."""
+    """Dirs + SystemConfig for _clear_caches covering pool and API caches.
+
+    Note: When llm_pool is configured, llm.cache_dir is automatically synced
+    to llm_pool.defaults.cache_dir by the SystemConfig validator. They share
+    the same cache directory.
+    """
     pool = tmp_path / "pool_llm"
-    legacy = tmp_path / "legacy_llm"
     api_dir = tmp_path / "api_cache"
-    emb_dir = tmp_path / "emb_cache"
-    for d in (pool, legacy, api_dir, emb_dir):
+    for d in (pool, api_dir):
         d.mkdir()
     nested = pool / "nested"
     nested.mkdir()
     (nested / "pool.db").write_text("x")
-    (legacy / "llm.db").write_text("x")
     (api_dir / "api.db").write_text("x")
-    (emb_dir / "emb.db").write_text("x")
 
     return SystemConfig(
-        llm=LLMConfig(cache_enabled=True, cache_dir=str(legacy)),
+        llm=LLMConfig(cache_enabled=True),
         llm_pool=LLMPoolConfig(
             defaults=LLMDefaultsConfig(
                 cache_enabled=True,
@@ -94,7 +97,6 @@ def _system_config_all_caches_under_tmp(tmp_path: Path) -> SystemConfig:
         ),
         embedding=EmbeddingConfig(
             cache_enabled=True,
-            cache_dir=str(emb_dir),
         ),
     )
 
@@ -489,32 +491,30 @@ class TestClearCaches:
     def test_clear_caches_with_all_caches_enabled(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
-        """Test clearing all cache directories when all caches are enabled."""
+        """Test clearing all cache directories when all caches are enabled.
+
+        When llm_pool is configured, both llm and llm_pool share the same cache
+        directory, so only the pool cache message appears.
+        """
         # Create test cache directories with files
         config = _system_config_all_caches_under_tmp(tmp_path)
         pool = tmp_path / "pool_llm"
-        legacy = tmp_path / "legacy_llm"
         api_dir = tmp_path / "api_cache"
-        emb_dir = tmp_path / "emb_cache"
         nested = pool / "nested"
 
         # Call clear caches
         _clear_caches(config)
 
-        for d in (pool, legacy, api_dir, emb_dir):
-            assert d.is_dir()
         # Verify directories were cleared and recreated
+        for d in (pool, api_dir):
+            assert d.is_dir()
         assert not (nested / "pool.db").exists()
-        assert not (legacy / "llm.db").exists()
         assert not (api_dir / "api.db").exists()
-        assert not (emb_dir / "emb.db").exists()
 
         # Verify output messages
         out = capsys.readouterr().out
         assert "Cleared LLM Judge (pool) cache" in out
-        assert "Cleared LLM Judge cache" in out
         assert "Cleared API cache" in out
-        assert "Cleared Embedding cache" in out
 
     def test_clear_caches_with_only_llm_cache_enabled(
         self, tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture
@@ -539,7 +539,6 @@ class TestClearCaches:
         captured = capsys.readouterr()
         assert "Cleared LLM Judge cache" in captured.out
         assert "Cleared API cache" not in captured.out
-        assert "Cleared Embedding cache" not in captured.out
 
     def test_clear_caches_when_no_caches_enabled(
         self, mocker: MockerFixture, capsys: pytest.CaptureFixture

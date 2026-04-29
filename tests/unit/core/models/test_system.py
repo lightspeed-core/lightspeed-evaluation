@@ -14,15 +14,18 @@ from lightspeed_evaluation.core.models import (
     EmbeddingConfig,
     APIConfig,
     VisualizationConfig,
+    CoreConfig,
 )
 from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.models.system import (
+    LoggingConfig,
+)
+from lightspeed_evaluation.core.models.llm import (
     GEvalConfig,
     GEvalRubricConfig,
     LLMDefaultsConfig,
     LLMParametersConfig,
     LLMProviderConfig,
-    LoggingConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
@@ -313,6 +316,7 @@ class TestLLMPoolConfig:
         """Extra parameters from LLMParametersConfig flow into LLMConfig.parameters."""
         pool = LLMPoolConfig(
             defaults=LLMDefaultsConfig(
+                cache_dir=".caches/llm",
                 parameters=LLMParametersConfig.model_validate(
                     {"temperature": 0.1, "max_completion_tokens": 512, "top_p": 0.9}
                 ),
@@ -342,6 +346,7 @@ class TestLLMPoolConfig:
         """Individual model extras override default extras."""
         pool = LLMPoolConfig(
             defaults=LLMDefaultsConfig(
+                cache_dir=".caches/llm",
                 parameters=LLMParametersConfig.model_validate({"top_p": 0.9}),
             ),
             models={
@@ -358,6 +363,7 @@ class TestLLMPoolConfig:
         """Individual model setting a param to null removes the default value."""
         pool = LLMPoolConfig(
             defaults=LLMDefaultsConfig(
+                cache_dir=".caches/llm",
                 parameters=LLMParametersConfig.model_validate(
                     {"temperature": 0.3, "top_p": 0.9}
                 ),
@@ -380,6 +386,9 @@ class TestLLMPoolConfig:
     def test_custom_model_id_and_ssl(self) -> None:
         """Test custom model IDs and SSL settings."""
         pool = LLMPoolConfig(
+            defaults=LLMDefaultsConfig(
+                cache_dir=".caches/llm",
+            ),
             models={
                 "gpt-4o-eval": LLMProviderConfig(
                     provider="openai",
@@ -392,7 +401,7 @@ class TestLLMPoolConfig:
                 "gpt-oss-staging": LLMProviderConfig(
                     provider="hosted_vllm", model="gpt-oss-20b", ssl_verify=False
                 ),
-            }
+            },
         )
 
         # Custom model ID
@@ -526,8 +535,10 @@ class TestSystemConfigWithLLMPoolAndJudgePanel:
         assert judge_configs[1][0] == "gpt-4o"
         # Check configs
         assert judge_configs[0][1].model == "gpt-4o-mini"
+        assert judge_configs[0][1].cache_dir is not None
         assert judge_configs[0][1].cache_dir.endswith("judge_0")
         assert judge_configs[1][1].max_tokens == 1024
+        assert judge_configs[1][1].cache_dir is not None
         assert judge_configs[1][1].cache_dir.endswith("judge_1")
 
         # get_llm_config works
@@ -554,6 +565,164 @@ class TestSystemConfigWithLLMPoolAndJudgePanel:
         config = SystemConfig(llm_pool=pool, judge_panel=panel)
         with pytest.raises(ConfigurationError, match="Model 'nonexistent' not found"):
             config.get_judge_configs()
+
+
+class TestSystemConfigGlobalCache:
+    """Test global cache configuration and setup."""
+
+    def test_global_default_cache_setup_legacy_llm_support(self) -> None:
+        """Test default cache setup with legacy LLM configuration."""
+        config = SystemConfig()
+
+        # Test global core config
+        assert config.core.cache_enabled is True
+        assert config.core.cache_base_dir == ".caches"
+
+        # Verify global cache setup propagates to component defaults
+        assert config.llm.cache_enabled is True
+        assert config.llm.cache_dir == ".caches/llm"
+
+        assert config.embedding.cache_enabled is True
+
+        assert config.api.cache_enabled is True
+        assert config.api.cache_dir == ".caches/api"
+
+    def test_global_cache_setup_legacy_llm_support_override(self) -> None:
+        """Test cache setup with custom legacy LLM config overrides."""
+        llm_config = LLMConfig(cache_enabled=False, cache_dir=".caches/llm_test_cache")
+        config = SystemConfig(llm=llm_config)
+
+        # Test global core config
+        assert config.core.cache_enabled is True
+        assert config.core.cache_base_dir == ".caches"
+
+        # Verify global cache setup propagates to component defaults
+        assert config.llm.cache_enabled is False
+        assert config.llm.cache_dir == ".caches/llm_test_cache"
+
+        assert config.embedding.cache_enabled is True
+
+        assert config.api.cache_enabled is True
+        assert config.api.cache_dir == ".caches/api"
+
+    def test_global_default_cache_setup_with_judge_panel(self) -> None:
+        """Test default cache setup with judge panel configuration."""
+        pool = LLMPoolConfig(
+            models={
+                "gpt-4o-mini": LLMProviderConfig(provider="openai"),
+                "gpt-4o": LLMProviderConfig(
+                    provider="openai",
+                    parameters=LLMParametersConfig(max_completion_tokens=1024),
+                ),
+            },
+        )
+        panel = JudgePanelConfig(judges=["gpt-4o-mini", "gpt-4o"])
+
+        config = SystemConfig(llm_pool=pool, judge_panel=panel)
+
+        # Test global core config
+        assert config.core.cache_enabled is True
+        assert config.core.cache_base_dir == ".caches"
+
+        # Verify global cache setup propagates to component defaults
+        assert config.llm_pool is not None
+        assert config.llm_pool.defaults.cache_enabled is True
+        assert config.llm_pool.defaults.cache_dir == ".caches/llm"
+        # LLM is overridden by llm_pool.defaults
+        assert config.llm.cache_enabled is True
+        assert config.llm.cache_dir == ".caches/llm"
+
+        assert config.embedding.cache_enabled is True
+
+        assert config.api.cache_enabled is True
+        assert config.api.cache_dir == ".caches/api"
+
+    def test_global_cache_setup_pool_without_panel(self) -> None:
+        """Test that global_cache_setup populates llm_pool.defaults when judge_panel is absent."""
+        pool = LLMPoolConfig(
+            models={"gpt-4o-mini": LLMProviderConfig(provider="openai")},
+        )
+        config = SystemConfig(llm_pool=pool)
+
+        assert config.llm_pool is not None
+        assert config.llm_pool.defaults.cache_enabled is True
+        assert config.llm_pool.defaults.cache_dir == ".caches/llm"
+        # Should not raise
+        resolved = config.get_llm_config("gpt-4o-mini")
+        assert resolved.cache_dir == ".caches/llm/gpt-4o-mini"
+
+    def test_global_cache_turned_off_with_judge_panel(self) -> None:
+        """Test cache setup when global cache is disabled with judge panel."""
+        core = CoreConfig(cache_enabled=False, cache_base_dir=".caches_test")
+        pool = LLMPoolConfig(
+            models={
+                "gpt-4o-mini": LLMProviderConfig(provider="openai"),
+                "gpt-4o": LLMProviderConfig(
+                    provider="openai",
+                    parameters=LLMParametersConfig(max_completion_tokens=1024),
+                ),
+            },
+        )
+        panel = JudgePanelConfig(judges=["gpt-4o-mini", "gpt-4o"])
+
+        config = SystemConfig(core=core, llm_pool=pool, judge_panel=panel)
+
+        # Test global core config
+        assert config.core.cache_enabled is False
+        assert config.core.cache_base_dir == ".caches_test"
+
+        # Verify global cache setup propagates to component defaults
+        assert config.llm_pool is not None
+        assert config.llm_pool.defaults.cache_enabled is False
+        assert config.llm_pool.defaults.cache_dir == ".caches_test/llm"
+        # LLM is overridden by llm_pool.defaults
+        assert config.llm.cache_enabled is False
+        assert config.llm.cache_dir == ".caches_test/llm"
+
+        assert config.embedding.cache_enabled is False
+
+        assert config.api.cache_enabled is False
+        assert config.api.cache_dir == ".caches_test/api"
+
+    def test_global_cache_setup_with_judge_panel_override(self) -> None:
+        """Test cache setup with custom judge panel config overrides."""
+        pool = LLMPoolConfig(
+            defaults=LLMDefaultsConfig(
+                cache_enabled=False,
+                cache_dir=".caches/llm_pool_test",
+            ),
+            models={
+                "gpt-4o-mini": LLMProviderConfig(provider="openai"),
+                "gpt-4o": LLMProviderConfig(
+                    provider="openai",
+                    parameters=LLMParametersConfig(max_completion_tokens=1024),
+                ),
+            },
+        )
+        panel = JudgePanelConfig(judges=["gpt-4o-mini", "gpt-4o"])
+        embedding = EmbeddingConfig(cache_enabled=True)
+        api = APIConfig(cache_enabled=False, cache_dir=".caches/api_test")
+
+        config = SystemConfig(
+            llm_pool=pool, judge_panel=panel, embedding=embedding, api=api
+        )
+
+        # Test global core config
+        assert config.core.cache_enabled is True
+        assert config.core.cache_base_dir == ".caches"
+
+        # Verify global cache setup propagates to component defaults
+        assert config.llm_pool is not None
+        assert config.llm_pool.defaults.cache_enabled is False
+        assert config.llm_pool.defaults.cache_dir == ".caches/llm_pool_test"
+        # LLM is overridden by llm_pool.defaults
+        assert config.llm.cache_enabled is False
+        assert config.llm.cache_dir == ".caches/llm_pool_test"
+
+        assert config.embedding.cache_enabled is True
+
+        assert config.api.cache_enabled is False
+        assert config.api.cache_dir == ".caches/api_test"
 
 
 class TestGEvalRubricValidation:

@@ -29,15 +29,22 @@ def _clear_caches(system_config: SystemConfig) -> None:
 
     # Collect all enabled cache directories
     pool = system_config.llm_pool
-    if isinstance(pool, LLMPoolConfig) and pool.defaults.cache_enabled:
+    pool_cache_path = None
+    if (
+        isinstance(pool, LLMPoolConfig)
+        and pool.defaults.cache_enabled
+        and pool.defaults.cache_dir
+    ):
+        pool_cache_path = Path(pool.defaults.cache_dir).resolve()
         cache_dirs.append(("LLM Judge (pool)", pool.defaults.cache_dir))
-    if system_config.llm.cache_enabled:
-        cache_dirs.append(("LLM Judge", system_config.llm.cache_dir))
+    if system_config.llm.cache_enabled and system_config.llm.cache_dir:
+        llm_cache_path = Path(system_config.llm.cache_dir).resolve()
+        # Skip if same as pool cache to avoid duplicate clearing
+        if llm_cache_path != pool_cache_path:
+            cache_dirs.append(("LLM Judge", system_config.llm.cache_dir))
     # We clear the api cache even if the Lightspeed core api is disabled
-    if system_config.api.cache_enabled:
+    if system_config.api.cache_enabled and system_config.api.cache_dir:
         cache_dirs.append(("API", system_config.api.cache_dir))
-    if system_config.embedding.cache_enabled:
-        cache_dirs.append(("Embedding", system_config.embedding.cache_dir))
 
     if not cache_dirs:
         print("   No caches enabled to clear")
