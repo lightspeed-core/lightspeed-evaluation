@@ -459,3 +459,57 @@ class TestConfigLoaderFromConfig:
         loader = ConfigLoader.from_config(config)
 
         assert isinstance(loader, ConfigLoader)
+
+
+class TestConfigLoaderAgents:
+    """Tests for agents configuration loading."""
+
+    def test_load_yaml_with_agents_block(self) -> None:
+        """YAML with agents: block is parsed correctly."""
+        yaml_content = """
+api:
+  enabled: false
+agents:
+  default:
+    agent: ols_api
+  ols_api:
+    type: http_api
+    api_base: http://localhost:8080
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            loader = ConfigLoader()
+            config = loader.load_system_config(temp_path)
+            assert config.agents is not None
+            assert config.agents.default.agent == "ols_api"
+            assert "ols_api" in config.agents.agents
+        finally:
+            Path(temp_path).unlink()
+
+    def test_load_yaml_api_only_auto_migrates(self) -> None:
+        """Existing api-only YAML auto-migrates to agents."""
+        yaml_content = """
+api:
+  enabled: true
+  api_base: http://legacy:8080
+  timeout: 500
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            loader = ConfigLoader()
+            config = loader.load_system_config(temp_path)
+            assert config.agents is not None
+            assert config.agents.default.agent == "http_api"
+            assert config.agents.agents["http_api"].api_base == "http://legacy:8080"
+            assert config.agents.agents["http_api"].timeout == 500
+            # api field also preserved
+            assert config.api.enabled is True
+            assert config.api.api_base == "http://legacy:8080"
+        finally:
+            Path(temp_path).unlink()
