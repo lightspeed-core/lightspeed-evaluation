@@ -396,8 +396,17 @@ class APIClient:
             rag_chunks: list[dict[str, str]] = []
             for result in tool_results:
                 if result.get("type") == "mcp_call":
-                    content = result["content"].split("---")
-                    rag_chunks.extend([{"content": chunk} for chunk in content])
+                    content = result.get("content")
+                    if not isinstance(content, str) or not content:
+                        logger.warning(
+                            "Skipping mcp_call tool result with missing or "
+                            "non-string content: %r",
+                            content,
+                        )
+                        continue
+                    rag_chunks.extend(
+                        [{"content": chunk} for chunk in content.split("---")]
+                    )
             response_data["rag_chunks"] = rag_chunks
 
     def _format_infer_tool_calls(self, response_data: dict[str, Any]) -> None:
