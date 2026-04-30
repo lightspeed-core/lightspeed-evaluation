@@ -158,6 +158,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
             llm=LLMConfig(**config_data.get("llm", {})),
             embedding=EmbeddingConfig(**config_data.get("embedding") or {}),
             api=APIConfig(**config_data.get("api", {})),
+            agents=config_data.get("agents"),
             storage=storage_backends,
             logging=LoggingConfig(**config_data.get("logging", {})),
             visualization=VisualizationConfig(**config_data.get("visualization", {})),
