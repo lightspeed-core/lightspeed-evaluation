@@ -336,6 +336,108 @@ class APIClient:
         except Exception as e:
             raise self._handle_unexpected_error(e, "streaming query") from e
 
+    def _build_infer_request(self, api_request: APIRequest) -> dict[str, object]:
+        """Build request payload for the RLSAPI /infer endpoint.
+
+        Converts the standard APIRequest into the infer-specific format,
+        renaming 'query' to 'question' and adding 'include_metadata'.
+
+        Args:
+            api_request: The prepared API request.
+
+        Returns:
+            Dictionary suitable for posting to the /infer endpoint.
+        """
+        request_data = api_request.model_dump(exclude_none=True)
+        # `extra_request_params` are not forwarded to `/infer` — the
+        # endpoint only accepts `question` and `include_metadata`.
+        infer_request: dict[str, object] = {
+            "question": request_data.pop("query"),
+            "include_metadata": True,
+        }
+        logger.debug(
+            "RLSAPI infer request URL: /api/lightspeed/%s/infer",
+            self.config.version,
+        )
+        logger.debug(
+            "RLSAPI infer request: version=%s, include_metadata=%s, "
+            "question_length=%d",
+            self.config.version,
+            True,
+            len(str(infer_request.get("question", ""))),
+        )
+        return infer_request
+
+    def _extract_infer_data(self, response_data: dict[str, Any]) -> None:
+        """Extract and promote fields from the infer response 'data' envelope.
+
+        Mutates response_data in place, mapping nested data fields
+        (text, request_id, tokens, tool_calls, tool_results) to the
+        top-level keys expected by APIResponse.from_raw_response().
+
+        Args:
+            response_data: The raw JSON response dict to update.
+        """
+        if "data" not in response_data:
+            return
+        data = response_data["data"]
+        if "text" in data:
+            response_data["response"] = data["text"]
+        if "request_id" in data:
+            response_data["conversation_id"] = data["request_id"]
+        if "input_tokens" in data:
+            response_data["input_tokens"] = data["input_tokens"]
+        if "output_tokens" in data:
+            response_data["output_tokens"] = data["output_tokens"]
+        if "tool_calls" in data:
+            response_data["tool_calls"] = data["tool_calls"]
+        if "tool_results" in data:
+            tool_results = data["tool_results"]
+            rag_chunks: list[dict[str, str]] = []
+            for result in tool_results:
+                if result.get("type") == "mcp_call":
+                    content = result["content"].split("---")
+                    rag_chunks.extend([{"content": chunk} for chunk in content])
+            response_data["rag_chunks"] = rag_chunks
+
+    def _format_infer_tool_calls(self, response_data: dict[str, Any]) -> None:
+        """Format infer endpoint tool calls to standard list[list[dict]] format.
+
+        Converts raw tool_call dicts (with 'name'/'args' keys) to the
+        normalised format used by APIResponse, and matches each call to
+        its corresponding tool_result by ID when available.
+
+        Args:
+            response_data: The raw JSON response dict to update in place.
+        """
+        if "tool_calls" not in response_data or not response_data["tool_calls"]:
+            return
+        raw_tool_calls = response_data["tool_calls"]
+        formatted_tool_calls = []
+        for tool_call in raw_tool_calls:
+            if isinstance(tool_call, dict):
+                formatted_tool: dict[str, object] = {
+                    "tool_name": tool_call.get("name", ""),
+                    "arguments": tool_call.get("args", {}),
+                }
+                if "tool_results" in response_data.get("data", {}):
+                    tool_call_id = tool_call.get("id")
+                    matching_result = next(
+                        (
+                            r
+                            for r in response_data["data"]["tool_results"]
+                            if r.get("id") == tool_call_id
+                        ),
+                        None,
+                    )
+                    if matching_result:
+                        formatted_tool["result"] = matching_result.get(
+                            "content", matching_result.get("status", "")
+                        )
+                        formatted_tool["status"] = matching_result.get("status", "")
+                formatted_tool_calls.append([formatted_tool])
+        response_data["tool_calls"] = formatted_tool_calls
+
     def _rlsapi_infer_query(self, api_request: APIRequest) -> APIResponse:
         """Query the RLSAPI /infer endpoint for tool call and RAG metadata.
 
@@ -355,27 +457,7 @@ class APIClient:
         if not self.client:
             raise APIError("HTTP client not initialized")
         try:
-            request_data = api_request.model_dump(exclude_none=True)
-            # `extra_request_params` are not forwarded to `/infer` — the
-            # endpoint only accepts `question` and `include_metadata`.
-            # Other params (model, provider, etc.) are not part of the
-            # RLSAPI `/infer` API contract.
-            infer_request: dict[str, object] = {
-                "question": request_data.pop("query"),
-                "include_metadata": True,
-            }
-
-            logger.debug(
-                "RLSAPI infer request URL: /api/lightspeed/%s/infer",
-                self.config.version,
-            )
-            logger.debug(
-                "RLSAPI infer request: version=%s, include_metadata=%s, "
-                "question_length=%d",
-                self.config.version,
-                True,
-                len(str(infer_request.get("question", ""))),
-            )
+            infer_request = self._build_infer_request(api_request)
 
             response = self.client.post(
                 f"/api/lightspeed/{self.config.version}/infer",
@@ -384,61 +466,12 @@ class APIClient:
             response.raise_for_status()
 
             response_data = response.json()
-
-            if "data" in response_data:
-                data = response_data["data"]
-                if "text" in data:
-                    response_data["response"] = data["text"]
-                if "request_id" in data:
-                    response_data["conversation_id"] = data["request_id"]
-                if "input_tokens" in data:
-                    response_data["input_tokens"] = data["input_tokens"]
-                if "output_tokens" in data:
-                    response_data["output_tokens"] = data["output_tokens"]
-                if "tool_calls" in data:
-                    response_data["tool_calls"] = data["tool_calls"]
-                if "tool_results" in data:
-                    tool_results = data["tool_results"]
-                    rag_chunks: list[dict[str, str]] = []
-                    for result in tool_results:
-                        if result.get("type") == "mcp_call":
-                            content = result["content"].split("---")
-                            rag_chunks.extend([{"content": chunk} for chunk in content])
-                    response_data["rag_chunks"] = rag_chunks
+            self._extract_infer_data(response_data)
 
             if "response" not in response_data:
                 raise APIError("API response missing 'response' field")
 
-            if "tool_calls" in response_data and response_data["tool_calls"]:
-                raw_tool_calls = response_data["tool_calls"]
-                formatted_tool_calls = []
-
-                for tool_call in raw_tool_calls:
-                    if isinstance(tool_call, dict):
-                        formatted_tool: dict[str, object] = {
-                            "tool_name": tool_call.get("name", ""),
-                            "arguments": tool_call.get("args", {}),
-                        }
-                        if "tool_results" in response_data.get("data", {}):
-                            tool_call_id = tool_call.get("id")
-                            matching_result = next(
-                                (
-                                    r
-                                    for r in response_data["data"]["tool_results"]
-                                    if r.get("id") == tool_call_id
-                                ),
-                                None,
-                            )
-                            if matching_result:
-                                formatted_tool["result"] = matching_result.get(
-                                    "content", matching_result.get("status", "")
-                                )
-                                formatted_tool["status"] = matching_result.get(
-                                    "status", ""
-                                )
-                        formatted_tool_calls.append([formatted_tool])
-
-                response_data["tool_calls"] = formatted_tool_calls
+            self._format_infer_tool_calls(response_data)
 
             return APIResponse.from_raw_response(response_data)
 

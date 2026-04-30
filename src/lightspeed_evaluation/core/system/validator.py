@@ -160,12 +160,111 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         self.original_data_path: Optional[str] = None
         self.fail_on_invalid_data = fail_on_invalid_data
         self._system_config = system_config
-        self._turn_level_metrics: set[str] = (
-            system_config.turn_level_metric_names if system_config else set()
-        )
-        self._conversation_level_metrics: set[str] = (
-            system_config.conversation_level_metric_names if system_config else set()
-        )
+
+    @property
+    def _turn_level_metrics(self) -> set[str]:
+        """Turn-level metric names derived from system config."""
+        if self._system_config:
+            return self._system_config.turn_level_metric_names
+        return set()
+
+    @property
+    def _conversation_level_metrics(self) -> set[str]:
+        """Conversation-level metric names derived from system config."""
+        if self._system_config:
+            return self._system_config.conversation_level_metric_names
+        return set()
+
+    def _load_and_parse_yaml(self, data_path: str) -> list[EvaluationData]:
+        """Load a YAML file and convert each entry to an EvaluationData model.
+
+        Args:
+            data_path: Path to the evaluation data YAML file.
+
+        Returns:
+            List of parsed EvaluationData objects.
+
+        Raises:
+            DataValidationError: If the file is missing, malformed, or
+                contains entries that fail Pydantic validation.
+        """
+        try:
+            with open(data_path, "r", encoding="utf-8") as f:
+                raw_data = yaml.safe_load(f)
+        except FileNotFoundError as exc:
+            raise DataValidationError(
+                f"Evaluation data file not found: {data_path}"
+            ) from exc
+        except yaml.YAMLError as e:
+            raise DataValidationError(f"Invalid YAML syntax in {data_path}: {e}") from e
+
+        if raw_data is None:
+            raise DataValidationError("Empty or invalid YAML file")
+        if not isinstance(raw_data, list):
+            raise DataValidationError(
+                f"YAML root must be a list, got {type(raw_data).__name__}"
+            )
+
+        evaluation_data = []
+        for i, data_dict in enumerate(raw_data):
+            try:
+                eval_data = EvaluationData(**data_dict)
+                evaluation_data.append(eval_data)
+            except ValidationError as e:
+                conversation_id = data_dict.get(
+                    "conversation_group_id", f"item_{i + 1}"
+                )
+                error_details = format_pydantic_error(e)
+                raise DataValidationError(
+                    f"Validation error in conversation '{conversation_id}': {error_details}"
+                ) from e
+            except Exception as e:
+                raise DataValidationError(
+                    f"Failed to parse evaluation data item {i + 1}: {e}"
+                ) from e
+        return evaluation_data
+
+    def _apply_metrics_filter(
+        self, evaluation_data: list[EvaluationData], metrics: list[str]
+    ) -> None:
+        """Filter turn_metrics and conversation_metrics to only requested metrics.
+
+        When a turn or conversation has explicit metrics, keeps only those in
+        the requested set.  When metrics are None (inherited from defaults),
+        materialises the defaults first, then filters.
+
+        Args:
+            evaluation_data: List of evaluation data to mutate in place.
+            metrics: Non-empty list of metric identifiers to keep.
+        """
+        metrics_set = set(metrics)
+        for eval_data in evaluation_data:
+            for turn in eval_data.turns:
+                if turn.turn_metrics is not None:
+                    turn.turn_metrics = [
+                        m for m in turn.turn_metrics if m in metrics_set
+                    ]
+                elif self._system_config is not None:
+                    turn_defaults = self._system_config.default_turn_metrics_metadata
+                    turn.turn_metrics = [
+                        m
+                        for m, meta in turn_defaults.items()
+                        if meta.get("default", False) and m in metrics_set
+                    ]
+
+            if eval_data.conversation_metrics is not None:
+                eval_data.conversation_metrics = [
+                    m for m in eval_data.conversation_metrics if m in metrics_set
+                ]
+            elif self._system_config is not None:
+                conv_defaults = (
+                    self._system_config.default_conversation_metrics_metadata
+                )
+                eval_data.conversation_metrics = [
+                    m
+                    for m, meta in conv_defaults.items()
+                    if meta.get("default", False) and m in metrics_set
+                ]
 
     def load_evaluation_data(
         self,
@@ -193,87 +292,16 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         """
         self.original_data_path = data_path
 
-        try:
-            with open(data_path, "r", encoding="utf-8") as f:
-                raw_data = yaml.safe_load(f)
-        except FileNotFoundError as exc:
-            raise DataValidationError(
-                f"Evaluation data file not found: {data_path}"
-            ) from exc
-        except yaml.YAMLError as e:
-            raise DataValidationError(f"Invalid YAML syntax in {data_path}: {e}") from e
-
-        # Validate YAML root structure
-        if raw_data is None:
-            raise DataValidationError("Empty or invalid YAML file")
-        if not isinstance(raw_data, list):
-            raise DataValidationError(
-                f"YAML root must be a list, got {type(raw_data).__name__}"
-            )
-
-        # Convert raw data to Pydantic models
-        evaluation_data = []
-        for i, data_dict in enumerate(raw_data):
-            try:
-                eval_data = EvaluationData(**data_dict)
-                evaluation_data.append(eval_data)
-            except ValidationError as e:
-                conversation_id = data_dict.get(
-                    "conversation_group_id", f"item_{i + 1}"
-                )
-                error_details = format_pydantic_error(e)
-                raise DataValidationError(
-                    f"Validation error in conversation '{conversation_id}': {error_details}"
-                ) from e
-            except Exception as e:
-                raise DataValidationError(
-                    f"Failed to parse evaluation data item {i + 1}: {e}"
-                ) from e
-
-        # Filter by scope before validation
+        evaluation_data = self._load_and_parse_yaml(data_path)
         evaluation_data = self._filter_by_scope(evaluation_data, tags, conv_ids)
-
-        # Remove skipped conversations
         evaluation_data = [e for e in evaluation_data if not e.skip]
 
-        # Filter turn_metrics and conversation_metrics if --metrics was specified
         if metrics:
-            metrics_set = set(metrics)
-            for eval_data in evaluation_data:
-                for turn in eval_data.turns:
-                    if turn.turn_metrics is not None:
-                        turn.turn_metrics = [
-                            m for m in turn.turn_metrics if m in metrics_set
-                        ]
-                    elif self._system_config is not None:
-                        turn_defaults = (
-                            self._system_config.default_turn_metrics_metadata
-                        )
-                        turn.turn_metrics = [
-                            m
-                            for m, meta in turn_defaults.items()
-                            if meta.get("default", False) and m in metrics_set
-                        ]
+            self._apply_metrics_filter(evaluation_data, metrics)
 
-                if eval_data.conversation_metrics is not None:
-                    eval_data.conversation_metrics = [
-                        m for m in eval_data.conversation_metrics if m in metrics_set
-                    ]
-                elif self._system_config is not None:
-                    conv_defaults = (
-                        self._system_config.default_conversation_metrics_metadata
-                    )
-                    eval_data.conversation_metrics = [
-                        m
-                        for m, meta in conv_defaults.items()
-                        if meta.get("default", False) and m in metrics_set
-                    ]
-
-        # Semantic validation (metrics availability and requirements)
         if not self._validate_evaluation_data(evaluation_data):
             raise DataValidationError("Evaluation data validation failed")
 
-        # Validate scripts only if API is enabled
         if self.api_enabled:
             self._validate_scripts(evaluation_data)
 
