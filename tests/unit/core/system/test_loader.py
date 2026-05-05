@@ -459,3 +459,146 @@ class TestConfigLoaderFromConfig:
         loader = ConfigLoader.from_config(config)
 
         assert isinstance(loader, ConfigLoader)
+
+
+class TestConfigLoaderQualityScore:
+    """Unit tests for ConfigLoader quality_score feature."""
+
+    def test_quality_score_absent_results_in_none(self) -> None:
+        """Test missing quality_score section results in None."""
+        yaml_content = """
+llm:
+  provider: openai
+  model: gpt-4o-mini
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            config = ConfigLoader().load_system_config(temp_path)
+            assert config.quality_score is None
+        finally:
+            Path(temp_path).unlink()
+
+    def test_quality_score_config_loaded(self) -> None:
+        """Test quality_score section is parsed and attached to SystemConfig."""
+        yaml_content = """
+llm:
+  provider: openai
+  model: gpt-4o-mini
+
+metrics_metadata:
+  turn_level:
+    ragas:faithfulness:
+      threshold: 0.7
+      default: true
+  conversation_level: {}
+
+quality_score:
+  metrics:
+    - ragas:faithfulness
+  default: false
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            config = ConfigLoader().load_system_config(temp_path)
+            assert config.quality_score is not None
+            assert config.quality_score.metrics == ["ragas:faithfulness"]
+            assert config.quality_score.default is False
+            # Metric default is untouched
+            assert (
+                config.default_turn_metrics_metadata["ragas:faithfulness"]["default"]
+                is True
+            )
+        finally:
+            Path(temp_path).unlink()
+
+    def test_quality_score_default_true_sets_default_on_metrics(self) -> None:
+        """Test quality_score.default: true sets default: true on turn-level metrics."""
+        yaml_content = """
+llm:
+  provider: openai
+
+metrics_metadata:
+  turn_level:
+    ragas:faithfulness:
+      threshold: 0.7
+      default: true
+    custom:correctness:
+      threshold: 0.8
+      default: false
+    other:timeliness:
+      threshold: 0.75
+      default: false
+  conversation_level:
+    deepeval:completeness:
+      threshold: 0.6
+      default: false
+
+quality_score:
+  metrics:
+    - ragas:faithfulness
+    - custom:correctness
+  default: true
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            config = ConfigLoader().load_system_config(temp_path)
+            assert (
+                config.default_turn_metrics_metadata["ragas:faithfulness"]["default"]
+                is True
+            )
+            assert (
+                config.default_turn_metrics_metadata["custom:correctness"]["default"]
+                is True
+            )
+            assert (
+                config.default_turn_metrics_metadata["other:timeliness"]["default"]
+                is False
+            )
+            assert (
+                config.default_conversation_metrics_metadata["deepeval:completeness"][
+                    "default"
+                ]
+                is False
+            )
+        finally:
+            Path(temp_path).unlink()
+
+    def test_quality_score_default_true_with_undefined_metric_fails(self) -> None:
+        """Test quality_score.default: true with undefined metric raises ConfigurationError."""
+        yaml_content = """
+llm:
+  provider: openai
+
+metrics_metadata:
+  turn_level: {}
+  conversation_level: {}
+
+quality_score:
+  metrics:
+    - nonexistent:metric
+  default: true
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            with pytest.raises(
+                ConfigurationError,
+                match=(
+                    "Metric 'nonexistent:metric' is listed in "
+                    "quality_score.metrics but not defined"
+                ),
+            ):
+                ConfigLoader().load_system_config(temp_path)
+        finally:
+            Path(temp_path).unlink()

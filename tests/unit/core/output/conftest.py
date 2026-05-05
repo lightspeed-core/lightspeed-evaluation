@@ -96,4 +96,6 @@ def mock_system_config(mocker: MockerFixture) -> MockerFixture:
     config.visualization.enabled_graphs = []
     # Mock model_fields to support iteration in _write_config_params and _build_config_dict
     config.model_fields.keys.return_value = []
+    # Mock quality_score to avoid iteration errors when creating QualityReport
+    config.quality_score = None
     return config

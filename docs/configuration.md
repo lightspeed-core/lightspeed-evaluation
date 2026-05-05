@@ -335,6 +335,37 @@ metrics_metadata:
       description: "How completely the conversation addresses user intentions"
 ```
 
+## Quality Score
+
+Compute an aggregated quality score from selected metrics using weighted averaging.
+
+| Setting (quality_score.) | Default | Description |
+|--------------------------|---------|-------------|
+| metrics | required | List of metric identifiers (must be defined in metrics_metadata) |
+| default | `false` | If `true`, auto-enable all listed metrics globally |
+
+**Validation**: Metrics must exist in `default_turn_metrics_metadata` or `default_conversation_metrics_metadata`. Invalid metrics fail at config load time.
+
+**Calculation**: Weighted average where each metric's weight = its sample_count / total_samples.
+
+### Example
+```yaml
+# Define metrics
+metrics_metadata:
+  turn_level:
+    "ragas:faithfulness":
+      threshold: 0.7
+    "ragas:answer_relevancy":
+      threshold: 0.8
+
+# Configure quality score
+quality_score:
+  metrics:
+    - "ragas:faithfulness"
+    - "ragas:answer_relevancy"
+  default: true  # Auto-enable these metrics
+```
+
 ## Storage
 Lightspeed Evaluation can persist results to files and/or databases. The `storage` section configures one or more storage backends.
 

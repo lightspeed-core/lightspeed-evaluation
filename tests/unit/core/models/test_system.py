@@ -23,6 +23,7 @@ from lightspeed_evaluation.core.models.system import (
     LLMParametersConfig,
     LLMProviderConfig,
     LoggingConfig,
+    QualityScoreConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
@@ -693,3 +694,108 @@ class TestSystemConfigMetricNameProperties:
         assert names1 == names2
         # Each call returns a fresh set (not the same object)
         assert names1 is not names2
+
+
+class TestSystemConfigQualityScoreValidation:
+    """Tests for quality_score metrics validation in SystemConfig."""
+
+    def test_quality_score_none_skips_validation(self) -> None:
+        """Test that validation is skipped when quality_score is None."""
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+            },
+            quality_score=None,
+        )
+        assert config.quality_score is None
+
+    def test_valid_quality_score_metrics_mixed_levels(self) -> None:
+        """Test quality_score with metrics from both turn and conversation levels."""
+        config = SystemConfig(
+            default_turn_metrics_metadata={
+                "ragas:faithfulness": {"threshold": 0.7},
+            },
+            default_conversation_metrics_metadata={
+                "deepeval:conversation_relevancy": {"threshold": 0.6},
+            },
+            quality_score=QualityScoreConfig(
+                metrics=["ragas:faithfulness", "deepeval:conversation_relevancy"]
+            ),
+        )
+        assert config.quality_score is not None
+        assert len(config.quality_score.metrics) == 2
+
+    def test_partial_invalid_quality_score_metrics_fails(self) -> None:
+        """Test quality_score with mix of valid and invalid metrics raises ConfigurationError."""
+        with pytest.raises(
+            ConfigurationError,
+            match=r"Invalid quality_score metrics:.*ragas:invalid",
+        ):
+            SystemConfig(
+                default_turn_metrics_metadata={
+                    "ragas:faithfulness": {"threshold": 0.7},
+                },
+                quality_score=QualityScoreConfig(
+                    metrics=["ragas:faithfulness", "ragas:invalid"]
+                ),
+            )
+
+    def test_quality_score_validation_error_message_includes_metadata_hint(
+        self,
+    ) -> None:
+        """Test that error message guides users to define metrics in metadata."""
+        with pytest.raises(
+            ConfigurationError,
+            match=r"Must be defined in default_turn_metrics_metadata or "
+            r"default_conversation_metrics_metadata",
+        ):
+            SystemConfig(
+                default_turn_metrics_metadata={},
+                quality_score=QualityScoreConfig(metrics=["ragas:faithfulness"]),
+            )
+
+
+class TestQualityScoreConfig:
+    """Tests for QualityScoreConfig model."""
+
+    def test_valid_configurations(self) -> None:
+        """Test valid quality score configurations."""
+        # Single metric
+        config = QualityScoreConfig(metrics=["ragas:faithfulness"])
+        assert len(config.metrics) == 1
+        assert config.default is False
+
+        # Multiple metrics
+        config = QualityScoreConfig(
+            metrics=[
+                "ragas:faithfulness",
+                "deepeval:answer_relevancy",
+                "custom:correctness",
+            ],
+            default=True,
+        )
+        assert len(config.metrics) == 3
+        assert config.default is True
+
+    def test_empty_metrics_list_fails(self) -> None:
+        """Test that empty metrics list raises ValidationError."""
+        with pytest.raises(
+            ValidationError,
+            match="Quality score metrics list cannot be empty",
+        ):
+            QualityScoreConfig(metrics=[])
+
+    def test_multiple_duplicates_detected(self) -> None:
+        """Test that multiple different duplicates are all detected."""
+        with pytest.raises(
+            ValidationError,
+            match="Quality score metrics contains duplicates",
+        ):
+            QualityScoreConfig(
+                metrics=[
+                    "ragas:faithfulness",
+                    "ragas:faithfulness",
+                    "custom:correctness",
+                    "custom:correctness",
+                ]
+            )
