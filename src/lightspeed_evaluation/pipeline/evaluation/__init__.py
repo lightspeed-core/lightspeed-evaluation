@@ -7,6 +7,10 @@ from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
 if TYPE_CHECKING:
     # ruff: noqa: F401
     from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+    from lightspeed_evaluation.pipeline.evaluation.driver import (
+        AgentDriver,
+        AgentDriverRegistry,
+    )
     from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
     from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
     from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
@@ -22,6 +26,14 @@ _LAZY_IMPORTS = {
     "APIDataAmender": (
         "lightspeed_evaluation.pipeline.evaluation.amender",
         "APIDataAmender",
+    ),
+    "AgentDriver": (
+        "lightspeed_evaluation.pipeline.evaluation.driver",
+        "AgentDriver",
+    ),
+    "AgentDriverRegistry": (
+        "lightspeed_evaluation.pipeline.evaluation.driver",
+        "AgentDriverRegistry",
     ),
     "ConversationProcessor": (
         "lightspeed_evaluation.pipeline.evaluation.processor",

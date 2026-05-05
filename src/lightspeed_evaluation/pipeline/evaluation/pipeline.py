@@ -3,12 +3,11 @@
 import asyncio
 import concurrent.futures
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import litellm
 import tqdm
 
-from lightspeed_evaluation.core.api import APIClient
 from lightspeed_evaluation.core.llm.litellm_patch import litellm_state_lock
 from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import (
@@ -25,8 +24,14 @@ from lightspeed_evaluation.core.storage import (
     get_file_config,
 )
 from lightspeed_evaluation.core.system import ConfigLoader
-from lightspeed_evaluation.core.system.exceptions import StorageError
-from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+from lightspeed_evaluation.core.system.exceptions import (
+    ConfigurationError,
+    StorageError,
+)
+from lightspeed_evaluation.pipeline.evaluation.driver import (
+    AgentDriver,
+    AgentDriverRegistry,
+)
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
@@ -79,9 +84,10 @@ class EvaluationPipeline:
         # Metric manager
         metric_manager = MetricManager(config)
 
-        # Create pipeline components
-        self.api_client = self._create_api_client()
-        api_amender = APIDataAmender(self.api_client)
+        # Create agent driver registry and default driver
+        self._registry = AgentDriverRegistry()
+        self._default_driver = self._create_default_driver()
+
         error_handler = EvaluationErrorHandler()
 
         # Create script execution manager
@@ -95,7 +101,6 @@ class EvaluationPipeline:
         # Create processor components
         processor_components = ProcessorComponents(
             metrics_evaluator=metrics_evaluator,
-            api_amender=api_amender,
             error_handler=error_handler,
             metric_manager=metric_manager,
             script_manager=script_manager,
@@ -107,21 +112,46 @@ class EvaluationPipeline:
             processor_components,
         )
 
-    def _create_api_client(self) -> Optional[APIClient]:
-        """Create API client if enabled."""
-        config = self.config_loader.system_config
-        if config is None:
-            raise ValueError("SystemConfig must be loaded before creating API client")
-        if not config.api.enabled:
-            return None
+    def _create_default_driver(self) -> AgentDriver:
+        """Create the default agent driver from system config."""
+        _name, agent_config = self._resolve_default_agent_config()
+        return self._registry.create_driver(agent_config)
 
-        api_config = config.api
-        logger.info("Setting up API client: %s", api_config.api_base)
+    def _resolve_default_agent_config(self) -> tuple[str, dict[str, Any]]:
+        """Resolve the default agent configuration.
 
-        client = APIClient(config.api)
+        Returns:
+            Tuple of (agent_name, config_dict).
+        """
+        config = self.system_config
+        if config.agents is not None and config.agents.default.agent is not None:
+            return config.agents.resolve_agent_config()
+        return ("http_api", {"type": "http_api", "enabled": False})
 
-        logger.info("API client initialized for %s endpoint", api_config.endpoint_type)
-        return client
+    def _resolve_driver_for_conversation(
+        self, conv_data: EvaluationData
+    ) -> tuple[AgentDriver, bool]:
+        """Resolve the agent driver for a conversation.
+
+        Returns:
+            Tuple of (driver, is_per_conversation). The boolean indicates whether
+            the driver was created specifically for this conversation and should
+            be closed after use.
+        """
+        if not conv_data.agent and not conv_data.agent_config:
+            return self._default_driver, False
+
+        if self.system_config.agents is None:
+            raise ConfigurationError(
+                f"Conversation '{conv_data.conversation_group_id}' specifies "
+                f"agent overrides but no agents configuration is defined"
+            )
+
+        _name, agent_config = self.system_config.agents.resolve_agent_config(
+            agent_name=conv_data.agent,
+            agent_config_override=conv_data.agent_config,
+        )
+        return self._registry.create_driver(agent_config), True
 
     def run_evaluation(
         self,
@@ -152,11 +182,8 @@ class EvaluationPipeline:
             self.storage_backend.finalize()
             self.storage_backend.close()
 
-        # Save amended data if API was used
-        config = self.config_loader.system_config
-        if config is None:
-            raise ValueError("SystemConfig must be loaded")
-        if config.api.enabled:
+        # Save amended data if agent was used
+        if self._default_driver.enabled:
             logger.info("Saving amended evaluation data")
             self._save_amended_data(evaluation_data)
 
@@ -170,10 +197,10 @@ class EvaluationPipeline:
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.system_config.core.max_threads
         ) as executor:
-            futures = (
-                executor.submit(self.conversation_processor.process_conversation, c)
+            futures = {
+                executor.submit(self._process_conversation, c): c
                 for c in evaluation_data
-            )
+            }
             results: list[EvaluationResult] = []
             for future in tqdm.tqdm(
                 concurrent.futures.as_completed(futures), total=len(evaluation_data)
@@ -187,6 +214,17 @@ class EvaluationPipeline:
                         logger.warning("Failed to save results to storage: %s", e)
                 results.extend(conversation_results)
             return results
+
+    def _process_conversation(
+        self, conv_data: EvaluationData
+    ) -> list[EvaluationResult]:
+        """Resolve driver and process a single conversation."""
+        driver, is_per_conversation = self._resolve_driver_for_conversation(conv_data)
+        try:
+            return self.conversation_processor.process_conversation(conv_data, driver)
+        finally:
+            if is_per_conversation:
+                driver.close()
 
     def _save_amended_data(self, evaluation_data: list[EvaluationData]) -> None:
         """Save amended evaluation data with API amendments to output directory."""
@@ -215,8 +253,7 @@ class EvaluationPipeline:
         Uses a lock to serialize litellm cache teardown across concurrent
         pipelines, since ``litellm.cache`` is process-global state.
         """
-        if self.api_client:
-            self.api_client.close()
+        self._default_driver.close()
 
         self.storage_backend.close()
 
