@@ -274,6 +274,7 @@ storage:
       - "response"
       - "api_input_tokens"
       - "api_output_tokens"
+      - "agent_latency"
       # Streaming performance metrics (only populated when using streaming endpoint)
       - "time_to_first_token"    # Time to first token in seconds
       - "streaming_duration"      # Total streaming duration in seconds

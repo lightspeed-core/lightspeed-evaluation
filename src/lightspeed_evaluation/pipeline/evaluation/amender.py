@@ -1,6 +1,7 @@
 """API Data Amendment module - handles API data enrichment."""
 
 import logging
+import time
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.api import APIClient
@@ -36,6 +37,8 @@ class APIDataAmender:
 
         logger.debug("Amending turn %s with API data", turn_data.turn_id)
 
+        # Track API call execution time
+        api_start_time = time.perf_counter()
         try:
             api_response = self.api_client.query(
                 query=turn_data.query,
@@ -43,6 +46,7 @@ class APIDataAmender:
                 attachments=turn_data.attachments,
                 extra_request_params=turn_data.extra_request_params,
             )
+            api_latency = time.perf_counter() - api_start_time
 
             # AMEND EVALUATION DATA: This modifies the loaded TurnData object in-place
             # Update response from API
@@ -63,11 +67,19 @@ class APIDataAmender:
             # Update token usage from API output (with fallback to 0 if not present)
             turn_data.api_input_tokens = getattr(api_response, "input_tokens", 0)
             turn_data.api_output_tokens = getattr(api_response, "output_tokens", 0)
+
+            # Update API latency only for actual API calls (cached responses have 0 tokens)
+            turn_data.agent_latency = (
+                api_latency
+                if (turn_data.api_input_tokens > 0 or turn_data.api_output_tokens > 0)
+                else 0.0
+            )
             logger.debug(
-                "Token usage for turn %s: input=%d, output=%d",
+                "Token usage for turn %s: input=%d, output=%d, API latency=%.3fs",
                 turn_data.turn_id,
                 turn_data.api_input_tokens,
                 turn_data.api_output_tokens,
+                turn_data.agent_latency,
             )
 
             # Update streaming performance metrics (only available for streaming endpoint)
@@ -105,6 +117,9 @@ class APIDataAmender:
             return None, api_response.conversation_id
 
         except APIError as e:
+            # Record elapsed time even on error
+            api_latency = time.perf_counter() - api_start_time
+            turn_data.agent_latency = api_latency
             error_msg = f"API Error for turn {turn_data.turn_id}: {e}"
             logger.error(error_msg)
             return error_msg, conversation_id

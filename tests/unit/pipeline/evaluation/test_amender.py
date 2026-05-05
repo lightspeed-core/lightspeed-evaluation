@@ -263,3 +263,90 @@ class TestAPIDataAmender:
             attachments=None,
             extra_request_params={"mode": "troubleshooting"},
         )
+
+    def test_amend_single_turn_measures_agent_latency(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that agent_latency is measured for actual API calls (with tokens)."""
+        mock_client = mocker.Mock()
+        api_response = APIResponse(
+            response="Test response",
+            conversation_id="conv_latency",
+            contexts=[],
+            tool_calls=[],
+            input_tokens=100,
+            output_tokens=50,
+        )
+        mock_client.query.return_value = api_response
+
+        # Mock time.perf_counter to return deterministic timing values
+        mocker.patch(
+            "time.perf_counter",
+            side_effect=[1.0, 1.5],  # Start: 1.0, End: 1.5 → latency = 0.5
+        )
+
+        amender = APIDataAmender(mock_client)
+
+        turn = TurnData(turn_id="9", query="Latency test query", response=None)
+
+        # Initial agent_latency should be 0 (default)
+        assert turn.agent_latency == 0
+
+        error_msg, conversation_id = amender.amend_single_turn(turn)
+
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id == "conv_latency"
+
+        # agent_latency should be measured (exactly 0.5s) for actual API call
+        assert turn.agent_latency == 0.5
+        assert turn.api_input_tokens == 100
+        assert turn.api_output_tokens == 50
+
+    def test_amend_single_turn_no_agent_latency_when_no_client(self) -> None:
+        """Test that agent_latency is NOT measured when API client is None (api_enabled=False)."""
+        amender = APIDataAmender(None)
+
+        turn = TurnData(turn_id="10", query="No API query", response=None)
+
+        # Initial agent_latency should be 0 (default)
+        assert turn.agent_latency == 0
+
+        error_msg, conversation_id = amender.amend_single_turn(turn)
+
+        # No error should be returned
+        assert error_msg is None
+        assert conversation_id is None
+
+        # agent_latency should remain 0 since no API call was made
+        assert turn.agent_latency == 0
+
+    def test_amend_single_turn_no_latency_for_cached_responses(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that agent_latency is 0 for cached responses (zero tokens)."""
+        mock_client = mocker.Mock()
+        # Cached responses have zero tokens (set by cache retrieval logic)
+        cached_response = APIResponse(
+            response="Cached response",
+            conversation_id="conv_cached",
+            contexts=[],
+            tool_calls=[],
+            input_tokens=0,
+            output_tokens=0,
+        )
+        mock_client.query.return_value = cached_response
+
+        amender = APIDataAmender(mock_client)
+
+        turn = TurnData(turn_id="11", query="Cached query", response=None)
+
+        error_msg, conversation_id = amender.amend_single_turn(turn)
+
+        assert error_msg is None
+        assert conversation_id == "conv_cached"
+
+        # Cached response should have zero latency (no actual API call)
+        assert turn.agent_latency == 0
+        assert turn.api_input_tokens == 0
+        assert turn.api_output_tokens == 0

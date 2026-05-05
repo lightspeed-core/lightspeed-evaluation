@@ -43,7 +43,7 @@ from lightspeed_evaluation.core.models.statistics import (
     ConversationStats,
     TagStats,
     StreamingStats,
-    ApiTokenUsage,
+    AgentTokenUsage,
     ConfidenceInterval,
     DetailedStats,
 )
@@ -84,7 +84,7 @@ __all__ = [
     "ConversationStats",
     "TagStats",
     "StreamingStats",
-    "ApiTokenUsage",
+    "AgentTokenUsage",
     "ConfidenceInterval",
     "DetailedStats",
     # API models

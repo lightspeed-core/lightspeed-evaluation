@@ -149,7 +149,7 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
         judge_panel_data = config_data.get("judge_panel")
         judge_panel = JudgePanelConfig(**judge_panel_data) if judge_panel_data else None
 
-        # Parse storage backends with backward compatibility
+        # Parse storage backends with backward compatibility for legacy 'output' section
         storage_data = self._get_storage_config_with_backward_compat(config_data)
         storage_backends = self._parse_storage_config(storage_data)
 

@@ -11,7 +11,7 @@ from lightspeed_evaluation.core.models import (
     LLMPoolConfig,
     SystemConfig,
     OverallStats,
-    ApiTokenUsage,
+    AgentTokenUsage,
 )
 
 # Import only lightweight modules at top level
@@ -65,7 +65,7 @@ def _clear_caches(system_config: SystemConfig) -> None:
 
 def _print_summary(
     summary: OverallStats,
-    api_tokens: Optional[ApiTokenUsage] = None,
+    api_tokens: Optional[AgentTokenUsage] = None,
 ) -> None:
     """Print evaluation summary and token usage."""
     print(
@@ -132,7 +132,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         from lightspeed_evaluation.api import evaluate
         from lightspeed_evaluation.core.output import OutputHandler
         from lightspeed_evaluation.core.output.statistics import (
-            compute_api_token_usage,
+            compute_agent_token_usage,
             compute_overall_stats,
         )
         from lightspeed_evaluation.core.system import DataValidator
@@ -201,7 +201,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         # Final Summary
         summary = compute_overall_stats(results)
         api_tokens = (
-            compute_api_token_usage(evaluation_data)
+            compute_agent_token_usage(evaluation_data)
             if system_config.agents is not None and system_config.agents.enabled
             else None
         )

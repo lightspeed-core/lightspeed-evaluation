@@ -1127,6 +1127,7 @@ Contains every metric evaluation with:
 - Detailed reasoning
 - Query and response text
 - Execution time
+- API latency
 
 **Use for:** Drilling into specific failures, detailed analysis
 
@@ -1179,6 +1180,16 @@ ragas:faithfulness:
 - **FAIL** ❌: Score below threshold
 - **ERROR** ⚠️: Evaluation couldn't complete (missing data, API failure, etc.)
 - **SKIPPED** ⏭️: Evaluation skipped due to prior failure (when `skip_on_failure` is enabled)
+
+### Performance Metrics (API Enabled Only)
+
+**API Latency**: Response time per API call with percentile stats (p50, p95, p99). Cached responses (zero tokens) are excluded to avoid skewing statistics.
+
+**Streaming Metrics**: Time-to-first-token, streaming duration, and tokens/second when using streaming endpoints.
+
+**Token Usage**: Track consumption across Judge LLM, embeddings, and API calls.
+
+**Note:** Cached responses are detected by zero `api_input_tokens` and `api_output_tokens` — latency is set to 0 for these.
 
 ### Score Quality Levels
 
@@ -1912,4 +1923,3 @@ This comprehensive guide has covered everything you need to know to effectively 
 *This guide is designed to make AI evaluation accessible to everyone. Whether you're a product manager making decisions, a QA engineer testing systems, or a developer integrating evaluation into workflows, you now have everything you need to ensure your AI applications meet quality standards.*
 
 **Happy Evaluating! 🚀**
-

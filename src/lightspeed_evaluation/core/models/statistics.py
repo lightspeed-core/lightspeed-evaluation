@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class NumericStats(BaseModel):
-    """Numeric statistics for a set of values (e.g., TTFT, duration)."""
+    """Numeric statistics for a set of values (e.g., TTFT, duration, latency)."""
 
     count: int = Field(default=0, description="Number of values")
     mean: Optional[float] = Field(default=None, description="Mean value")
@@ -13,6 +13,8 @@ class NumericStats(BaseModel):
     std: Optional[float] = Field(default=None, description="Standard deviation")
     min_value: Optional[float] = Field(default=None, description="Minimum value")
     max_value: Optional[float] = Field(default=None, description="Maximum value")
+    p95: Optional[float] = Field(default=None, description="95th percentile")
+    p99: Optional[float] = Field(default=None, description="99th percentile")
 
 
 class ConfidenceInterval(BaseModel):
@@ -116,11 +118,25 @@ class StreamingStats(BaseModel):
     )
 
 
-class ApiTokenUsage(BaseModel):
-    """API token usage totals."""
+class AgentTokenStats(BaseModel):
+    """Agent token usage statistics with percentiles."""
+
+    input: Optional[NumericStats] = Field(
+        default=None, description="Input token statistics"
+    )
+    output: Optional[NumericStats] = Field(
+        default=None, description="Output token statistics"
+    )
+
+
+class AgentTokenUsage(BaseModel):
+    """Agent token usage totals and statistics."""
 
     total_api_input_tokens: int = Field(default=0, description="Total API input tokens")
     total_api_output_tokens: int = Field(
         default=0, description="Total API output tokens"
     )
     total_api_tokens: int = Field(default=0, description="Total API tokens")
+    statistics: Optional[AgentTokenStats] = Field(
+        default=None, description="Agent token usage statistics with percentiles"
+    )
