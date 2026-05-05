@@ -690,7 +690,7 @@ class TestRetryLogic:
     """Unit tests for retry logic in APIClient."""
 
     def test_is_retryable_server_error(self, mocker: MockerFixture) -> None:
-        """Test _is_retryable_server_error identifies 429 and 5xx errors."""
+        """Test _is_retryable_server_error identifies 429 and transient 5xx errors."""
         resp_429 = mocker.Mock(status_code=429)
         assert _is_retryable_server_error(
             httpx.HTTPStatusError("", request=mocker.Mock(), response=resp_429)
@@ -727,6 +727,7 @@ class TestRetryLogic:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test standard query retries on 429 error and then succeeds on retry."""
+        mocker.patch("time.sleep")
         mock_response_429 = mocker.Mock(status_code=429)
         mock_response_429.raise_for_status.side_effect = httpx.HTTPStatusError(
             "429 error", request=mocker.Mock(), response=mock_response_429
@@ -757,6 +758,7 @@ class TestRetryLogic:
         self, basic_api_config_streaming_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test streaming query retries on 429 error and then succeeds on retry."""
+        mocker.patch("time.sleep")
         mock_stream_429 = mocker.Mock(status_code=429, request=mocker.Mock())
         mock_context_429 = mocker.MagicMock()
         mock_context_429.__enter__.return_value = mock_stream_429
@@ -791,6 +793,7 @@ class TestRetryLogic:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query raises APIError after exhausting retry attempts."""
+        mocker.patch("time.sleep")
         basic_api_config_query_endpoint.num_retries = 3
 
         mock_response_429 = mocker.Mock(status_code=429)
@@ -818,6 +821,7 @@ class TestRetryLogic:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test standard query retries on 502 error and succeeds on retry."""
+        mocker.patch("time.sleep")
         mock_response_502 = mocker.Mock(status_code=502, text="Bad gateway")
         mock_response_502.raise_for_status.side_effect = httpx.HTTPStatusError(
             "502 error", request=mocker.Mock(), response=mock_response_502

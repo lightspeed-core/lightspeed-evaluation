@@ -192,6 +192,7 @@ class TestInferEndpoint:
         self, basic_api_config_infer_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test infer query retries on 429 then succeeds."""
+        mocker.patch("time.sleep")
         mock_response_429 = mocker.Mock(status_code=429)
         mock_response_429.raise_for_status.side_effect = httpx.HTTPStatusError(
             "429 error", request=mocker.Mock(), response=mock_response_429
