@@ -104,6 +104,21 @@ class TurnData(StreamingMetricsMixin):
         default=None, description="Path to verify script for script-based evaluation"
     )
 
+    # Subprocess driver fields
+    description: Optional[str] = Field(
+        default=None, description="Human-readable label for reports"
+    )
+    proposal_spec: Optional[dict[str, Any]] = Field(
+        default=None, description="Inline proposal spec for CRD-based agents"
+    )
+    expected_proposal_status: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Expected proposal status for assertion metrics",
+    )
+    proposal_status: Optional[dict[str, Any]] = Field(
+        default=None, description="Raw CRD status populated by SubprocessDriver"
+    )
+
     # Set of turn metrics that don't pass the validation to ignore them later
     _invalid_metrics: set[str] = set()
 
