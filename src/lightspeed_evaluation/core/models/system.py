@@ -272,7 +272,7 @@ class APIConfig(BaseModel):
     )
     endpoint_type: str = Field(
         default=DEFAULT_ENDPOINT_TYPE,
-        description="API endpoint type (streaming or query)",
+        description="API endpoint type (streaming, query, or infer)",
     )
     timeout: int = Field(
         default=DEFAULT_API_TIMEOUT, ge=1, description="Request timeout in seconds"
@@ -302,7 +302,7 @@ class APIConfig(BaseModel):
         ge=0,
         description=(
             "Maximum number of retry attempts for API calls on "
-            "429 Too Many Requests errors"
+            "retryable server errors (HTTP 429/5xx)"
         ),
     )
 
