@@ -16,8 +16,8 @@ from lightspeed_evaluation.core.constants import (
 )
 from lightspeed_evaluation.core.models import EvaluationResult
 from lightspeed_evaluation.core.output.statistics import (
-    calculate_basic_stats,
-    calculate_detailed_stats,
+    compute_overall_stats,
+    compute_detailed_stats,
 )
 
 CHART_COLORS = {
@@ -57,7 +57,7 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         self, results: list[EvaluationResult]
     ) -> dict[str, Any]:
         """Calculate summary statistics from results."""
-        return calculate_basic_stats(results)
+        return compute_overall_stats(results).model_dump()
 
     def _group_results_by_metric(
         self, results: list[EvaluationResult]
@@ -460,4 +460,4 @@ class GraphGenerator:  # pylint: disable=too-few-public-methods
         self, results: list[EvaluationResult]
     ) -> dict[str, Any]:
         """Calculate detailed summary statistics for graphs."""
-        return calculate_detailed_stats(results)
+        return compute_detailed_stats(results).model_dump()

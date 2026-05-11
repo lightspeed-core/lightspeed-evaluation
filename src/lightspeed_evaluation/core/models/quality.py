@@ -9,7 +9,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from lightspeed_evaluation.core.models.summary import MetricStats, ScoreStatistics
+from lightspeed_evaluation.core.models import MetricStats, ScoreStatistics
 
 logger = logging.getLogger(__name__)
 

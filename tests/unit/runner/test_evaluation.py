@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.models.statistics import OverallStats
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
     EmbeddingConfig,
@@ -146,21 +147,21 @@ class TestRunEvaluation:
         )
         mock_output_class.return_value = mock_output_handler
 
-        # Mock calculate_basic_stats (imported inside function)
+        # Mock compute_overall_stats (imported inside function)
         mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
         )
-        mock_stats.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-            "total_judge_llm_input_tokens": 100,
-            "total_judge_llm_output_tokens": 50,
-            "total_judge_llm_tokens": 150,
-            "total_embedding_tokens": 10,
-        }
+        mock_stats.return_value = OverallStats(
+            total=1,
+            passed=1,
+            failed=0,
+            error=0,
+            skipped=0,
+            total_judge_llm_input_tokens=100,
+            total_judge_llm_output_tokens=50,
+            total_judge_llm_tokens=150,
+            total_embedding_tokens=10,
+        )
 
         result = run_evaluation(_make_eval_args())
 
@@ -207,19 +208,9 @@ class TestRunEvaluation:
         mock_output_class.return_value = mock_output_handler
 
         mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
         )
-        mock_stats.return_value = {
-            "TOTAL": 0,
-            "PASS": 0,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-            "total_judge_llm_input_tokens": 0,
-            "total_judge_llm_output_tokens": 0,
-            "total_judge_llm_tokens": 0,
-            "total_embedding_tokens": 0,
-        }
+        mock_stats.return_value = OverallStats()
 
         run_evaluation(_make_eval_args(output_dir="/custom/output"))
 
@@ -305,19 +296,19 @@ class TestRunEvaluation:
         mock_output_class.return_value = mock_output_handler
 
         mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
         )
-        mock_stats.return_value = {
-            "TOTAL": 10,
-            "PASS": 5,
-            "FAIL": 2,
-            "ERROR": 3,
-            "SKIPPED": 0,
-            "total_judge_llm_input_tokens": 500,
-            "total_judge_llm_output_tokens": 250,
-            "total_judge_llm_tokens": 750,
-            "total_embedding_tokens": 10,
-        }
+        mock_stats.return_value = OverallStats(
+            total=10,
+            passed=5,
+            failed=2,
+            error=3,
+            skipped=0,
+            total_judge_llm_input_tokens=500,
+            total_judge_llm_output_tokens=250,
+            total_judge_llm_tokens=750,
+            total_embedding_tokens=10,
+        )
 
         result = run_evaluation(_make_eval_args())
 
@@ -424,18 +415,18 @@ class TestRunEvaluation:
         )
 
         mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats",
-            return_value={
-                "TOTAL": 1,
-                "PASS": 1,
-                "FAIL": 0,
-                "ERROR": 0,
-                "SKIPPED": 0,
-                "total_judge_llm_input_tokens": 100,
-                "total_judge_llm_output_tokens": 50,
-                "total_judge_llm_tokens": 150,
-                "total_embedding_tokens": 10,
-            },
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats",
+            return_value=OverallStats(
+                total=1,
+                passed=1,
+                failed=0,
+                error=0,
+                skipped=0,
+                total_judge_llm_input_tokens=100,
+                total_judge_llm_output_tokens=50,
+                total_judge_llm_tokens=150,
+                total_embedding_tokens=10,
+            ),
         )
 
         run_evaluation(_make_eval_args(tags=["basic"], conv_ids=["conv_1"]))
@@ -767,19 +758,19 @@ class TestRunEvaluationCacheWarmup:
 
         # Mock stats
         mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
         )
-        mock_stats.return_value = {
-            "TOTAL": 1,
-            "PASS": 1,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-            "total_judge_llm_input_tokens": 100,
-            "total_judge_llm_output_tokens": 50,
-            "total_judge_llm_tokens": 150,
-            "total_embedding_tokens": 10,
-        }
+        mock_stats.return_value = OverallStats(
+            total=1,
+            passed=1,
+            failed=0,
+            error=0,
+            skipped=0,
+            total_judge_llm_input_tokens=100,
+            total_judge_llm_output_tokens=50,
+            total_judge_llm_tokens=150,
+            total_embedding_tokens=10,
+        )
 
         # Run evaluation with cache warmup flag
         result = run_evaluation(_make_eval_args(cache_warmup=True))
@@ -839,19 +830,9 @@ class TestRunEvaluationCacheWarmup:
         mock_output_class.return_value = mock_output_handler
 
         mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.calculate_basic_stats"
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
         )
-        mock_stats.return_value = {
-            "TOTAL": 0,
-            "PASS": 0,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-            "total_judge_llm_input_tokens": 0,
-            "total_judge_llm_output_tokens": 0,
-            "total_judge_llm_tokens": 0,
-            "total_embedding_tokens": 0,
-        }
+        mock_stats.return_value = OverallStats()
 
         # Run evaluation WITHOUT cache warmup flag
         run_evaluation(_make_eval_args(cache_warmup=False))
