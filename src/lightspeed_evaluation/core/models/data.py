@@ -413,7 +413,6 @@ class EvaluationData(BaseModel):
     agent: Optional[str] = Field(
         default=None,
         min_length=1,
-        pattern=r"\S",
         description="Agent name for this conversation group (overrides agents.default.agent)",
     )
     agent_config: Optional[dict[str, Any]] = Field(

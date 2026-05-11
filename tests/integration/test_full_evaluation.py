@@ -124,7 +124,8 @@ class TestFullEvaluation:
         from lightspeed_evaluation.core.system import DataValidator
 
         validator = DataValidator(
-            api_enabled=system_config.api.enabled,
+            api_enabled=system_config.agents is not None
+            and system_config.agents.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
         evaluation_data = validator.load_evaluation_data(str(eval_data_path))
@@ -228,7 +229,8 @@ class TestFullEvaluation:
         from lightspeed_evaluation.core.system import DataValidator
 
         validator = DataValidator(
-            api_enabled=system_config.api.enabled,
+            api_enabled=system_config.agents is not None
+            and system_config.agents.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
         evaluation_data = validator.load_evaluation_data(str(eval_data_path))

@@ -687,12 +687,3 @@ class TestEvaluationDataAgentFields:
                 agent="",
                 turns=[TurnData(turn_id="t1", query="Q")],
             )
-
-    def test_whitespace_agent_name_rejected(self) -> None:
-        """Whitespace-only agent name is rejected."""
-        with pytest.raises(ValidationError, match="String should match pattern"):
-            EvaluationData(
-                conversation_group_id="cg1",
-                agent="   ",
-                turns=[TurnData(turn_id="t1", query="Q")],
-            )

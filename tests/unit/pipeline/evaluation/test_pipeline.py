@@ -7,6 +7,7 @@ from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
 )
+from lightspeed_evaluation.core.models.agents import AgentsConfig
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
 
@@ -56,7 +57,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test API client creation when enabled."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
         mock_config_loader.system_config.api.api_base = "http://test.com"
         mock_config_loader.system_config.api.endpoint_type = "test"
 
@@ -167,7 +168,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test amended data is saved when API is enabled."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
@@ -209,7 +210,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test save amended data handles exceptions gracefully."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
@@ -250,7 +251,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test close method with API client."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
         mock_config_loader.system_config.api.api_base = "http://test.com"
         mock_config_loader.system_config.api.endpoint_type = "test"
 

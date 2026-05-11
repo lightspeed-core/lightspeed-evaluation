@@ -818,15 +818,17 @@ class TestAgentsMigration:
         assert config.agents.agents["http_api"].api_base == "http://test:8080"
 
     def test_api_enabled_true_sets_default_agent(self) -> None:
-        """When api.enabled=True, default.agent is set to 'http_api'."""
+        """When api.enabled=True, agents.enabled=True and default.agent is set."""
         config = SystemConfig(api=APIConfig(enabled=True))
         assert config.agents is not None
+        assert config.agents.enabled is True
         assert config.agents.default.agent == "http_api"
 
     def test_api_enabled_false_sets_no_default_agent(self) -> None:
-        """When api.enabled=False, default.agent is None."""
+        """When api.enabled=False, agents.enabled=False and default.agent is None."""
         config = SystemConfig(api=APIConfig(enabled=False))
         assert config.agents is not None
+        assert config.agents.enabled is False
         assert config.agents.default.agent is None
 
     def test_agents_present_skips_migration(self) -> None:

@@ -112,7 +112,7 @@ class EvaluationPipeline:
         config = self.config_loader.system_config
         if config is None:
             raise ValueError("SystemConfig must be loaded before creating API client")
-        if not config.api.enabled:
+        if config.agents is None or not config.agents.enabled:
             return None
 
         api_config = config.api
@@ -156,7 +156,7 @@ class EvaluationPipeline:
         config = self.config_loader.system_config
         if config is None:
             raise ValueError("SystemConfig must be loaded")
-        if config.api.enabled:
+        if config.agents is not None and config.agents.enabled:
             logger.info("Saving amended evaluation data")
             self._save_amended_data(evaluation_data)
 

@@ -87,7 +87,7 @@ class HttpApiBaseFields(BaseModel):
     )
     endpoint_type: str = Field(
         default=DEFAULT_ENDPOINT_TYPE,
-        description="API endpoint type (streaming or query)",
+        description="API endpoint type (streaming / query / infer)",
     )
     timeout: int = Field(
         default=DEFAULT_API_TIMEOUT, ge=1, description="Request timeout in seconds"
@@ -130,9 +130,6 @@ class HttpApiAgentConfig(HttpApiBaseFields):
     type: Literal["http_api"] = Field(
         default="http_api", description="Agent type identifier"
     )
-    enabled: bool = Field(
-        default=True, description="Enable API calls instead of using pre-filled data"
-    )
     mcp_headers: Optional[MCPHeadersConfig] = Field(
         default=None,
         description="MCP headers configuration for authentication",
@@ -152,13 +149,12 @@ class AgentDefaultConfig(BaseModel):
     agent: Optional[str] = Field(
         default=None,
         min_length=1,
+        pattern=r"\S",
         description="Name of the default agent when eval_data doesn't specify one",
     )
-    timeout: Optional[int] = Field(
-        default=None, ge=1, description="Shared default timeout (seconds)"
-    )
-    retry: Optional[int] = Field(
-        default=None, ge=0, description="Shared default retry count"
+    agent_config: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Shared default agent config overrides applied to all agents",
     )
 
 
@@ -172,6 +168,10 @@ class AgentsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    enabled: bool = Field(
+        default=True,
+        description="Enable agent-based API calls instead of using pre-filled data",
+    )
     default: AgentDefaultConfig = Field(default_factory=AgentDefaultConfig)
     agents: dict[str, AgentDefinition] = Field(default_factory=dict)
 
@@ -215,9 +215,16 @@ class AgentsConfig(BaseModel):
         agent_name: Optional[str] = None,
         agent_config_override: Optional[dict[str, Any]] = None,
     ) -> tuple[str, dict[str, Any]]:
-        """Resolve final agent configuration from the 3-level priority chain.
+        """Resolve final agent configuration from the 2-level priority chain.
 
-        Resolution order: agent_config_override > agents.<name> > agents.default
+        Per-key merge in ascending priority order — higher levels override
+        matching keys while non-overlapping keys from lower levels survive:
+
+        1. ``default.agent_config`` (lowest)
+        2. ``agent_config_override`` from eval data (highest)
+
+        The agent definition's typed fields form the base; override dicts
+        are applied on top.
 
         Args:
             agent_name: Explicit agent name. Falls back to default.agent.
@@ -242,22 +249,14 @@ class AgentsConfig(BaseModel):
             )
 
         agent_def = self.agents[name]
-        base_config = agent_def.model_dump()
 
-        if (
-            self.default.timeout is not None
-            and "timeout" not in agent_def.model_fields_set
-        ):
-            base_config["timeout"] = self.default.timeout
-
-        if self.default.retry is not None:
-            if (
-                agent_def.type == "http_api"
-                and "num_retries" not in agent_def.model_fields_set
-            ):
-                base_config["num_retries"] = self.default.retry
-
+        effective: dict[str, Any] = {}
+        if self.default.agent_config:
+            effective.update(self.default.agent_config)
         if agent_config_override:
-            base_config.update(agent_config_override)
+            effective.update(agent_config_override)
+
+        base_config = agent_def.model_dump()
+        base_config.update(effective)
 
         return name, base_config

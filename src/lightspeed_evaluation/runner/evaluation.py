@@ -137,7 +137,8 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         # Load, filter, and validate evaluation data
         evaluation_data = DataValidator(
-            api_enabled=system_config.api.enabled,
+            api_enabled=system_config.agents is not None
+            and system_config.agents.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
             system_config=system_config,
         ).load_evaluation_data(
@@ -196,7 +197,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         summary = calculate_basic_stats(results)
         api_tokens = (
             calculate_api_token_usage(evaluation_data)
-            if system_config.api.enabled
+            if system_config.agents is not None and system_config.agents.enabled
             else None
         )
         _print_summary(summary, api_tokens)

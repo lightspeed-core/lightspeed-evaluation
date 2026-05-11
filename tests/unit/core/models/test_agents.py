@@ -99,30 +99,26 @@ class TestAgentDefaultConfig:
         """Test all fields default to None."""
         config = AgentDefaultConfig()
         assert config.agent is None
-        assert config.timeout is None
-        assert config.retry is None
+        assert config.agent_config is None
 
-    def test_with_values(self) -> None:
-        """Test setting all fields."""
-        config = AgentDefaultConfig(agent="my_agent", timeout=600, retry=5)
+    def test_with_agent_config(self) -> None:
+        """Test setting agent and agent_config."""
+        config = AgentDefaultConfig(
+            agent="my_agent",
+            agent_config={"timeout": 600, "num_retries": 5},
+        )
         assert config.agent == "my_agent"
-        assert config.timeout == 600
-        assert config.retry == 5
+        assert config.agent_config == {"timeout": 600, "num_retries": 5}
 
     def test_empty_agent_name_rejected(self) -> None:
         """Test empty string agent name is rejected."""
         with pytest.raises(ValidationError):
             AgentDefaultConfig(agent="")
 
-    def test_timeout_must_be_positive(self) -> None:
-        """Test timeout must be >= 1."""
+    def test_whitespace_agent_name_rejected(self) -> None:
+        """Test whitespace-only agent name is rejected."""
         with pytest.raises(ValidationError):
-            AgentDefaultConfig(timeout=0)
-
-    def test_retry_must_be_non_negative(self) -> None:
-        """Test retry must be >= 0."""
-        with pytest.raises(ValidationError):
-            AgentDefaultConfig(retry=-1)
+            AgentDefaultConfig(agent="   ")
 
 
 class TestAgentsConfig:
@@ -171,8 +167,10 @@ class TestAgentsConfig:
 
     def test_default_only(self) -> None:
         """Test config with only default section."""
-        config = AgentsConfig.model_validate({"default": {"timeout": 600}})
-        assert config.default.timeout == 600
+        config = AgentsConfig.model_validate(
+            {"default": {"agent_config": {"timeout": 600}}}
+        )
+        assert config.default.agent_config == {"timeout": 600}
         assert not config.agents
 
     def test_unknown_top_level_key_rejected(self) -> None:
@@ -260,46 +258,66 @@ class TestAgentsConfigResolve:
         with pytest.raises(ConfigurationError, match="No agent specified"):
             config.resolve_agent_config()
 
-    def test_shared_timeout_merges_when_not_set(self) -> None:
-        """Test default timeout merges into agent config when not explicitly set."""
+    def test_default_agent_config_applied(self) -> None:
+        """Test default agent_config applies when no higher levels exist."""
         config = AgentsConfig.model_validate(
             {
-                "default": {"agent": "ols_api", "timeout": 900},
+                "default": {
+                    "agent": "ols_api",
+                    "agent_config": {"timeout": 900, "num_retries": 5},
+                },
                 "ols_api": {"type": "http_api"},
             }
         )
         _, resolved = config.resolve_agent_config()
         assert resolved["timeout"] == 900
+        assert resolved["num_retries"] == 5
 
-    def test_agent_timeout_overrides_shared_default(self) -> None:
-        """Test agent-specific timeout takes priority over shared default."""
+    def test_eval_data_overrides_default_keys(self) -> None:
+        """Test eval_data agent_config overrides matching default keys."""
         config = AgentsConfig.model_validate(
             {
-                "default": {"agent": "ols_api", "timeout": 900},
-                "ols_api": {"type": "http_api", "timeout": 300},
-            }
-        )
-        _, resolved = config.resolve_agent_config()
-        assert resolved["timeout"] == 300
-
-    def test_shared_retry_maps_to_num_retries(self) -> None:
-        """Test default retry merges into http_api num_retries."""
-        config = AgentsConfig.model_validate(
-            {
-                "default": {"agent": "ols_api", "retry": 5},
+                "default": {
+                    "agent": "ols_api",
+                    "agent_config": {"timeout": 900, "provider": "aws"},
+                },
                 "ols_api": {"type": "http_api"},
             }
         )
-        _, resolved = config.resolve_agent_config()
-        assert resolved["num_retries"] == 5
+        _, resolved = config.resolve_agent_config(
+            agent_config_override={"timeout": 300}
+        )
+        assert resolved["timeout"] == 300
+        assert resolved["provider"] == "aws"
 
-    def test_agent_num_retries_overrides_shared_retry(self) -> None:
-        """Test agent-specific num_retries takes priority over shared retry."""
+    def test_two_level_merge(self) -> None:
+        """Test both levels merge per-key in ascending priority order."""
         config = AgentsConfig.model_validate(
             {
-                "default": {"agent": "ols_api", "retry": 5},
-                "ols_api": {"type": "http_api", "num_retries": 2},
+                "default": {
+                    "agent": "ols_api",
+                    "agent_config": {
+                        "timeout": 900,
+                        "provider": "aws",
+                        "num_retries": 3,
+                    },
+                },
+                "ols_api": {
+                    "type": "http_api",
+                    "provider": "azure",
+                },
             }
         )
+        _, resolved = config.resolve_agent_config(
+            agent_config_override={"timeout": 300}
+        )
+        assert resolved["timeout"] == 300
+        assert resolved["provider"] == "aws"
+        assert resolved["num_retries"] == 3
+
+    def test_no_agent_config_at_any_level(self) -> None:
+        """Test agent definition typed defaults stand when no overrides exist."""
+        config = self._make_config()
         _, resolved = config.resolve_agent_config()
-        assert resolved["num_retries"] == 2
+        assert resolved["timeout"] == DEFAULT_API_TIMEOUT
+        assert resolved["num_retries"] == DEFAULT_API_NUM_RETRIES

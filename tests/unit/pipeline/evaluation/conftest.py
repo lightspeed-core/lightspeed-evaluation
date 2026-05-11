@@ -12,6 +12,7 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.models.agents import AgentsConfig
 from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.metrics.manager import MetricManager
@@ -62,7 +63,7 @@ def config_loader(mocker: MockerFixture) -> ConfigLoader:
     config.default_conversation_metrics_metadata = {
         "deepeval:conversation_completeness": {"threshold": 0.6, "default": True},
     }
-    config.api.enabled = True
+    config.agents = AgentsConfig(enabled=True)
 
     loader.system_config = config
     return loader

@@ -823,6 +823,7 @@ class SystemConfig(BaseModel):
 
         agent_fields["type"] = "http_api"
         data["agents"] = {
+            "enabled": api_enabled,
             "default": {"agent": "http_api" if api_enabled else None},
             "http_api": agent_fields,
         }
