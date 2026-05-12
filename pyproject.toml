@@ -10,8 +10,8 @@ license = {text = "Apache"}
 dependencies = [
     "ragas>=0.4.0,<=0.4.3",
     "deepeval>=3.9.0,<=3.9.1",
-    "litellm>=1.80.0,<=1.82.4",
-    "pydantic>=2.10.0,<=2.11.7",
+    "litellm>=1.83.7,<=1.83.14",
+    "pydantic>=2.10.0,<=2.12.5",
     "pyyaml>=6.0,<=6.0.2",
     "pandas>=2.2.0,<=2.3.2",
     "datasets>=3.0.0,<=4.0.0",
@@ -112,7 +112,6 @@ packages = ["src/lightspeed_evaluation"]
 
 # UV configuration for CPU-only PyTorch (reduces package size from ~6GB to ~2GB)
 [tool.uv]
-
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
