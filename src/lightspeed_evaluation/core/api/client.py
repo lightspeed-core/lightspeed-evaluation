@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import os
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union, cast
 
 import httpx
 from diskcache import Cache
@@ -22,6 +22,7 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_ENDPOINT_TYPES,
 )
 from lightspeed_evaluation.core.models import APIConfig, APIRequest, APIResponse
+from lightspeed_evaluation.core.models.agents import HttpApiAgentConfig
 from lightspeed_evaluation.core.system.exceptions import APIError
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ class APIClient:
 
     def __init__(
         self,
-        config: APIConfig,
+        config: Union[APIConfig, HttpApiAgentConfig],
     ):
         """Initialize the client with configuration."""
         self.config = config

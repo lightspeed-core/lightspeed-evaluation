@@ -7,9 +7,27 @@ from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
 )
-from lightspeed_evaluation.core.models.agents import AgentsConfig
+from lightspeed_evaluation.core.models.agents import (
+    AgentDefaultConfig,
+    AgentsConfig,
+    HttpApiAgentConfig,
+)
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
+
+
+def _agents_config_enabled() -> AgentsConfig:
+    """Create an AgentsConfig with a valid default agent for testing."""
+    return AgentsConfig(
+        enabled=True,
+        default=AgentDefaultConfig(agent="test_agent"),
+        agents={
+            "test_agent": HttpApiAgentConfig(
+                api_base="http://test.com",
+                endpoint_type="query",
+            )
+        },
+    )
 
 
 class TestEvaluationPipeline:
@@ -57,9 +75,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test API client creation when enabled."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
-        mock_config_loader.system_config.api.api_base = "http://test.com"
-        mock_config_loader.system_config.api.endpoint_type = "test"
+        mock_config_loader.system_config.agents = _agents_config_enabled()
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mock_api_client = mocker.patch(
@@ -168,7 +184,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test amended data is saved when API is enabled."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        mock_config_loader.system_config.agents = _agents_config_enabled()
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
@@ -210,7 +226,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test save amended data handles exceptions gracefully."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        mock_config_loader.system_config.agents = _agents_config_enabled()
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
@@ -251,9 +267,7 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test close method with API client."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
-        mock_config_loader.system_config.api.api_base = "http://test.com"
-        mock_config_loader.system_config.api.endpoint_type = "test"
+        mock_config_loader.system_config.agents = _agents_config_enabled()
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mock_api_client_class = mocker.patch(
