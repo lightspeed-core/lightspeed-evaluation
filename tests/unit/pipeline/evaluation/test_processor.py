@@ -17,9 +17,9 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
-from lightspeed_evaluation.core.models.agents import AgentsConfig
 from lightspeed_evaluation.core.script import ScriptExecutionError
 from lightspeed_evaluation.core.system.loader import ConfigLoader
+from lightspeed_evaluation.pipeline.evaluation.driver import AgentDriver
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
     ConversationProcessor,
@@ -47,6 +47,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
         """Test processing skips when no metrics specified."""
@@ -54,7 +55,7 @@ class TestConversationProcessor:
         processor_components.metric_manager.resolve_metrics.return_value = []
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor.process_conversation(sample_conv_data)
+        results = processor.process_conversation(sample_conv_data, mock_agent_driver)
 
         assert len(results) == 0
 
@@ -63,6 +64,7 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
         """Test processing with turn-level metrics."""
@@ -92,7 +94,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor.process_conversation(sample_conv_data)
+        results = processor.process_conversation(sample_conv_data, mock_agent_driver)
 
         # Each turn with metrics will produce results
         assert len(results) > 0
@@ -102,6 +104,7 @@ class TestConversationProcessor:
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
         """Test processing with conversation-level metrics."""
@@ -137,7 +140,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor.process_conversation(conv_data)
+        results = processor.process_conversation(conv_data, mock_agent_driver)
 
         assert len(results) == 1
         assert results[0].turn_id is None  # Conversation-level
@@ -147,13 +150,14 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
         """Test processing with successful setup script."""
 
         sample_conv_data.setup_script = "setup.sh"
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        mock_agent_driver.enabled = True
+        mock_agent_driver.execute_turn.return_value = (None, "conv_123")
 
         # Configure metric manager to return turn metrics and empty conversation metrics
         def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
@@ -166,11 +170,6 @@ class TestConversationProcessor:
         )
 
         processor_components.script_manager.run_script.return_value = True
-        # Mock API amender to return tuple
-        processor_components.api_amender.amend_single_turn.return_value = (
-            None,
-            "conv_123",
-        )
 
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
@@ -186,7 +185,7 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor.process_conversation(sample_conv_data)
+        results = processor.process_conversation(sample_conv_data, mock_agent_driver)
 
         processor_components.script_manager.run_script.assert_called()
         assert len(results) > 0
@@ -196,12 +195,12 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
         """Test processing handles setup script failure."""
         sample_conv_data.setup_script = "setup.sh"
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        mock_agent_driver.enabled = True
 
         processor_components.script_manager.run_script.side_effect = (
             ScriptExecutionError("Script failed")
@@ -209,7 +208,7 @@ class TestConversationProcessor:
         processor_components.error_handler.mark_all_metrics_as_error.return_value = []
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor.process_conversation(sample_conv_data)
+        processor.process_conversation(sample_conv_data, mock_agent_driver)
 
         processor_components.error_handler.mark_all_metrics_as_error.assert_called_once()
 
@@ -218,13 +217,14 @@ class TestConversationProcessor:
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
         """Test cleanup script is always called."""
 
         sample_conv_data.cleanup_script = "cleanup.sh"
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        mock_agent_driver.enabled = True
+        mock_agent_driver.execute_turn.return_value = (None, "conv_123")
 
         # Configure metric manager to return turn metrics and empty conversation metrics
         def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
@@ -237,11 +237,6 @@ class TestConversationProcessor:
         )
 
         processor_components.script_manager.run_script.return_value = True
-        # Mock API amender to return tuple
-        processor_components.api_amender.amend_single_turn.return_value = (
-            None,
-            "conv_123",
-        )
 
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
@@ -257,23 +252,24 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor.process_conversation(sample_conv_data)
+        processor.process_conversation(sample_conv_data, mock_agent_driver)
 
         # Verify cleanup was called
         calls = processor_components.script_manager.run_script.call_args_list
         assert any("cleanup.sh" in str(call) for call in calls)
 
-    def test_process_conversation_with_api_amendment(
+    def test_process_conversation_with_agent_execution(
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
-        """Test API amendment during turn processing."""
+        """Test agent execution during turn processing."""
 
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        mock_agent_driver.enabled = True
+        mock_agent_driver.execute_turn.return_value = (None, "conv_123")
 
         # Configure metric manager to return turn metrics and empty conversation metrics
         def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
@@ -285,12 +281,6 @@ class TestConversationProcessor:
             resolve_side_effect
         )
 
-        # Mock API amender
-        processor_components.api_amender.amend_single_turn.return_value = (
-            None,
-            "conv_123",
-        )
-
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
             turn_id="turn1",
@@ -305,20 +295,21 @@ class TestConversationProcessor:
         )
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        results = processor.process_conversation(sample_conv_data)
+        results = processor.process_conversation(sample_conv_data, mock_agent_driver)
 
-        processor_components.api_amender.amend_single_turn.assert_called_once()
+        mock_agent_driver.execute_turn.assert_called_once()
         assert len(results) > 0
 
-    def test_process_conversation_with_api_error_cascade(
+    def test_process_conversation_with_agent_error_cascade(
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
+        mock_agent_driver: AgentDriver,
         mocker: MockerFixture,
     ) -> None:
-        """Test API error causes cascade failure."""
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
+        """Test agent error causes cascade failure."""
+        mock_agent_driver.enabled = True
+        mock_agent_driver.execute_turn.return_value = ("API Error", None)
 
         # Create multi-turn conversation
         turn1 = TurnData(
@@ -338,16 +329,11 @@ class TestConversationProcessor:
             turns=[turn1, turn2],
         )
 
-        # Mock API error on first turn
-        processor_components.api_amender.amend_single_turn.return_value = (
-            "API Error",
-            None,
-        )
         processor_components.error_handler.mark_turn_metrics_as_error.return_value = []
         processor_components.error_handler.mark_cascade_error.return_value = []
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor.process_conversation(conv_data)
+        processor.process_conversation(conv_data, mock_agent_driver)
 
         # Verify cascade error handling was triggered
         processor_components.error_handler.mark_cascade_error.assert_called_once()
@@ -412,36 +398,32 @@ class TestConversationProcessor:
         assert len(results) == 1
         assert results[0].turn_id is None
 
-    def test_run_setup_script_skips_when_api_disabled(
+    def test_run_setup_script_skips_when_agent_disabled(
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
     ) -> None:
-        """Test setup script is skipped when API disabled."""
+        """Test setup script is skipped when agent disabled."""
         sample_conv_data.setup_script = "setup.sh"
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = None
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        error = processor._run_setup_script(sample_conv_data)
+        error = processor._run_setup_script(sample_conv_data, skip=True)
 
         assert error is None
         processor_components.script_manager.run_script.assert_not_called()
 
-    def test_run_cleanup_script_skips_when_api_disabled(
+    def test_run_cleanup_script_skips_when_agent_disabled(
         self,
         mock_config_loader: ConfigLoader,
         processor_components: ProcessorComponents,
         sample_conv_data: EvaluationData,
     ) -> None:
-        """Test cleanup script is skipped when API disabled."""
+        """Test cleanup script is skipped when agent disabled."""
         sample_conv_data.cleanup_script = "cleanup.sh"
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = None
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor._run_cleanup_script(sample_conv_data)
+        processor._run_cleanup_script(sample_conv_data, skip=True)
 
         processor_components.script_manager.run_script.assert_not_called()
 
@@ -453,8 +435,6 @@ class TestConversationProcessor:
     ) -> None:
         """Test cleanup script failure is logged as warning."""
         sample_conv_data.cleanup_script = "cleanup.sh"
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         processor_components.script_manager.run_script.return_value = False
 
@@ -880,6 +860,7 @@ class TestSkipOnFailure:
         config_loader_factory: Callable[[bool], ConfigLoader],
         processor_components: ProcessorComponents,
         multi_turn_conv_data: EvaluationData,
+        mock_agent_driver: AgentDriver,
         skip_enabled: bool,
         expect_skip: bool,
     ) -> None:
@@ -952,7 +933,9 @@ class TestSkipOnFailure:
         processor = ConversationProcessor(
             config_loader_factory(skip_enabled), processor_components
         )
-        results = processor.process_conversation(multi_turn_conv_data)
+        results = processor.process_conversation(
+            multi_turn_conv_data, mock_agent_driver
+        )
 
         assert len(results) == 4
         if expect_skip:

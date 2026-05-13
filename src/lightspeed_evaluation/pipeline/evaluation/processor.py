@@ -16,7 +16,7 @@ from lightspeed_evaluation.core.script import (
     ScriptExecutionManager,
 )
 from lightspeed_evaluation.core.system import ConfigLoader
-from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+from lightspeed_evaluation.pipeline.evaluation.driver import AgentDriver
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 
@@ -28,7 +28,6 @@ class ProcessorComponents:
     """Components required for conversation processing."""
 
     metrics_evaluator: MetricsEvaluator
-    api_amender: APIDataAmender
     error_handler: EvaluationErrorHandler
     metric_manager: MetricManager
     script_manager: ScriptExecutionManager
@@ -41,6 +40,7 @@ class TurnProcessingContext:
     conv_data: EvaluationData
     resolved_turn_metrics: list[list[str]]
     resolved_conversation_metrics: list[str]
+    agent_driver: AgentDriver
     conversation_id: Optional[str] = None
 
 
@@ -53,8 +53,14 @@ class ConversationProcessor:
         self.config = config_loader.system_config
         self.components = components
 
-    def process_conversation(self, conv_data: EvaluationData) -> list[EvaluationResult]:
+    def process_conversation(
+        self, conv_data: EvaluationData, agent_driver: AgentDriver
+    ) -> list[EvaluationResult]:
         """Process single conversation - handle turn and conversation level metrics.
+
+        Args:
+            conv_data: Conversation data to evaluate.
+            agent_driver: Driver for agent execution (provided by pipeline).
 
         Returns:
             list[EvaluationResult]: Results from processing this conversation
@@ -62,7 +68,7 @@ class ConversationProcessor:
         logger.info("Evaluating conversation: %s", conv_data.conversation_group_id)
 
         # Build processing context with resolved metrics
-        ctx = self._build_processing_context(conv_data)
+        ctx = self._build_processing_context(conv_data, agent_driver)
 
         # Skip if no metrics specified at any level
         if not self._has_metrics_to_evaluate(ctx):
@@ -72,7 +78,8 @@ class ConversationProcessor:
             return []
 
         # Run setup script if provided
-        setup_error = self._run_setup_script(conv_data)
+        skip = not agent_driver.enabled
+        setup_error = self._run_setup_script(conv_data, skip)
         if setup_error:
             return self._handle_setup_failure(ctx, setup_error)
 
@@ -84,10 +91,10 @@ class ConversationProcessor:
 
         finally:
             # Always run cleanup script (if provided) regardless of results
-            self._run_cleanup_script(conv_data)
+            self._run_cleanup_script(conv_data, skip)
 
     def _build_processing_context(
-        self, conv_data: EvaluationData
+        self, conv_data: EvaluationData, agent_driver: AgentDriver
     ) -> TurnProcessingContext:
         """Build processing context with resolved metrics."""
         resolved_turn_metrics = [
@@ -103,6 +110,7 @@ class ConversationProcessor:
             conv_data=conv_data,
             resolved_turn_metrics=resolved_turn_metrics,
             resolved_conversation_metrics=resolved_conversation_metrics,
+            agent_driver=agent_driver,
         )
 
     def _has_metrics_to_evaluate(self, ctx: TurnProcessingContext) -> bool:
@@ -137,12 +145,8 @@ class ConversationProcessor:
         for turn_idx, (turn_data, turn_metrics) in enumerate(
             zip(ctx.conv_data.turns, ctx.resolved_turn_metrics)
         ):
-            # Handle API call if enabled
-            if (
-                self.config
-                and self.config.agents is not None
-                and self.config.agents.enabled
-            ):
+            # Handle agent execution if enabled
+            if ctx.agent_driver.enabled:
                 api_error = self._process_turn_api(ctx, turn_idx, turn_data)
                 if api_error:
                     # API failure - mark current turn and cascade to remaining
@@ -211,15 +215,13 @@ class ConversationProcessor:
     def _process_turn_api(
         self, ctx: TurnProcessingContext, turn_idx: int, turn_data: TurnData
     ) -> Optional[str]:
-        """Process API call for a single turn. Returns error message if failed."""
+        """Process agent call for a single turn. Returns error message if failed."""
         logger.debug("Processing turn %d: %s", turn_idx, turn_data.turn_id)
-        api_error_message, ctx.conversation_id = (
-            self.components.api_amender.amend_single_turn(
-                turn_data, ctx.conversation_id
-            )
+        api_error_message, ctx.conversation_id = ctx.agent_driver.execute_turn(
+            turn_data, ctx.conversation_id
         )
         logger.debug(
-            "✅ API Call completed for turn %d: %s", turn_idx, turn_data.turn_id
+            "Agent call completed for turn %d: %s", turn_idx, turn_data.turn_id
         )
         return api_error_message
 
@@ -320,17 +322,16 @@ class ConversationProcessor:
                 results.append(result)
         return results
 
-    def _run_setup_script(self, conv_data: EvaluationData) -> Optional[str]:
+    def _run_setup_script(
+        self, conv_data: EvaluationData, skip: bool = False
+    ) -> Optional[str]:
         """Run setup script for conversation."""
         setup_script = conv_data.setup_script
         if not setup_script:
             return None
 
-        # Skip script execution if API is disabled
-        if self.config and (
-            self.config.agents is None or not self.config.agents.enabled
-        ):
-            logger.debug("Skipping setup script (API disabled): %s", setup_script)
+        if skip:
+            logger.debug("Skipping setup script (agent disabled): %s", setup_script)
             return None
 
         try:
@@ -346,7 +347,9 @@ class ConversationProcessor:
             logger.error("Setup script failed: %s", e)
             return str(e)
 
-    def _run_cleanup_script(self, conv_data: EvaluationData) -> None:
+    def _run_cleanup_script(
+        self, conv_data: EvaluationData, skip: bool = False
+    ) -> None:
         """Run cleanup script for conversation.
 
         Cleanup failures are logged as warnings but don't affect evaluation results.
@@ -355,11 +358,8 @@ class ConversationProcessor:
         if not cleanup_script:
             return
 
-        # Skip script execution if API is disabled
-        if self.config and (
-            self.config.agents is None or not self.config.agents.enabled
-        ):
-            logger.debug("Skipping cleanup script (API disabled): %s", cleanup_script)
+        if skip:
+            logger.debug("Skipping cleanup script (agent disabled): %s", cleanup_script)
             return
 
         logger.debug("Running cleanup script: %s", cleanup_script)
