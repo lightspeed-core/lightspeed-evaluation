@@ -14,7 +14,7 @@ dependencies = [
     "httpx>=0.27.2,<=0.28.1",
     "tqdm>=4.67.1,<=4.67.3",
     "pyyaml>=6.0,<=6.0.3",
-    "litellm>=1.0.0,<=1.82.6",
+    "litellm>=1.83.7,<=1.83.14",
 ]
 
 [dependency-groups]
