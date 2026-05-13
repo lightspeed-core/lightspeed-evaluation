@@ -138,7 +138,11 @@ class ConversationProcessor:
             zip(ctx.conv_data.turns, ctx.resolved_turn_metrics)
         ):
             # Handle API call if enabled
-            if self.config and self.config.api.enabled:
+            if (
+                self.config
+                and self.config.agents is not None
+                and self.config.agents.enabled
+            ):
                 api_error = self._process_turn_api(ctx, turn_idx, turn_data)
                 if api_error:
                     # API failure - mark current turn and cascade to remaining
@@ -323,7 +327,9 @@ class ConversationProcessor:
             return None
 
         # Skip script execution if API is disabled
-        if self.config and not self.config.api.enabled:
+        if self.config and (
+            self.config.agents is None or not self.config.agents.enabled
+        ):
             logger.debug("Skipping setup script (API disabled): %s", setup_script)
             return None
 
@@ -350,7 +356,9 @@ class ConversationProcessor:
             return
 
         # Skip script execution if API is disabled
-        if self.config and not self.config.api.enabled:
+        if self.config and (
+            self.config.agents is None or not self.config.agents.enabled
+        ):
             logger.debug("Skipping cleanup script (API disabled): %s", cleanup_script)
             return
 

@@ -2,20 +2,25 @@
 
 import os
 import tempfile
+
 import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import (
+    APIConfig,
+    EmbeddingConfig,
     JudgePanelConfig,
     LLMConfig,
     LLMPoolConfig,
     SystemConfig,
-    EmbeddingConfig,
-    APIConfig,
     VisualizationConfig,
 )
-from lightspeed_evaluation.core.storage import FileBackendConfig
+from lightspeed_evaluation.core.models.agents import (
+    AgentDefaultConfig,
+    AgentsConfig,
+    HttpApiAgentConfig,
+)
 from lightspeed_evaluation.core.models.system import (
     GEvalConfig,
     GEvalRubricConfig,
@@ -25,6 +30,7 @@ from lightspeed_evaluation.core.models.system import (
     LoggingConfig,
     QualityScoreConfig,
 )
+from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 
@@ -799,3 +805,98 @@ class TestQualityScoreConfig:
                     "custom:correctness",
                 ]
             )
+
+
+class TestAgentsMigration:
+    """Tests for api: -> agents: auto-migration on SystemConfig."""
+
+    def test_api_only_migrates_to_agents(self) -> None:
+        """SystemConfig with api: but no agents: gets agents auto-populated."""
+        config = SystemConfig(api=APIConfig(api_base="http://test:8080"))
+        assert config.agents is not None
+        assert "http_api" in config.agents.agents
+        assert config.agents.agents["http_api"].api_base == "http://test:8080"
+
+    def test_api_enabled_true_sets_default_agent(self) -> None:
+        """When api.enabled=True, agents.enabled=True and default.agent is set."""
+        config = SystemConfig(api=APIConfig(enabled=True))
+        assert config.agents is not None
+        assert config.agents.enabled is True
+        assert config.agents.default.agent == "http_api"
+
+    def test_api_enabled_false_sets_no_default_agent(self) -> None:
+        """When api.enabled=False, agents.enabled=False and default.agent is None."""
+        config = SystemConfig(api=APIConfig(enabled=False))
+        assert config.agents is not None
+        assert config.agents.enabled is False
+        assert config.agents.default.agent is None
+
+    def test_agents_present_skips_migration(self) -> None:
+        """When agents: is explicitly provided, no migration happens."""
+        agents = AgentsConfig.model_validate(
+            {
+                "default": {"agent": "custom"},
+                "custom": {"type": "http_api", "api_base": "http://custom:9090"},
+            }
+        )
+        config = SystemConfig(agents=agents)
+        assert config.agents is not None
+        assert "custom" in config.agents.agents
+        assert config.agents.agents["custom"].api_base == "http://custom:9090"
+
+    def test_api_field_accessible_after_migration(self) -> None:
+        """config.api still works after auto-migration."""
+        config = SystemConfig(api=APIConfig(enabled=True, timeout=500))
+        assert config.api.enabled is True
+        assert config.api.timeout == 500
+
+    def test_dict_input_migrates(self) -> None:
+        """Raw dict input (as from YAML) triggers migration."""
+        config = SystemConfig.model_validate(
+            {
+                "api": {"enabled": True, "api_base": "http://dict:8080"},
+            }
+        )
+        assert config.agents is not None
+        assert config.agents.agents["http_api"].api_base == "http://dict:8080"
+
+    def test_default_systemconfig_agents_none(self) -> None:
+        """SystemConfig() with no args has agents=None (no explicit api: to migrate)."""
+        config = SystemConfig()
+        assert config.agents is None
+
+    def test_explicit_api_kwarg_migrates(self) -> None:
+        """Programmatic construction with explicit api= kwarg triggers migration."""
+        config = SystemConfig(api=APIConfig(enabled=True))
+        assert config.agents is not None
+        assert config.agents.default.agent == "http_api"
+        assert "http_api" in config.agents.agents
+
+    def test_invalid_default_agent_reference_raises(self) -> None:
+        """default.agent referencing undefined agent raises error."""
+        with pytest.raises(ConfigurationError, match="not found"):
+            SystemConfig(
+                agents=AgentsConfig(
+                    default=AgentDefaultConfig(agent="nonexistent"),
+                    agents={"ols_api": HttpApiAgentConfig()},
+                )
+            )
+
+    def test_mcp_headers_preserved_during_migration(self) -> None:
+        """mcp_headers from api: are preserved in the migrated agents config."""
+        config = SystemConfig.model_validate(
+            {
+                "api": {
+                    "enabled": True,
+                    "mcp_headers": {
+                        "enabled": True,
+                        "servers": {},
+                    },
+                },
+            }
+        )
+        assert config.agents is not None
+        agent = config.agents.agents["http_api"]
+        assert agent.mcp_headers is not None
+        assert agent.mcp_headers.enabled is True
+        assert agent.mcp_headers.servers == {}

@@ -114,7 +114,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
@@ -181,7 +181,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
@@ -253,7 +253,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
 
@@ -281,7 +281,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
@@ -336,7 +336,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
@@ -367,7 +367,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
 
@@ -400,7 +400,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
@@ -457,7 +457,7 @@ class TestRunEvaluation:
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
@@ -532,7 +532,7 @@ class TestClearCaches:
         mock_config = mocker.Mock()
         mock_config.llm.cache_enabled = True
         mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
 
@@ -552,7 +552,7 @@ class TestClearCaches:
         """Test clearing caches when none are enabled."""
         mock_config = mocker.Mock()
         mock_config.llm.cache_enabled = False
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
 
@@ -570,7 +570,7 @@ class TestClearCaches:
         mock_config = mocker.Mock()
         mock_config.llm.cache_enabled = True
         mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
 
@@ -736,7 +736,7 @@ class TestRunEvaluationCacheWarmup:
         mock_config.llm.model = "gpt-4"
         mock_config.llm.cache_enabled = True
         mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
         mock_config.storage = []
@@ -813,7 +813,7 @@ class TestRunEvaluationCacheWarmup:
         mock_config.llm.model = "gpt-4"
         mock_config.llm.cache_enabled = True
         mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.api.enabled = False
+        mock_config.agents = None
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
         mock_config.storage = []

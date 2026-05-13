@@ -157,11 +157,13 @@ class MetricsEvaluator:
             framework = request.metric_identifier.split(":", 1)[0]
 
             # Skip script metrics if API is disabled
-            if (
-                framework == "script"
-                and self.config_loader.system_config is not None
-                and not self.config_loader.system_config.api.enabled
-            ):
+            sys_config = self.config_loader.system_config
+            agents_enabled = (
+                sys_config is not None
+                and sys_config.agents is not None
+                and sys_config.agents.enabled
+            )
+            if framework == "script" and not agents_enabled:
                 # Don't generate result for script metrics when API disabled
                 return None
 

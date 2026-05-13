@@ -409,6 +409,17 @@ class EvaluationData(BaseModel):
         description="Skip remaining turns when a turn evaluation fails (overrides system config)",
     )
 
+    # Agent selection and config override
+    agent: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Agent name for this conversation group (overrides agents.default.agent)",
+    )
+    agent_config: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Per-conversation agent config overrides (highest priority)",
+    )
+
     # Set of conversation metrics that don't pass the validation to ignore them later
     _invalid_metrics: set[str] = set()
 

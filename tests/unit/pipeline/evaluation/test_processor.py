@@ -17,6 +17,7 @@ from lightspeed_evaluation.core.models import (
     SystemConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.models.agents import AgentsConfig
 from lightspeed_evaluation.core.script import ScriptExecutionError
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
@@ -152,7 +153,7 @@ class TestConversationProcessor:
 
         sample_conv_data.setup_script = "setup.sh"
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         # Configure metric manager to return turn metrics and empty conversation metrics
         def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
@@ -200,7 +201,7 @@ class TestConversationProcessor:
         """Test processing handles setup script failure."""
         sample_conv_data.setup_script = "setup.sh"
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         processor_components.script_manager.run_script.side_effect = (
             ScriptExecutionError("Script failed")
@@ -223,7 +224,7 @@ class TestConversationProcessor:
 
         sample_conv_data.cleanup_script = "cleanup.sh"
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         # Configure metric manager to return turn metrics and empty conversation metrics
         def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
@@ -272,7 +273,7 @@ class TestConversationProcessor:
         """Test API amendment during turn processing."""
 
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         # Configure metric manager to return turn metrics and empty conversation metrics
         def resolve_side_effect(_metrics: list[str], level: MetricLevel) -> list[str]:
@@ -317,7 +318,7 @@ class TestConversationProcessor:
     ) -> None:
         """Test API error causes cascade failure."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         # Create multi-turn conversation
         turn1 = TurnData(
@@ -420,7 +421,7 @@ class TestConversationProcessor:
         """Test setup script is skipped when API disabled."""
         sample_conv_data.setup_script = "setup.sh"
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = False
+        mock_config_loader.system_config.agents = None
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
         error = processor._run_setup_script(sample_conv_data)
@@ -437,7 +438,7 @@ class TestConversationProcessor:
         """Test cleanup script is skipped when API disabled."""
         sample_conv_data.cleanup_script = "cleanup.sh"
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = False
+        mock_config_loader.system_config.agents = None
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
         processor._run_cleanup_script(sample_conv_data)
@@ -453,7 +454,7 @@ class TestConversationProcessor:
         """Test cleanup script failure is logged as warning."""
         sample_conv_data.cleanup_script = "cleanup.sh"
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = True
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         processor_components.script_manager.run_script.return_value = False
 
@@ -814,7 +815,6 @@ class TestSkipOnFailure:
         def _create(skip_on_failure: bool) -> ConfigLoader:
             loader = mocker.Mock(spec=ConfigLoader)
             config = SystemConfig()
-            config.api.enabled = False
             config.core.skip_on_failure = skip_on_failure
             loader.system_config = config
             return loader

@@ -14,6 +14,7 @@ from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
+    HttpApiAgentConfig,
     SystemConfig,
 )
 from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
@@ -108,19 +109,27 @@ class EvaluationPipeline:
         )
 
     def _create_api_client(self) -> Optional[APIClient]:
-        """Create API client if enabled."""
+        """Create API client if enabled.
+
+        When the agents layer is active, resolves the default agent config
+        so the client uses the correct endpoint_type, api_base, etc.
+        Legacy ``api:`` blocks are auto-migrated to ``agents:`` by
+        ``SystemConfig.migrate_api_to_agents``, so all configs flow
+        through the same path.
+        """
         config = self.config_loader.system_config
         if config is None:
             raise ValueError("SystemConfig must be loaded before creating API client")
-        if not config.api.enabled:
+
+        if config.agents is None or not config.agents.enabled:
             return None
 
-        api_config = config.api
-        logger.info("Setting up API client: %s", api_config.api_base)
-
-        client = APIClient(config.api)
-
-        logger.info("API client initialized for %s endpoint", api_config.endpoint_type)
+        _name, agent_dict = config.agents.resolve_agent_config()
+        agent_config = HttpApiAgentConfig.model_validate(agent_dict)
+        client = APIClient(agent_config)
+        logger.info(
+            "API client initialized for %s endpoint", agent_config.endpoint_type
+        )
         return client
 
     def run_evaluation(
@@ -156,7 +165,7 @@ class EvaluationPipeline:
         config = self.config_loader.system_config
         if config is None:
             raise ValueError("SystemConfig must be loaded")
-        if config.api.enabled:
+        if config.agents is not None and config.agents.enabled:
             logger.info("Saving amended evaluation data")
             self._save_amended_data(evaluation_data)
 

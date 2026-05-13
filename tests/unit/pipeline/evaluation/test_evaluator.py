@@ -464,7 +464,7 @@ class TestMetricsEvaluator:
     ) -> None:
         """Test script metrics are skipped when API is disabled."""
         assert config_loader.system_config is not None
-        config_loader.system_config.api.enabled = False
+        config_loader.system_config.agents = None
 
         create_mock_llm_manager(mocker)
         mocker.patch(

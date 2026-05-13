@@ -646,3 +646,44 @@ class TestMetricResultJudgeScores:
 
         assert result.judge_scores is not None
         assert len(result.judge_scores) == 2
+
+
+class TestEvaluationDataAgentFields:
+    """Tests for agent-related fields on EvaluationData."""
+
+    def test_agent_fields_default_to_none(self) -> None:
+        """Backward compat: existing YAML without agent fields still works."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.agent is None
+        assert data.agent_config is None
+
+    def test_agent_field_accepted(self) -> None:
+        """Agent name is accepted."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            agent="openshift_agentic_lightspeed",
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.agent == "openshift_agentic_lightspeed"
+
+    def test_agent_config_accepted(self) -> None:
+        """Agent config dict is accepted."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            agent="ols_api",
+            agent_config={"timeout": 1200, "namespace": "custom"},
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.agent_config == {"timeout": 1200, "namespace": "custom"}
+
+    def test_empty_agent_name_rejected(self) -> None:
+        """Empty string agent name is rejected."""
+        with pytest.raises(ValidationError):
+            EvaluationData(
+                conversation_group_id="cg1",
+                agent="",
+                turns=[TurnData(turn_id="t1", query="Q")],
+            )

@@ -1,5 +1,12 @@
 """Data models for the evaluation framework."""
 
+from lightspeed_evaluation.core.models.agents import (
+    AgentDefaultConfig,
+    AgentsConfig,
+    HttpApiAgentConfig,
+    MCPHeadersConfig,
+    MCPServerConfig,
+)
 from lightspeed_evaluation.core.models.api import (
     APIRequest,
     APIResponse,
@@ -30,6 +37,12 @@ from lightspeed_evaluation.core.models.system import (
 )
 
 __all__ = [
+    # Agent config models
+    "AgentDefaultConfig",
+    "AgentsConfig",
+    "HttpApiAgentConfig",
+    "MCPHeadersConfig",
+    "MCPServerConfig",
     # Data models
     "TurnData",
     "EvaluationData",
