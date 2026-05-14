@@ -323,7 +323,7 @@ class TestOutputHandlerInitialization:
                 reason="Score is 0.8",
                 query="What is OpenShift?",
                 response="OpenShift is a container platform.",
-                execution_time=1.5,
+                evaluation_latency=1.5,
             ),
             EvaluationResult(
                 conversation_group_id="test_conv",
@@ -335,7 +335,7 @@ class TestOutputHandlerInitialization:
                 reason="Poor performance",
                 query="How to deploy?",
                 response="Use oc apply.",
-                execution_time=0.8,
+                evaluation_latency=0.8,
                 expected_response="Use oc apply -f deployment.yaml",
             ),
             EvaluationResult(
@@ -348,7 +348,7 @@ class TestOutputHandlerInitialization:
                 reason="API connection failed",
                 query="Create namespace",
                 response="",
-                execution_time=0.0,
+                evaluation_latency=0.0,
             ),
         ]
 

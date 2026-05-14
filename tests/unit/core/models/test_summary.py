@@ -26,7 +26,7 @@ _RESULT_DEFAULTS: dict[str, Any] = {
     "score": 0.85,
     "threshold": 0.7,
     "reason": "Good",
-    "execution_time": 1.0,
+    "evaluation_latency": 1.0,
     "judge_llm_input_tokens": 100,
     "judge_llm_output_tokens": 50,
 }

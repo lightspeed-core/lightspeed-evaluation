@@ -86,6 +86,11 @@ def _compute_agent_latency_per_request(request: EvaluationRequest) -> float:
     return sum(latencies)
 
 
+def _measure_latency(start_time: float) -> float:
+    """Calculate evaluation latency given start time."""
+    return time.perf_counter() - start_time
+
+
 class MetricsEvaluator:
     """Handles individual metric evaluation with proper scoring and status determination."""
 
@@ -155,7 +160,7 @@ class MetricsEvaluator:
             EvaluationResult with score, result, token usage, and execution time,
             or None if metric should be skipped (e.g., script metrics when API disabled).
         """
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         try:
             # Create logging summary
@@ -184,9 +189,8 @@ class MetricsEvaluator:
 
             # Route to appropriate handler
             if framework not in self.handlers:
-                execution_time = time.time() - start_time
                 return self._create_error_result(
-                    request, f"Unsupported framework: {framework}", execution_time
+                    request, f"Unsupported framework: {framework}", start_time
                 )
 
             # Check required data for metric (after API call); skip with ERROR if missing
@@ -198,11 +202,10 @@ class MetricsEvaluator:
                     request.turn_data, request.metric_identifier
                 )
                 if not ok:
-                    execution_time = time.time() - start_time
                     logger.warning(
                         "Skipping metric due to missing required data: %s", msg
                     )
-                    return self._create_error_result(request, msg, execution_time)
+                    return self._create_error_result(request, msg, start_time)
 
             # Create evaluation scope
             evaluation_scope = EvaluationScope(
@@ -224,7 +227,7 @@ class MetricsEvaluator:
             # Evaluate metric
             metric_result = self._evaluate_wrapper(request, evaluation_scope, threshold)
 
-            execution_time = time.time() - start_time
+            evaluation_latency = _measure_latency(start_time)
 
             turn_data = request.turn_data
             api_input_tokens, api_output_tokens = _compute_api_token_counts_per_request(
@@ -240,8 +243,9 @@ class MetricsEvaluator:
                 metric_metadata=self._extract_metadata_for_csv(request),
                 query=turn_data.query if turn_data else "",
                 response=turn_data.response or "" if turn_data else "",
-                execution_time=execution_time,
+                evaluation_latency=evaluation_latency,
                 agent_latency=agent_latency,
+                execution_time=evaluation_latency + agent_latency,
                 api_input_tokens=api_input_tokens,
                 api_output_tokens=api_output_tokens,
                 # Streaming performance metrics
@@ -266,9 +270,8 @@ class MetricsEvaluator:
 
         except EvaluationError as e:
             # Any evaluation error should result in ERROR status
-            execution_time = time.time() - start_time
             return self._create_error_result(
-                request, f"Evaluation error: {e}", execution_time
+                request, f"Evaluation error: {e}", start_time
             )
 
     def _will_use_panel(self, metric_identifier: str) -> bool:
@@ -720,7 +723,7 @@ class MetricsEvaluator:
         )
 
     def _create_error_result(
-        self, request: EvaluationRequest, reason: str, execution_time: float
+        self, request: EvaluationRequest, reason: str, start_time: float
     ) -> EvaluationResult:
         """Create an ERROR result for failed evaluation."""
         turn_data = request.turn_data
@@ -728,6 +731,7 @@ class MetricsEvaluator:
             request
         )
         agent_latency = _compute_agent_latency_per_request(request)
+        evaluation_latency = _measure_latency(start_time)
         return EvaluationResult(
             conversation_group_id=request.conv_data.conversation_group_id,
             tag=request.conv_data.tag,
@@ -740,8 +744,9 @@ class MetricsEvaluator:
             reason=reason,
             query=turn_data.query if turn_data else "",
             response=turn_data.response or "" if turn_data else "",
-            execution_time=execution_time,
+            evaluation_latency=evaluation_latency,
             agent_latency=agent_latency,
+            execution_time=evaluation_latency + agent_latency,
             api_input_tokens=api_input_tokens,
             api_output_tokens=api_output_tokens,
             # Streaming performance metrics

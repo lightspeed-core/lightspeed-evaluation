@@ -270,6 +270,7 @@ storage:
       - "threshold"
       - "reason"
       - "execution_time"
+      - "evaluation_latency"
       - "query"
       - "response"
       - "api_input_tokens"

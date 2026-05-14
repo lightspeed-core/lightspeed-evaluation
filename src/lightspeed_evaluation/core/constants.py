@@ -100,6 +100,7 @@ SUPPORTED_CSV_COLUMNS = [
     "query",
     "response",
     "execution_time",
+    "evaluation_latency",
     "api_input_tokens",
     "api_output_tokens",
     "judge_llm_input_tokens",
