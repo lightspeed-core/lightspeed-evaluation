@@ -58,6 +58,10 @@ METRIC_REQUIREMENTS = {
             "with 'tool_name', 'arguments', and optional 'result'"
         ),
     },
+    "custom:proposal_status": {
+        "required_fields": ["expected_proposal_status"],
+        "description": "requires 'expected_proposal_status' field",
+    },
     "script:action_eval": {
         "required_fields": ["verify_script"],
         "description": "requires 'verify_script' field",

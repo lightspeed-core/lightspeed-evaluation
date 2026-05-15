@@ -6,11 +6,15 @@ from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
 )
+from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
+    evaluate_proposal_status,
+)
 from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_calls
 
 __all__ = [
     "CustomMetrics",
     "evaluate_keywords",
+    "evaluate_proposal_status",
     "evaluate_tool_calls",
     # Prompts
     "ANSWER_CORRECTNESS_PROMPT",

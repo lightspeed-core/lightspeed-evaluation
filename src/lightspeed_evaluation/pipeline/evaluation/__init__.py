@@ -9,8 +9,9 @@ if TYPE_CHECKING:
     from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
     from lightspeed_evaluation.pipeline.evaluation.driver import (
         AgentDriver,
-        AgentDriverRegistry,
+        ProposalDriver,
     )
+    from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
     from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
     from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
     from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
@@ -32,7 +33,7 @@ _LAZY_IMPORTS = {
         "AgentDriver",
     ),
     "AgentDriverRegistry": (
-        "lightspeed_evaluation.pipeline.evaluation.driver",
+        "lightspeed_evaluation.pipeline.evaluation.registry",
         "AgentDriverRegistry",
     ),
     "ConversationProcessor": (
@@ -46,6 +47,10 @@ _LAZY_IMPORTS = {
     "MetricsEvaluator": (
         "lightspeed_evaluation.pipeline.evaluation.evaluator",
         "MetricsEvaluator",
+    ),
+    "ProposalDriver": (
+        "lightspeed_evaluation.pipeline.evaluation.driver",
+        "ProposalDriver",
     ),
 }
 

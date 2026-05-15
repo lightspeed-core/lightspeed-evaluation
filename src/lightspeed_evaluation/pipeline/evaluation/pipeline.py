@@ -28,10 +28,8 @@ from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
     StorageError,
 )
-from lightspeed_evaluation.pipeline.evaluation.driver import (
-    AgentDriver,
-    AgentDriverRegistry,
-)
+from lightspeed_evaluation.pipeline.evaluation.driver import AgentDriver
+from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
