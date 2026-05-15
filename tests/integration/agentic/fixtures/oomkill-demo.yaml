@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oomkill-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oomkill-demo
+  template:
+    metadata:
+      labels:
+        app: oomkill-demo
+    spec:
+      containers:
+        - name: stress
+          image: polinux/stress-ng
+          command: ["stress-ng", "--vm", "1", "--vm-bytes", "256M", "--vm-hang", "0"]
+          resources:
+            requests:
+              memory: "64Mi"
+            limits:
+              memory: "64Mi"

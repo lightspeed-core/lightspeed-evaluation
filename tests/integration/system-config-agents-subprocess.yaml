@@ -1,0 +1,24 @@
+core:
+  max_threads: 1
+  fail_on_invalid_data: true
+  skip_on_failure: false
+
+agents:
+  enabled: true
+  default:
+    agent: proposal_agent
+  proposal_agent:
+    type: proposal
+    namespace: lightspeed-evaluation-test
+    auto_approve: true
+    cleanup_proposals: true
+    timeout: 900
+    poll_interval: 5
+
+storage:
+  - type: file
+    output_dir: ./eval_output
+    enabled_outputs: [json]
+
+environment:
+  LITELLM_LOG: ERROR

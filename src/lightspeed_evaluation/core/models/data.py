@@ -116,7 +116,7 @@ class TurnData(StreamingMetricsMixin):
         description="Expected proposal status for assertion metrics",
     )
     proposal_status: Optional[dict[str, Any]] = Field(
-        default=None, description="Raw CRD status populated by SubprocessDriver"
+        default=None, description="Raw CRD status populated by ProposalDriver"
     )
 
     # Set of turn metrics that don't pass the validation to ignore them later

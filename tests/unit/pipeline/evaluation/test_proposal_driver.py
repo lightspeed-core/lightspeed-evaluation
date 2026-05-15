@@ -1,6 +1,6 @@
 # pylint: disable=protected-access
 
-"""Unit tests for subprocess agent driver module."""
+"""Unit tests for proposal agent driver module."""
 
 from typing import Any
 
@@ -8,18 +8,17 @@ import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.models import TurnData
+from lightspeed_evaluation.core.models import ProposalAgentConfig, TurnData
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
-from lightspeed_evaluation.pipeline.evaluation.subprocess_driver import (
-    SubprocessAgentConfig,
-    SubprocessDriver,
+from lightspeed_evaluation.pipeline.evaluation.driver import (
+    ProposalDriver,
     TerminalOutcome,
 )
 
-MODULE = "lightspeed_evaluation.pipeline.evaluation.subprocess_driver"
+MODULE = "lightspeed_evaluation.pipeline.evaluation.driver"
 
 VALID_CONFIG: dict[str, Any] = {
-    "type": "subprocess",
+    "type": "proposal",
     "namespace": "openshift-lightspeed",
 }
 
@@ -46,14 +45,14 @@ def _cond(
 # ── Config validation ────────────────────────────────────────────────
 
 
-class TestSubprocessAgentConfig:
-    """Unit tests for SubprocessAgentConfig Pydantic model."""
+class TestProposalAgentConfig:
+    """Unit tests for ProposalAgentConfig Pydantic model."""
 
     def test_valid_config_all_fields(self) -> None:
         """Test config with all fields explicit."""
-        config = SubprocessAgentConfig.model_validate(
+        config = ProposalAgentConfig.model_validate(
             {
-                "type": "subprocess",
+                "type": "proposal",
                 "namespace": "ns",
                 "auto_approve": False,
                 "cleanup_proposals": False,
@@ -69,7 +68,7 @@ class TestSubprocessAgentConfig:
 
     def test_valid_config_defaults(self) -> None:
         """Test config with only required fields uses defaults."""
-        config = SubprocessAgentConfig.model_validate(VALID_CONFIG)
+        config = ProposalAgentConfig.model_validate(VALID_CONFIG)
         assert config.auto_approve is True
         assert config.cleanup_proposals is True
         assert config.timeout == 900
@@ -78,57 +77,34 @@ class TestSubprocessAgentConfig:
     def test_missing_namespace(self) -> None:
         """Test missing required namespace raises ValidationError."""
         with pytest.raises(ValidationError):
-            SubprocessAgentConfig.model_validate({"type": "subprocess"})
+            ProposalAgentConfig.model_validate({"type": "proposal"})
 
     def test_extra_field_rejected(self) -> None:
         """Test extra fields raise ValidationError."""
         with pytest.raises(ValidationError):
-            SubprocessAgentConfig.model_validate({**VALID_CONFIG, "extra": "bad"})
+            ProposalAgentConfig.model_validate({**VALID_CONFIG, "extra": "bad"})
 
     def test_invalid_timeout_zero(self) -> None:
         """Test timeout=0 raises ValidationError."""
         with pytest.raises(ValidationError):
-            SubprocessAgentConfig.model_validate({**VALID_CONFIG, "timeout": 0})
+            ProposalAgentConfig.model_validate({**VALID_CONFIG, "timeout": 0})
 
     def test_invalid_timeout_negative(self) -> None:
         """Test negative timeout raises ValidationError."""
         with pytest.raises(ValidationError):
-            SubprocessAgentConfig.model_validate({**VALID_CONFIG, "timeout": -1})
+            ProposalAgentConfig.model_validate({**VALID_CONFIG, "timeout": -1})
 
     def test_invalid_poll_interval_zero(self) -> None:
         """Test poll_interval=0 raises ValidationError."""
         with pytest.raises(ValidationError):
-            SubprocessAgentConfig.model_validate({**VALID_CONFIG, "poll_interval": 0})
+            ProposalAgentConfig.model_validate({**VALID_CONFIG, "poll_interval": 0})
 
 
 # ── Condition helpers ────────────────────────────────────────────────
 
 
-class TestConditionHelpers:
-    """Unit tests for SubprocessDriver._should_approve and _is_terminal."""
-
-    @pytest.mark.parametrize(
-        "conditions, expected",
-        [
-            ([], False),
-            ([_cond("Analyzed", "Unknown")], False),
-            ([_cond("Analyzed", "True")], True),
-            ([_cond("Analyzed", "False")], False),
-            ([_cond("Executed", "True")], False),
-        ],
-        ids=[
-            "no-conditions",
-            "analyzing",
-            "analyzed",
-            "analysis-failed",
-            "wrong-condition-type",
-        ],
-    )
-    def test_should_approve(
-        self, conditions: list[dict[str, Any]], expected: bool
-    ) -> None:
-        """Test _should_approve returns correct result."""
-        assert SubprocessDriver._should_approve(conditions) == expected
+class TestIsTerminal:  # pylint: disable=too-few-public-methods
+    """Unit tests for ProposalDriver._is_terminal."""
 
     @pytest.mark.parametrize(
         "conditions, spec, expected",
@@ -252,7 +228,7 @@ class TestConditionHelpers:
         expected: TerminalOutcome | None,
     ) -> None:
         """Test _is_terminal returns correct terminal outcome."""
-        assert SubprocessDriver._is_terminal(conditions, spec) == expected
+        assert ProposalDriver._is_terminal(conditions, spec) == expected
 
 
 # ── CR manifest building ────────────────────────────────────────────
@@ -261,10 +237,10 @@ class TestConditionHelpers:
 class TestBuildCR:
     """Unit tests for CR manifest construction."""
 
-    def _make_driver(self, mocker: MockerFixture) -> SubprocessDriver:
+    def _make_driver(self, mocker: MockerFixture) -> ProposalDriver:
         """Create a driver with mocked CLI resolution."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        return SubprocessDriver(VALID_CONFIG)
+        return ProposalDriver(VALID_CONFIG)
 
     def test_proposal_cr_query_only(self, mocker: MockerFixture) -> None:
         """Test Proposal CR with query only, no proposal_spec."""
@@ -319,6 +295,7 @@ class TestBuildCR:
         assert len(cr["spec"]["stages"]) == 1
         assert cr["spec"]["stages"][0]["type"] == "Analysis"
         assert cr["spec"]["stages"][0]["decision"] == "Approved"
+        assert cr["spec"]["stages"][0]["analysis"] == {"agent": "default"}
 
     def test_approval_cr_full(self, mocker: MockerFixture) -> None:
         """Test ProposalApproval with all three stages."""
@@ -328,14 +305,30 @@ class TestBuildCR:
         assert len(cr["spec"]["stages"]) == 3
         types = [s["type"] for s in cr["spec"]["stages"]]
         assert types == ["Analysis", "Execution", "Verification"]
+        assert cr["spec"]["stages"][0]["analysis"] == {"agent": "default"}
         assert cr["spec"]["stages"][1]["execution"] == {"option": 0}
+        assert cr["spec"]["stages"][2]["verification"] == {"agent": "default"}
+
+    def test_approval_cr_with_agent_refs(self, mocker: MockerFixture) -> None:
+        """Test ProposalApproval passes agent names from proposal_spec."""
+        driver = self._make_driver(mocker)
+        spec: dict[str, Any] = {
+            "analysis": {"agent": "eval-default"},
+            "execution": {"agent": "eval-default"},
+            "verification": {"agent": "eval-default"},
+        }
+        cr = driver._build_approval_cr("eval-abc", spec)
+
+        assert cr["spec"]["stages"][0]["analysis"] == {"agent": "eval-default"}
+        assert cr["spec"]["stages"][1]["execution"]["agent"] == "eval-default"
+        assert cr["spec"]["stages"][2]["verification"] == {"agent": "eval-default"}
 
 
 # ── Extract summary ─────────────────────────────────────────────────
 
 
 class TestExtractSummary:
-    """Unit tests for SubprocessDriver._extract_summary."""
+    """Unit tests for ProposalDriver._extract_summary."""
 
     def test_with_messages(self) -> None:
         """Test summary from condition messages."""
@@ -345,24 +338,24 @@ class TestExtractSummary:
                 _cond("Executed", "True", message="Execution ok"),
             ]
         }
-        result = SubprocessDriver._extract_summary(status)
+        result = ProposalDriver._extract_summary(status)
         assert result == "Analysis done; Execution ok"
 
     def test_no_messages(self) -> None:
         """Test fallback when conditions have no messages."""
         status = {"conditions": [_cond("Analyzed", "True")]}
-        assert SubprocessDriver._extract_summary(status) == "No summary available"
+        assert ProposalDriver._extract_summary(status) == "No summary available"
 
     def test_empty_status(self) -> None:
         """Test fallback for empty status dict."""
-        assert SubprocessDriver._extract_summary({}) == "No summary available"
+        assert ProposalDriver._extract_summary({}) == "No summary available"
 
 
 # ── Driver lifecycle ─────────────────────────────────────────────────
 
 
-class TestSubprocessDriver:
-    """Unit tests for SubprocessDriver init, validate_config, enabled, close."""
+class TestProposalDriver:
+    """Unit tests for ProposalDriver init, validate_config, enabled, close."""
 
     def test_validate_config_with_oc(self, mocker: MockerFixture) -> None:
         """Test driver resolves oc as primary CLI."""
@@ -370,7 +363,7 @@ class TestSubprocessDriver:
         mock_shutil.which.side_effect = lambda cmd: (
             "/usr/bin/oc" if cmd == "oc" else None
         )
-        driver = SubprocessDriver(VALID_CONFIG)
+        driver = ProposalDriver(VALID_CONFIG)
         assert driver._cli == "/usr/bin/oc"
 
     def test_validate_config_kubectl_fallback(self, mocker: MockerFixture) -> None:
@@ -379,31 +372,31 @@ class TestSubprocessDriver:
         mock_shutil.which.side_effect = lambda cmd: (
             "/usr/bin/kubectl" if cmd == "kubectl" else None
         )
-        driver = SubprocessDriver(VALID_CONFIG)
+        driver = ProposalDriver(VALID_CONFIG)
         assert driver._cli == "/usr/bin/kubectl"
 
     def test_validate_config_neither_found(self, mocker: MockerFixture) -> None:
         """Test ConfigurationError when neither oc nor kubectl found."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = None
         with pytest.raises(ConfigurationError, match="Neither 'oc' nor 'kubectl'"):
-            SubprocessDriver(VALID_CONFIG)
+            ProposalDriver(VALID_CONFIG)
 
     def test_validate_config_invalid(self, mocker: MockerFixture) -> None:
         """Test ValidationError for missing required fields."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
         with pytest.raises(ValidationError):
-            SubprocessDriver({"type": "subprocess"})
+            ProposalDriver({"type": "proposal"})
 
     def test_enabled_always_true(self, mocker: MockerFixture) -> None:
         """Test enabled property defaults to True (inherited)."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = SubprocessDriver(VALID_CONFIG)
+        driver = ProposalDriver(VALID_CONFIG)
         assert driver.enabled is True
 
     def test_close_is_noop(self, mocker: MockerFixture) -> None:
         """Test close does nothing (no persistent connections)."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = SubprocessDriver(VALID_CONFIG)
+        driver = ProposalDriver(VALID_CONFIG)
         driver.close()
 
 
@@ -411,12 +404,12 @@ class TestSubprocessDriver:
 
 
 class TestCleanup:
-    """Unit tests for SubprocessDriver._cleanup."""
+    """Unit tests for ProposalDriver._cleanup."""
 
     def test_cleanup_calls_delete(self, mocker: MockerFixture) -> None:
         """Test cleanup delegates to _delete when enabled."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = SubprocessDriver(VALID_CONFIG)
+        driver = ProposalDriver(VALID_CONFIG)
         mock_delete = mocker.patch.object(driver, "_delete")
 
         driver._cleanup("eval-test")
@@ -426,7 +419,7 @@ class TestCleanup:
     def test_cleanup_disabled(self, mocker: MockerFixture) -> None:
         """Test cleanup skips _delete when cleanup_proposals=False."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = SubprocessDriver({**VALID_CONFIG, "cleanup_proposals": False})
+        driver = ProposalDriver({**VALID_CONFIG, "cleanup_proposals": False})
         mock_delete = mocker.patch.object(driver, "_delete")
 
         driver._cleanup("eval-test")
@@ -436,7 +429,7 @@ class TestCleanup:
     def test_cleanup_failure_logged(self, mocker: MockerFixture) -> None:
         """Test cleanup logs warning on _delete failure."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = SubprocessDriver(VALID_CONFIG)
+        driver = ProposalDriver(VALID_CONFIG)
         mocker.patch.object(driver, "_delete", side_effect=Exception("boom"))
         mock_logger = mocker.patch(f"{MODULE}.logger")
 
@@ -449,21 +442,21 @@ class TestCleanup:
 
 
 class TestExecuteTurn:
-    """Unit tests for SubprocessDriver.execute_turn."""
+    """Unit tests for ProposalDriver.execute_turn."""
 
     @pytest.fixture()
-    def driver(self, mocker: MockerFixture) -> SubprocessDriver:
+    def driver(self, mocker: MockerFixture) -> ProposalDriver:
         """Create a driver with mocked shutil and uuid."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
         mocker.patch(f"{MODULE}.uuid").uuid4.return_value.hex = "abcd1234"
-        return SubprocessDriver({**VALID_CONFIG, "timeout": 10, "poll_interval": 1})
+        return ProposalDriver({**VALID_CONFIG, "timeout": 10, "poll_interval": 1})
 
     def test_happy_path_completed(
-        self, mocker: MockerFixture, driver: SubprocessDriver
+        self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
         """Test successful full lifecycle returns no error."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)
@@ -487,9 +480,7 @@ class TestExecuteTurn:
         assert turn.proposal_status == terminal_status
         driver._cleanup.assert_called_once_with("eval-abcd1234")
 
-    def test_apply_failure(
-        self, mocker: MockerFixture, driver: SubprocessDriver
-    ) -> None:
+    def test_apply_failure(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
         """Test apply failure returns error without polling."""
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=1, stderr="connection refused")
@@ -500,10 +491,10 @@ class TestExecuteTurn:
         assert error == "Failed to apply Proposal CR: connection refused"
         assert conv_id is None
 
-    def test_timeout(self, mocker: MockerFixture, driver: SubprocessDriver) -> None:
+    def test_timeout(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
         """Test timeout returns error when no terminal condition reached."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0, 11.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0, 11.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)
@@ -520,18 +511,16 @@ class TestExecuteTurn:
         assert conv_id is None
         driver._cleanup.assert_called_once()
 
-    def test_auto_approve(
-        self, mocker: MockerFixture, driver: SubprocessDriver
-    ) -> None:
-        """Test auto-approve triggers on Analyzed=True."""
+    def test_auto_approve(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
+        """Test auto-approve sends approval before polling."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0, 2.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)
 
-        poll_1: dict[str, Any] = {"conditions": [_cond("Analyzed", "True")]}
-        poll_2: dict[str, Any] = {
+        status_ready: dict[str, Any] = {"conditions": []}
+        status_terminal: dict[str, Any] = {
             "conditions": [
                 _cond("Analyzed", "True"),
                 _cond("Executed", "True"),
@@ -541,7 +530,10 @@ class TestExecuteTurn:
         mocker.patch.object(
             driver,
             "_get_status",
-            side_effect=[(poll_1, None), (poll_2, None)],
+            side_effect=[
+                (status_ready, None),
+                (status_terminal, None),
+            ],
         )
         mocker.patch.object(driver, "_cleanup")
 
@@ -552,7 +544,7 @@ class TestExecuteTurn:
         assert mock_apply.call_count == 2
 
     def test_auto_approve_disabled(
-        self, mocker: MockerFixture, driver: SubprocessDriver
+        self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
         """Test auto-approve skipped when disabled."""
         driver._config.auto_approve = False
@@ -573,11 +565,11 @@ class TestExecuteTurn:
         assert mock_apply.call_count == 1
 
     def test_failed_terminal(
-        self, mocker: MockerFixture, driver: SubprocessDriver
+        self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
         """Test failed proposal returns error with outcome."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)
@@ -597,11 +589,11 @@ class TestExecuteTurn:
         assert turn.response == "LLM error"
 
     def test_denied_terminal(
-        self, mocker: MockerFixture, driver: SubprocessDriver
+        self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
         """Test denied proposal returns error."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)
@@ -619,11 +611,11 @@ class TestExecuteTurn:
         assert "Denied" in error
 
     def test_get_status_error(
-        self, mocker: MockerFixture, driver: SubprocessDriver
+        self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
         """Test get_status error triggers cleanup and returns error."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)
@@ -631,7 +623,10 @@ class TestExecuteTurn:
         mocker.patch.object(
             driver,
             "_get_status",
-            return_value=({}, "Failed to get status for 'eval-abcd1234'"),
+            side_effect=[
+                ({}, None),
+                ({}, "Failed to get status for 'eval-abcd1234'"),
+            ],
         )
         mocker.patch.object(driver, "_cleanup")
 
@@ -643,11 +638,11 @@ class TestExecuteTurn:
         driver._cleanup.assert_called_once()
 
     def test_conversation_id_in_cr_name(
-        self, mocker: MockerFixture, driver: SubprocessDriver
+        self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
         """Test conversation_id is included in CR name."""
         mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 1.0]
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=0)

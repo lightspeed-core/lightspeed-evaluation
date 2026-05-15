@@ -12,9 +12,10 @@ from lightspeed_evaluation.core.models import TurnData
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.driver import (
     AgentDriver,
-    AgentDriverRegistry,
     HttpApiDriver,
+    ProposalDriver,
 )
+from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
 
 
 class TestAgentDriverRegistry:
@@ -50,6 +51,22 @@ class TestAgentDriverRegistry:
         """Test default registry includes http_api driver."""
         registry = AgentDriverRegistry()
         assert "http_api" in registry._drivers
+
+    def test_default_registry_contains_proposal(self) -> None:
+        """Test default registry includes proposal driver."""
+        registry = AgentDriverRegistry()
+        assert "proposal" in registry._drivers
+
+    def test_create_proposal_driver(self, mocker: MockerFixture) -> None:
+        """Test registry creates ProposalDriver for type 'proposal'."""
+        mocker.patch("shutil.which", return_value="/usr/bin/oc")
+        registry = AgentDriverRegistry()
+        driver = registry.create_driver(
+            {"type": "proposal", "namespace": "test-ns"}, enabled=True
+        )
+
+        assert isinstance(driver, ProposalDriver)
+        assert driver.enabled is True
 
 
 class TestHttpApiDriver:
