@@ -3,7 +3,7 @@
 from pytest import LogCaptureFixture
 
 from lightspeed_evaluation.core.models.quality import QualityReport
-from lightspeed_evaluation.core.models.summary import MetricStats
+from lightspeed_evaluation.core.models.statistics import MetricStats
 
 
 class TestQualityReport:

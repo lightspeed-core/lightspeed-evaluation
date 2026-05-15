@@ -14,8 +14,8 @@ from lightspeed_evaluation.core.models import (
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.output.statistics import (
-    calculate_basic_stats,
-    calculate_detailed_stats,
+    compute_overall_stats,
+    compute_detailed_stats,
 )
 from lightspeed_evaluation.core.system.validator import DataValidator
 from lightspeed_evaluation.core.storage import FileBackendConfig
@@ -38,11 +38,11 @@ class TestStatisticsEdgeCases:
             for i in range(30)
         ]
 
-        basic = calculate_basic_stats(results)
-        detailed = calculate_detailed_stats(results)
+        basic = compute_overall_stats(results)
+        detailed = compute_detailed_stats(results).model_dump()
 
-        assert basic["TOTAL"] == 30
-        assert basic["PASS"] + basic["FAIL"] + basic["ERROR"] == 30
+        assert basic.total == 30
+        assert basic.passed + basic.failed + basic.error == 30
         assert len(detailed["by_metric"]) > 0
         assert len(detailed["by_conversation"]) == 2
 
@@ -60,11 +60,11 @@ class TestStatisticsEdgeCases:
             for i in range(10)
         ]
 
-        detailed = calculate_detailed_stats(results)
+        detailed = compute_detailed_stats(results).model_dump()
 
         assert len(detailed["by_conversation"]) == 1
         assert len(detailed["by_metric"]) == 10
-        assert detailed["by_conversation"]["conv1"]["pass"] == 10
+        assert detailed["by_conversation"]["conv1"]["passed"] == 10
 
     def test_detailed_stats_multiple_conversations_single_metric(self) -> None:
         """Test detailed stats with multiple conversations, one metric."""
@@ -80,12 +80,12 @@ class TestStatisticsEdgeCases:
             for i in range(10)
         ]
 
-        detailed = calculate_detailed_stats(results)
+        detailed = compute_detailed_stats(results).model_dump()
 
         assert len(detailed["by_conversation"]) == 10
         assert len(detailed["by_metric"]) == 1
-        assert detailed["by_metric"]["metric1"]["pass"] == 5
-        assert detailed["by_metric"]["metric1"]["fail"] == 5
+        assert detailed["by_metric"]["metric1"]["passed"] == 5
+        assert detailed["by_metric"]["metric1"]["failed"] == 5
 
 
 class TestOutputHandlerEdgeCases:

@@ -9,11 +9,12 @@ from lightspeed_evaluation.core.models.data import (
     EvaluationResult,
     TurnData,
 )
-from lightspeed_evaluation.core.models.summary import (
-    EvaluationSummary,
+from lightspeed_evaluation.core.models import (
+    ConfidenceInterval,
     OverallStats,
     ScoreStatistics,
 )
+from lightspeed_evaluation.core.models.summary import EvaluationSummary
 
 
 _RESULT_DEFAULTS: dict[str, Any] = {
@@ -76,12 +77,12 @@ class TestOverallStatsAndScoreStatistics:
 
     def test_score_statistics_with_confidence_interval(self) -> None:
         """Test ScoreStatistics with confidence interval."""
-        ci: dict[str, float] = {
-            "low": 0.7,
-            "mean": 0.8,
-            "high": 0.9,
-            "confidence_level": 95,
-        }
+        ci = ConfidenceInterval(
+            low=0.7,
+            mean=0.8,
+            high=0.9,
+            confidence_level=95.0,
+        )
         stats = ScoreStatistics(
             count=5,
             mean=0.8,
@@ -220,7 +221,7 @@ class TestEvaluationSummaryFromResults:
 
         # Mock bootstrap_intervals to avoid the expensive 10k iteration computation
         mocker.patch(
-            "lightspeed_evaluation.core.models.summary.bootstrap_intervals",
+            "lightspeed_evaluation.core.output.statistics.bootstrap_intervals",
             return_value=(0.72, 0.8, 0.88),
         )
 
@@ -232,7 +233,7 @@ class TestEvaluationSummaryFromResults:
         assert metric_stats.score_statistics is not None
         ci = metric_stats.score_statistics.confidence_interval
         assert ci is not None
-        assert ci["low"] == 0.72
+        assert ci.low == 0.72
 
     def test_by_tag_stats(self) -> None:
         """Test that by_tag statistics are computed correctly."""

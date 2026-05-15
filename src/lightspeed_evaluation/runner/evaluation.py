@@ -5,9 +5,14 @@ import shutil
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
-from lightspeed_evaluation.core.models.system import LLMPoolConfig, SystemConfig
+from lightspeed_evaluation.core.models import (
+    LLMPoolConfig,
+    SystemConfig,
+    OverallStats,
+    ApiTokenUsage,
+)
 
 # Import only lightweight modules at top level
 from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
@@ -59,40 +64,40 @@ def _clear_caches(system_config: SystemConfig) -> None:
 
 
 def _print_summary(
-    summary: dict[str, Any],
-    api_tokens: Optional[dict[str, int]] = None,
+    summary: OverallStats,
+    api_tokens: Optional[ApiTokenUsage] = None,
 ) -> None:
     """Print evaluation summary and token usage."""
     print(
-        f"✅ Pass: {summary['PASS']}, ❌ Fail: {summary['FAIL']}, "
-        f"⚠️ Error: {summary['ERROR']}, ⏭️ Skipped: {summary['SKIPPED']}"
+        f"✅ Pass: {summary.passed}, ❌ Fail: {summary.failed}, "
+        f"⚠️ Error: {summary.error}, ⏭️ Skipped: {summary.skipped}"
     )
-    if summary["ERROR"] > 0:
-        print(f"⚠️ {summary['ERROR']} evaluations had errors - check detailed report")
+    if summary.error > 0:
+        print(f"⚠️ {summary.error} evaluations had errors - check detailed report")
 
     print("\n📊 Token Usage Summary:")
     print(
-        f"Judge LLM: {summary['total_judge_llm_tokens']:,} tokens "
-        f"(Input: {summary['total_judge_llm_input_tokens']:,}, "
-        f"Output: {summary['total_judge_llm_output_tokens']:,})"
+        f"Judge LLM: {summary.total_judge_llm_tokens:,} tokens "
+        f"(Input: {summary.total_judge_llm_input_tokens:,}, "
+        f"Output: {summary.total_judge_llm_output_tokens:,})"
     )
 
-    print(f"Embeddings: {summary['total_embedding_tokens']:,} tokens")
+    print(f"Embeddings: {summary.total_embedding_tokens:,} tokens")
 
     if api_tokens:
         print(
-            f"API Calls: {api_tokens['total_api_tokens']:,} tokens "
-            f"(Input: {api_tokens['total_api_input_tokens']:,}, "
-            f"Output: {api_tokens['total_api_output_tokens']:,})"
+            f"API Calls: {api_tokens.total_api_tokens:,} tokens "
+            f"(Input: {api_tokens.total_api_input_tokens:,}, "
+            f"Output: {api_tokens.total_api_output_tokens:,})"
         )
         total = (
-            summary["total_judge_llm_tokens"]
-            + summary["total_embedding_tokens"]
-            + api_tokens["total_api_tokens"]
+            summary.total_judge_llm_tokens
+            + summary.total_embedding_tokens
+            + api_tokens.total_api_tokens
         )
         print(f"Total: {total:,} tokens")
     else:
-        total = summary["total_judge_llm_tokens"] + summary["total_embedding_tokens"]
+        total = summary.total_judge_llm_tokens + summary.total_embedding_tokens
         if total > 0:
             print(f"Total: {total:,} tokens")
 
@@ -127,8 +132,8 @@ def run_evaluation(  # pylint: disable=too-many-locals
         from lightspeed_evaluation.api import evaluate
         from lightspeed_evaluation.core.output import OutputHandler
         from lightspeed_evaluation.core.output.statistics import (
-            calculate_api_token_usage,
-            calculate_basic_stats,
+            compute_api_token_usage,
+            compute_overall_stats,
         )
         from lightspeed_evaluation.core.system import DataValidator
 
@@ -194,20 +199,20 @@ def run_evaluation(  # pylint: disable=too-many-locals
             print(f"📁 Reports generated in: {out_dir}")
 
         # Final Summary
-        summary = calculate_basic_stats(results)
+        summary = compute_overall_stats(results)
         api_tokens = (
-            calculate_api_token_usage(evaluation_data)
+            compute_api_token_usage(evaluation_data)
             if system_config.agents is not None and system_config.agents.enabled
             else None
         )
         _print_summary(summary, api_tokens)
 
         return {
-            "TOTAL": summary["TOTAL"],
-            "PASS": summary["PASS"],
-            "FAIL": summary["FAIL"],
-            "ERROR": summary["ERROR"],
-            "SKIPPED": summary["SKIPPED"],
+            "TOTAL": summary.total,
+            "PASS": summary.passed,
+            "FAIL": summary.failed,
+            "ERROR": summary.error,
+            "SKIPPED": summary.skipped,
         }
 
     except (

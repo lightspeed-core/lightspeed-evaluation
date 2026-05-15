@@ -1,12 +1,25 @@
 """Shared utilities for output and evaluation."""
 
 import statistics
-from typing import Any
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
+from lightspeed_evaluation.core.models import (
+    EvaluationData,
+    EvaluationResult,
+    NumericStats,
+    ScoreStatistics,
+    StreamingStats,
+    ApiTokenUsage,
+    OverallStats,
+    MetricStats,
+    ConversationStats,
+    TagStats,
+    ConfidenceInterval,
+    DetailedStats,
+)
 
 
 def bootstrap_intervals(
@@ -34,258 +47,43 @@ def bootstrap_intervals(
     return sample_mean - high, mean_boot_strap, sample_mean - low
 
 
-def calculate_basic_stats(results: list[EvaluationResult]) -> dict[str, Any]:
-    """Calculate basic pass/fail/error/skipped statistics from results."""
-    if not results:
-        return {
-            "TOTAL": 0,
-            "PASS": 0,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-            "pass_rate": 0.0,
-            "fail_rate": 0.0,
-            "error_rate": 0.0,
-            "skipped_rate": 0.0,
-            "total_judge_llm_input_tokens": 0,
-            "total_judge_llm_output_tokens": 0,
-            "total_judge_llm_tokens": 0,
-            "total_embedding_tokens": 0,
-        }
-
-    total = len(results)
-    pass_count = sum(1 for r in results if r.result == "PASS")
-    fail_count = sum(1 for r in results if r.result == "FAIL")
-    error_count = sum(1 for r in results if r.result == "ERROR")
-    skipped_count = sum(1 for r in results if r.result == "SKIPPED")
-
-    # Calculate token totals
-    total_judge_input = sum(r.judge_llm_input_tokens for r in results)
-    total_judge_output = sum(r.judge_llm_output_tokens for r in results)
-    total_embedding = sum(r.embedding_tokens for r in results)
-
-    return {
-        "TOTAL": total,
-        "PASS": pass_count,
-        "FAIL": fail_count,
-        "ERROR": error_count,
-        "SKIPPED": skipped_count,
-        "pass_rate": (pass_count / total) * 100 if total > 0 else 0,
-        "fail_rate": (fail_count / total) * 100 if total > 0 else 0,
-        "error_rate": (error_count / total) * 100 if total > 0 else 0,
-        "skipped_rate": (skipped_count / total) * 100 if total > 0 else 0,
-        "total_judge_llm_input_tokens": total_judge_input,
-        "total_judge_llm_output_tokens": total_judge_output,
-        "total_judge_llm_tokens": total_judge_input + total_judge_output,
-        "total_embedding_tokens": total_embedding,
-    }
+def _try_bootstrap(scores: list[float]) -> Optional[ConfidenceInterval]:
+    """Attempt to compute bootstrap confidence intervals for scores."""
+    try:
+        confidence_level = 95.0
+        scores_series = pd.Series(scores)
+        ci_low, ci_mean, ci_high = bootstrap_intervals(
+            scores_series, confidence=confidence_level
+        )
+        return ConfidenceInterval(
+            low=float(ci_low),
+            mean=float(ci_mean),
+            high=float(ci_high),
+            confidence_level=confidence_level,
+        )
+    except (ValueError, RuntimeError):
+        return None
 
 
-def calculate_detailed_stats(results: list[EvaluationResult]) -> dict[str, Any]:
-    """Calculate detailed statistics broken down by different categories."""
-    if not results:
-        return {"by_metric": {}, "by_conversation": {}, "by_tag": {}}
-
-    by_metric: dict[str, dict[str, Any]] = {}
-    by_conversation: dict[str, dict[str, Any]] = {}
-    by_tag: dict[str, dict[str, Any]] = {}
-
-    # Collect data using generic update function
-    for result in results:
-        _update_stats(by_metric, result.metric_identifier, result, include_scores=True)
-        _update_stats(by_conversation, result.conversation_group_id, result)
-        _update_stats(by_tag, result.tag, result, include_scores=True)
-
-    # Finalize statistics for each group
-    for stats in by_metric.values():
-        _finalize_group_stats(stats, include_scores=True)
-
-    # Note: Conversations don't include score_statistics with confidence intervals.
-    # To calculate CI for conversations, we would need to reconstruct the original
-    # results for each conversation to create binary series for each outcome type.
-    # This could be enhanced by passing the original results to this function.
-    for stats in by_conversation.values():
-        _finalize_group_stats(stats)
-
-    for stats in by_tag.values():
-        _finalize_group_stats(stats, include_scores=True)
-
-    return {
-        "by_metric": by_metric,
-        "by_conversation": by_conversation,
-        "by_tag": by_tag,
-    }
-
-
-def _create_empty_stats(*, include_scores: bool = False) -> dict[str, Any]:
-    """Create empty statistics dictionary.
-
-    Args:
-        include_scores: Whether to include a scores list for score tracking.
-    """
-    stats: dict[str, Any] = {
-        "pass": 0,
-        "fail": 0,
-        "error": 0,
-        "skipped": 0,
-    }
-    if include_scores:
-        stats["scores"] = []
-    return stats
-
-
-def _update_stats(
-    stats_dict: dict[str, dict[str, Any]],
-    key: str,
-    result: EvaluationResult,
-    *,
-    include_scores: bool = False,
-) -> None:
-    """Update statistics dictionary with a result.
-
-    Args:
-        stats_dict: Dictionary mapping keys to their statistics.
-        key: The key to update (e.g., metric_identifier, conversation_group_id).
-        result: The evaluation result to add.
-        include_scores: Whether to track individual scores.
-    """
-    if key not in stats_dict:
-        stats_dict[key] = _create_empty_stats(include_scores=include_scores)
-
-    stats = stats_dict[key]
-    stats[result.result.lower()] += 1
-
-    if include_scores and result.score is not None:
-        stats["scores"].append(result.score)
-
-
-def _calculate_rates(stats: dict[str, Any]) -> None:
-    """Calculate pass/fail/error/skipped rates for a stats dictionary."""
-    total = stats["pass"] + stats["fail"] + stats["error"] + stats["skipped"]
-    if total > 0:
-        stats["pass_rate"] = stats["pass"] / total * 100
-        stats["fail_rate"] = stats["fail"] / total * 100
-        stats["error_rate"] = stats["error"] / total * 100
-        stats["skipped_rate"] = stats["skipped"] / total * 100
-    else:
-        stats["pass_rate"] = 0.0
-        stats["fail_rate"] = 0.0
-        stats["error_rate"] = 0.0
-        stats["skipped_rate"] = 0.0
-
-
-def _calculate_numeric_stats(values: list[float]) -> dict[str, Any]:
-    """Calculate basic numeric statistics for a list of values.
-
-    Args:
-        values: List of numeric values.
-
-    Returns:
-        Dictionary containing count, mean, median, std, min, max.
-    """
+def compute_numeric_stats(values: list[float]) -> Optional[NumericStats]:
+    """Calculate numeric statistics for a list of values."""
     if not values:
-        return {"count": 0}
+        return None
 
-    return {
-        "count": len(values),
-        "mean": statistics.mean(values),
-        "median": statistics.median(values),
-        "std": statistics.stdev(values) if len(values) > 1 else 0.0,
-        "min": min(values),
-        "max": max(values),
-    }
-
-
-def _calculate_score_statistics(scores: list[float]) -> dict[str, Any]:
-    """Calculate score statistics with confidence intervals.
-
-    Args:
-        scores: List of score values.
-
-    Returns:
-        Dictionary containing mean, median, std, min, max, count, and confidence_interval.
-    """
-    if not scores:
-        return {
-            "mean": 0.0,
-            "median": 0.0,
-            "std": 0.0,
-            "min": 0.0,
-            "max": 0.0,
-            "count": 0,
-            "confidence_interval": None,
-        }
-
-    score_stats = _calculate_numeric_stats(scores)
-    score_stats["confidence_interval"] = None
-
-    # Calculate confidence intervals using bootstrap
-    if len(scores) > 1:  # Need at least 2 samples for meaningful bootstrap
-        try:
-            scores_series = pd.Series(scores)
-            ci_low, ci_mean, ci_high = bootstrap_intervals(scores_series)
-            score_stats["confidence_interval"] = {
-                "low": float(ci_low),
-                "mean": float(ci_mean),
-                "high": float(ci_high),
-                "confidence_level": 95,
-            }
-        except (ValueError, RuntimeError):
-            pass  # confidence_interval already set to None
-
-    return score_stats
+    return NumericStats(
+        count=len(values),
+        mean=statistics.mean(values),
+        median=statistics.median(values),
+        std=statistics.stdev(values) if len(values) > 1 else 0.0,
+        min_value=min(values),
+        max_value=max(values),
+    )
 
 
-def _finalize_group_stats(
-    stats: dict[str, Any], *, include_scores: bool = False
-) -> None:
-    """Finalize statistics for a group (calculate rates and optionally score stats).
-
-    Args:
-        stats: Statistics dictionary to finalize.
-        include_scores: Whether to calculate score statistics.
-    """
-    _calculate_rates(stats)
-    if include_scores:
-        stats["score_statistics"] = _calculate_score_statistics(stats.get("scores", []))
-
-
-def calculate_api_token_usage(evaluation_data: list[EvaluationData]) -> dict[str, Any]:
-    """Calculate total API token usage from evaluation data.
-
-    Args:
-        evaluation_data: List of evaluation data containing turn-level API token counts.
-
-    Returns:
-        Dictionary containing total_api_input_tokens, total_api_output_tokens,
-        and total_api_tokens.
-    """
-    total_input_tokens = 0
-    total_output_tokens = 0
-
-    for conv_data in evaluation_data:
-        for turn in conv_data.turns:
-            total_input_tokens += turn.api_input_tokens
-            total_output_tokens += turn.api_output_tokens
-
-    return {
-        "total_api_input_tokens": total_input_tokens,
-        "total_api_output_tokens": total_output_tokens,
-        "total_api_tokens": total_input_tokens + total_output_tokens,
-    }
-
-
-def calculate_streaming_stats(
+def compute_streaming_stats(
     evaluation_data: list[EvaluationData],
-) -> dict[str, Any]:
-    """Calculate streaming performance statistics from evaluation data.
-
-    Args:
-        evaluation_data: List of evaluation data containing turn-level streaming metrics.
-
-    Returns:
-        Dictionary containing streaming performance statistics (TTFT, duration, throughput).
-    """
+) -> Optional[StreamingStats]:
+    """Compute streaming performance statistics from evaluation data."""
     ttft_values: list[float] = []
     duration_values: list[float] = []
     throughput_values: list[float] = []
@@ -299,8 +97,167 @@ def calculate_streaming_stats(
             if turn.tokens_per_second is not None:
                 throughput_values.append(turn.tokens_per_second)
 
-    return {
-        "time_to_first_token": _calculate_numeric_stats(ttft_values),
-        "streaming_duration": _calculate_numeric_stats(duration_values),
-        "tokens_per_second": _calculate_numeric_stats(throughput_values),
-    }
+    ttft = compute_numeric_stats(ttft_values)
+    duration = compute_numeric_stats(duration_values)
+    throughput = compute_numeric_stats(throughput_values)
+
+    if ttft is None and duration is None and throughput is None:
+        return None
+
+    return StreamingStats(
+        time_to_first_token=ttft,
+        streaming_duration=duration,
+        tokens_per_second=throughput,
+    )
+
+
+def compute_overall_stats(results: list[EvaluationResult]) -> OverallStats:
+    """Calculate overall pass/fail/error/skipped/token statistics from results."""
+    total = len(results)
+    passed = sum(1 for r in results if r.result == "PASS")
+    failed = sum(1 for r in results if r.result == "FAIL")
+    error = sum(1 for r in results if r.result == "ERROR")
+    skipped = sum(1 for r in results if r.result == "SKIPPED")
+
+    total_judge_input = sum(r.judge_llm_input_tokens for r in results)
+    total_judge_output = sum(r.judge_llm_output_tokens for r in results)
+    total_embedding = sum(r.embedding_tokens for r in results)
+
+    return OverallStats(
+        total=total,
+        passed=passed,
+        failed=failed,
+        error=error,
+        skipped=skipped,
+        pass_rate=(passed / total) * 100 if total > 0 else 0.0,
+        fail_rate=(failed / total) * 100 if total > 0 else 0.0,
+        error_rate=(error / total) * 100 if total > 0 else 0.0,
+        skipped_rate=(skipped / total) * 100 if total > 0 else 0.0,
+        total_judge_llm_input_tokens=total_judge_input,
+        total_judge_llm_output_tokens=total_judge_output,
+        total_judge_llm_tokens=total_judge_input + total_judge_output,
+        total_embedding_tokens=total_embedding,
+    )
+
+
+def compute_score_statistics(
+    scores: list[float],
+    compute_ci: bool = False,
+) -> ScoreStatistics:
+    """Compute score statistics from a list of scores."""
+    num_stats = compute_numeric_stats(scores)
+    if num_stats is None:
+        return ScoreStatistics()
+
+    confidence_interval = None
+    if compute_ci and len(scores) > 1:
+        confidence_interval = _try_bootstrap(scores)
+
+    return ScoreStatistics(
+        count=num_stats.count,
+        mean=num_stats.mean or 0.0,
+        median=num_stats.median or 0.0,
+        std=num_stats.std or 0.0,
+        min_score=num_stats.min_value or 0.0,
+        max_score=num_stats.max_value or 0.0,
+        confidence_interval=confidence_interval,
+    )
+
+
+def compute_api_token_usage(evaluation_data: list[EvaluationData]) -> ApiTokenUsage:
+    """Compute total API token usage from evaluation data."""
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    for conv_data in evaluation_data:
+        for turn in conv_data.turns:
+            total_input_tokens += turn.api_input_tokens
+            total_output_tokens += turn.api_output_tokens
+
+    return ApiTokenUsage(
+        total_api_input_tokens=total_input_tokens,
+        total_api_output_tokens=total_output_tokens,
+        total_api_tokens=total_input_tokens + total_output_tokens,
+    )
+
+
+def compute_metric_stats(
+    results: list[EvaluationResult],
+    compute_ci: bool = False,
+) -> dict[str, MetricStats]:
+    """Compute per-metric statistics."""
+    if not results:
+        return {}
+
+    grouped: dict[str, list[EvaluationResult]] = {}
+    for r in results:
+        grouped.setdefault(r.metric_identifier, []).append(r)
+
+    metric_stats: dict[str, MetricStats] = {}
+    for metric_id in sorted(grouped):
+        group_results = grouped[metric_id]
+        base = compute_overall_stats(group_results)
+        scores = [r.score for r in group_results if r.score is not None]
+        metric_stats[metric_id] = MetricStats(
+            **base.model_dump(),
+            score_statistics=compute_score_statistics(scores, compute_ci),
+        )
+
+    return metric_stats
+
+
+def compute_tag_stats(
+    results: list[EvaluationResult],
+    compute_ci: bool = False,
+) -> dict[str, TagStats]:
+    """Compute per-tag statistics."""
+    if not results:
+        return {}
+
+    grouped: dict[str, list[EvaluationResult]] = {}
+    for r in results:
+        grouped.setdefault(r.tag, []).append(r)
+
+    tag_stats: dict[str, TagStats] = {}
+    for tag in sorted(grouped):
+        group_results = grouped[tag]
+        base = compute_overall_stats(group_results)
+        scores = [r.score for r in group_results if r.score is not None]
+        tag_stats[tag] = TagStats(
+            **base.model_dump(),
+            score_statistics=compute_score_statistics(scores, compute_ci),
+        )
+
+    return tag_stats
+
+
+def compute_conversation_stats(
+    results: list[EvaluationResult],
+) -> dict[str, ConversationStats]:
+    """Compute per-conversation statistics."""
+    if not results:
+        return {}
+
+    grouped: dict[str, list[EvaluationResult]] = {}
+    for r in results:
+        grouped.setdefault(r.conversation_group_id, []).append(r)
+
+    conv_stats: dict[str, ConversationStats] = {}
+    for conv_id in sorted(grouped):
+        group_results = grouped[conv_id]
+        base = compute_overall_stats(group_results)
+        conv_stats[conv_id] = ConversationStats(**base.model_dump())
+
+    return conv_stats
+
+
+def compute_detailed_stats(results: list[EvaluationResult]) -> DetailedStats:
+    """Calculate detailed statistics broken down by different categories."""
+    if not results:
+        return DetailedStats(by_metric={}, by_conversation={}, by_tag={})
+
+    return DetailedStats(
+        by_metric=compute_metric_stats(results, compute_ci=True),
+        by_conversation=compute_conversation_stats(results),
+        by_tag=compute_tag_stats(results, compute_ci=True),
+    )

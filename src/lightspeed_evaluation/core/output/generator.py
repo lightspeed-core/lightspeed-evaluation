@@ -800,7 +800,11 @@ def _group_stats_to_dict(
             "std": score_stats.std,
             "min": score_stats.min_score,
             "max": score_stats.max_score,
-            "confidence_interval": score_stats.confidence_interval,
+            "confidence_interval": (
+                score_stats.confidence_interval.model_dump()
+                if score_stats.confidence_interval is not None
+                else None
+            ),
         }
     return result
 
@@ -853,7 +857,7 @@ def _summary_to_detailed_stats_dict(
     """Convert EvaluationSummary to the detailed stats dict format.
 
     This produces a dictionary with by_metric, by_conversation, by_tag keys
-    matching the format from calculate_detailed_stats().
+    matching the format from compute_detailed_stats().
 
     Args:
         summary: The EvaluationSummary instance.

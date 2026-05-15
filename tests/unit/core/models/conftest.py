@@ -2,7 +2,7 @@
 
 import pytest
 
-from lightspeed_evaluation.core.models.summary import MetricStats, ScoreStatistics
+from lightspeed_evaluation.core.models import MetricStats, ScoreStatistics
 
 
 @pytest.fixture

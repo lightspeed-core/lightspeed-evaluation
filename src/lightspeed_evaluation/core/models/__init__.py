@@ -35,6 +35,18 @@ from lightspeed_evaluation.core.models.system import (
     SystemConfig,
     VisualizationConfig,
 )
+from lightspeed_evaluation.core.models.statistics import (
+    NumericStats,
+    ScoreStatistics,
+    OverallStats,
+    MetricStats,
+    ConversationStats,
+    TagStats,
+    StreamingStats,
+    ApiTokenUsage,
+    ConfidenceInterval,
+    DetailedStats,
+)
 
 __all__ = [
     # Agent config models
@@ -64,6 +76,17 @@ __all__ = [
     "LoggingConfig",
     "SystemConfig",
     "VisualizationConfig",
+    # Stats models
+    "NumericStats",
+    "ScoreStatistics",
+    "OverallStats",
+    "MetricStats",
+    "ConversationStats",
+    "TagStats",
+    "StreamingStats",
+    "ApiTokenUsage",
+    "ConfidenceInterval",
+    "DetailedStats",
     # API models
     "APIRequest",
     "APIResponse",
