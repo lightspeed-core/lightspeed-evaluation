@@ -1,6 +1,6 @@
-"""LiteLLM configuration for token tracking and Ragas 0.4 compatibility.
+"""LiteLLM configuration for token tracking, Ragas 0.4 compatibility, and Vertex AI support.
 
-This module configures litellm for two purposes:
+This module configures litellm for three purposes:
 
 1. TOKEN TRACKING: Wraps litellm.completion, litellm.acompletion, litellm.embedding,
    and litellm.aembedding to track token usage for all LLM and embedding calls.
@@ -14,14 +14,21 @@ This module configures litellm for two purposes:
 
    We replace the LoggingWorker with a no-op implementation to avoid this.
    This is safe because we don't use litellm's built-in observability features.
+
+3. VERTEX AI PER-MODEL REGION SUPPORT: litellm.drop_params=True (set by
+   DeepEval) silently strips vertex_project and vertex_location from
+   completion kwargs. The completion wrappers intercept these params and
+   temporarily set them as litellm module-level attributes, which litellm
+   checks as a fallback in its vertex_ai handler.
 """
 
 import logging
 import os
 import threading
 import warnings
+from contextlib import contextmanager
 from functools import wraps
-from typing import Any
+from typing import Any, Generator
 
 import litellm
 
@@ -90,6 +97,50 @@ litellm.suppress_debug_info = True
 
 
 # =============================================================================
+# GLOBAL STATE LOCK
+# =============================================================================
+# Single lock for ALL litellm global state mutations (cache, ssl_verify,
+# vertex_project, vertex_location). Import this lock in any module that
+# reads/writes litellm global state to prevent race conditions between
+# concurrent pipelines.
+litellm_state_lock = threading.Lock()
+
+
+# =============================================================================
+# VERTEX AI PER-MODEL REGION SUPPORT
+# =============================================================================
+# litellm.drop_params=True (set by DeepEval) silently strips vertex_project
+# and vertex_location from completion kwargs. We intercept these params and
+# temporarily set them as litellm module-level attributes, which litellm
+# checks as a fallback in its vertex_ai handler.
+
+
+@contextmanager
+def _vertex_override(kwargs: dict[str, Any]) -> Generator[None, None, None]:
+    """Pop vertex_project/vertex_location from kwargs and set as litellm module attrs.
+
+    When neither key is present the context manager is a no-op (no lock acquired).
+    """
+    vp = kwargs.pop("vertex_project", None)
+    vl = kwargs.pop("vertex_location", None)
+    if vp is None and vl is None:
+        yield
+        return
+    with litellm_state_lock:
+        old_vp = getattr(litellm, "vertex_project", None)
+        old_vl = getattr(litellm, "vertex_location", None)
+        try:
+            if vp is not None:
+                litellm.vertex_project = vp
+            if vl is not None:
+                litellm.vertex_location = vl
+            yield
+        finally:
+            litellm.vertex_project = old_vp
+            litellm.vertex_location = old_vl
+
+
+# =============================================================================
 # TOKEN TRACKING: Wrap completion and embedding functions
 # =============================================================================
 # We wrap the completion and embedding functions rather than using callbacks
@@ -101,11 +152,11 @@ _original_embedding = litellm.embedding
 _original_aembedding = litellm.aembedding
 
 
-# Patch litellm's completion functions to include token tracking
 @wraps(_original_completion)
 def _completion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
-    """Wrapper around litellm.completion that tracks tokens."""
-    response = _original_completion(*args, **kwargs)
+    """Wrapper around litellm.completion that tracks tokens and handles Vertex params."""
+    with _vertex_override(kwargs):
+        response = _original_completion(*args, **kwargs)
     try:
         track_judge_tokens(response)
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -115,8 +166,9 @@ def _completion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
 
 @wraps(_original_acompletion)
 async def _acompletion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
-    """Wrapper around litellm.acompletion that tracks tokens."""
-    response = await _original_acompletion(*args, **kwargs)
+    """Wrapper around litellm.acompletion that tracks tokens and handles Vertex params."""
+    with _vertex_override(kwargs):
+        response = await _original_acompletion(*args, **kwargs)
     try:
         track_judge_tokens(response)
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -124,7 +176,6 @@ async def _acompletion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
     return response
 
 
-# Patch litellm's embedding functions to include token tracking
 @wraps(_original_embedding)
 def _embedding_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
     """Wrapper around litellm.embedding that tracks tokens."""
@@ -147,20 +198,10 @@ async def _aembedding_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
     return response
 
 
-# Patch litellm's completion and embedding functions to include token tracking
 litellm.completion = _completion_with_token_tracking
 litellm.acompletion = _acompletion_with_token_tracking
 litellm.embedding = _embedding_with_token_tracking
 litellm.aembedding = _aembedding_with_token_tracking
-
-
-# =============================================================================
-# GLOBAL STATE LOCK
-# =============================================================================
-# Single lock for ALL litellm global state mutations (cache, ssl_verify).
-# Import this lock in any module that reads/writes litellm.cache or
-# litellm.ssl_verify to prevent race conditions between concurrent pipelines.
-litellm_state_lock = threading.Lock()
 
 
 # =============================================================================

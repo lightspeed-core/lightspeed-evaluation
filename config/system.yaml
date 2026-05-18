@@ -46,6 +46,18 @@ llm_pool:
         # Add, remove or override model specific parameters
         temperature: null             # Removes temperature from default
         max_completion_tokens: 2048   # Overrides default
+    # Vertex AI example with per-model region:
+    # judge_vertex_gemini:
+    #   provider: vertex_ai
+    #   model: gemini-2.0-flash
+    #   parameters:
+    #     vertex_location: us-central1        # Region for this model
+    #     # vertex_project: my-gcp-project    # Optional: override GCP project
+    # judge_vertex_llama:
+    #   provider: vertex_ai
+    #   model: meta/llama-3.3-70b-instruct-maas
+    #   parameters:
+    #     vertex_location: europe-west1       # Different region for this model
 
 # Judge Panel: multiple judges from the pool
 # Combine their scores. First judge in judges is the fallback when the full panel is not used for a metric.
