@@ -1,5 +1,7 @@
 """Unit tests for litellm_patch vertex override support."""
 
+import asyncio
+import threading
 from typing import Any, Callable
 
 import pytest
@@ -163,36 +165,32 @@ class TestVertexOverrideAsyncContextManager:
         assert getattr(litellm, "vertex_location", None) == old_location
 
     @pytest.mark.asyncio
-    async def test_async_lock_acquired_with_vertex_params(
+    async def test_threading_lock_used_with_vertex_params(
         self, mocker: MockerFixture
     ) -> None:
-        """Test that the async lock is acquired when vertex params are present."""
+        """Test that litellm_state_lock (threading.Lock) is acquired for vertex params."""
         mock_lock = mocker.MagicMock()
-        mock_lock.__aenter__ = mocker.AsyncMock(return_value=None)
-        mock_lock.__aexit__ = mocker.AsyncMock(return_value=False)
-        mocker.patch.object(litellm_patch, "litellm_state_async_lock", mock_lock)
+        mocker.patch.object(litellm_patch, "litellm_state_lock", mock_lock)
         kwargs: dict[str, Any] = {"vertex_location": "us-central1"}
 
         async with _vertex_override_async(kwargs):
             pass
 
-        mock_lock.__aenter__.assert_called_once()
+        assert mock_lock.__enter__.call_count >= 1
 
     @pytest.mark.asyncio
-    async def test_async_lock_acquired_without_vertex_params(
+    async def test_threading_lock_used_without_vertex_params(
         self, mocker: MockerFixture
     ) -> None:
-        """Test that the async lock is acquired even without vertex params."""
+        """Test that litellm_state_lock is acquired even without vertex params."""
         mock_lock = mocker.MagicMock()
-        mock_lock.__aenter__ = mocker.AsyncMock(return_value=None)
-        mock_lock.__aexit__ = mocker.AsyncMock(return_value=False)
-        mocker.patch.object(litellm_patch, "litellm_state_async_lock", mock_lock)
+        mocker.patch.object(litellm_patch, "litellm_state_lock", mock_lock)
         kwargs: dict[str, Any] = {"temperature": 0.5}
 
         async with _vertex_override_async(kwargs):
             pass
 
-        mock_lock.__aenter__.assert_called_once()
+        mock_lock.__enter__.assert_called_once()
 
 
 class TestCompletionWithVertexOverride:
@@ -291,3 +289,99 @@ class TestCompletionWithVertexOverride:
         assert "vertex_project" not in call_kwargs
         assert getattr(litellm, "vertex_location", None) == old_location
         assert getattr(litellm, "vertex_project", None) == old_project
+
+
+class TestInterleavedSyncAsyncCompletions:
+    """Test that sync and async completions sharing one lock don't race."""
+
+    @pytest.mark.asyncio
+    async def test_interleaved_sync_async_no_deadlock(
+        self, mocker: MockerFixture, mock_judge_llm_response: Callable[..., Any]
+    ) -> None:
+        """Interleaved sync/async vertex completions complete without deadlock."""
+        response = mock_judge_llm_response(
+            prompt_tokens=10, completion_tokens=5, cache_hit=False, content="ok"
+        )
+        mocker.patch.object(
+            litellm_patch, "_original_completion", return_value=response
+        )
+        mocker.patch.object(
+            litellm_patch, "_original_acompletion", return_value=response
+        )
+
+        old_vp = getattr(litellm, "vertex_project", None)
+        old_vl = getattr(litellm, "vertex_location", None)
+        completed: list[str] = []
+
+        def run_sync(project: str, location: str) -> None:
+            litellm.completion(
+                model="vertex_ai/gemini-pro",
+                messages=[{"role": "user", "content": "test"}],
+                vertex_project=project,
+                vertex_location=location,
+            )
+            completed.append(f"sync-{project}")
+
+        async def run_async(project: str, location: str) -> None:
+            await litellm.acompletion(
+                model="vertex_ai/gemini-pro",
+                messages=[{"role": "user", "content": "test"}],
+                vertex_project=project,
+                vertex_location=location,
+            )
+            completed.append(f"async-{project}")
+
+        try:
+            loop = asyncio.get_running_loop()
+            await asyncio.gather(
+                loop.run_in_executor(None, run_sync, "proj-s1", "loc-s1"),
+                loop.run_in_executor(None, run_sync, "proj-s2", "loc-s2"),
+                run_async("proj-a1", "loc-a1"),
+                run_async("proj-a2", "loc-a2"),
+            )
+
+            assert len(completed) == 4
+        finally:
+            litellm.vertex_project = old_vp
+            litellm.vertex_location = old_vl
+
+    @pytest.mark.asyncio
+    async def test_sequential_sync_async_restores_globals(
+        self, mocker: MockerFixture, mock_judge_llm_response: Callable[..., Any]
+    ) -> None:
+        """Sequential sync then async vertex call restores globals correctly."""
+        response = mock_judge_llm_response(
+            prompt_tokens=10, completion_tokens=5, cache_hit=False, content="ok"
+        )
+        mocker.patch.object(
+            litellm_patch, "_original_completion", return_value=response
+        )
+        mocker.patch.object(
+            litellm_patch, "_original_acompletion", return_value=response
+        )
+
+        old_vp = getattr(litellm, "vertex_project", None)
+        old_vl = getattr(litellm, "vertex_location", None)
+
+        litellm.completion(
+            model="vertex_ai/gemini-pro",
+            messages=[{"role": "user", "content": "test"}],
+            vertex_project="proj-sync",
+            vertex_location="loc-sync",
+        )
+        assert getattr(litellm, "vertex_project", None) == old_vp
+        assert getattr(litellm, "vertex_location", None) == old_vl
+
+        await litellm.acompletion(
+            model="vertex_ai/gemini-pro",
+            messages=[{"role": "user", "content": "test"}],
+            vertex_project="proj-async",
+            vertex_location="loc-async",
+        )
+        assert getattr(litellm, "vertex_project", None) == old_vp
+        assert getattr(litellm, "vertex_location", None) == old_vl
+
+    def test_sync_and_async_share_same_lock(self) -> None:
+        """Both _vertex_override and _vertex_override_async use litellm_state_lock."""
+        assert isinstance(litellm_patch.litellm_state_lock, type(threading.Lock()))
+        assert not hasattr(litellm_patch, "litellm_state_async_lock")

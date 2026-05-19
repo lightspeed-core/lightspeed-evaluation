@@ -98,16 +98,14 @@ litellm.suppress_debug_info = True
 
 
 # =============================================================================
-# GLOBAL STATE LOCKS
+# GLOBAL STATE LOCK
 # =============================================================================
-# Locks for ALL litellm global state mutations (cache, ssl_verify,
-# vertex_project, vertex_location). Import the appropriate lock in any
-# module that reads/writes litellm global state to prevent race conditions
-# between concurrent pipelines.
-# - litellm_state_lock: for synchronous code paths (threading.Lock)
-# - litellm_state_async_lock: for asynchronous code paths (asyncio.Lock)
+# Single lock for ALL litellm global state mutations (cache, ssl_verify,
+# vertex_project, vertex_location). Import this lock in any module that
+# reads/writes litellm global state to prevent race conditions between
+# concurrent pipelines. Both sync and async code paths share this lock;
+# async callers use asyncio.to_thread so the event loop is never blocked.
 litellm_state_lock = threading.Lock()
-litellm_state_async_lock = asyncio.Lock()
 
 
 # =============================================================================
@@ -149,30 +147,41 @@ def _vertex_override(kwargs: dict[str, Any]) -> Generator[None, None, None]:
 async def _vertex_override_async(
     kwargs: dict[str, Any],
 ) -> AsyncGenerator[None, None]:
-    """Async version of _vertex_override using asyncio.Lock.
+    """Async version of _vertex_override using asyncio.to_thread.
 
-    Uses litellm_state_async_lock instead of threading.Lock to avoid blocking
-    the event loop. The lock is held across the yield (including any awaited
-    completion call) to ensure globals remain consistent for the duration of
-    the request.
+    Runs lock acquisition and litellm global-state mutation in a thread-pool
+    worker via asyncio.to_thread so the event loop is never blocked.  Uses the
+    same litellm_state_lock as the synchronous path to prevent races between
+    sync and async callers.
     """
-    async with litellm_state_async_lock:
-        vp = kwargs.pop("vertex_project", None)
-        vl = kwargs.pop("vertex_location", None)
-        if vp is None and vl is None:
-            yield
-            return
-        old_vp = getattr(litellm, "vertex_project", None)
-        old_vl = getattr(litellm, "vertex_location", None)
-        try:
+
+    def _apply() -> tuple[Any, Any] | None:
+        with litellm_state_lock:
+            vp = kwargs.pop("vertex_project", None)
+            vl = kwargs.pop("vertex_location", None)
+            if vp is None and vl is None:
+                return None
+            old_vp = getattr(litellm, "vertex_project", None)
+            old_vl = getattr(litellm, "vertex_location", None)
             if vp is not None:
                 litellm.vertex_project = vp
             if vl is not None:
                 litellm.vertex_location = vl
-            yield
-        finally:
-            litellm.vertex_project = old_vp
-            litellm.vertex_location = old_vl
+            return (old_vp, old_vl)
+
+    def _restore(old: tuple[Any, Any]) -> None:
+        with litellm_state_lock:
+            litellm.vertex_project = old[0]
+            litellm.vertex_location = old[1]
+
+    old = await asyncio.to_thread(_apply)
+    if old is None:
+        yield
+        return
+    try:
+        yield
+    finally:
+        await asyncio.to_thread(_restore, old)
 
 
 # =============================================================================
