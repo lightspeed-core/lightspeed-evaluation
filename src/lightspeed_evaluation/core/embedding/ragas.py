@@ -20,44 +20,45 @@ class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
         Args:
             embedding_manager: Pre-configured EmbeddingManager with validated parameters
         """
-        config = embedding_manager.config
-        self.config = config
+        self.config = embedding_manager.config
 
         # Map provider names to litellm format
-        provider = config.provider.lower()
-        model = config.model
-
-        # Build the model string for litellm
-        # Only OpenAI, Gemini, and HuggingFace are supported
-        if provider == "openai":
-            model_str = model  # OpenAI models don't need prefix
-        elif provider == "huggingface":
-            model_str = f"huggingface/{model}"
-        elif provider == "gemini":
-            model_str = f"gemini/{model}"
-        else:
-            logger.error("Unknown embedding provider: %s", config.provider)
-            raise ConfigurationError(f"Unknown embedding provider {config.provider}")
-
-        logger.debug(
-            "Using embedding provider: %s with model: %s -> %s",
-            provider,
-            model,
-            model_str,
-        )
-
+        provider = self.config.provider.lower()
+        model = self.config.model
         # Get additional provider kwargs
         kwargs: dict[str, Any] = {}
-        if config.provider_kwargs:
-            kwargs.update(config.provider_kwargs)
+        if self.config.provider_kwargs:
+            kwargs.update(self.config.provider_kwargs)
 
-        # Create embeddings using ragas 0.4+ embedding_factory with litellm
+        # Provider-specific configuration
+        if provider in ["openai", "gemini"]:
+            logger.debug("Using %s provider with model: %s", provider, model)
+            actual_provider = (
+                "litellm"  # Litellm provider auto-creates client in embedding_factory
+            )
+        elif provider == "huggingface":
+            # HuggingFace default is use_api=False (local sentence-transformers)
+            # Only set explicitly if user hasn't overridden in provider_kwargs
+            kwargs.setdefault("use_api", False)
+            logger.debug(
+                "Using HuggingFace provider with model: %s (local=%s)",
+                model,
+                not kwargs["use_api"],
+            )
+            actual_provider = "huggingface"
+        else:
+            logger.error("Unknown embedding provider: %s", self.config.provider)
+            raise ConfigurationError(
+                f"Unknown embedding provider {self.config.provider}"
+            )
+
+        # Create embeddings using ragas 0.4+ embedding_factory
         # Cast to BaseRagasEmbedding as embedding_factory returns union type
         self.embeddings: BaseRagasEmbedding = cast(
             BaseRagasEmbedding,
             embedding_factory(
-                "litellm",
-                model=model_str,
+                provider=actual_provider,
+                model=model,
                 **kwargs,
             ),
         )
