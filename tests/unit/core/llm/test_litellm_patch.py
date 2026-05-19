@@ -334,11 +334,14 @@ class TestInterleavedSyncAsyncCompletions:
 
         try:
             loop = asyncio.get_running_loop()
-            await asyncio.gather(
-                loop.run_in_executor(None, run_sync, "proj-s1", "loc-s1"),
-                loop.run_in_executor(None, run_sync, "proj-s2", "loc-s2"),
-                run_async("proj-a1", "loc-a1"),
-                run_async("proj-a2", "loc-a2"),
+            await asyncio.wait_for(
+                asyncio.gather(
+                    loop.run_in_executor(None, run_sync, "proj-s1", "loc-s1"),
+                    loop.run_in_executor(None, run_sync, "proj-s2", "loc-s2"),
+                    run_async("proj-a1", "loc-a1"),
+                    run_async("proj-a2", "loc-a2"),
+                ),
+                timeout=10,
             )
 
             assert len(completed) == 4
