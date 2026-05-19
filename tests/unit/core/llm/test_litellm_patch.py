@@ -7,7 +7,10 @@ from pytest_mock import MockerFixture
 import litellm
 
 from lightspeed_evaluation.core.llm import litellm_patch
-from lightspeed_evaluation.core.llm.litellm_patch import _vertex_override
+from lightspeed_evaluation.core.llm.litellm_patch import (
+    _vertex_override,
+    _vertex_override_async,
+)
 
 
 class TestVertexOverrideContextManager:
@@ -77,17 +80,15 @@ class TestVertexOverrideContextManager:
 
         assert getattr(litellm, "vertex_location", None) == old_location
 
-    def test_no_lock_acquired_without_vertex_params(
-        self, mocker: MockerFixture
-    ) -> None:
-        """Test that the lock is not acquired when no vertex params are present."""
+    def test_lock_acquired_without_vertex_params(self, mocker: MockerFixture) -> None:
+        """Test that the lock is acquired even when no vertex params are present."""
         mock_lock = mocker.patch.object(litellm_patch, "litellm_state_lock")
         kwargs: dict[str, Any] = {"temperature": 0.5}
 
         with _vertex_override(kwargs):
             pass
 
-        mock_lock.__enter__.assert_not_called()
+        mock_lock.__enter__.assert_called_once()
 
     def test_lock_acquired_with_vertex_params(self, mocker: MockerFixture) -> None:
         """Test that the lock is acquired when vertex params are present."""
@@ -99,6 +100,99 @@ class TestVertexOverrideContextManager:
             pass
 
         mock_lock.__enter__.assert_called_once()
+
+
+class TestVertexOverrideAsyncContextManager:
+    """Tests for the _vertex_override_async async context manager."""
+
+    @pytest.mark.asyncio
+    async def test_no_vertex_params_is_noop(self) -> None:
+        """Test that _vertex_override_async is a no-op when no vertex params present."""
+        kwargs: dict[str, Any] = {"model": "gpt-4", "temperature": 0.5}
+        original_kwargs = dict(kwargs)
+
+        async with _vertex_override_async(kwargs):
+            pass
+
+        assert kwargs == original_kwargs
+
+    @pytest.mark.asyncio
+    async def test_vertex_location_set_and_restored(self) -> None:
+        """Test that vertex_location is set on litellm module and restored after."""
+        old_value = getattr(litellm, "vertex_location", None)
+        kwargs: dict[str, Any] = {"vertex_location": "us-central1"}
+
+        async with _vertex_override_async(kwargs):
+            assert litellm.vertex_location == "us-central1"
+            assert "vertex_location" not in kwargs
+
+        assert getattr(litellm, "vertex_location", None) == old_value
+
+    @pytest.mark.asyncio
+    async def test_both_params_set_and_restored(self) -> None:
+        """Test that both vertex params are set and restored."""
+        old_location = getattr(litellm, "vertex_location", None)
+        old_project = getattr(litellm, "vertex_project", None)
+        kwargs: dict[str, Any] = {
+            "vertex_location": "europe-west1",
+            "vertex_project": "my-project",
+            "temperature": 0.5,
+        }
+
+        async with _vertex_override_async(kwargs):
+            assert litellm.vertex_location == "europe-west1"
+            assert litellm.vertex_project == "my-project"
+            assert "vertex_location" not in kwargs
+            assert "vertex_project" not in kwargs
+            assert kwargs == {"temperature": 0.5}
+
+        assert getattr(litellm, "vertex_location", None) == old_location
+        assert getattr(litellm, "vertex_project", None) == old_project
+
+    @pytest.mark.asyncio
+    async def test_params_restored_on_exception(self) -> None:
+        """Test that vertex params are restored even when an exception occurs."""
+        old_location = getattr(litellm, "vertex_location", None)
+        kwargs: dict[str, Any] = {"vertex_location": "us-east1"}
+
+        with pytest.raises(ValueError, match="test error"):
+            async with _vertex_override_async(kwargs):
+                assert litellm.vertex_location == "us-east1"
+                raise ValueError("test error")
+
+        assert getattr(litellm, "vertex_location", None) == old_location
+
+    @pytest.mark.asyncio
+    async def test_async_lock_acquired_with_vertex_params(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that the async lock is acquired when vertex params are present."""
+        mock_lock = mocker.MagicMock()
+        mock_lock.__aenter__ = mocker.AsyncMock(return_value=None)
+        mock_lock.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch.object(litellm_patch, "litellm_state_async_lock", mock_lock)
+        kwargs: dict[str, Any] = {"vertex_location": "us-central1"}
+
+        async with _vertex_override_async(kwargs):
+            pass
+
+        mock_lock.__aenter__.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_lock_acquired_without_vertex_params(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that the async lock is acquired even without vertex params."""
+        mock_lock = mocker.MagicMock()
+        mock_lock.__aenter__ = mocker.AsyncMock(return_value=None)
+        mock_lock.__aexit__ = mocker.AsyncMock(return_value=False)
+        mocker.patch.object(litellm_patch, "litellm_state_async_lock", mock_lock)
+        kwargs: dict[str, Any] = {"temperature": 0.5}
+
+        async with _vertex_override_async(kwargs):
+            pass
+
+        mock_lock.__aenter__.assert_called_once()
 
 
 class TestCompletionWithVertexOverride:

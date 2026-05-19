@@ -22,13 +22,14 @@ This module configures litellm for three purposes:
    checks as a fallback in its vertex_ai handler.
 """
 
+import asyncio
 import logging
 import os
 import threading
 import warnings
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
-from typing import Any, Generator
+from typing import Any, AsyncGenerator, Generator
 
 import litellm
 
@@ -97,13 +98,16 @@ litellm.suppress_debug_info = True
 
 
 # =============================================================================
-# GLOBAL STATE LOCK
+# GLOBAL STATE LOCKS
 # =============================================================================
-# Single lock for ALL litellm global state mutations (cache, ssl_verify,
-# vertex_project, vertex_location). Import this lock in any module that
-# reads/writes litellm global state to prevent race conditions between
-# concurrent pipelines.
+# Locks for ALL litellm global state mutations (cache, ssl_verify,
+# vertex_project, vertex_location). Import the appropriate lock in any
+# module that reads/writes litellm global state to prevent race conditions
+# between concurrent pipelines.
+# - litellm_state_lock: for synchronous code paths (threading.Lock)
+# - litellm_state_async_lock: for asynchronous code paths (asyncio.Lock)
 litellm_state_lock = threading.Lock()
+litellm_state_async_lock = asyncio.Lock()
 
 
 # =============================================================================
@@ -119,14 +123,45 @@ litellm_state_lock = threading.Lock()
 def _vertex_override(kwargs: dict[str, Any]) -> Generator[None, None, None]:
     """Pop vertex_project/vertex_location from kwargs and set as litellm module attrs.
 
-    When neither key is present the context manager is a no-op (no lock acquired).
+    Always acquires litellm_state_lock to prevent concurrent reads of partially
+    updated globals, even when no vertex params are present in kwargs.
     """
-    vp = kwargs.pop("vertex_project", None)
-    vl = kwargs.pop("vertex_location", None)
-    if vp is None and vl is None:
-        yield
-        return
     with litellm_state_lock:
+        vp = kwargs.pop("vertex_project", None)
+        vl = kwargs.pop("vertex_location", None)
+        if vp is None and vl is None:
+            yield
+            return
+        old_vp = getattr(litellm, "vertex_project", None)
+        old_vl = getattr(litellm, "vertex_location", None)
+        try:
+            if vp is not None:
+                litellm.vertex_project = vp
+            if vl is not None:
+                litellm.vertex_location = vl
+            yield
+        finally:
+            litellm.vertex_project = old_vp
+            litellm.vertex_location = old_vl
+
+
+@asynccontextmanager
+async def _vertex_override_async(
+    kwargs: dict[str, Any],
+) -> AsyncGenerator[None, None]:
+    """Async version of _vertex_override using asyncio.Lock.
+
+    Uses litellm_state_async_lock instead of threading.Lock to avoid blocking
+    the event loop. The lock is held across the yield (including any awaited
+    completion call) to ensure globals remain consistent for the duration of
+    the request.
+    """
+    async with litellm_state_async_lock:
+        vp = kwargs.pop("vertex_project", None)
+        vl = kwargs.pop("vertex_location", None)
+        if vp is None and vl is None:
+            yield
+            return
         old_vp = getattr(litellm, "vertex_project", None)
         old_vl = getattr(litellm, "vertex_location", None)
         try:
@@ -167,7 +202,7 @@ def _completion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
 @wraps(_original_acompletion)
 async def _acompletion_with_token_tracking(*args: Any, **kwargs: Any) -> Any:
     """Wrapper around litellm.acompletion that tracks tokens and handles Vertex params."""
-    with _vertex_override(kwargs):
+    async with _vertex_override_async(kwargs):
         response = await _original_acompletion(*args, **kwargs)
     try:
         track_judge_tokens(response)
