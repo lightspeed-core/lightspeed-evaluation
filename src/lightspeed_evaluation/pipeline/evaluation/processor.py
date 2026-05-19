@@ -78,8 +78,8 @@ class ConversationProcessor:
             return []
 
         # Run setup script if provided
-        skip = not agent_driver.enabled
-        setup_error = self._run_setup_script(conv_data, skip)
+        skip_setup_cleanup = not agent_driver.enabled
+        setup_error = self._run_setup_script(conv_data, skip_setup_cleanup)
         if setup_error:
             return self._handle_setup_failure(ctx, setup_error)
 
@@ -91,7 +91,7 @@ class ConversationProcessor:
 
         finally:
             # Always run cleanup script (if provided) regardless of results
-            self._run_cleanup_script(conv_data, skip)
+            self._run_cleanup_script(conv_data, skip_setup_cleanup)
 
     def _build_processing_context(
         self, conv_data: EvaluationData, agent_driver: AgentDriver
@@ -323,14 +323,14 @@ class ConversationProcessor:
         return results
 
     def _run_setup_script(
-        self, conv_data: EvaluationData, skip: bool = False
+        self, conv_data: EvaluationData, skip_setup: bool = False
     ) -> Optional[str]:
         """Run setup script for conversation."""
         setup_script = conv_data.setup_script
         if not setup_script:
             return None
 
-        if skip:
+        if skip_setup:
             logger.debug("Skipping setup script (agent disabled): %s", setup_script)
             return None
 
@@ -348,7 +348,7 @@ class ConversationProcessor:
             return str(e)
 
     def _run_cleanup_script(
-        self, conv_data: EvaluationData, skip: bool = False
+        self, conv_data: EvaluationData, skip_cleanup: bool = False
     ) -> None:
         """Run cleanup script for conversation.
 
@@ -358,7 +358,7 @@ class ConversationProcessor:
         if not cleanup_script:
             return
 
-        if skip:
+        if skip_cleanup:
             logger.debug("Skipping cleanup script (agent disabled): %s", cleanup_script)
             return
 

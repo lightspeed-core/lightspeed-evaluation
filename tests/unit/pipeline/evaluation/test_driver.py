@@ -173,8 +173,8 @@ class TestAgentDriverBase:
             ) -> tuple[Optional[str], Optional[str]]:
                 return (None, None)
 
-            def validate_config(self, config: dict[str, Any]) -> None:
-                pass
+            def validate_config(self, config: dict[str, Any]) -> Any:
+                return config
 
         driver = StubDriver({})
         assert driver.enabled is True
@@ -190,8 +190,8 @@ class TestAgentDriverBase:
             ) -> tuple[Optional[str], Optional[str]]:
                 return (None, None)
 
-            def validate_config(self, config: dict[str, Any]) -> None:
-                pass
+            def validate_config(self, config: dict[str, Any]) -> Any:
+                return config
 
         driver = StubDriver({}, enabled=False)
         assert driver.enabled is False
@@ -207,8 +207,8 @@ class TestAgentDriverBase:
             ) -> tuple[Optional[str], Optional[str]]:
                 return (None, None)
 
-            def validate_config(self, config: dict[str, Any]) -> None:
-                pass
+            def validate_config(self, config: dict[str, Any]) -> Any:
+                return config
 
         driver = StubDriver({})
         driver.close()

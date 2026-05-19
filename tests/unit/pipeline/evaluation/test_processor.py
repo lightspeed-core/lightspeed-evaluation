@@ -2,8 +2,8 @@
 
 """Unit tests for ConversationProcessor."""
 
-from typing import Callable
 import logging
+from typing import Callable
 
 import pytest
 from _pytest.logging import LogCaptureFixture
@@ -408,7 +408,7 @@ class TestConversationProcessor:
         sample_conv_data.setup_script = "setup.sh"
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        error = processor._run_setup_script(sample_conv_data, skip=True)
+        error = processor._run_setup_script(sample_conv_data, skip_setup=True)
 
         assert error is None
         processor_components.script_manager.run_script.assert_not_called()
@@ -423,7 +423,7 @@ class TestConversationProcessor:
         sample_conv_data.cleanup_script = "cleanup.sh"
 
         processor = ConversationProcessor(mock_config_loader, processor_components)
-        processor._run_cleanup_script(sample_conv_data, skip=True)
+        processor._run_cleanup_script(sample_conv_data, skip_cleanup=True)
 
         processor_components.script_manager.run_script.assert_not_called()
 
