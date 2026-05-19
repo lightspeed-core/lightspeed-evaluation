@@ -91,6 +91,7 @@ class TestVertexOverrideContextManager:
             pass
 
         mock_lock.__enter__.assert_called_once()
+        mock_lock.__exit__.assert_called_once()
 
     def test_lock_acquired_with_vertex_params(self, mocker: MockerFixture) -> None:
         """Test that the lock is acquired when vertex params are present."""
@@ -102,6 +103,7 @@ class TestVertexOverrideContextManager:
             pass
 
         mock_lock.__enter__.assert_called_once()
+        mock_lock.__exit__.assert_called_once()
 
 
 class TestVertexOverrideAsyncContextManager:
