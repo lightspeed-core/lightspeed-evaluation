@@ -168,21 +168,22 @@ class TestVertexOverrideAsyncContextManager:
     async def test_threading_lock_used_with_vertex_params(
         self, mocker: MockerFixture
     ) -> None:
-        """Test that litellm_state_lock (threading.Lock) is acquired for vertex params."""
+        """Test that litellm_state_lock is acquired and held across yield."""
         mock_lock = mocker.MagicMock()
         mocker.patch.object(litellm_patch, "litellm_state_lock", mock_lock)
         kwargs: dict[str, Any] = {"vertex_location": "us-central1"}
 
         async with _vertex_override_async(kwargs):
-            pass
+            mock_lock.acquire.assert_called_once()
+            mock_lock.release.assert_not_called()
 
-        assert mock_lock.__enter__.call_count >= 1
+        mock_lock.release.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_threading_lock_used_without_vertex_params(
+    async def test_threading_lock_not_used_without_vertex_params(
         self, mocker: MockerFixture
     ) -> None:
-        """Test that litellm_state_lock is acquired even without vertex params."""
+        """Test that litellm_state_lock is not acquired when no vertex params."""
         mock_lock = mocker.MagicMock()
         mocker.patch.object(litellm_patch, "litellm_state_lock", mock_lock)
         kwargs: dict[str, Any] = {"temperature": 0.5}
@@ -190,7 +191,7 @@ class TestVertexOverrideAsyncContextManager:
         async with _vertex_override_async(kwargs):
             pass
 
-        mock_lock.__enter__.assert_called_once()
+        mock_lock.acquire.assert_not_called()
 
 
 class TestCompletionWithVertexOverride:

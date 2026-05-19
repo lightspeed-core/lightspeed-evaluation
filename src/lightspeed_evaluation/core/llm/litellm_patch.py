@@ -149,39 +149,31 @@ async def _vertex_override_async(
 ) -> AsyncGenerator[None, None]:
     """Async version of _vertex_override using asyncio.to_thread.
 
-    Runs lock acquisition and litellm global-state mutation in a thread-pool
-    worker via asyncio.to_thread so the event loop is never blocked.  Uses the
-    same litellm_state_lock as the synchronous path to prevent races between
-    sync and async callers.
+    Acquires litellm_state_lock before mutating globals and holds it across the
+    yield so no concurrent caller can see partially-updated state.  Lock
+    acquire/release use asyncio.to_thread to avoid blocking the event loop.
+    Uses the same lock as the synchronous path to prevent races between sync
+    and async callers.
     """
-
-    def _apply() -> tuple[Any, Any] | None:
-        with litellm_state_lock:
-            vp = kwargs.pop("vertex_project", None)
-            vl = kwargs.pop("vertex_location", None)
-            if vp is None and vl is None:
-                return None
-            old_vp = getattr(litellm, "vertex_project", None)
-            old_vl = getattr(litellm, "vertex_location", None)
-            if vp is not None:
-                litellm.vertex_project = vp
-            if vl is not None:
-                litellm.vertex_location = vl
-            return (old_vp, old_vl)
-
-    def _restore(old: tuple[Any, Any]) -> None:
-        with litellm_state_lock:
-            litellm.vertex_project = old[0]
-            litellm.vertex_location = old[1]
-
-    old = await asyncio.to_thread(_apply)
-    if old is None:
+    vp = kwargs.pop("vertex_project", None)
+    vl = kwargs.pop("vertex_location", None)
+    if vp is None and vl is None:
         yield
         return
+
+    await asyncio.to_thread(litellm_state_lock.acquire)
+    old_vp = getattr(litellm, "vertex_project", None)
+    old_vl = getattr(litellm, "vertex_location", None)
     try:
+        if vp is not None:
+            litellm.vertex_project = vp
+        if vl is not None:
+            litellm.vertex_location = vl
         yield
     finally:
-        await asyncio.to_thread(_restore, old)
+        litellm.vertex_project = old_vp
+        litellm.vertex_location = old_vl
+        await asyncio.to_thread(litellm_state_lock.release)
 
 
 # =============================================================================
