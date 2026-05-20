@@ -1,0 +1,62 @@
+- conversation_group_id: subprocess_full_lifecycle
+  description: Full lifecycle — analysis, execution, verification
+  tag: subprocess
+  setup_script: agentic/scripts/setup_subprocess_fixtures.sh
+  cleanup_script: agentic/scripts/cleanup_subprocess_fixtures.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      query: >-
+        A pod named oomkill-demo in namespace lightspeed-evaluation-test
+        is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
+        fix the memory configuration, and verify the fix.
+      response: null
+      proposal_spec:
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+      turn_metrics:
+        - custom:proposal_status
+      turn_metrics_metadata: {}
+
+- conversation_group_id: subprocess_analysis_only
+  description: Analysis-only — no execution or verification
+  tag: subprocess
+  setup_script: agentic/scripts/setup_subprocess_fixtures.sh
+  cleanup_script: agentic/scripts/cleanup_subprocess_fixtures.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      query: >-
+        A pod named oomkill-demo in namespace lightspeed-evaluation-test
+        is in CrashLoopBackOff. Analyze the root cause.
+      response: null
+      proposal_spec:
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+      turn_metrics:
+        - custom:proposal_status
+      turn_metrics_metadata: {}
