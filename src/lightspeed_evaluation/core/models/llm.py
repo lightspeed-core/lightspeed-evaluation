@@ -171,6 +171,10 @@ class EmbeddingConfig(BaseModel):
         default=None,
         description="Embedding provider arguments, e.g. model_kwargs: device:cpu",
     )
+    cache_dir: Optional[str] = Field(
+        default=None,
+        description="(Deprecated) Location of cached embedding queries",
+    )
     cache_enabled: bool = Field(
         default=True, description="Is caching of embedding queries enabled?"
     )

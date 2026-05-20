@@ -593,7 +593,7 @@ class TestSystemConfigGlobalCache:
         assert config.embedding.cache_enabled is True
 
         assert config.api.cache_enabled is True
-        assert config.api.cache_dir == ".caches/api"
+        assert config.api.cache_dir == ".caches/agent"
 
     def test_global_cache_setup_legacy_llm_support_override(self) -> None:
         """Test cache setup with custom legacy LLM config overrides."""
@@ -611,7 +611,7 @@ class TestSystemConfigGlobalCache:
         assert config.embedding.cache_enabled is True
 
         assert config.api.cache_enabled is True
-        assert config.api.cache_dir == ".caches/api"
+        assert config.api.cache_dir == ".caches/agent"
 
     def test_global_default_cache_setup_with_judge_panel(self) -> None:
         """Test default cache setup with judge panel configuration."""
@@ -643,7 +643,7 @@ class TestSystemConfigGlobalCache:
         assert config.embedding.cache_enabled is True
 
         assert config.api.cache_enabled is True
-        assert config.api.cache_dir == ".caches/api"
+        assert config.api.cache_dir == ".caches/agent"
 
     def test_global_cache_setup_pool_without_panel(self) -> None:
         """Test that global_cache_setup populates llm_pool.defaults when judge_panel is absent."""
@@ -690,7 +690,7 @@ class TestSystemConfigGlobalCache:
         assert config.embedding.cache_enabled is False
 
         assert config.api.cache_enabled is False
-        assert config.api.cache_dir == ".caches_test/api"
+        assert config.api.cache_dir == ".caches_test/agent"
 
     def test_global_cache_setup_with_judge_panel_override(self) -> None:
         """Test cache setup with custom judge panel config overrides."""

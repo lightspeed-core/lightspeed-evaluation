@@ -52,7 +52,7 @@ DISTANCE_MEASURE_MAP = {
 
 # Cache configuration
 DEFAULT_CACHE_BASE_DIR = ".caches"
-DEFAULT_API_CACHE_SUBDIR = "api"
+DEFAULT_AGENT_CACHE_SUBDIR = "agent"
 DEFAULT_LLM_CACHE_SUBDIR = "llm"
 
 # API Constants

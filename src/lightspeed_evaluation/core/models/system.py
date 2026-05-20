@@ -15,7 +15,7 @@ from pydantic import (
 )
 
 from lightspeed_evaluation.core.constants import (
-    DEFAULT_API_CACHE_SUBDIR,
+    DEFAULT_AGENT_CACHE_SUBDIR,
     DEFAULT_CACHE_BASE_DIR,
     DEFAULT_LLM_CACHE_SUBDIR,
     DEFAULT_LOG_FORMAT,
@@ -353,11 +353,13 @@ class SystemConfig(BaseModel):
         global_cache_base_dir = self.core.cache_base_dir
         # Build cache paths
         llm_cache_path = os.path.join(global_cache_base_dir, DEFAULT_LLM_CACHE_SUBDIR)
-        api_cache_path = os.path.join(global_cache_base_dir, DEFAULT_API_CACHE_SUBDIR)
+        api_cache_path = os.path.join(global_cache_base_dir, DEFAULT_AGENT_CACHE_SUBDIR)
 
         # If component-level caching is enabled, warn user
         has_api_cache_config = self.api.cache_enabled is False or self.api.cache_dir
-        has_embedding_cache_config = self.embedding.cache_enabled is False
+        has_embedding_cache_config = (
+            self.embedding.cache_enabled is False or self.embedding.cache_dir
+        )
         has_llm_pool_cache_config = self.llm_pool and (
             self.llm_pool.defaults.cache_enabled is False
             or self.llm_pool.defaults.cache_dir
