@@ -9,7 +9,13 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from lightspeed_evaluation.core.models import MetricStats, ScoreStatistics
+from lightspeed_evaluation.core.models.statistics import (
+    MetricStats,
+    NumericStats,
+    ScoreStatistics,
+    AgentTokenStats,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +50,18 @@ class QualityReport(BaseModel):
         default_factory=list,
         description="Warnings about quality metrics configuration or usage",
     )
-    api_latency: float = Field(
-        default=0.0, description="[Placeholder] Average API response time in seconds"
+    agent_latency_stats: Optional[NumericStats] = Field(
+        default=None, description="Agent latency statistics"
     )
-    api_tokens: int = Field(
-        default=0,
-        description="[Placeholder] Total number of tokens consumed across all API calls",
+    agent_token_stats: Optional[AgentTokenStats] = Field(
+        default=None, description="Agent token usage statistics"
     )
 
     @staticmethod
     def create_report(
         by_metric: dict[str, MetricStats],
+        agent_latency_stats: Optional[NumericStats],
+        agent_token_stats: Optional[AgentTokenStats],
         quality_score_metrics: list[str],
     ) -> Optional["QualityReport"]:
         """Creates a quality report with aggregated quality score from selected metrics.
@@ -64,6 +71,8 @@ class QualityReport(BaseModel):
 
         Args:
             by_metric: Dictionary mapping metric identifiers to their computed statistics.
+            agent_latency_stats: Agent API latency statistics (p50, p95, p99).
+            agent_token_stats: Agent token usage statistics with percentiles.
             quality_score_metrics: Metric identifiers to include in quality score calculation.
                 All specified metrics must exist in by_metric.
 
@@ -148,14 +157,13 @@ class QualityReport(BaseModel):
                 if stats is not None:
                     extra_metrics[metric_id] = stats
 
-        # Calculate aggregated quality score
-        aggregated_score = QualityReport._calculate_quality_score(quality_metrics)
-
         return QualityReport(
-            quality_score=aggregated_score,
+            quality_score=QualityReport._calculate_quality_score(quality_metrics),
             quality_metrics=quality_metrics,
             extra_metrics=extra_metrics,
             warnings=warnings,
+            agent_latency_stats=agent_latency_stats,
+            agent_token_stats=agent_token_stats,
         )
 
     @staticmethod

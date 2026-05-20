@@ -423,6 +423,7 @@ class TestEvaluationResultDB:
             "judge_scores",
             "time_to_first_token",
             "streaming_duration",
+            "agent_latency",
             "tokens_per_second",
             "tool_calls",
             "contexts",

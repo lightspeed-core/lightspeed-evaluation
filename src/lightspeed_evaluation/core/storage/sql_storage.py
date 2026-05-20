@@ -66,6 +66,7 @@ class EvaluationResultDB(Base):  # pylint: disable=too-few-public-methods
     judge_scores = Column(Text, nullable=True)
     time_to_first_token = Column(Float, nullable=True)
     streaming_duration = Column(Float, nullable=True)
+    agent_latency = Column(Float, nullable=True)
     tokens_per_second = Column(Float, nullable=True)
     tool_calls = Column(Text, nullable=True)
     contexts = Column(Text, nullable=True)
@@ -326,6 +327,7 @@ class SQLStorageBackend(BaseStorageBackend):
             judge_scores=self._serialize_judge_scores(result.judge_scores),
             time_to_first_token=result.time_to_first_token,
             streaming_duration=result.streaming_duration,
+            agent_latency=result.agent_latency,
             tokens_per_second=result.tokens_per_second,
             tool_calls=result.tool_calls,
             contexts=result.contexts,

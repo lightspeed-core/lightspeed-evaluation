@@ -14,6 +14,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations (per-judge tracking for panel mode)
+- **API Latency Tracking**: Measure and analyze API response times with percentile statistics (p50, p95, p99) for performance monitoring
 - **Streaming Performance Metrics**: Capture time-to-first-token (TTFT), streaming duration, and tokens/second when using streaming endpoint
 - **Statistical Analysis**: Statistics for every metric with score distribution analysis
 - **Rich Output**: CSV, JSON, TXT reports + visualization graphs (pass rates, distributions, heatmaps)

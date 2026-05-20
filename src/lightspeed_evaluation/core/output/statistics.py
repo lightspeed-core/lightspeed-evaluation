@@ -6,13 +6,17 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from lightspeed_evaluation.core.models import (
+from lightspeed_evaluation.core.models.data import (
     EvaluationData,
     EvaluationResult,
+)
+
+from lightspeed_evaluation.core.models.statistics import (
     NumericStats,
     ScoreStatistics,
     StreamingStats,
-    ApiTokenUsage,
+    AgentTokenUsage,
+    AgentTokenStats,
     OverallStats,
     MetricStats,
     ConversationStats,
@@ -77,6 +81,8 @@ def compute_numeric_stats(values: list[float]) -> Optional[NumericStats]:
         std=statistics.stdev(values) if len(values) > 1 else 0.0,
         min_value=min(values),
         max_value=max(values),
+        p95=float(np.percentile(values, 95)),
+        p99=float(np.percentile(values, 99)),
     )
 
 
@@ -164,8 +170,8 @@ def compute_score_statistics(
     )
 
 
-def compute_api_token_usage(evaluation_data: list[EvaluationData]) -> ApiTokenUsage:
-    """Compute total API token usage from evaluation data."""
+def compute_agent_token_usage(evaluation_data: list[EvaluationData]) -> AgentTokenUsage:
+    """Compute agent token usage with totals and statistics from evaluation data."""
     total_input_tokens = 0
     total_output_tokens = 0
 
@@ -174,10 +180,11 @@ def compute_api_token_usage(evaluation_data: list[EvaluationData]) -> ApiTokenUs
             total_input_tokens += turn.api_input_tokens
             total_output_tokens += turn.api_output_tokens
 
-    return ApiTokenUsage(
+    return AgentTokenUsage(
         total_api_input_tokens=total_input_tokens,
         total_api_output_tokens=total_output_tokens,
         total_api_tokens=total_input_tokens + total_output_tokens,
+        statistics=compute_agent_token_stats(evaluation_data),
     )
 
 
@@ -261,3 +268,71 @@ def compute_detailed_stats(results: list[EvaluationResult]) -> DetailedStats:
         by_conversation=compute_conversation_stats(results),
         by_tag=compute_tag_stats(results, compute_ci=True),
     )
+
+
+def compute_field_numeric_stats_from_evaluation_data(
+    evaluation_data: list[EvaluationData], field_name: str
+) -> Optional[NumericStats]:
+    """Calculate statistics for a numeric field, filtering out zeros (unmeasured values).
+
+    Args:
+        evaluation_data: List of evaluation records to inspect.
+        field_name: Name of the numeric field to compute stats for.
+
+    Returns:
+        Optional[NumericStats]: Dictionary of computed statistics including count, mean, median,
+        min, max, and standard deviation. Note that zero values are filtered out before
+        computing statistics as they represent unmeasured values.
+    """
+    values = []
+    for conv_data in evaluation_data:
+        for turn in conv_data.turns:
+            value = getattr(turn, field_name, 0)
+            if value > 0:
+                values.append(value)
+
+    return compute_numeric_stats(values)
+
+
+def compute_agent_latency_stats(
+    evaluation_data: list[EvaluationData],
+) -> Optional[NumericStats]:
+    """Compute agent latency statistics from evaluation data.
+
+    Args:
+        evaluation_data: List of evaluation data containing turn-level latency values.
+
+    Returns:
+        NumericStats instance with computed statistics, or None if no evaluation data
+        or no valid (non-zero) latency values exist.
+    """
+    if not evaluation_data:
+        return None
+    num_stats = compute_field_numeric_stats_from_evaluation_data(
+        evaluation_data, "agent_latency"
+    )
+    return num_stats
+
+
+def compute_agent_token_stats(
+    evaluation_data: list[EvaluationData],
+) -> Optional[AgentTokenStats]:
+    """Calculate agent token usage statistics with percentiles from evaluation data.
+
+    Args:
+        evaluation_data: List of evaluation data containing turn-level token counts.
+
+    Returns:
+        AgentTokenStats instance with input/output token statistics, or None if no data.
+    """
+    if not evaluation_data:
+        return None
+
+    input_tokens_stats = compute_field_numeric_stats_from_evaluation_data(
+        evaluation_data, "api_input_tokens"
+    )
+    output_tokens_stats = compute_field_numeric_stats_from_evaluation_data(
+        evaluation_data, "api_output_tokens"
+    )
+
+    return AgentTokenStats(input=input_tokens_stats, output=output_tokens_stats)

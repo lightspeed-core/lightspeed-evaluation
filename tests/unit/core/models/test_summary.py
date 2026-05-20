@@ -188,14 +188,81 @@ class TestEvaluationSummaryFromResults:
 
         summary = EvaluationSummary.from_results(results, evaluation_data=eval_data)
 
-        assert summary.api_tokens is not None
-        assert summary.api_tokens.total_api_input_tokens == 500
-        assert summary.api_tokens.total_api_output_tokens == 200
-        assert summary.api_tokens.total_api_tokens == 700
+        assert summary.agent_token_usage is not None
+        assert summary.agent_token_usage.total_api_input_tokens == 500
+        assert summary.agent_token_usage.total_api_output_tokens == 200
+        assert summary.agent_token_usage.total_api_tokens == 700
 
         assert summary.streaming is not None
         assert summary.streaming.time_to_first_token is not None
         assert summary.streaming.time_to_first_token.mean == 0.5
+
+    def test_with_api_latency(self) -> None:
+        """Test from_results computes agent latency statistics from evaluation data."""
+        results = [_make_result(turn_id="t1")]
+
+        eval_data = [
+            EvaluationData(
+                conversation_group_id="conv1",
+                turns=[
+                    TurnData(turn_id="t1", query="Query 1", agent_latency=1.5),
+                    TurnData(turn_id="t2", query="Query 2", agent_latency=2.0),
+                    TurnData(turn_id="t3", query="Query 3", agent_latency=1.8),
+                ],
+            )
+        ]
+
+        summary = EvaluationSummary.from_results(results, evaluation_data=eval_data)
+
+        assert summary.agent_latency_stats is not None
+        assert summary.agent_latency_stats.count == 3
+        expected_mean = (1.5 + 2.0 + 1.8) / 3  # ≈ 1.7667
+        assert summary.agent_latency_stats.mean is not None
+        assert abs(summary.agent_latency_stats.mean - expected_mean) < 0.0001
+        assert summary.agent_latency_stats.min_value == 1.5
+        assert summary.agent_latency_stats.max_value == 2.0
+
+    def test_without_api_latency(self) -> None:
+        """Test from_results with no agent latency data (default 0)."""
+        results = [_make_result(turn_id="t1")]
+
+        eval_data = [
+            EvaluationData(
+                conversation_group_id="conv1",
+                turns=[
+                    TurnData(turn_id="t1", query="Query 1", agent_latency=0),
+                    TurnData(turn_id="t2", query="Query 2", agent_latency=0),
+                ],
+            )
+        ]
+
+        summary = EvaluationSummary.from_results(results, evaluation_data=eval_data)
+
+        # agent_latency_stats should exist with count=0 when all latencies are 0
+        assert summary.agent_latency_stats is None
+
+    def test_with_mixed_api_latency(self) -> None:
+        """Test from_results with mixed zero and non-zero latencies."""
+        results = [_make_result(turn_id="t1")]
+
+        eval_data = [
+            EvaluationData(
+                conversation_group_id="conv1",
+                turns=[
+                    TurnData(turn_id="t1", query="Query 1", agent_latency=1.5),
+                    TurnData(turn_id="t2", query="Query 2", agent_latency=0),  # cached
+                    TurnData(turn_id="t3", query="Query 3", agent_latency=2.0),
+                ],
+            )
+        ]
+
+        summary = EvaluationSummary.from_results(results, evaluation_data=eval_data)
+
+        # Should compute stats only from non-zero values (1.5, 2.0)
+        assert summary.agent_latency_stats is not None
+        assert summary.agent_latency_stats.count == 2
+        assert summary.agent_latency_stats.min_value == 1.5
+        assert summary.agent_latency_stats.max_value == 2.0
 
     def test_without_confidence_intervals_by_default(self) -> None:
         """Test that confidence intervals are not computed by default."""
@@ -348,8 +415,9 @@ class TestEvaluationSummaryModelDumpAndValidation:
         summary = EvaluationSummary.from_results(results)
         dumped = summary.model_dump()
 
-        # api_tokens and streaming should be None when not provided
-        assert dumped["api_tokens"] is None
+        # agent_token_usage, agent_latency_stats, and streaming should be None when not provided
+        assert dumped["agent_token_usage"] is None
+        assert dumped["agent_latency_stats"] is None
         assert dumped["streaming"] is None
 
     def test_pydantic_validation(self) -> None:

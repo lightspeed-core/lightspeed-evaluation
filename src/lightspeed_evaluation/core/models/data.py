@@ -84,6 +84,11 @@ class TurnData(StreamingMetricsMixin):
         default=0, ge=0, description="Output tokens used by API call"
     )
 
+    # API execution time tracking (per turn)
+    agent_latency: float = Field(
+        default=0, ge=0, description="API call latency for this turn in seconds"
+    )
+
     # Per-turn metrics support
     turn_metrics: Optional[list[str]] = Field(
         default=None,
@@ -525,6 +530,11 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
     response: str = Field(default="", description="Response text")
     execution_time: float = Field(
         default=0, ge=0, description="Execution time in seconds"
+    )
+    agent_latency: float = Field(
+        default=0,
+        ge=0,
+        description="API latency in seconds (per turn or average for conversation)",
     )
     api_input_tokens: int = Field(default=0, ge=0, description="API input tokens used")
     api_output_tokens: int = Field(

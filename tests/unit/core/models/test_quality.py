@@ -3,7 +3,11 @@
 from pytest import LogCaptureFixture
 
 from lightspeed_evaluation.core.models.quality import QualityReport
-from lightspeed_evaluation.core.models.statistics import MetricStats
+from lightspeed_evaluation.core.models.statistics import (
+    AgentTokenStats,
+    MetricStats,
+    NumericStats,
+)
 
 
 class TestQualityReport:
@@ -12,6 +16,7 @@ class TestQualityReport:
     def test_quality_report_creation_happy_path(
         self,
         quality_by_metric: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
     ) -> None:
         """Test QualityReport creation with valid metrics."""
 
@@ -19,7 +24,9 @@ class TestQualityReport:
         quality_score_metrics = ["ragas:faithfulness", "ragas:answer_relevancy"]
 
         # Create the QualityReport
-        report = QualityReport.create_report(quality_by_metric, quality_score_metrics)
+        report = QualityReport.create_report(
+            quality_by_metric, api_latency_summary, None, quality_score_metrics
+        )
 
         # Assertions
         assert report is not None
@@ -52,17 +59,26 @@ class TestQualityReport:
         # Verify extra metrics contain correct mean scores
         assert report.extra_metrics["custom:context_recall"].mean == 0.75
 
+        # Verify agent latency is set correctly
+        assert report.agent_latency_stats is not None
+        assert report.agent_latency_stats.count == 10
+        assert report.agent_latency_stats.mean == 1.5
+
         # Verify no warnings for valid configuration
         assert len(report.warnings) == 0
 
     def test_quality_report_creation_missing_metric(
-        self, quality_by_metric: dict[str, MetricStats]
+        self,
+        quality_by_metric: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
     ) -> None:
         """Test QualityReport excludes missing metrics and generates warning."""
         quality_score_metrics = ["ragas:faithfulness", "ragas:answer_correctness"]
 
         # Create the QualityReport
-        report = QualityReport.create_report(quality_by_metric, quality_score_metrics)
+        report = QualityReport.create_report(
+            quality_by_metric, api_latency_summary, None, quality_score_metrics
+        )
 
         # Assertions
         assert report is not None
@@ -89,7 +105,10 @@ class TestQualityReport:
         assert "ragas:answer_relevancy" in report.extra_metrics
 
     def test_quality_report_total_samples_zero(
-        self, quality_by_metric_zero: dict[str, MetricStats], caplog: LogCaptureFixture
+        self,
+        quality_by_metric_zero: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
+        caplog: LogCaptureFixture,
     ) -> None:
         """Test QualityReport returns None when all quality metrics have zero samples."""
         # Define quality score metrics (subset of all metrics)
@@ -97,7 +116,7 @@ class TestQualityReport:
 
         # Create the QualityReport
         report = QualityReport.create_report(
-            quality_by_metric_zero, quality_score_metrics
+            quality_by_metric_zero, api_latency_summary, None, quality_score_metrics
         )
 
         # Assertions
@@ -105,7 +124,9 @@ class TestQualityReport:
         assert "Quality score computation failed" in caplog.text
 
     def test_quality_report_sample_size_zero(
-        self, quality_by_metric_zero: dict[str, MetricStats]
+        self,
+        quality_by_metric_zero: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
     ) -> None:
         """Test QualityReport excludes metrics with zero samples and generates warning."""
         # Define quality score metrics (subset of all metrics)
@@ -113,7 +134,7 @@ class TestQualityReport:
 
         # Create the QualityReport
         report = QualityReport.create_report(
-            quality_by_metric_zero, quality_score_metrics
+            quality_by_metric_zero, api_latency_summary, None, quality_score_metrics
         )
 
         # Assertions
@@ -126,6 +147,7 @@ class TestQualityReport:
     def test_quality_report_none_score_statistics(
         self,
         quality_by_metric_with_none: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
         caplog: LogCaptureFixture,
     ) -> None:
         """Test QualityReport excludes metrics with None score_statistics and logs warning."""
@@ -134,7 +156,10 @@ class TestQualityReport:
 
         # Create the QualityReport
         report = QualityReport.create_report(
-            quality_by_metric_with_none, quality_score_metrics
+            quality_by_metric_with_none,
+            api_latency_summary,
+            None,
+            quality_score_metrics,
         )
 
         # Assertions
@@ -163,3 +188,83 @@ class TestQualityReport:
         # Verify warning was logged
         assert "ragas:faithfulness" in caplog.text
         assert "Missing score statistics data" in caplog.text
+
+    def test_quality_report_creation_no_api_latency(
+        self,
+        quality_by_metric: dict[str, MetricStats],
+    ) -> None:
+        """Test QualityReport handles None API latency (api_enabled=False)."""
+        quality_score_metrics = ["ragas:faithfulness", "ragas:answer_relevancy"]
+        api_latency_summary = None
+
+        # Create the QualityReport with None agent_latency_stats
+        report = QualityReport.create_report(
+            quality_by_metric,
+            api_latency_summary,  # API disabled scenario
+            None,  # No agent token stats
+            quality_score_metrics,
+        )
+
+        # Assertions
+        assert report is not None
+        assert report.agent_latency_stats is None  # Should gracefully handle None
+        assert report.quality_score > 0  # Quality score still computed
+        assert len(report.quality_metrics) == 2
+
+    def test_quality_report_with_agent_token_stats(
+        self,
+        quality_by_metric: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
+        agent_token_stats: AgentTokenStats,
+    ) -> None:
+        """Test QualityReport includes agent token statistics with percentiles."""
+        quality_score_metrics = ["ragas:faithfulness", "ragas:answer_relevancy"]
+
+        # Create the QualityReport with agent token stats
+        report = QualityReport.create_report(
+            quality_by_metric,
+            api_latency_summary,
+            agent_token_stats,
+            quality_score_metrics,
+        )
+
+        # Assertions
+        assert report is not None
+        assert report.agent_token_stats is not None
+
+        # Verify input token statistics
+        assert report.agent_token_stats.input is not None
+        assert report.agent_token_stats.input.count == 10
+        assert report.agent_token_stats.input.mean == 450.5
+        assert report.agent_token_stats.input.median == 425.0
+        assert report.agent_token_stats.input.p95 == 520.0
+        assert report.agent_token_stats.input.p99 == 545.0
+
+        # Verify output token statistics
+        assert report.agent_token_stats.output is not None
+        assert report.agent_token_stats.output.count == 10
+        assert report.agent_token_stats.output.mean == 180.3
+        assert report.agent_token_stats.output.median == 175.0
+        assert report.agent_token_stats.output.p95 == 210.0
+        assert report.agent_token_stats.output.p99 == 218.0
+
+    def test_quality_report_with_no_agent_token_stats(
+        self,
+        quality_by_metric: dict[str, MetricStats],
+        api_latency_summary: NumericStats,
+    ) -> None:
+        """Test QualityReport handles None agent token stats gracefully."""
+        quality_score_metrics = ["ragas:faithfulness", "ragas:answer_relevancy"]
+
+        # Create the QualityReport without agent token stats
+        report = QualityReport.create_report(
+            quality_by_metric,
+            api_latency_summary,
+            None,  # No agent token stats
+            quality_score_metrics,
+        )
+
+        # Assertions
+        assert report is not None
+        assert report.agent_token_stats is None
+        assert report.quality_score > 0  # Quality score still computed

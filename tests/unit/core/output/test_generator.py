@@ -181,6 +181,8 @@ class TestOutputHandler:
         # Create a quality report
         quality_report = QualityReport.create_report(
             summary.by_metric,
+            summary.agent_latency_stats,
+            summary.agent_token_usage.statistics if summary.agent_token_usage else None,
             ["ragas:faithfulness", "ragas:answer_relevancy"],
         )
         assert quality_report is not None
@@ -441,6 +443,8 @@ class TestQualityReportGeneration:
         # Create a quality report
         quality_report = QualityReport.create_report(
             summary.by_metric,
+            summary.agent_latency_stats,
+            summary.agent_token_usage.statistics if summary.agent_token_usage else None,
             ["ragas:faithfulness", "ragas:answer_relevancy"],
         )
 
@@ -462,8 +466,8 @@ class TestQualityReportGeneration:
         assert "quality_score" in data
         assert "quality_metrics" in data
         assert "extra_metrics" in data
-        assert "api_latency" in data
-        assert "api_tokens" in data
+        assert "agent_latency_stats" in data
+        assert "agent_token_stats" in data
         assert "warnings" in data
 
         # Check quality_score is a number
@@ -485,9 +489,15 @@ class TestQualityReportGeneration:
         # Check extra_metrics structure
         assert isinstance(data["extra_metrics"], dict)
 
-        # Check API fields are numeric
-        assert isinstance(data["api_latency"], (int, float))
-        assert isinstance(data["api_tokens"], int)
+        # Check agent latency and token stats fields
+        # agent_latency_stats can be None or a dict with numeric stats
+        assert data["agent_latency_stats"] is None or isinstance(
+            data["agent_latency_stats"], dict
+        )
+        # agent_token_stats can be None or a dict
+        assert data["agent_token_stats"] is None or isinstance(
+            data["agent_token_stats"], dict
+        )
 
         # Check warnings is a list
         assert isinstance(data["warnings"], list)
@@ -516,6 +526,8 @@ class TestQualityReportGeneration:
         # Try to create quality report with metrics that don't exist
         quality_report = QualityReport.create_report(
             summary.by_metric,
+            summary.agent_latency_stats,
+            summary.agent_token_usage.statistics if summary.agent_token_usage else None,
             ["ragas:faithfulness", "ragas:answer_relevancy", "nonexistent:metric"],
         )
 

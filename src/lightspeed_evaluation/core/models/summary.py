@@ -10,7 +10,8 @@ from lightspeed_evaluation.core.models.data import (
     EvaluationResult,
 )
 from lightspeed_evaluation.core.models.statistics import (
-    ApiTokenUsage,
+    AgentTokenUsage,
+    NumericStats,
     ConversationStats,
     MetricStats,
     OverallStats,
@@ -18,7 +19,8 @@ from lightspeed_evaluation.core.models.statistics import (
     TagStats,
 )
 from lightspeed_evaluation.core.output.statistics import (
-    compute_api_token_usage,
+    compute_agent_token_usage,
+    compute_agent_latency_stats,
     compute_overall_stats,
     compute_streaming_stats,
     compute_tag_stats,
@@ -50,8 +52,11 @@ class EvaluationSummary(BaseModel):
     by_tag: dict[str, TagStats] = Field(
         default_factory=dict, description="Statistics per tag"
     )
-    api_tokens: Optional[ApiTokenUsage] = Field(
-        default=None, description="API token usage (when evaluation data provided)"
+    agent_token_usage: Optional[AgentTokenUsage] = Field(
+        default=None, description="Agent token usage with totals and statistics"
+    )
+    agent_latency_stats: Optional[NumericStats] = Field(
+        default=None, description="Agent latency statistics (when API enabled)"
     )
     streaming: Optional[StreamingStats] = Field(
         default=None, description="Streaming performance stats (when available)"
@@ -70,7 +75,8 @@ class EvaluationSummary(BaseModel):
 
         Args:
             results: List of evaluation results to summarize.
-            evaluation_data: Optional evaluation data for API token and streaming stats.
+            evaluation_data: Optional evaluation data for API token, agent latency,
+                        and streaming stats.
             compute_confidence_intervals: Whether to compute bootstrap confidence
                 intervals. Default False.
 
@@ -88,11 +94,13 @@ class EvaluationSummary(BaseModel):
         by_tag = compute_tag_stats(results, compute_confidence_intervals)
 
         # Compute API token usage and streaming stats if evaluation data provided
-        api_tokens = None
         streaming = None
+        agent_token_usage = None
+        agent_latency_stats = None
         if evaluation_data:
-            api_tokens = compute_api_token_usage(evaluation_data)
             streaming = compute_streaming_stats(evaluation_data)
+            agent_token_usage = compute_agent_token_usage(evaluation_data)
+            agent_latency_stats = compute_agent_latency_stats(evaluation_data)
 
         return cls(
             timestamp=timestamp,
@@ -101,6 +109,7 @@ class EvaluationSummary(BaseModel):
             by_metric=by_metric,
             by_conversation=by_conversation,
             by_tag=by_tag,
-            api_tokens=api_tokens,
+            agent_token_usage=agent_token_usage,
+            agent_latency_stats=agent_latency_stats,
             streaming=streaming,
         )

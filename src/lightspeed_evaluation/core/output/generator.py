@@ -18,9 +18,13 @@ from lightspeed_evaluation.core.constants import (
 )
 from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
 from lightspeed_evaluation.core.models.summary import (
-    ConversationStats,
     EvaluationSummary,
+)
+from lightspeed_evaluation.core.models.statistics import (
+    AgentTokenStats,
+    ConversationStats,
     MetricStats,
+    NumericStats,
     OverallStats,
     StreamingStats,
     TagStats,
@@ -91,6 +95,12 @@ class OutputHandler:
         if quality_score_metrics:
             quality_report = QualityReport.create_report(
                 summary.by_metric,
+                summary.agent_latency_stats,
+                (
+                    summary.agent_token_usage.statistics
+                    if summary.agent_token_usage
+                    else None
+                ),
                 quality_score_metrics,
             )
 
@@ -313,6 +323,39 @@ class OutputHandler:
 
         return json_file
 
+    @staticmethod
+    def _build_agent_token_stats_dict(
+        agent_token_stats: Optional[AgentTokenStats],
+    ) -> Optional[dict[str, Any]]:
+        """Build agent token stats dict, returning None if all sub-fields are None."""
+        if not agent_token_stats:
+            return None
+
+        input_stats = (
+            {
+                "50%": agent_token_stats.input.median,
+                "95%": agent_token_stats.input.p95,
+                "99%": agent_token_stats.input.p99,
+            }
+            if agent_token_stats.input
+            else None
+        )
+        output_stats = (
+            {
+                "50%": agent_token_stats.output.median,
+                "95%": agent_token_stats.output.p95,
+                "99%": agent_token_stats.output.p99,
+            }
+            if agent_token_stats.output
+            else None
+        )
+
+        # Return None if both input and output are None
+        if input_stats is None and output_stats is None:
+            return None
+
+        return {"input": input_stats, "output": output_stats}
+
     def _generate_quality_score_report(
         self,
         quality_report: QualityReport,
@@ -350,8 +393,14 @@ class OutputHandler:
                 }
                 for metric_id, stats in quality_report.extra_metrics.items()
             },
-            "api_latency": quality_report.api_latency,
-            "api_tokens": quality_report.api_tokens,
+            "agent_latency_stats": (
+                _numeric_stats_to_dict(quality_report.agent_latency_stats)
+                if quality_report.agent_latency_stats is not None
+                else None
+            ),
+            "agent_token_stats": OutputHandler._build_agent_token_stats_dict(
+                quality_report.agent_token_stats
+            ),
             "warnings": quality_report.warnings,
         }
 
@@ -382,8 +431,12 @@ class OutputHandler:
         # Build compatible dicts from summary model
         basic_stats = _overall_to_basic_stats_dict(summary.overall)
         api_tokens = (
-            summary.api_tokens.model_dump()
-            if summary.api_tokens
+            {
+                "total_api_input_tokens": summary.agent_token_usage.total_api_input_tokens,
+                "total_api_output_tokens": summary.agent_token_usage.total_api_output_tokens,
+                "total_api_tokens": summary.agent_token_usage.total_api_tokens,
+            }
+            if summary.agent_token_usage
             else {
                 "total_api_input_tokens": 0,
                 "total_api_output_tokens": 0,
@@ -407,6 +460,9 @@ class OutputHandler:
 
             # Token usage statistics
             self._write_token_stats(f, basic_stats, api_tokens)
+
+            # API latency statistics
+            self._write_agent_latency_stats(f, summary.agent_latency_stats)
 
             # Streaming performance statistics
             self._write_streaming_stats(f, streaming_stats)
@@ -456,6 +512,24 @@ class OutputHandler:
         f.write(f"Output Tokens: {api_tokens.get('total_api_output_tokens', 0):,}\n")
         f.write(f"Total Tokens: {api_tokens.get('total_api_tokens', 0):,}\n\n")
 
+    def _write_agent_latency_stats(
+        self, f: Any, agent_latency: Optional[NumericStats]
+    ) -> None:
+        """Write API latency statistics section."""
+        if agent_latency is None:
+            return  # No API latency data available
+
+        stats_dict = _numeric_stats_to_dict(agent_latency)
+        self._write_numeric_stats(
+            f,
+            "API Latency (seconds):\n" + "-" * 20,
+            stats_dict,
+            precision=3,
+            include_std=True,
+            include_percentiles=True,
+        )
+        f.write("\n")
+
     def _write_streaming_stats(self, f: Any, streaming_stats: dict[str, Any]) -> None:
         """Write streaming performance statistics section."""
         # Check if there are any streaming metrics
@@ -469,35 +543,46 @@ class OutputHandler:
         f.write("Streaming Performance:\n")
         f.write("-" * 20 + "\n")
 
-        self._write_numeric_stats(f, "Time to First Token (seconds)", ttft)
-        self._write_numeric_stats(f, "Streaming Duration (seconds)", duration)
-        self._write_numeric_stats(f, "Tokens per Second", throughput, precision=1)
+        self._write_numeric_stats(f, "Time to First Token (seconds):", ttft)
+        self._write_numeric_stats(f, "Streaming Duration (seconds):", duration)
+        self._write_numeric_stats(f, "Tokens per Second:", throughput, precision=1)
 
         f.write("\n")
 
-    def _write_numeric_stats(
+    def _write_numeric_stats(  # pylint: disable=too-many-arguments
         self,
         f: Any,
         title: str,
         stats: dict[str, Any],
         *,
         precision: int = 3,
+        include_std: bool = False,
+        include_percentiles: bool = False,
     ) -> None:
-        """Write numeric statistics with mean, median, min, max.
+        """Write numeric statistics with mean, median, min, max, and optional percentiles.
 
         Args:
             f: File handle to write to.
             title: Section title.
-            stats: Statistics dictionary with mean, median, min, max, count.
+            stats: Statistics dictionary with mean, median, min, max, count, and optional p95/p99.
             precision: Decimal precision for formatting numbers.
+            include_std: Whether to include standard deviation if available.
+            include_percentiles: Whether to include p95 and p99 percentiles if available.
         """
         if stats.get("count", 0) == 0:
             return
 
         fmt = f".{precision}f"
-        f.write(f"{title}:\n")
+        f.write(f"{title}\n")
         f.write(f"  Mean: {stats['mean']:{fmt}}\n")
         f.write(f"  Median: {stats['median']:{fmt}}\n")
+        if include_percentiles:
+            if stats.get("p95") is not None:
+                f.write(f"  P95: {stats['p95']:{fmt}}\n")
+            if stats.get("p99") is not None:
+                f.write(f"  P99: {stats['p99']:{fmt}}\n")
+        if include_std and stats["count"] > 1:
+            f.write(f"  Std Dev: {stats['std']:{fmt}}\n")
         f.write(f"  Min: {stats['min']:{fmt}}, Max: {stats['max']:{fmt}}\n")
 
     def _write_breakdown_section(
@@ -681,17 +766,17 @@ def _build_json_summary_stats(summary: EvaluationSummary) -> dict[str, Any]:
         Dictionary matching the JSON summary format.
     """
     overall = summary.overall
-    api_tokens = summary.api_tokens
+    agent_token_usage = summary.agent_token_usage
     judge_tokens = overall.total_judge_llm_tokens
-    api_total = api_tokens.total_api_tokens if api_tokens else 0
+    api_total = agent_token_usage.total_api_tokens if agent_token_usage else 0
 
     overall_stats = {
         **_overall_to_basic_stats_dict(overall),
         "total_api_input_tokens": (
-            api_tokens.total_api_input_tokens if api_tokens else 0
+            agent_token_usage.total_api_input_tokens if agent_token_usage else 0
         ),
         "total_api_output_tokens": (
-            api_tokens.total_api_output_tokens if api_tokens else 0
+            agent_token_usage.total_api_output_tokens if agent_token_usage else 0
         ),
         "total_api_tokens": api_total,
         "total_tokens": judge_tokens + api_total,
@@ -703,6 +788,11 @@ def _build_json_summary_stats(summary: EvaluationSummary) -> dict[str, Any]:
         "by_conversation": _conversation_stats_to_dict(summary.by_conversation),
         "by_tag": _tag_stats_to_dict(summary.by_tag),
     }
+
+    if summary.agent_latency_stats is not None:
+        result["agent_latency_stats"] = _numeric_stats_to_dict(
+            summary.agent_latency_stats
+        )
 
     if summary.streaming is not None:
         result["streaming_performance"] = _streaming_stats_to_dict(summary.streaming)
@@ -735,12 +825,13 @@ def _result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
         ),
         "time_to_first_token": r.time_to_first_token,
         "streaming_duration": r.streaming_duration,
+        "agent_latency": r.agent_latency,
         "tokens_per_second": r.tokens_per_second,
     }
 
 
 def _overall_to_basic_stats_dict(
-    overall: "OverallStats",
+    overall: OverallStats,
 ) -> dict[str, Any]:
     """Convert OverallStats to the dict format expected by text output.
 
@@ -889,14 +980,21 @@ def _streaming_stats_to_dict(streaming: StreamingStats) -> dict[str, Any]:
     ):
         numeric = getattr(streaming, field_name, None)
         if numeric is not None:
-            result[field_name] = {
-                "count": numeric.count,
-                "mean": numeric.mean,
-                "median": numeric.median,
-                "std": numeric.std,
-                "min": numeric.min_value,
-                "max": numeric.max_value,
-            }
+            result[field_name] = _numeric_stats_to_dict(numeric)
         else:
             result[field_name] = {"count": 0}
     return result
+
+
+def _numeric_stats_to_dict(numeric: NumericStats) -> dict[str, Any]:
+    """Convert NumericStats model to dict format for text output."""
+    return {
+        "count": numeric.count,
+        "mean": numeric.mean,
+        "median": numeric.median,
+        "std": numeric.std,
+        "min": numeric.min_value,
+        "max": numeric.max_value,
+        "p95": numeric.p95,
+        "p99": numeric.p99,
+    }
