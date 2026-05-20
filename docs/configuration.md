@@ -8,13 +8,17 @@ The system configuration is driven by YAML file. The default config file is [con
 | max_threads    | `50` | Maximum number of threads, set to null for Python default. 50 is OK on a typical laptop. Check your Judge-LLM service for max requests per minute |
 | fail_on_invalid_data | `true` | If `false` don't fail on invalid conversations (like missing `context` field for some metrics) |
 | skip_on_failure | `false` | If `true`, skip remaining turns and conversation metrics when a turn evaluation fails (FAIL or ERROR). Can be overridden per conversation in the input data yaml file. |
+| cache_enabled | `true` | Global caching toggle for embeddings, agent API, and LLM judge queries. (_Component-level cache settings are deprecated._) |
+| cache_base_dir | `".caches"` | Base directory for all evaluation caches (embeddings, agent, LLM judge). Component-specific subdirectories are appended automatically (`/llm` for LLM-as-a-judge and `/agent` for agent API calls). |
 
 ### Example
 ```yaml
 core:
   max_threads: 50
   fail_on_invalid_data: true
-  skip_on_failure: false  # Set to true to stop evaluation on first failure
+  skip_on_failure: false      # Set to true to stop evaluation on first failure
+  cache_enabled: true         # Global cache toggle (affects all components)
+  cache_base_dir: ".caches"   # Base cache directory
 ```
 
 ## LLM Pool
@@ -25,7 +29,7 @@ Define a centralized pool of LLM configurations for the Judge Panel feature.
 
 | Setting | Description |
 |---------|-------------|
-| `llm_pool.defaults.cache_dir` | Cache directory (default: `.caches/llm_cache`) |
+| `llm_pool.defaults.cache_dir` | Cache directory (default: `.caches/llm_cache`) (_deprecated - use `core.cache_base_dir`_) |
 | `llm_pool.defaults.timeout` | Request timeout in seconds (default: `300`) |
 | `llm_pool.defaults.num_retries` | Retry attempts (default: `3`) |
 | `llm_pool.defaults.parameters.temperature` | Sampling temperature |
@@ -113,8 +117,8 @@ This section configures LLM. It is used when `judge_panel` is not configured (ev
 | max_tokens |  `512` | Maximum tokens in response |
 | timeout | `300` | Request timeout in seconds |
 | num_retries | `3` | Maximum retry attempts |
-| cache_dir | `".caches/llm_cache"` | Directory with cached LLM responses |
-| cache_enabled | `true` | Is LLM cache enabled? |
+| cache_dir | `".caches/llm_cache"` | Directory with cached LLM responses (_deprecated - use `core.cache_base_dir`_) |
+| cache_enabled | `true` | Is LLM cache enabled? (_deprecated - use `core.cache_enabled`_) |
 
 Dynamic LLM parameters are only supported through `llm_pool` config. To use dynamic parameters, migrate to `llm_pool`.
 
@@ -128,8 +132,8 @@ Some Ragas metrics use embeddings to compute similarity between generated answer
 | provider | `"openai"` | Supported providers: `"openai"`, `"gemini"` or `"huggingface"`. `"huggingface"` downloads the model to the local machine and runs inference locally (requires optional dependencies).  |
 | model | `"text-embedding-3-small"` | Model name for the provider |
 | provider_kwargs | `{}` | Optional arguments for the model |
-| cache_dir | `".caches/embedding_cache"` | Directory with cached embeddings |
-| cache_enabled | `true` | Is embeddings cache enabled? |
+| cache_dir | `".caches/embedding_cache"` | Directory with cached embeddings (_deprecated - use `core.cache_base_dir`_) |
+| cache_enabled | `true` | Is embeddings cache enabled? (_deprecated - use `core.cache_enabled`_) |
 
 #### Remote vs Local Embedding Models
 
@@ -201,8 +205,8 @@ Note that it can be easily integrated with other APIs with a minimal change.
 | model | `"gpt-4o-mini"` | Model to use for API queries (optional) |
 | no_tools | `null` | Whether to bypass tools (optional) |
 | system_prompt | `null` | Custom system prompt (optional) |
-| cache_dir | `".caches/api_cache"` | Directory with cached API responses |
-| cache_enabled | `true` | Is API cache enabled? |
+| cache_dir | `".caches/api_cache"` | Directory with cached API responses (_deprecated - use `core.cache_base_dir`_) |
+| cache_enabled | `true` | Is API cache enabled? (_deprecated - use `core.cache_enabled`_) |
 | mcp_headers | `null` | MCP headers configuration for authentication (see below) |
 | num_retries | `3` | Maximum number of retry attempts for API calls on 429 errors |
 

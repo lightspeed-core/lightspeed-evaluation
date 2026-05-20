@@ -6,7 +6,7 @@ core:
   fail_on_invalid_data: true  # If False don't fail on invalid conversations (like missing context for some metrics)
   skip_on_failure: false      # If True, skip remaining turns when a turn evaluation fails (can be overridden per conversation)
   cache_enabled: true         # Global cache toggle, if True LLM as a judge, embeddings and API queries are cached
-  cache_base_dir: .caches     # Global base cache dir (queries cached separately under /llm (LLM as a judge + embeddings) and /api)
+  cache_base_dir: .caches     # Global base cache dir (queries cached separately under /llm (LLM as a judge + embeddings) and /agent for agent API calls)
 
 # LLM as a judge configuration (Legacy)
 # Deprecated: top-level llm: (single judge) will be removed — use llm_pool + judge_panel only.

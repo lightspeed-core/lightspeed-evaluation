@@ -24,6 +24,7 @@ embedding:
   provider: "openai"
   model: "text-embedding-3-small"
   provider_kwargs: {}
+  cache_dir: ".caches/embedding_cache"
   cache_enabled: false
 
 # Lightspeed-stack API Configuration
