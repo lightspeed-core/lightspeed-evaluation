@@ -18,7 +18,7 @@ from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.core.models import EvaluationResult, EvaluationRequest
-from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+from lightspeed_evaluation.pipeline.evaluation.driver import AgentDriver
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
@@ -139,7 +139,6 @@ def sample_evaluation_data() -> list[EvaluationData]:
 def processor_components(mocker: MockerFixture) -> ProcessorComponents:
     """Create processor components."""
     metrics_evaluator = mocker.Mock(spec=MetricsEvaluator)
-    api_amender = mocker.Mock(spec=APIDataAmender)
     error_handler = mocker.Mock(spec=EvaluationErrorHandler)
     metric_manager = mocker.Mock(spec=MetricManager)
     script_manager = mocker.Mock(spec=ScriptExecutionManager)
@@ -149,7 +148,6 @@ def processor_components(mocker: MockerFixture) -> ProcessorComponents:
 
     return ProcessorComponents(
         metrics_evaluator=metrics_evaluator,
-        api_amender=api_amender,
         error_handler=error_handler,
         metric_manager=metric_manager,
         script_manager=script_manager,
@@ -194,10 +192,12 @@ def mock_metrics_evaluator(mocker: MockerFixture) -> MetricsEvaluator:
 
 
 @pytest.fixture
-def mock_api_amender(mocker: MockerFixture) -> APIDataAmender:
-    """Create a mock API data amender."""
-    amender = mocker.Mock(spec=APIDataAmender)
-    return amender
+def mock_agent_driver(mocker: MockerFixture) -> AgentDriver:
+    """Create a mock agent driver."""
+    driver = mocker.Mock(spec=AgentDriver)
+    driver.enabled = False
+    driver.execute_turn.return_value = (None, None)
+    return driver
 
 
 @pytest.fixture
@@ -230,7 +230,6 @@ def mock_error_handler(mocker: MockerFixture) -> EvaluationErrorHandler:
 @pytest.fixture
 def processor_components_pr(
     mock_metrics_evaluator: MetricsEvaluator,
-    mock_api_amender: APIDataAmender,
     mock_error_handler: EvaluationErrorHandler,
     mock_metric_manager: MetricManager,
     mock_script_manager: ScriptExecutionManager,
@@ -238,7 +237,6 @@ def processor_components_pr(
     """Create processor components fixture for PR tests."""
     return ProcessorComponents(
         metrics_evaluator=mock_metrics_evaluator,
-        api_amender=mock_api_amender,
         error_handler=mock_error_handler,
         metric_manager=mock_metric_manager,
         script_manager=mock_script_manager,

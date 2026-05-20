@@ -1,3 +1,5 @@
+# pylint: disable=protected-access
+
 """Unit tests for EvaluationPipeline."""
 
 import pytest
@@ -7,27 +9,9 @@ from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
 )
-from lightspeed_evaluation.core.models.agents import (
-    AgentDefaultConfig,
-    AgentsConfig,
-    HttpApiAgentConfig,
-)
+from lightspeed_evaluation.core.models.agents import AgentsConfig
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
-
-
-def _agents_config_enabled() -> AgentsConfig:
-    """Create an AgentsConfig with a valid default agent for testing."""
-    return AgentsConfig(
-        enabled=True,
-        default=AgentDefaultConfig(agent="test_agent"),
-        agents={
-            "test_agent": HttpApiAgentConfig(
-                api_base="http://test.com",
-                endpoint_type="query",
-            )
-        },
-    )
 
 
 class TestEvaluationPipeline:
@@ -39,9 +23,8 @@ class TestEvaluationPipeline:
         """Test successful pipeline initialization."""
         # Mock components
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
         mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
@@ -70,19 +53,13 @@ class TestEvaluationPipeline:
         with pytest.raises(ValueError, match="SystemConfig must be loaded"):
             EvaluationPipeline(loader)
 
-    def test_create_api_client_when_enabled(
+    def test_create_default_driver(
         self, mock_config_loader: ConfigLoader, mocker: MockerFixture
     ) -> None:
-        """Test API client creation when enabled."""
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = _agents_config_enabled()
-
+        """Test default driver is created via registry."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mock_api_client = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        mock_registry_cls = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
@@ -99,19 +76,16 @@ class TestEvaluationPipeline:
 
         pipeline = EvaluationPipeline(mock_config_loader)
 
-        assert pipeline.api_client is not None
-        mock_api_client.assert_called_once()
+        mock_registry_cls.return_value.create_driver.assert_called_once()
+        assert pipeline._default_driver is not None
 
-    def test_create_api_client_when_disabled(
+    def test_create_default_driver_fallback_config(
         self, mock_config_loader: ConfigLoader, mocker: MockerFixture
     ) -> None:
-        """Test no API client when disabled."""
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = False
-
+        """Test default driver uses disabled http_api fallback when no agents config."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        mock_registry_cls = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
@@ -126,9 +100,11 @@ class TestEvaluationPipeline:
             "lightspeed_evaluation.pipeline.evaluation.pipeline.ConversationProcessor"
         )
 
-        pipeline = EvaluationPipeline(mock_config_loader)
+        EvaluationPipeline(mock_config_loader)
 
-        assert pipeline.api_client is None
+        mock_registry_cls.return_value.create_driver.assert_called_once_with(
+            {"type": "http_api"}, enabled=False
+        )
 
     def test_run_evaluation_success(
         self,
@@ -140,7 +116,7 @@ class TestEvaluationPipeline:
         # Mock all components
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
@@ -176,21 +152,24 @@ class TestEvaluationPipeline:
         assert len(results) == 1
         assert results[0].result == "PASS"
 
-    def test_run_evaluation_saves_amended_data_when_api_enabled(
+    def test_run_evaluation_saves_amended_data_when_agents_enabled(
         self,
         mock_config_loader: ConfigLoader,
         sample_evaluation_data: list[EvaluationData],
         mocker: MockerFixture,
     ) -> None:
-        """Test amended data is saved when API is enabled."""
+        """Test amended data is saved when agents config is enabled."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = _agents_config_enabled()
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        mock_registry_cls = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
+        mock_driver = mocker.Mock()
+        mock_driver.enabled = True
+        mock_registry_cls.return_value.create_driver.return_value = mock_driver
+
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
         )
@@ -226,13 +205,16 @@ class TestEvaluationPipeline:
     ) -> None:
         """Test save amended data handles exceptions gracefully."""
         assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = _agents_config_enabled()
+        mock_config_loader.system_config.agents = AgentsConfig(enabled=True)
 
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+        mock_registry_cls = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
+        mock_driver = mocker.Mock()
+        mock_driver.enabled = True
+        mock_registry_cls.return_value.create_driver.return_value = mock_driver
+
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
         )
@@ -262,23 +244,17 @@ class TestEvaluationPipeline:
 
         assert results is not None
 
-    def test_close_with_api_client(
+    def test_close_calls_driver_close(
         self, mock_config_loader: ConfigLoader, mocker: MockerFixture
     ) -> None:
-        """Test close method with API client."""
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.agents = _agents_config_enabled()
-
+        """Test close method calls driver close."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
-        mock_api_client_class = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIClient"
+        mock_registry_cls = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
-        mock_api_client = mocker.Mock()
-        mock_api_client_class.return_value = mock_api_client
+        mock_driver = mocker.Mock()
+        mock_registry_cls.return_value.create_driver.return_value = mock_driver
 
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
-        )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
         )
@@ -304,18 +280,15 @@ class TestEvaluationPipeline:
         pipeline = EvaluationPipeline(mock_config_loader)
         pipeline.close()
 
-        mock_api_client.close.assert_called_once()
+        mock_driver.close.assert_called_once()
 
-    def test_close_without_api_client(
+    def test_close_without_cache(
         self, mock_config_loader: ConfigLoader, mocker: MockerFixture
     ) -> None:
-        """Test close method without API client."""
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = False
-
+        """Test close method when no litellm cache exists."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
@@ -343,12 +316,9 @@ class TestEvaluationPipeline:
         self, mock_config_loader: ConfigLoader, mocker: MockerFixture
     ) -> None:
         """Test close handles already-disconnected cache gracefully."""
-        assert mock_config_loader.system_config is not None
-        mock_config_loader.system_config.api.enabled = False
-
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
@@ -388,7 +358,7 @@ class TestEvaluationPipeline:
         """Test output directory can be overridden."""
         mocker.patch("lightspeed_evaluation.pipeline.evaluation.pipeline.MetricManager")
         mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.pipeline.APIDataAmender"
+            "lightspeed_evaluation.pipeline.evaluation.pipeline.AgentDriverRegistry"
         )
         mocker.patch(
             "lightspeed_evaluation.pipeline.evaluation.pipeline.EvaluationErrorHandler"
