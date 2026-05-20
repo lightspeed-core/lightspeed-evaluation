@@ -25,15 +25,17 @@ from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
     CoreConfig,
+    LoggingConfig,
+    SystemConfig,
+    VisualizationConfig,
+)
+from lightspeed_evaluation.core.models.llm import (
     EmbeddingConfig,
     GEvalConfig,
     GEvalRubricConfig,
     JudgePanelConfig,
     LLMConfig,
     LLMPoolConfig,
-    LoggingConfig,
-    SystemConfig,
-    VisualizationConfig,
 )
 from lightspeed_evaluation.core.models.statistics import (
     NumericStats,

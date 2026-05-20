@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
-    DEFAULT_API_CACHE_DIR,
     DEFAULT_API_NUM_RETRIES,
     DEFAULT_API_TIMEOUT,
     DEFAULT_API_VERSION,
@@ -101,9 +100,8 @@ class HttpApiBaseFields(BaseModel):
         default=None, description="System prompt for API calls"
     )
     extra_request_params: Optional[dict[str, Any]] = Field(default=None)
-    cache_dir: str = Field(
-        default=DEFAULT_API_CACHE_DIR,
-        min_length=1,
+    cache_dir: Optional[str] = Field(
+        default=None,
         description="Location of cached API queries",
     )
     cache_enabled: bool = Field(
