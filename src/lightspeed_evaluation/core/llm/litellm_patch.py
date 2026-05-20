@@ -155,20 +155,24 @@ async def _vertex_override_async(
     Uses the same lock as the synchronous path to prevent races between sync
     and async callers.
     """
-    vp = kwargs.pop("vertex_project", None)
-    vl = kwargs.pop("vertex_location", None)
-    if vp is None and vl is None:
-        yield
-        return
-
     await asyncio.to_thread(litellm_state_lock.acquire)
-    old_vp = getattr(litellm, "vertex_project", None)
-    old_vl = getattr(litellm, "vertex_location", None)
     try:
+        vp = kwargs.pop("vertex_project", None)
+        vl = kwargs.pop("vertex_location", None)
+        if vp is None and vl is None:
+            await asyncio.to_thread(litellm_state_lock.release)
+            yield
+            return
+        old_vp = getattr(litellm, "vertex_project", None)
+        old_vl = getattr(litellm, "vertex_location", None)
         if vp is not None:
             litellm.vertex_project = vp
         if vl is not None:
             litellm.vertex_location = vl
+    except BaseException:
+        await asyncio.to_thread(litellm_state_lock.release)
+        raise
+    try:
         yield
     finally:
         litellm.vertex_project = old_vp
