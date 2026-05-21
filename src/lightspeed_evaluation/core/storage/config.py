@@ -126,8 +126,54 @@ class DatabaseBackendConfig(BaseModel):
         return self
 
 
+class LangfuseBackendConfig(BaseModel):
+    """Marks Langfuse export for the evaluation run (scores/trace after completion).
+
+    This entry does not write incremental rows like file or database backends; the
+    evaluation runner adds Langfuse export through
+    ``build_langfuse_on_complete_from_storage_configs`` (see module
+    ``lightspeed_evaluation.integrations.langfuse_reporter``).
+    **API host always comes from** ``host`` **below** (not from ``LANGFUSE_HOST``).
+    ``LANGFUSE_PUBLIC_KEY`` / ``LANGFUSE_SECRET_KEY`` still default from the
+    environment when omitted.
+
+    Example:
+        - type: "langfuse"
+          host: "https://cloud.langfuse.com"
+        # Optional key overrides (otherwise LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY):
+        # public_key: "pk-lf-..."
+        # secret_key: "sk-lf-..."
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["langfuse"] = "langfuse"
+    host: str = Field(
+        ...,
+        min_length=1,
+        description="Langfuse API base URL; always used instead of LANGFUSE_HOST.",
+    )
+    public_key: Optional[str] = Field(
+        default=None,
+        description="Langfuse public key (defaults to LANGFUSE_PUBLIC_KEY)",
+    )
+    secret_key: Optional[str] = Field(
+        default=None,
+        description="Langfuse secret key (defaults to LANGFUSE_SECRET_KEY)",
+    )
+
+    @field_validator("host")
+    @classmethod
+    def strip_host(cls, value: str) -> str:
+        """Strip whitespace; reject blank strings."""
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("host must be a non-empty URL")
+        return stripped
+
+
 # Discriminated union for polymorphic storage configuration
 StorageBackendConfig = Annotated[
-    Union[FileBackendConfig, DatabaseBackendConfig],
+    Union[FileBackendConfig, DatabaseBackendConfig, LangfuseBackendConfig],
     Field(discriminator="type"),
 ]

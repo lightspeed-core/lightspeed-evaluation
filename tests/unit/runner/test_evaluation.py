@@ -21,6 +21,7 @@ from lightspeed_evaluation.core.models.llm import (
     LLMConfig,
     LLMPoolConfig,
 )
+from lightspeed_evaluation.core.storage import LangfuseBackendConfig
 from lightspeed_evaluation.core.system.exceptions import (
     DataValidationError,
     StorageError,
@@ -171,8 +172,66 @@ class TestRunEvaluation:
         assert result["TOTAL"] == 1
         assert result["PASS"] == 1
         mock_evaluate.assert_called_once_with(
-            mock_config, mock_eval_data, output_dir=None
+            mock_config,
+            mock_eval_data,
+            output_dir=None,
+            evaluation_data_path="config/evaluation_data.yaml",
+            on_complete=None,
         )
+
+    def test_run_evaluation_langfuse_from_storage_sets_on_complete(
+        self,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """``storage`` with ``type: langfuse`` enables the Langfuse ``on_complete`` hook."""
+        mock_loader = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_config.llm.provider = "openai"
+        mock_config.llm.model = "gpt-4"
+        mock_config.agents = None
+        mock_config.storage = [LangfuseBackendConfig(host="https://langfuse.example")]
+        mock_loader.system_config = mock_config
+        mock_loader.load_system_config.return_value = mock_config
+
+        mocker.patch(
+            "lightspeed_evaluation.runner.evaluation.ConfigLoader",
+            return_value=mock_loader,
+        )
+
+        mock_eval_data = [mocker.Mock()]
+        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
+
+        mock_evaluate = mocker.patch(
+            "lightspeed_evaluation.api.evaluate", return_value=[mocker.Mock()]
+        )
+
+        mock_output_handler = mocker.Mock()
+        mock_output_handler.output_dir = "/tmp/output"
+        mocker.patch(
+            "lightspeed_evaluation.core.output.OutputHandler",
+            return_value=mock_output_handler,
+        )
+
+        mock_stats = mocker.patch(
+            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
+        )
+        mock_stats.return_value = OverallStats(
+            total=1,
+            passed=1,
+            failed=0,
+            error=0,
+            skipped=0,
+            total_judge_llm_input_tokens=0,
+            total_judge_llm_output_tokens=0,
+            total_judge_llm_tokens=0,
+            total_embedding_tokens=0,
+        )
+
+        run_evaluation(_make_eval_args())
+
+        assert mock_evaluate.call_args.kwargs["on_complete"] is not None
 
     def test_run_evaluation_with_output_dir_override(
         self,
@@ -218,7 +277,11 @@ class TestRunEvaluation:
 
         # Verify custom output dir was passed to evaluate()
         mock_evaluate.assert_called_once_with(
-            mock_config, mock_eval_data, output_dir="/custom/output"
+            mock_config,
+            mock_eval_data,
+            output_dir="/custom/output",
+            evaluation_data_path="config/evaluation_data.yaml",
+            on_complete=None,
         )
 
     def test_run_evaluation_file_not_found(

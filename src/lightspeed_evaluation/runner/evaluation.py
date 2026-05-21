@@ -143,6 +143,9 @@ def run_evaluation(  # pylint: disable=too-many-locals
             compute_overall_stats,
         )
         from lightspeed_evaluation.core.system import DataValidator
+        from lightspeed_evaluation.integrations.langfuse_reporter import (
+            build_langfuse_on_complete_from_storage_configs,
+        )
 
         # pylint: enable=import-outside-toplevel
         print("✅ Configuration loaded & Setup is done !")
@@ -174,8 +177,16 @@ def run_evaluation(  # pylint: disable=too-many-locals
         print("\n⚙️ Initializing Evaluation Pipeline...")
 
         print("\n🔄 Running Evaluation...")
+        on_complete = build_langfuse_on_complete_from_storage_configs(
+            system_config.storage
+        )
+
         results = evaluate(
-            system_config, evaluation_data, output_dir=eval_args.output_dir
+            system_config,
+            evaluation_data,
+            output_dir=eval_args.output_dir,
+            evaluation_data_path=eval_args.eval_data,
+            on_complete=on_complete,
         )
 
         file_entries = [

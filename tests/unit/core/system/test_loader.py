@@ -9,7 +9,7 @@ from pytest_mock import MockerFixture
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.models import SystemConfig
-from lightspeed_evaluation.core.storage import get_file_config
+from lightspeed_evaluation.core.storage import LangfuseBackendConfig, get_file_config
 
 
 class TestConfigLoader:
@@ -344,6 +344,37 @@ metrics_metadata:
                 ConfigurationError, match="Unknown storage backend type"
             ):
                 loader.load_system_config(temp_path)
+        finally:
+            Path(temp_path).unlink()
+
+    def test_load_system_config_langfuse_storage(self) -> None:
+        """Langfuse storage entry parses as LangfuseBackendConfig."""
+        yaml_content = """
+llm:
+  provider: openai
+  model: gpt-4o-mini
+
+storage:
+  - type: file
+    output_dir: ./out
+  - type: langfuse
+    host: https://example.langfuse.com
+
+metrics_metadata:
+  turn_level: {}
+  conversation_level: {}
+"""
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            temp_path = f.name
+
+        try:
+            loader = ConfigLoader()
+            config = loader.load_system_config(temp_path)
+            assert len(config.storage) == 2
+            assert isinstance(config.storage[1], LangfuseBackendConfig)
+            assert config.storage[1].host == "https://example.langfuse.com"
         finally:
             Path(temp_path).unlink()
 

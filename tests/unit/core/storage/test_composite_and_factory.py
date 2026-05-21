@@ -11,10 +11,12 @@ from lightspeed_evaluation.core.storage import (
     RunInfo,
     SQLStorageBackend,
     create_pipeline_storage_backend,
+    get_langfuse_storage_config,
 )
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
+    LangfuseBackendConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
@@ -68,6 +70,33 @@ class TestCreatePipelineStorageBackend:
         assert "file" in backend.backend_name
         assert "sqlite" in backend.backend_name
         backend.close()
+
+    def test_langfuse_only_returns_noop(self) -> None:
+        """Langfuse is not pipeline incremental storage -> no-op backend."""
+        backend = create_pipeline_storage_backend(
+            [LangfuseBackendConfig(host="https://langfuse.example")]
+        )
+        assert isinstance(backend, NoOpStorageBackend)
+
+    def test_file_and_langfuse_returns_file_only(self) -> None:
+        """Langfuse entry is skipped when composing pipeline storage."""
+        backend = create_pipeline_storage_backend(
+            [
+                FileBackendConfig(),
+                LangfuseBackendConfig(host="https://langfuse.example"),
+            ],
+            system_config=_minimal_system_config(),
+        )
+        assert isinstance(backend, FileStorageBackend)
+        backend.close()
+
+    def test_get_langfuse_storage_config_returns_first(self) -> None:
+        """First langfuse row wins (same convention as file/database getters)."""
+        lf1 = LangfuseBackendConfig(host="https://a.example.com")
+        lf2 = LangfuseBackendConfig(host="https://b.example.com")
+        assert get_langfuse_storage_config([lf1, lf2]) is lf1
+        assert get_langfuse_storage_config([]) is None
+        assert get_langfuse_storage_config([FileBackendConfig()]) is None
 
 
 class TestCompositeStorageBackend:  # pylint: disable=too-few-public-methods

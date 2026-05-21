@@ -18,6 +18,7 @@ from lightspeed_evaluation.core.models import (
     TurnData,
 )
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
+from lightspeed_evaluation.core.storage import LangfuseBackendConfig
 
 
 class TestEvaluate:
@@ -44,7 +45,35 @@ class TestEvaluate:
         results = evaluate(config, data)
 
         assert results == mock_results
-        mock_pipeline.run_evaluation.assert_called_once_with(data)
+        mock_pipeline.run_evaluation.assert_called_once_with(
+            data, original_data_path=None, on_complete=None
+        )
+        mock_pipeline.close.assert_called_once()
+
+    def test_evaluate_langfuse_storage_sets_on_complete(
+        self, mocker: MockerFixture
+    ) -> None:
+        """storage type langfuse supplies on_complete when not passed explicitly."""
+        mock_loader = mocker.Mock()
+        mocker.patch(
+            "lightspeed_evaluation.api.ConfigLoader"
+        ).from_config.return_value = mock_loader
+
+        mock_pipeline = mocker.Mock()
+        mock_pipeline.run_evaluation.return_value = []
+        mocker.patch(
+            "lightspeed_evaluation.api.EvaluationPipeline",
+            return_value=mock_pipeline,
+        )
+
+        config = SystemConfig(
+            storage=[LangfuseBackendConfig(host="https://langfuse.example")]
+        )
+        data = [mocker.Mock(spec=EvaluationData)]
+
+        evaluate(config, data)
+
+        assert mock_pipeline.run_evaluation.call_args.kwargs["on_complete"] is not None
         mock_pipeline.close.assert_called_once()
 
     def test_evaluate_empty_data(self) -> None:
@@ -111,7 +140,13 @@ class TestEvaluateConversation:
 
         results = evaluate_conversation(config, data, output_dir="/output")
 
-        mock_evaluate.assert_called_once_with(config, [data], output_dir="/output")
+        mock_evaluate.assert_called_once_with(
+            config,
+            [data],
+            output_dir="/output",
+            evaluation_data_path=None,
+            on_complete=None,
+        )
         assert results == mock_evaluate.return_value
 
     def test_delegates_without_output_dir(self, mocker: MockerFixture) -> None:
@@ -124,7 +159,13 @@ class TestEvaluateConversation:
 
         evaluate_conversation(config, data)
 
-        mock_evaluate.assert_called_once_with(config, [data], output_dir=None)
+        mock_evaluate.assert_called_once_with(
+            config,
+            [data],
+            output_dir=None,
+            evaluation_data_path=None,
+            on_complete=None,
+        )
 
 
 class TestEvaluateTurn:
@@ -281,6 +322,8 @@ class TestSummaryConversationAndTurn:
             [data],
             output_dir="/out",
             compute_confidence_intervals=False,
+            evaluation_data_path=None,
+            on_complete=None,
         )
         assert result == mock_eval.return_value
 

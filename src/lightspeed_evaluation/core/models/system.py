@@ -208,7 +208,9 @@ class SystemConfig(BaseModel):
     )
     storage: list[StorageBackendConfig] = Field(
         default_factory=list,
-        description="Storage backends for evaluation results (file and/or database)",
+        description=(
+            "Storage backends for evaluation results (file, database, and/or langfuse export)"
+        ),
     )
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig, description="Logging configuration"
