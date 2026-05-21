@@ -271,11 +271,8 @@ class OutputHandler:
                 for column in csv_columns:
                     if hasattr(result, column):
                         value = getattr(result, column)
-                        # Special formatting for execution_time
-                        if column == "execution_time" and value is not None:
-                            row_data.append(f"{value:.3f}")
                         # Convert judge_scores to JSON string
-                        elif column == "judge_scores" and value is not None:
+                        if column == "judge_scores" and value is not None:
                             row_data.append(
                                 json.dumps(
                                     [js.model_dump() for js in value], default=str
@@ -817,7 +814,8 @@ def _result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
         "result": r.result,
         "score": r.score,
         "threshold": r.threshold,
-        "execution_time": round(r.execution_time, 3),
+        "execution_time": r.execution_time,
+        "evaluation_latency": r.evaluation_latency,
         "judge_llm_input_tokens": r.judge_llm_input_tokens,
         "judge_llm_output_tokens": r.judge_llm_output_tokens,
         "judge_scores": (
