@@ -1,0 +1,54 @@
+# BUG REPRODUCTION: GEval Score Mismatch Without Warning
+# This configuration demonstrates the bug where GEval metrics silently default
+# None scores to 0.0 without any warning or logging.
+#
+# HOW TO REPRODUCE:
+# 1. Run: lightspeed-evaluation --system-config config/system.yaml --eval-config bug_test_geval_score_mismatch.yaml
+# 2. Observe the output - if GEval returns None score, it will silently become 0.0
+# 3. Check logs - NO WARNING will be shown about the score mismatch
+#
+# EXPECTED BEHAVIOR: A warning should be logged when score is None
+# ACTUAL BEHAVIOR: Silent conversion from None -> 0.0
+
+- conversation_group_id: geval_bug_test
+  description: Test case to trigger GEval score mismatch bug
+
+  turns:
+    - turn_id: turn_1
+      query: |
+        How do I deploy a Kubernetes pod?
+      response: |
+        Use kubectl apply -f pod.yaml to deploy a pod.
+      contexts:
+        - Kubernetes documentation on pod deployment
+      expected_response: |
+        To deploy a pod, use kubectl apply command with a YAML manifest file.
+
+      # This GEval metric will be evaluated
+      turn_metrics:
+        - geval:technical_accuracy
+
+      # You can also add custom GEval with intentionally problematic criteria
+      # that might cause the LLM judge to fail or return None
+      turn_metrics_metadata:
+        geval:technical_accuracy:
+          threshold: 0.7
+          # The metric is already defined in system.yaml
+
+# Additional test case with conversation-level GEval
+- conversation_group_id: geval_conversation_bug_test
+  description: Conversation-level GEval bug test
+
+  conversation_metrics:
+    - geval:conversation_coherence
+
+  turns:
+    - turn_id: turn_1
+      query: Tell me about Kubernetes
+      response: Kubernetes is a container orchestration platform.
+      turn_metrics: []
+
+    - turn_id: turn_2
+      query: How do I use it?
+      response: You use kubectl commands to interact with Kubernetes clusters.
+      turn_metrics: []
