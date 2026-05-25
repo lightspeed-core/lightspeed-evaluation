@@ -4,10 +4,11 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import Callable, cast
+from typing import cast
 
 import click
 import pandas as pd

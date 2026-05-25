@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from lightspeed_evaluation.core.models import EvaluationScope
 from lightspeed_evaluation.core.script import (
@@ -38,7 +38,7 @@ class ScriptEvalMetrics:  # pylint: disable=too-few-public-methods
         return None, f"Unsupported script metric: {metric_name}"
 
     def _evaluate_verify_script(
-        self, script_path: Optional[Union[str, Path]]
+        self, script_path: Optional[str | Path]
     ) -> tuple[Optional[float], str]:
         """Evaluate verify script."""
         if not script_path:

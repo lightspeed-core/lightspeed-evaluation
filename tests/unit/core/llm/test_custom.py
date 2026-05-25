@@ -2,7 +2,8 @@
 
 """Unit tests for custom LLM classes."""
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture

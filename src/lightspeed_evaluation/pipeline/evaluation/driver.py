@@ -15,14 +15,14 @@ from enum import StrEnum
 from typing import Any, Optional, cast
 
 from lightspeed_evaluation.core.api import APIClient
+from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
+    _derive_phase,
+)
 from lightspeed_evaluation.core.models import (
     APIConfig,
     HttpApiAgentConfig,
     ProposalAgentConfig,
     TurnData,
-)
-from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
-    _derive_phase,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender

@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import os
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, cast
 
 import httpx
 from diskcache import Cache
@@ -52,7 +52,7 @@ class APIClient:
 
     def __init__(
         self,
-        config: Union[APIConfig, HttpApiAgentConfig],
+        config: APIConfig | HttpApiAgentConfig,
     ):
         """Initialize the client with configuration."""
         self.config = config

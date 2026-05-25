@@ -19,7 +19,6 @@ class TestQualityReport:
         api_latency_summary: NumericStats,
     ) -> None:
         """Test QualityReport creation with valid metrics."""
-
         # Define quality score metrics (subset of all metrics)
         quality_score_metrics = ["ragas:faithfulness", "ragas:answer_relevancy"]
 

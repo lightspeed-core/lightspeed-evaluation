@@ -4,7 +4,6 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Union
 
 from lightspeed_evaluation.core.system.exceptions import ScriptExecutionError
 
@@ -25,7 +24,7 @@ class ScriptExecutionManager:  # pylint: disable=too-few-public-methods
         """
         self.timeout = timeout
 
-    def run_script(self, script_path: Union[str, Path]) -> bool:
+    def run_script(self, script_path: str | Path) -> bool:
         """Execute a script and return success status.
 
         Args:
@@ -57,7 +56,7 @@ class ScriptExecutionManager:  # pylint: disable=too-few-public-methods
                 f"Unexpected error running script {script_path}: {e}", str(script_path)
             ) from e
 
-    def _prepare_script_path(self, script_path: Union[str, Path]) -> Path:
+    def _prepare_script_path(self, script_path: str | Path) -> Path:
         """Prepare and resolve script path."""
         if isinstance(script_path, str):
             script_path = Path(script_path)

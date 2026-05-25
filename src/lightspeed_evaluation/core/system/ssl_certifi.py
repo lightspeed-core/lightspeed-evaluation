@@ -2,9 +2,10 @@
 
 import atexit
 import os
-from typing import Any
-from pathlib import Path
 import tempfile
+from pathlib import Path
+from typing import Any
+
 import certifi
 
 

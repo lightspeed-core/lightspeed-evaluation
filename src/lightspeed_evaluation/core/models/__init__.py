@@ -22,14 +22,6 @@ from lightspeed_evaluation.core.models.data import (
     MetricResult,
     TurnData,
 )
-from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
-from lightspeed_evaluation.core.models.system import (
-    APIConfig,
-    CoreConfig,
-    LoggingConfig,
-    SystemConfig,
-    VisualizationConfig,
-)
 from lightspeed_evaluation.core.models.llm import (
     EmbeddingConfig,
     GEvalConfig,
@@ -38,17 +30,25 @@ from lightspeed_evaluation.core.models.llm import (
     LLMConfig,
     LLMPoolConfig,
 )
+from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 from lightspeed_evaluation.core.models.statistics import (
-    NumericStats,
-    ScoreStatistics,
-    OverallStats,
-    MetricStats,
-    ConversationStats,
-    TagStats,
-    StreamingStats,
     AgentTokenUsage,
     ConfidenceInterval,
+    ConversationStats,
     DetailedStats,
+    MetricStats,
+    NumericStats,
+    OverallStats,
+    ScoreStatistics,
+    StreamingStats,
+    TagStats,
+)
+from lightspeed_evaluation.core.models.system import (
+    APIConfig,
+    CoreConfig,
+    LoggingConfig,
+    SystemConfig,
+    VisualizationConfig,
 )
 
 __all__ = [

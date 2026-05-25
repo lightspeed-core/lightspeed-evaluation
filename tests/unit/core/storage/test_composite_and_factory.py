@@ -2,7 +2,7 @@
 
 import pytest
 
-from lightspeed_evaluation.core.models import LLMConfig, SystemConfig, EvaluationResult
+from lightspeed_evaluation.core.models import EvaluationResult, LLMConfig, SystemConfig
 from lightspeed_evaluation.core.storage import (
     BaseStorageBackend,
     CompositeStorageBackend,

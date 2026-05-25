@@ -1,6 +1,7 @@
 """Tests for custom metrics module."""
 
 from pytest_mock import MockerFixture
+
 from lightspeed_evaluation.core.metrics.custom.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData

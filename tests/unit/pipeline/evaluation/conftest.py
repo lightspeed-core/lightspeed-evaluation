@@ -7,23 +7,24 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import (
     EvaluationData,
+    EvaluationRequest,
+    EvaluationResult,
     SystemConfig,
     TurnData,
 )
 from lightspeed_evaluation.core.models.agents import AgentsConfig
+from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.system.loader import ConfigLoader
-from lightspeed_evaluation.core.metrics.manager import MetricManager
-from lightspeed_evaluation.core.script import ScriptExecutionManager
-from lightspeed_evaluation.core.models import EvaluationResult, EvaluationRequest
 from lightspeed_evaluation.pipeline.evaluation.driver import AgentDriver
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
-    ProcessorComponents,
     ConversationProcessor,
+    ProcessorComponents,
 )
 
 

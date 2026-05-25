@@ -4,12 +4,12 @@
 """Pytest tests to verify the compare_evaluations.py script works correctly."""
 
 import json
-import tempfile
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-
 from typing import Any
+
 import pytest
 
 from script.compare_evaluations import EvaluationComparison
@@ -86,7 +86,6 @@ def test_basic_comparison(
 
 def test_invalid_arguments(script_path: Path) -> None:
     """Test error handling for invalid arguments."""
-
     # Test with only one file
     result = subprocess.run(
         [sys.executable, str(script_path), "file1.json"],
@@ -116,7 +115,6 @@ def test_invalid_arguments(script_path: Path) -> None:
 
 def test_nonexistent_files(script_path: Path) -> None:
     """Test error handling for nonexistent files."""
-
     result = subprocess.run(
         [sys.executable, str(script_path), "nonexistent1.json", "nonexistent2.json"],
         capture_output=True,

@@ -20,7 +20,6 @@ from typing import Any
 from deepeval.metrics import GEval
 from deepeval.metrics.g_eval import Rubric
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
-
 from pydantic import ValidationError
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager

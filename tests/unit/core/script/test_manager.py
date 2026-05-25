@@ -1,8 +1,8 @@
 """Unit tests for core script manager module."""
 
+import os
 import tempfile
 from pathlib import Path
-import os
 
 import pytest
 

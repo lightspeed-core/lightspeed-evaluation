@@ -2,13 +2,13 @@
 
 """Unit tests for APIClient /infer endpoint support."""
 
-import pytest
 import httpx
+import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.api.client import APIClient
 from lightspeed_evaluation.core.models import APIConfig, APIResponse
 from lightspeed_evaluation.core.system.exceptions import APIError
-from lightspeed_evaluation.core.api.client import APIClient
 
 
 class TestInferEndpoint:

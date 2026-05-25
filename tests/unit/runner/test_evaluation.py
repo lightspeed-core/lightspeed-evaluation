@@ -9,17 +9,17 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.models.llm import (
+    EmbeddingConfig,
+    LLMConfig,
+    LLMDefaultsConfig,
+    LLMPoolConfig,
+    LLMProviderConfig,
+)
 from lightspeed_evaluation.core.models.statistics import OverallStats
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
     SystemConfig,
-)
-from lightspeed_evaluation.core.models.llm import (
-    LLMDefaultsConfig,
-    LLMProviderConfig,
-    EmbeddingConfig,
-    LLMConfig,
-    LLMPoolConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import (
     DataValidationError,

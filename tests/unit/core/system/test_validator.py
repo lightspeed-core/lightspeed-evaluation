@@ -6,9 +6,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from pytest_mock import MockerFixture
-
 from pydantic import ValidationError
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import EvaluationData, SystemConfig, TurnData
 from lightspeed_evaluation.core.system.exceptions import DataValidationError

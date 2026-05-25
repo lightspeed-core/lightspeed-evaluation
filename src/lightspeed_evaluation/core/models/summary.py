@@ -1,6 +1,6 @@
 """Evaluation summary models for structured results."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -11,21 +11,21 @@ from lightspeed_evaluation.core.models.data import (
 )
 from lightspeed_evaluation.core.models.statistics import (
     AgentTokenUsage,
-    NumericStats,
     ConversationStats,
     MetricStats,
+    NumericStats,
     OverallStats,
     StreamingStats,
     TagStats,
 )
 from lightspeed_evaluation.core.output.statistics import (
-    compute_agent_token_usage,
     compute_agent_latency_stats,
+    compute_agent_token_usage,
+    compute_conversation_stats,
+    compute_metric_stats,
     compute_overall_stats,
     compute_streaming_stats,
     compute_tag_stats,
-    compute_metric_stats,
-    compute_conversation_stats,
 )
 
 
@@ -83,7 +83,7 @@ class EvaluationSummary(BaseModel):
         Returns:
             A fully populated EvaluationSummary instance.
         """
-        timestamp = datetime.now().isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Compute overall stats
         overall = compute_overall_stats(results)

@@ -11,7 +11,7 @@ import logging
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 from scipy.stats import chi2_contingency, fisher_exact, mannwhitneyu, ttest_ind
@@ -32,7 +32,7 @@ class EvaluationComparison:
         self.logger = logging.getLogger(__name__)
 
     def compare_evaluations(
-        self, summary1_path: Union[str, Path], summary2_path: Union[str, Path]
+        self, summary1_path: str | Path, summary2_path: str | Path
     ) -> dict[str, Any]:
         """Compare two evaluation summary files and return statistical significance results.
 
@@ -92,7 +92,7 @@ class EvaluationComparison:
 
         return comparison_results
 
-    def _load_summary(self, path: Union[str, Path]) -> dict[str, Any]:
+    def _load_summary(self, path: str | Path) -> dict[str, Any]:
         """Load evaluation summary from JSON file."""
         path = Path(path)
         if not path.exists():
@@ -313,9 +313,9 @@ class EvaluationComparison:
 
         # Determine overall statistical significance
         comparison["statistical_significance"] = self._determine_overall_significance(
-            comparison["score_comparison"],
-            comparison["pass_rate_comparison"],
-            comparison["confidence_interval_test"],
+            cast(Optional[dict[str, Any]], comparison["score_comparison"]),
+            cast(Optional[dict[str, Any]], comparison["pass_rate_comparison"]),
+            cast(Optional[dict[str, Any]], comparison["confidence_interval_test"]),
         )
 
         return comparison
@@ -381,7 +381,7 @@ class EvaluationComparison:
             # T-test (assumes normal distribution)
             if len(scores1_array) > 1 and len(scores2_array) > 1:
                 ttest_result = ttest_ind(scores1_array, scores2_array)
-                t_stat, t_pvalue = cast(Tuple[float, float], ttest_result)
+                t_stat, t_pvalue = cast(tuple[float, float], ttest_result)
                 comparison["tests"]["t_test"] = {
                     "statistic": t_stat,
                     "p_value": t_pvalue,
@@ -394,7 +394,7 @@ class EvaluationComparison:
                 mw_result = mannwhitneyu(
                     scores1_array, scores2_array, alternative="two-sided"
                 )
-                u_stat, u_pvalue = cast(Tuple[float, float], mw_result)
+                u_stat, u_pvalue = cast(tuple[float, float], mw_result)
                 comparison["tests"]["mann_whitney_u"] = {
                     "statistic": u_stat,
                     "p_value": u_pvalue,
@@ -567,7 +567,7 @@ class EvaluationComparison:
         try:
             chi2_result = chi2_contingency(contingency_table)
             chi2_stat, chi2_pvalue, dof, _ = cast(
-                Tuple[float, float, int, Any], chi2_result
+                tuple[float, float, int, Any], chi2_result
             )
             comparison["tests"]["chi_square"] = {
                 "statistic": float(chi2_stat),
@@ -602,7 +602,7 @@ class EvaluationComparison:
             )
 
             fisher_result = fisher_exact(contingency_table)
-            odds_ratio, fisher_pvalue = cast(Tuple[float, float], fisher_result)
+            odds_ratio, fisher_pvalue = cast(tuple[float, float], fisher_result)
             comparison["tests"]["fisher_exact"] = {
                 "odds_ratio": float(odds_ratio),
                 "p_value": float(fisher_pvalue),

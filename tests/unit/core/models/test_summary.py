@@ -4,18 +4,17 @@ from typing import Any
 
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.models.data import (
-    EvaluationData,
-    EvaluationResult,
-    TurnData,
-)
 from lightspeed_evaluation.core.models import (
     ConfidenceInterval,
     OverallStats,
     ScoreStatistics,
 )
+from lightspeed_evaluation.core.models.data import (
+    EvaluationData,
+    EvaluationResult,
+    TurnData,
+)
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
-
 
 _RESULT_DEFAULTS: dict[str, Any] = {
     "conversation_group_id": "conv1",

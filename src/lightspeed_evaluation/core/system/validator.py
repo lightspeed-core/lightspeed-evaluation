@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import yaml
 from pydantic import ValidationError
@@ -90,7 +90,7 @@ def format_pydantic_error(error: ValidationError) -> str:
     return "; ".join(errors)
 
 
-def _is_field_empty(value: Optional[Union[str, list, dict]]) -> bool:
+def _is_field_empty(value: Optional[str | list | dict]) -> bool:
     """Return True if value is considered empty for required-field validation."""
     if value is None:
         return True
@@ -493,7 +493,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
 
     def _validate_single_script(
         self,
-        script_file: Optional[Union[str, Path]],
+        script_file: Optional[str | Path],
         script_type: str,
         context: str,
     ) -> Optional[Path]:

@@ -8,7 +8,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.metrics.nlp import NLPMetrics
-from lightspeed_evaluation.core.models import EvaluationScope, TurnData, SystemConfig
+from lightspeed_evaluation.core.models import EvaluationScope, SystemConfig, TurnData
 
 
 @pytest.fixture

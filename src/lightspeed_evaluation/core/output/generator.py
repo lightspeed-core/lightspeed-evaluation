@@ -3,7 +3,7 @@
 import csv
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -17,26 +17,26 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_OUTPUT_TYPES,
 )
 from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult
-from lightspeed_evaluation.core.models.summary import (
-    EvaluationSummary,
-)
+from lightspeed_evaluation.core.models.quality import QualityReport
 from lightspeed_evaluation.core.models.statistics import (
     AgentTokenStats,
     NumericStats,
 )
-from lightspeed_evaluation.core.models.quality import QualityReport
-from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
-from lightspeed_evaluation.core.output.visualization import GraphGenerator
+from lightspeed_evaluation.core.models.summary import (
+    EvaluationSummary,
+)
 from lightspeed_evaluation.core.output.serializers import (
+    conversation_stats_to_dict,
+    metric_stats_to_dict,
     numeric_stats_to_dict,
-    streaming_stats_to_dict,
-    summary_to_detailed_stats_dict,
     overall_to_basic_stats_dict,
     result_to_json_dict,
-    metric_stats_to_dict,
-    conversation_stats_to_dict,
+    streaming_stats_to_dict,
+    summary_to_detailed_stats_dict,
     tag_stats_to_dict,
 )
+from lightspeed_evaluation.core.output.visualization import GraphGenerator
+from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ class OutputHandler:
             )
 
         # Prepare timestamped base filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         base_filename = f"{self.base_filename}_{timestamp}"
 
         # Get enabled outputs from system config
@@ -159,7 +159,7 @@ class OutputHandler:
         target_dir = Path(output_dir) if output_dir else self.output_dir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         base_filename = f"{self.base_filename}_{timestamp}"
 
         generated_files: list[Path] = []
@@ -378,7 +378,7 @@ class OutputHandler:
         quality_score_file = out / f"{base_filename}_quality_report.json"
 
         output = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "quality_score": quality_report.quality_score,
             "quality_metrics": {
                 metric_id: {
@@ -454,7 +454,9 @@ class OutputHandler:
             f.write("LSC Evaluation Framework - Summary Report\n")
             f.write("=" * 50 + "\n\n")
 
-            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(
+                f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+            )
             f.write(f"Total Evaluations: {len(summary.results)}\n\n")
 
             # Overall statistics

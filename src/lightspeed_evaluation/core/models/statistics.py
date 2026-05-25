@@ -1,6 +1,7 @@
 """Pydantic models for evaluation statistics."""
 
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 

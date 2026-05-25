@@ -1,6 +1,7 @@
 """Pytest configuration and fixtures for llm tests."""
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
@@ -57,10 +58,8 @@ def mock_judge_llm_response(mocker: MockerFixture) -> Callable[..., Any]:
         mock_response.usage.prompt_tokens = prompt_tokens
         mock_response.usage.completion_tokens = completion_tokens
 
-        setattr(
-            mock_response,
-            "_hidden_params",
-            {"cache_hit": cache_hit} if cache_hit else {},
+        mock_response.configure_mock(
+            _hidden_params={"cache_hit": cache_hit} if cache_hit else {}
         )
         return mock_response
 
@@ -97,10 +96,8 @@ def mock_embedding_response(mocker: MockerFixture) -> Callable[..., Any]:
             prompt_tokens=prompt_tokens, spec=["prompt_tokens"]
         )
 
-        setattr(
-            mock_response,
-            "_hidden_params",
-            {"cache_hit": cache_hit} if cache_hit else {},
+        mock_response.configure_mock(
+            _hidden_params={"cache_hit": cache_hit} if cache_hit else {}
         )
         return mock_response
 

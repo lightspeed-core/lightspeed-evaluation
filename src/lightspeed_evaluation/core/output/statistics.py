@@ -10,19 +10,18 @@ from lightspeed_evaluation.core.models.data import (
     EvaluationData,
     EvaluationResult,
 )
-
 from lightspeed_evaluation.core.models.statistics import (
+    AgentTokenStats,
+    AgentTokenUsage,
+    ConfidenceInterval,
+    ConversationStats,
+    DetailedStats,
+    MetricStats,
     NumericStats,
+    OverallStats,
     ScoreStatistics,
     StreamingStats,
-    AgentTokenUsage,
-    AgentTokenStats,
-    OverallStats,
-    MetricStats,
-    ConversationStats,
     TagStats,
-    ConfidenceInterval,
-    DetailedStats,
 )
 
 

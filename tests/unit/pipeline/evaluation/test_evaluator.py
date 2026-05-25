@@ -8,6 +8,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
+from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationRequest,
@@ -15,10 +16,9 @@ from lightspeed_evaluation.core.models import (
     MetricResult,
     TurnData,
 )
-from lightspeed_evaluation.core.system.loader import ConfigLoader
-from lightspeed_evaluation.core.system.exceptions import EvaluationError
-from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.script import ScriptExecutionManager
+from lightspeed_evaluation.core.system.exceptions import EvaluationError
+from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 
 

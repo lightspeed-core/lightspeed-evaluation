@@ -1,10 +1,8 @@
 """Serialization functions for converting statistics models to JSON-compatible dicts."""
 
 from typing import Any
+
 from lightspeed_evaluation.core.models import EvaluationResult
-from lightspeed_evaluation.core.models.summary import (
-    EvaluationSummary,
-)
 from lightspeed_evaluation.core.models.statistics import (
     ConversationStats,
     MetricStats,
@@ -12,6 +10,9 @@ from lightspeed_evaluation.core.models.statistics import (
     OverallStats,
     StreamingStats,
     TagStats,
+)
+from lightspeed_evaluation.core.models.summary import (
+    EvaluationSummary,
 )
 
 

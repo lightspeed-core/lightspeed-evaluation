@@ -2,15 +2,15 @@
 
 """Unit tests for output generator."""
 
+import csv as csv_module
 import json
 from pathlib import Path
 
-import csv as csv_module
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import EvaluationResult
-from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.models.quality import QualityReport
+from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.storage import FileBackendConfig
 

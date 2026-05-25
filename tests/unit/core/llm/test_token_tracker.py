@@ -1,11 +1,12 @@
 """Unit tests for TokenTracker and integration with litellm patch."""
 
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
+import litellm
 import pytest
 from pytest_mock import MockerFixture
-import litellm
 
 # Simulate litellm completion call through patch
 from lightspeed_evaluation.core.llm import litellm_patch

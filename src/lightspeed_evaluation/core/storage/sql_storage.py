@@ -6,7 +6,7 @@ evaluation results.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from sqlalchemy import (
@@ -23,8 +23,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from lightspeed_evaluation.core.models import EvaluationResult
-from lightspeed_evaluation.core.system.exceptions import StorageError
 from lightspeed_evaluation.core.storage.protocol import BaseStorageBackend, RunInfo
+from lightspeed_evaluation.core.system.exceptions import StorageError
 
 logger = logging.getLogger(__name__)
 
@@ -307,7 +307,7 @@ class SQLStorageBackend(BaseStorageBackend):
 
         return EvaluationResultDB(
             run_id=self._run_info.run_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             conversation_group_id=result.conversation_group_id,
             tag=result.tag,
             turn_id=result.turn_id,

@@ -4,16 +4,16 @@
 """Pytest tests for run_multi_provider_eval.py script."""
 
 import json
-from pathlib import Path
-from typing import Any
-import tempfile as temp_module
 import logging
 import multiprocessing
 import shutil
+import tempfile as temp_module
+from pathlib import Path
+from typing import Any
 
 import pytest
-from pytest_mock import MockerFixture
 import yaml
+from pytest_mock import MockerFixture
 
 from script.run_multi_provider_eval import MultiProviderEvaluationRunner
 
@@ -161,7 +161,6 @@ class TestMultiProviderEvaluationRunnerInit:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test warning is logged when total threads is very high."""
-
         # Create system config with high max_threads
         system_config = {
             "core": {"max_threads": 100},
@@ -198,7 +197,6 @@ class TestMultiProviderEvaluationRunnerInit:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test no warning with reasonable thread count."""
-
         # Calculate safe thread count based on actual CPU count
         cpu_count = multiprocessing.cpu_count()
         # Use values that keep total threads <= cpu_count * 2
@@ -393,7 +391,6 @@ class TestCreateTempSystemConfig:
         mocker: MockerFixture,
     ) -> None:
         """Test that temp file is cleaned up when yaml.dump() fails."""
-
         # Track the temp file path that gets created
         created_temp_path = None
         original_named_temp_file = temp_module.NamedTemporaryFile
