@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from lightspeed_evaluation.core.constants import SUPPORTED_RESULT_STATUSES
 from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
@@ -39,7 +39,11 @@ class TurnData(StreamingMetricsMixin):
     model_config = ConfigDict(extra="forbid")
 
     turn_id: str = Field(..., min_length=1, description="Turn ID (alphanumeric)")
-    query: str = Field(..., min_length=1, description="Query")
+    query: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Query — auto-populated from proposal_spec.request when absent",
+    )
     attachments: Optional[list[str]] = Field(
         default=None, min_length=0, description="Attachments"
     )
@@ -129,6 +133,22 @@ class TurnData(StreamingMetricsMixin):
     def is_metric_invalid(self, metric: str) -> bool:
         """Returns True if the metric didn't pass the validation."""
         return metric in self._invalid_metrics
+
+    @model_validator(mode="after")
+    def populate_query_from_proposal_spec(self) -> "TurnData":
+        """Auto-populate query from proposal_spec.request when absent."""
+        if self.query is not None:
+            return self
+        if self.proposal_spec is not None:
+            request = self.proposal_spec.get("request")
+            if isinstance(request, str) and request.strip():
+                self.query = request
+                return self
+            raise ValueError(
+                "proposal_spec must contain a non-empty 'request' "
+                "when query is not provided"
+            )
+        raise ValueError("query is required when proposal_spec is not provided")
 
     @field_validator("turn_metrics")
     @classmethod

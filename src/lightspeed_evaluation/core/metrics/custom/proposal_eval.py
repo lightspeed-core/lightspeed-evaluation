@@ -26,7 +26,7 @@ def _derive_phase(
         return "Escalated"
 
     for c in conditions:
-        if (
+        if isinstance(c, dict) and (
             c.get("type") in {"Analyzed", "Executed", "Verified"}
             and c.get("status") == "False"
             and c.get("reason") != "RetryingExecution"

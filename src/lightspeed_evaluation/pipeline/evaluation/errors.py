@@ -130,7 +130,7 @@ class EvaluationErrorHandler:
                         error_reason,
                         tag=conv_data.tag,
                         turn_id=turn_data.turn_id,
-                        query=turn_data.query,
+                        query=turn_data.query or "",
                     )
                 )
 
@@ -181,7 +181,7 @@ class EvaluationErrorHandler:
                 error_reason,
                 tag=conv_data.tag,
                 turn_id=turn_data.turn_id,
-                query=turn_data.query,
+                query=turn_data.query or "",
             )
             for metric_id in turn_metrics
         ]
@@ -224,7 +224,7 @@ class EvaluationErrorHandler:
                         result_status,
                         tag=conv_data.tag,
                         turn_id=turn_data.turn_id,
-                        query=turn_data.query,
+                        query=turn_data.query or "",
                     )
                 )
 

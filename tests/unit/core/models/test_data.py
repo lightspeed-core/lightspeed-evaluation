@@ -34,6 +34,38 @@ class TestTurnData:
         with pytest.raises(ValidationError):
             TurnData(turn_id="turn1", query="")
 
+    def test_query_populated_from_proposal_spec_request(self) -> None:
+        """Test query is auto-populated from proposal_spec.request."""
+        turn = TurnData(
+            turn_id="turn1",
+            proposal_spec={"request": "Fix the OOM issue"},
+        )
+        assert turn.query == "Fix the OOM issue"
+
+    def test_query_preserved_when_both_provided(self) -> None:
+        """Test explicit query is not overridden by proposal_spec.request."""
+        turn = TurnData(
+            turn_id="turn1",
+            query="Explicit query",
+            proposal_spec={"request": "Spec request"},
+        )
+        assert turn.query == "Explicit query"
+
+    def test_no_query_no_proposal_spec_fails(self) -> None:
+        """Test that missing query without proposal_spec raises."""
+        with pytest.raises(ValidationError, match="query is required"):
+            TurnData(turn_id="turn1")
+
+    def test_no_query_proposal_spec_missing_request_fails(self) -> None:
+        """Test that proposal_spec without request key raises."""
+        with pytest.raises(ValidationError, match="proposal_spec must contain"):
+            TurnData(turn_id="turn1", proposal_spec={"analysis": {}})
+
+    def test_no_query_proposal_spec_empty_request_fails(self) -> None:
+        """Test that proposal_spec with empty request raises."""
+        with pytest.raises(ValidationError, match="proposal_spec must contain"):
+            TurnData(turn_id="turn1", proposal_spec={"request": ""})
+
     def test_turn_metrics_metadata_accepted_at_load(self) -> None:
         """Override dict is accepted at load; GEval is validated at eval time when resolved."""
         turn = TurnData(

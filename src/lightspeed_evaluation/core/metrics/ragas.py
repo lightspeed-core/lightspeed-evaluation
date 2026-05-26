@@ -92,7 +92,7 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         if turn_data is None:
             return "", "", []
 
-        query = turn_data.query
+        query = turn_data.query or ""
         response = turn_data.response
         contexts = [
             ctx.get("content", str(ctx)) if isinstance(ctx, dict) else str(ctx)
