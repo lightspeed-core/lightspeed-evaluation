@@ -50,7 +50,7 @@ def sample_result() -> EvaluationResult:
         reason="Good response",
         query="What is Python?",
         response="Python is a programming language.",
-        execution_time=1.5,
+        evaluation_latency=1.5,
         api_input_tokens=100,
         api_output_tokens=50,
     )
@@ -280,7 +280,7 @@ class TestSQLStorageBackendDataIntegrity:
             reason="Excellent response",
             query="Complex question?",
             response="Detailed answer.",
-            execution_time=2.5,
+            evaluation_latency=2.5,
             api_input_tokens=200,
             api_output_tokens=150,
             judge_llm_input_tokens=50,
@@ -309,7 +309,7 @@ class TestSQLStorageBackendDataIntegrity:
         assert row is not None
         assert row.conversation_group_id == "conv_full"
         assert row.score == 0.92
-        assert row.execution_time == 2.5
+        assert row.evaluation_latency == 2.5
         assert row.tool_calls == '[{"name": "search"}]'
 
     def test_null_fields_handled(self, temp_db_url: str) -> None:
@@ -414,7 +414,7 @@ class TestEvaluationResultDB:
             "reason",
             "query",
             "response",
-            "execution_time",
+            "evaluation_latency",
             "api_input_tokens",
             "api_output_tokens",
             "judge_llm_input_tokens",
@@ -425,6 +425,7 @@ class TestEvaluationResultDB:
             "streaming_duration",
             "agent_latency",
             "tokens_per_second",
+            "execution_time",
             "tool_calls",
             "contexts",
             "expected_response",

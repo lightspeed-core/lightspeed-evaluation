@@ -250,3 +250,24 @@ def processor(
 ) -> ConversationProcessor:
     """Create ConversationProcessor instance for PR tests."""
     return ConversationProcessor(config_loader, processor_components_pr)
+
+
+@pytest.fixture
+def evaluator(
+    config_loader: ConfigLoader,
+    mock_metric_manager: MetricManager,
+    mock_script_manager: ScriptExecutionManager,
+    mocker: MockerFixture,
+) -> MetricsEvaluator:
+    """Create MetricsEvaluator with all handlers mocked."""
+    create_mock_llm_manager(mocker)
+    mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager")
+    mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
+    mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics")
+    mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics")
+    mocker.patch(
+        "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
+    )
+    mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
+
+    return MetricsEvaluator(config_loader, mock_metric_manager, mock_script_manager)

@@ -529,10 +529,13 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
     query: str = Field(default="", description="Query text")
     response: str = Field(default="", description="Response text")
     execution_time: float = Field(
-        default=0, ge=0, description="Execution time in seconds"
+        default=0.0, ge=0, description="Execution time for entire turn in seconds"
+    )
+    evaluation_latency: float = Field(
+        default=0.0, ge=0, description="Evaluation latency in seconds"
     )
     agent_latency: float = Field(
-        default=0,
+        default=0.0,
         ge=0,
         description="API latency in seconds (per turn or average for conversation)",
     )

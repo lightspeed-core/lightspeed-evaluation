@@ -58,6 +58,7 @@ class EvaluationResultDB(Base):  # pylint: disable=too-few-public-methods
     query = Column(Text, nullable=True)
     response = Column(Text, nullable=True)
     execution_time = Column(Float, nullable=True)
+    evaluation_latency = Column(Float, nullable=True)
     api_input_tokens = Column(Integer, nullable=True)
     api_output_tokens = Column(Integer, nullable=True)
     judge_llm_input_tokens = Column(Integer, nullable=True)
@@ -319,6 +320,7 @@ class SQLStorageBackend(BaseStorageBackend):
             query=result.query,
             response=result.response,
             execution_time=result.execution_time,
+            evaluation_latency=result.evaluation_latency,
             api_input_tokens=result.api_input_tokens,
             api_output_tokens=result.api_output_tokens,
             judge_llm_input_tokens=result.judge_llm_input_tokens,

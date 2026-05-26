@@ -469,7 +469,7 @@ class TestEvaluationResult:
         assert result.tag == "eval"
         assert result.score is None
         assert result.reason == ""
-        assert result.execution_time == 0
+        assert result.evaluation_latency == 0
 
     def test_explicit_tag_value(self) -> None:
         """Test EvaluationResult with explicit tag value."""
@@ -507,8 +507,8 @@ class TestEvaluationResult:
                 threshold=0.7,
             )
 
-    def test_negative_execution_time_rejected(self) -> None:
-        """Test that negative execution_time is rejected."""
+    def test_negative_evaluation_latency_rejected(self) -> None:
+        """Test that negative evaluation_latency is rejected."""
         with pytest.raises(ValidationError):
             EvaluationResult(
                 conversation_group_id="conv1",
@@ -516,7 +516,7 @@ class TestEvaluationResult:
                 metric_identifier="metric1",
                 result="PASS",
                 threshold=0.7,
-                execution_time=-1,
+                evaluation_latency=-1,
             )
 
     def test_conversation_level_metric_allows_none_turn_id(self) -> None:
