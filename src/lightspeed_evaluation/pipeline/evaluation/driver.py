@@ -21,6 +21,9 @@ from lightspeed_evaluation.core.models import (
     ProposalAgentConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
+    _derive_phase,
+)
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 
@@ -144,7 +147,7 @@ class ProposalDriver(AgentDriver):
     def validate_config(self, config: dict[str, Any]) -> None:
         """Validate proposal driver configuration."""
         ProposalAgentConfig.model_validate(config)
-        if not shutil.which("oc") and not shutil.which("kubectl"):
+        if self._enabled and not shutil.which("oc") and not shutil.which("kubectl"):
             raise ConfigurationError("Neither 'oc' nor 'kubectl' found on PATH")
 
     def execute_turn(
@@ -281,8 +284,8 @@ class ProposalDriver(AgentDriver):
         try:
             self._delete(cr_name)
             logger.info("Cleaned up Proposal CR '%s'", cr_name)
-        except Exception:  # pylint: disable=broad-exception-caught
-            logger.warning("Failed to clean up Proposal CR '%s'", cr_name)
+        except (subprocess.SubprocessError, OSError) as exc:
+            logger.warning("Failed to clean up Proposal CR '%s': %s", cr_name, exc)
 
     def _build_proposal_cr(self, turn_data: TurnData, cr_name: str) -> dict[str, Any]:
         """Build Proposal CR manifest from TurnData."""
@@ -372,28 +375,20 @@ class ProposalDriver(AgentDriver):
             return f"Failed to apply ProposalApproval: {result.stderr.strip()}"
         return None
 
+    _PHASE_TO_OUTCOME: dict[str, TerminalOutcome] = {
+        "Completed": TerminalOutcome.COMPLETED,
+        "Failed": TerminalOutcome.FAILED,
+        "Denied": TerminalOutcome.DENIED,
+        "Escalated": TerminalOutcome.ESCALATED,
+    }
+
     @staticmethod
     def _is_terminal(
         conditions: list[dict[str, Any]], proposal_spec: dict[str, Any]
     ) -> Optional[TerminalOutcome]:
         """Check if conditions indicate a terminal state."""
-        by_type = {c["type"]: c for c in conditions}
-        if by_type.get("Denied", {}).get("status") == "True":
-            return TerminalOutcome.DENIED
-        if by_type.get("Escalated", {}).get("status") == "True":
-            return TerminalOutcome.ESCALATED
-        for c in conditions:
-            if c.get("status") == "False" and c.get("reason") != "RetryingExecution":
-                return TerminalOutcome.FAILED
-        if "verification" in proposal_spec:
-            last = "Verified"
-        elif "execution" in proposal_spec:
-            last = "Executed"
-        else:
-            last = "Analyzed"
-        if by_type.get(last, {}).get("status") == "True":
-            return TerminalOutcome.COMPLETED
-        return None
+        phase = _derive_phase(conditions, proposal_spec or None)
+        return ProposalDriver._PHASE_TO_OUTCOME.get(phase)
 
     @staticmethod
     def _extract_summary(status_dict: dict[str, Any]) -> str:

@@ -18,7 +18,7 @@ def _derive_phase(
     Returns:
         Phase string: Completed, Failed, Denied, Escalated, or InProgress.
     """
-    by_type = {c["type"]: c for c in conditions}
+    by_type = {c["type"]: c for c in conditions if isinstance(c, dict) and "type" in c}
 
     if by_type.get("Denied", {}).get("status") == "True":
         return "Denied"
@@ -26,7 +26,11 @@ def _derive_phase(
         return "Escalated"
 
     for c in conditions:
-        if c.get("status") == "False" and c.get("reason") != "RetryingExecution":
+        if (
+            c.get("type") in {"Analyzed", "Executed", "Verified"}
+            and c.get("status") == "False"
+            and c.get("reason") != "RetryingExecution"
+        ):
             return "Failed"
 
     step_to_condition = {"verification": "Verified", "execution": "Executed"}
@@ -89,7 +93,7 @@ def _check_conditions(
     if expected_conditions is None:
         return None
 
-    by_type = {c["type"]: c for c in conditions}
+    by_type = {c["type"]: c for c in conditions if isinstance(c, dict) and "type" in c}
 
     for exp_cond in expected_conditions:
         cond_type = exp_cond.get("type")
@@ -128,7 +132,7 @@ def _check_verification(
     if verification is None:
         return None
 
-    by_type = {c["type"]: c for c in conditions}
+    by_type = {c["type"]: c for c in conditions if isinstance(c, dict) and "type" in c}
     verified = by_type.get("Verified")
 
     if verified is None:

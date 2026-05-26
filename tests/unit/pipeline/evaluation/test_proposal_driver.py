@@ -430,7 +430,7 @@ class TestCleanup:
         """Test cleanup logs warning on _delete failure."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
         driver = ProposalDriver(VALID_CONFIG)
-        mocker.patch.object(driver, "_delete", side_effect=Exception("boom"))
+        mocker.patch.object(driver, "_delete", side_effect=OSError("boom"))
         mock_logger = mocker.patch(f"{MODULE}.logger")
 
         driver._cleanup("eval-test")

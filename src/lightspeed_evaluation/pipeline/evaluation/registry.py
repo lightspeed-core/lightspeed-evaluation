@@ -22,7 +22,7 @@ class AgentDriverRegistry:  # pylint: disable=too-few-public-methods
 
     def __init__(self, drivers: Optional[dict[str, type[AgentDriver]]] = None) -> None:
         """Initialize the driver registry."""
-        self._drivers = drivers or AGENT_DRIVERS
+        self._drivers = AGENT_DRIVERS if drivers is None else drivers
 
     def create_driver(
         self, agent_config: dict[str, Any], *, enabled: bool = True

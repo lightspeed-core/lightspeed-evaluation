@@ -11,7 +11,7 @@ set -euo pipefail
 #   SANDBOX_IMAGE    — sandbox container image URL
 #
 # Optional env vars:
-#   AGENT_MODEL      — default: gpt-4o
+#   AGENT_MODEL      — default: gpt-5.2
 #
 # To test with Claude via Vertex AI instead, use
 # setup_subprocess_fixtures-claude-vertex.sh and set the corresponding env vars
@@ -21,6 +21,8 @@ OPERATOR_NS="openshift-lightspeed"
 TEST_NS="lightspeed-evaluation-test"
 AGENT_MODEL="${AGENT_MODEL:-gpt-5.2}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 for var in OPENAI_API_KEY SANDBOX_IMAGE; do
   if [ -z "${!var:-}" ]; then
     echo "ERROR: $var is not set" >&2
@@ -29,17 +31,23 @@ for var in OPENAI_API_KEY SANDBOX_IMAGE; do
 done
 
 # 1. Test namespace + OOMKill workload (static fixtures, already test-scoped)
-oc apply -f ../fixtures/namespace.yaml
-oc apply -f ../fixtures/oomkill-demo.yaml
+oc apply -f "$SCRIPT_DIR/../fixtures/namespace.yaml"
+oc apply -f "$SCRIPT_DIR/../fixtures/oomkill-demo.yaml"
 
 # 2. Secret (OpenAI API key + provider override) — prefixed name in operator namespace
 # LIGHTSPEED_AGENT_PROVIDER and OPENAI_MODEL are injected via envFrom so the
 # sandbox picks the OpenAI provider instead of defaulting to claude.
-oc create secret generic eval-llm-credentials \
-  --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
-  --from-literal=LIGHTSPEED_AGENT_PROVIDER="openai" \
-  --from-literal=OPENAI_MODEL="$AGENT_MODEL" \
-  -n "$OPERATOR_NS" --dry-run=client -o yaml | oc apply -f -
+cat <<EOF | oc apply -n "$OPERATOR_NS" -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: eval-llm-credentials
+type: Opaque
+stringData:
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  LIGHTSPEED_AGENT_PROVIDER: openai
+  OPENAI_MODEL: ${AGENT_MODEL}
+EOF
 
 # 3. LLMProvider — references prefixed secret
 cat <<EOF | oc apply -f -

@@ -17,6 +17,7 @@
           - lightspeed-evaluation-test
         tools:
           skills:
+            # TODO(rioloc): replace with a stable image
             - image: quay.io/harpatil/agentic-skills:latest
               paths:
                 - /skills/find-token
@@ -50,6 +51,7 @@
           - lightspeed-evaluation-test
         tools:
           skills:
+            # TODO(rioloc): replace with a stable image
             - image: quay.io/harpatil/agentic-skills:latest
               paths:
                 - /skills/find-token

@@ -140,7 +140,12 @@ class ProposalAgentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["proposal"] = "proposal"
-    namespace: str
+    namespace: str = Field(
+        ...,
+        min_length=1,
+        pattern=r"\S+",
+        description="Kubernetes namespace containing Proposal resources",
+    )
     auto_approve: bool = True
     cleanup_proposals: bool = True
     timeout: int = Field(default=900, gt=0)

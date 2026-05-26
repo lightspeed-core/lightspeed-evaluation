@@ -1,4 +1,3 @@
-# pylint: disable=redefined-outer-name,too-many-arguments,too-many-positional-arguments,import-outside-toplevel
 """Integration tests for ProposalDriver-based evaluation.
 
 These tests run the evaluation pipeline against a live OpenShift cluster
@@ -26,11 +25,12 @@ import pytest
 
 from lightspeed_evaluation import ConfigLoader, evaluate
 from lightspeed_evaluation.core.storage import FileBackendConfig
+from lightspeed_evaluation.core.system import DataValidator
 
 
 def check_cli_available() -> bool:
-    """Check if oc or kubectl CLI is available."""
-    return bool(shutil.which("oc") or shutil.which("kubectl"))
+    """Check if oc CLI is available."""
+    return bool(shutil.which("oc"))
 
 
 def check_cluster_reachable() -> bool:
@@ -70,31 +70,19 @@ def check_env_vars_set() -> bool:
 
 pytestmark = pytest.mark.agentic
 
-
-@pytest.fixture
-def integration_test_dir() -> Path:
-    """Get the integration test directory path."""
-    return Path(__file__).parent
-
-
-@pytest.fixture
-def subprocess_config_path(integration_test_dir: Path) -> Path:
-    """Get path to subprocess agent system config file."""
-    return integration_test_dir / "system-config-agents-subprocess.yaml"
-
-
-@pytest.fixture
-def subprocess_eval_data_path(integration_test_dir: Path) -> Path:
-    """Get path to subprocess evaluation data file."""
-    return integration_test_dir / "test_evaluation_data_subprocess.yaml"
+INTEGRATION_TEST_DIR = Path(__file__).parent
+SUBPROCESS_CONFIG_PATH = INTEGRATION_TEST_DIR / "system-config-agents-subprocess.yaml"
+SUBPROCESS_EVAL_DATA_PATH = (
+    INTEGRATION_TEST_DIR / "test_evaluation_data_subprocess.yaml"
+)
 
 
 class TestProposalPrerequisites:
     """Verify prerequisites for subprocess integration tests."""
 
     def test_cli_available(self) -> None:
-        """Verify that oc or kubectl CLI is available."""
-        assert check_cli_available(), "oc or kubectl CLI must be installed and in PATH"
+        """Verify that oc CLI is available."""
+        assert check_cli_available(), "oc CLI must be installed and in PATH"
 
     def test_cluster_reachable(self) -> None:
         """Verify that the cluster is reachable."""
@@ -117,12 +105,7 @@ class TestProposalDriverEvaluation:
     """End-to-end tests for ProposalDriver evaluation pipeline."""
 
     @pytest.mark.timeout(1200)
-    def test_full_lifecycle(
-        self,
-        subprocess_config_path: Path,
-        subprocess_eval_data_path: Path,
-        tmp_path: Path,
-    ) -> None:
+    def test_full_lifecycle(self, tmp_path: Path) -> None:
         """Test full Proposal lifecycle: analysis, execution, verification.
 
         Verifies:
@@ -134,18 +117,16 @@ class TestProposalDriverEvaluation:
         - Cleanup script removes test resources
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(subprocess_config_path))
+        system_config = loader.load_system_config(str(SUBPROCESS_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
-
-        from lightspeed_evaluation.core.system import DataValidator
 
         validator = DataValidator(
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(subprocess_eval_data_path))
+        all_data = validator.load_evaluation_data(str(SUBPROCESS_EVAL_DATA_PATH))
         eval_data = [
             d
             for d in all_data
@@ -174,12 +155,7 @@ class TestProposalDriverEvaluation:
         ), "Analyzed condition should be True"
 
     @pytest.mark.timeout(600)
-    def test_analysis_only(
-        self,
-        subprocess_config_path: Path,
-        subprocess_eval_data_path: Path,
-        tmp_path: Path,
-    ) -> None:
+    def test_analysis_only(self, tmp_path: Path) -> None:
         """Test analysis-only Proposal (no execution or verification).
 
         Verifies:
@@ -187,18 +163,16 @@ class TestProposalDriverEvaluation:
         - No Executed or Verified conditions present
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(subprocess_config_path))
+        system_config = loader.load_system_config(str(SUBPROCESS_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
-
-        from lightspeed_evaluation.core.system import DataValidator
 
         validator = DataValidator(
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(subprocess_eval_data_path))
+        all_data = validator.load_evaluation_data(str(SUBPROCESS_EVAL_DATA_PATH))
         eval_data = [
             d for d in all_data if d.conversation_group_id == "subprocess_analysis_only"
         ]
@@ -232,12 +206,7 @@ class TestProposalDriverEvaluation:
             )
 
     @pytest.mark.timeout(120)
-    def test_timeout_handling(
-        self,
-        subprocess_config_path: Path,
-        subprocess_eval_data_path: Path,
-        tmp_path: Path,
-    ) -> None:
+    def test_timeout_handling(self, tmp_path: Path) -> None:
         """Test that a very short timeout is handled gracefully.
 
         Verifies:
@@ -245,7 +214,7 @@ class TestProposalDriverEvaluation:
         - Proposal CRs are cleaned up after timeout
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(subprocess_config_path))
+        system_config = loader.load_system_config(str(SUBPROCESS_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -255,13 +224,11 @@ class TestProposalDriverEvaluation:
         agent_cfg.timeout = 5
         agent_cfg.poll_interval = 1
 
-        from lightspeed_evaluation.core.system import DataValidator
-
         validator = DataValidator(
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(subprocess_eval_data_path))
+        all_data = validator.load_evaluation_data(str(SUBPROCESS_EVAL_DATA_PATH))
         eval_data = [
             d for d in all_data if d.conversation_group_id == "subprocess_analysis_only"
         ]
@@ -283,11 +250,15 @@ class TestProposalDriverEvaluation:
             timeout=10,
             check=False,
         )
+        assert result.returncode == 0, (
+            "Failed to list proposals during timeout cleanup validation: "
+            f"{result.stderr.strip()}"
+        )
         lines = [
             line
             for line in result.stdout.strip().splitlines()
             if line.startswith("proposal.agentic.openshift.io/eval-")
         ]
-        assert len(lines) == 0, (
-            f"Proposal CRs should be cleaned up after timeout, " f"but found: {lines}"
-        )
+        assert (
+            len(lines) == 0
+        ), f"Proposal CRs should be cleaned up after timeout, but found: {lines}"

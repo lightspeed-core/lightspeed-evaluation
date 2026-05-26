@@ -12,8 +12,8 @@ echo "Cleaning up integration test resources..."
 
 # Delete test workload + any leftover Proposals in test namespace
 oc delete deployment oomkill-demo -n "$TEST_NS" --ignore-not-found
-oc delete proposals --all -n "$TEST_NS" --ignore-not-found
-oc delete proposalapprovals --all -n "$TEST_NS" --ignore-not-found
+oc delete proposals --all -n "$TEST_NS" --ignore-not-found || true
+oc delete proposalapprovals --all -n "$TEST_NS" --ignore-not-found || true
 
 # Delete prefixed operator resources (reverse order of creation)
 oc delete sandboxtemplate eval-lightspeed-agent -n "$OPERATOR_NS" --ignore-not-found
