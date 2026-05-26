@@ -15,6 +15,22 @@ from lightspeed_evaluation.core.storage import get_file_config
 class TestConfigLoader:
     """Unit tests for ConfigLoader."""
 
+    def test_load_default_system_yaml_loads_config_successfully(self) -> None:
+        """Test that default config/system.yaml can be loaded without validation errors."""
+        default_system_yaml_path = Path(__file__).parents[4] / "config" / "system.yaml"
+        assert (
+            default_system_yaml_path.exists()
+        ), f"system.yaml not found at {default_system_yaml_path}"
+
+        loader = ConfigLoader()
+
+        # This should not raise any validation errors
+        config = loader.load_system_config(str(default_system_yaml_path))
+
+        # Basic sanity checks
+        assert config is not None
+        assert loader.system_config is not None
+
     def test_load_system_config_file_not_found(self) -> None:
         """Test loading non-existent config file raises error."""
         loader = ConfigLoader()

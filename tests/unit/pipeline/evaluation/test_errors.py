@@ -157,6 +157,7 @@ class TestEvaluationErrorHandler:
         assert results[0].reason == error_reason
         assert results[0].query == "Test query"
         assert results[0].response == ""
+        assert results[0].evaluation_latency == 0.0
         assert results[0].execution_time == 0.0
 
         # Check second error result

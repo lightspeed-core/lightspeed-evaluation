@@ -29,7 +29,7 @@ def sample_evaluation_data() -> tuple[list[dict], list[dict]]:
             "result": "PASS",
             "score": 0.8,
             "threshold": 0.7,
-            "execution_time": 1.0,
+            "evaluation_latency": 1.0,
         },
         {
             "conversation_group_id": "conv1",
@@ -38,7 +38,7 @@ def sample_evaluation_data() -> tuple[list[dict], list[dict]]:
             "result": "PASS",
             "score": 0.9,
             "threshold": 0.7,
-            "execution_time": 1.2,
+            "evaluation_latency": 1.2,
         },
     ]
 
@@ -50,7 +50,7 @@ def sample_evaluation_data() -> tuple[list[dict], list[dict]]:
             "result": "PASS",
             "score": 0.85,
             "threshold": 0.7,
-            "execution_time": 1.1,
+            "evaluation_latency": 1.1,
         },
         {
             "conversation_group_id": "conv1",
@@ -59,7 +59,7 @@ def sample_evaluation_data() -> tuple[list[dict], list[dict]]:
             "result": "FAIL",
             "score": 0.6,
             "threshold": 0.7,
-            "execution_time": 1.0,
+            "evaluation_latency": 1.0,
         },
     ]
 
@@ -198,7 +198,7 @@ def sample_evaluation_summary() -> dict[str, Any]:
                 "result": "PASS",
                 "score": 0.95,
                 "threshold": 0.8,
-                "execution_time": 1.0,
+                "evaluation_latency": 1.0,
             },
             {
                 "conversation_group_id": "conv1",
@@ -207,7 +207,7 @@ def sample_evaluation_summary() -> dict[str, Any]:
                 "result": "PASS",
                 "score": 0.85,
                 "threshold": 0.7,
-                "execution_time": 1.2,
+                "evaluation_latency": 1.2,
             },
         ]
         * 5,  # Repeat to get 10 results

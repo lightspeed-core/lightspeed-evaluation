@@ -1,4 +1,4 @@
-# pylint: disable=protected-access,redefined-outer-name,too-many-arguments,too-many-positional-arguments,too-many-lines
+# pylint: disable=protected-access,redefined-outer-name,too-many-arguments,too-many-positional-arguments,too-many-lines, too-many-public-methods
 
 """Unit tests for pipeline evaluation evaluator module."""
 
@@ -21,41 +21,17 @@ from lightspeed_evaluation.core.metrics.manager import MetricManager
 from lightspeed_evaluation.core.script import ScriptExecutionManager
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 
-from tests.unit.pipeline.evaluation.conftest import create_mock_llm_manager
-
 
 class TestMetricsEvaluator:
     """Unit tests for MetricsEvaluator."""
 
     def test_initialization(
         self,
+        evaluator: MetricsEvaluator,
         config_loader: ConfigLoader,
         mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
     ) -> None:
         """Test evaluator initialization."""
-        # Mock the metric handlers
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
         assert evaluator.config_loader == config_loader
         assert evaluator.metric_manager == mock_metric_manager
         assert (
@@ -74,39 +50,9 @@ class TestMetricsEvaluator:
         with pytest.raises(RuntimeError, match="Uninitialized system_config"):
             MetricsEvaluator(loader, mock_metric_manager, mock_script_manager)
 
-    def test_evaluate_metric_turn_level_pass(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
-    ) -> None:
+    def test_evaluate_metric_turn_level_pass(self, evaluator: MetricsEvaluator) -> None:
         """Test evaluating turn-level metric that passes."""
-        # Mock the handlers
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.return_value = (0.85, "Good faithfulness")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
+        evaluator.handlers["ragas"].evaluate.return_value = (0.85, "Good faithfulness")
 
         turn_data = TurnData(
             turn_id="1",
@@ -115,7 +61,6 @@ class TestMetricsEvaluator:
             contexts=["Context"],
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
         request = EvaluationRequest.for_turn(
             conv_data, "ragas:faithfulness", 0, turn_data
         )
@@ -130,49 +75,26 @@ class TestMetricsEvaluator:
         assert result.conversation_group_id == "test_conv"
         assert result.turn_id == "1"
         assert result.metric_identifier == "ragas:faithfulness"
-
         assert result.query == "What is Python?"
         assert result.response == "Python is a programming language."
         assert result.contexts == '["Context"]'
+        # Verify execution_time is populated
+        assert result.execution_time >= 0.0
+        assert result.evaluation_latency >= 0.0
+        assert result.agent_latency >= 0.0
+        assert result.execution_time == result.evaluation_latency + result.agent_latency
 
-    def test_evaluate_metric_turn_level_fail(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
-    ) -> None:
+    def test_evaluate_metric_turn_level_fail(self, evaluator: MetricsEvaluator) -> None:
         """Test evaluating turn-level metric that fails."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.return_value = (0.3, "Low faithfulness score")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
+        evaluator.handlers["ragas"].evaluate.return_value = (
+            0.3,
+            "Low faithfulness score",
         )
 
         turn_data = TurnData(
             turn_id="1", query="Query", response="Response", contexts=["Context"]
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
         request = EvaluationRequest.for_turn(
             conv_data, "ragas:faithfulness", 0, turn_data
         )
@@ -185,35 +107,10 @@ class TestMetricsEvaluator:
         assert result.threshold == 0.7
 
     def test_evaluate_metric_missing_required_data_returns_error(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """When required data is missing or empty, return ERROR and skip metric processing."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mock_ragas = mocker.Mock()
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
+        mock_ragas = evaluator.handlers["ragas"]
 
         turn_data = TurnData(
             turn_id="1",
@@ -236,34 +133,12 @@ class TestMetricsEvaluator:
         mock_ragas.evaluate.assert_not_called()
 
     def test_evaluate_metric_conversation_level(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test evaluating conversation-level metric."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-
-        mock_deepeval = mocker.Mock()
-        mock_deepeval.evaluate.return_value = (0.75, "Complete conversation")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics",
-            return_value=mock_deepeval,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
+        evaluator.handlers["deepeval"].evaluate.return_value = (
+            0.75,
+            "Complete conversation",
         )
 
         turn1 = TurnData(
@@ -283,12 +158,12 @@ class TestMetricsEvaluator:
         conv_data = EvaluationData(
             conversation_group_id="test_conv", turns=[turn1, turn2]
         )
-
         request = EvaluationRequest.for_conversation(
             conv_data, "deepeval:conversation_completeness"
         )
 
         result = evaluator.evaluate_metric(request)
+
         assert result is not None
         assert result.result == "PASS"
         assert result.score == 0.75
@@ -297,32 +172,9 @@ class TestMetricsEvaluator:
         assert result.api_output_tokens == 20
 
     def test_evaluate_metric_unsupported_framework(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test unsupported framework returns ERROR and aggregates API tokens across turns."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
         turn1 = TurnData(
             turn_id="1",
             query="Q",
@@ -352,41 +204,13 @@ class TestMetricsEvaluator:
         assert result.api_output_tokens == 5
 
     def test_evaluate_metric_returns_none_score(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test handling when metric evaluation returns None score."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.return_value = (None, "Evaluation failed")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
+        evaluator.handlers["ragas"].evaluate.return_value = (None, "Evaluation failed")
 
         turn_data = TurnData(turn_id="1", query="Q", response="R", contexts=["C"])
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
         request = EvaluationRequest.for_turn(
             conv_data, "ragas:faithfulness", 0, turn_data
         )
@@ -399,45 +223,19 @@ class TestMetricsEvaluator:
         assert result.reason == "Evaluation failed"
 
     def test_evaluate_metric_exception_handling(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test exception handling during metric evaluation.
 
         Note: Even on error, turn data fields (query, response, contexts) should be
         preserved in the result for debugging and analysis purposes.
         """
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.side_effect = EvaluationError("Unexpected error")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
+        evaluator.handlers["ragas"].evaluate.side_effect = EvaluationError(
+            "Unexpected error"
         )
 
         turn_data = TurnData(turn_id="1", query="Q", response="R", contexts=["C"])
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
         request = EvaluationRequest.for_turn(
             conv_data, "ragas:faithfulness", 0, turn_data
         )
@@ -448,214 +246,57 @@ class TestMetricsEvaluator:
         assert result.result == "ERROR"
         assert "Evaluation error" in result.reason
         assert "Unexpected error" in result.reason
-
         # Turn data should be preserved even on error for debugging
         assert result.query == "Q"
         assert result.response == "R"
-        assert result.contexts == '["C"]'  # JSON-serialized contexts preserved on error
-        assert result.expected_response is None  # Was not set in turn_data
+        assert result.contexts == '["C"]'
+        assert result.expected_response is None
 
     def test_evaluate_metric_skip_script_when_api_disabled(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator, config_loader: ConfigLoader
     ) -> None:
         """Test script metrics are skipped when API is disabled."""
         assert config_loader.system_config is not None
         config_loader.system_config.agents = None
 
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
         turn_data = TurnData(turn_id="1", query="Q", response="R")
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
-
         request = EvaluationRequest.for_turn(
             conv_data, "script:action_eval", 0, turn_data
         )
 
         result = evaluator.evaluate_metric(request)
 
-        # Should return None when API is disabled for script metrics
-        assert result is None
+        assert (
+            result is None
+        )  # Should return None when API is disabled for script metrics
 
-    def test_determine_status_with_threshold(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
-    ) -> None:
+    def test_determine_status_with_threshold(self, evaluator: MetricsEvaluator) -> None:
         """Test _determine_status method."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
-        # Test PASS
         assert evaluator._determine_status(0.8, 0.7) == "PASS"
         assert evaluator._determine_status(0.7, 0.7) == "PASS"  # Equal passes
-
-        # Test FAIL
         assert evaluator._determine_status(0.6, 0.7) == "FAIL"
 
     def test_determine_status_without_threshold(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test _determine_status uses default 0.5 when threshold is None."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
-        # Should use 0.5 as default
         assert evaluator._determine_status(0.6, None) == "PASS"
         assert evaluator._determine_status(0.4, None) == "FAIL"
-
-    def _setup_evaluate_test(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
-        mock_return: tuple[float, str] | list[tuple[float, str]],
-    ) -> tuple[MetricsEvaluator, dict]:
-        """Helper to setup common mocks for _evaluate_wrapper() tests.
-
-        Returns:
-            tuple: (evaluator, mock_handlers) where mock_handlers is a dict with keys:
-                   'ragas', 'geval', 'custom', 'script', 'nlp'
-        """
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        # Create a helper to setup mock with return values
-        def create_mock_handler(  # type: ignore[no-untyped-def]
-            mocker: MockerFixture,
-            mock_return: tuple[float, str] | list[tuple[float, str]],
-        ):
-            mock = mocker.Mock()
-            if isinstance(mock_return, list):
-                mock.evaluate.side_effect = mock_return
-            else:
-                mock.evaluate.return_value = mock_return
-            return mock
-
-        # Setup all handler mocks
-        mock_ragas = create_mock_handler(mocker, mock_return)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-
-        mock_deepeval = create_mock_handler(mocker, mock_return)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics",
-            return_value=mock_deepeval,
-        )
-
-        mock_custom = create_mock_handler(mocker, mock_return)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics",
-            return_value=mock_custom,
-        )
-
-        mock_nlp = create_mock_handler(mocker, mock_return)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics",
-            return_value=mock_nlp,
-        )
-
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
-        # Return evaluator and dict of all mocks
-        mock_handlers = {
-            "ragas": mock_ragas,
-            "geval": mock_deepeval,
-            "custom": mock_custom,
-            "nlp": mock_nlp,
-        }
-
-        return evaluator, mock_handlers
 
     @pytest.mark.parametrize(
         "metric_identifier",
         ["ragas:context_recall", "custom:answer_correctness", "nlp:rouge"],
     )
     def test_evaluate_with_expected_response_list(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
-        metric_identifier: str,
+        self, evaluator: MetricsEvaluator, metric_identifier: str
     ) -> None:
         """Test _evaluate_wrapper() with list expected_response for metric that requires it."""
-        evaluator, mock_handlers = self._setup_evaluate_test(
-            config_loader,
-            mock_metric_manager,
-            mock_script_manager,
-            mocker,
-            [(0.3, "Low score"), (0.85, "High score")],
-        )
+        framework = metric_identifier.split(":")[0]
+        evaluator.handlers[framework].evaluate.side_effect = [
+            (0.3, "Low score"),
+            (0.85, "High score"),
+        ]
 
         turn_data = TurnData(
             turn_id="1",
@@ -673,27 +314,14 @@ class TestMetricsEvaluator:
         assert metric_result.score == 0.85
         assert metric_result.reason == "High score"
         assert metric_result.result == "PASS"
-
-        # Check the appropriate handler was called based on metric framework
-        framework = metric_identifier.split(":")[0]
-        assert mock_handlers[framework].evaluate.call_count == 2
+        assert evaluator.handlers[framework].evaluate.call_count == 2
 
     def test_evaluate_with_expected_response_list_fail(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test _evaluate_wrapper() with list expected_response for metric that requires it."""
         scores_reasons = [(0.3, "Score 1"), (0.65, "Score 2"), (0.45, "Score 3")]
-        evaluator, mock_handlers = self._setup_evaluate_test(
-            config_loader,
-            mock_metric_manager,
-            mock_script_manager,
-            mocker,
-            scores_reasons,
-        )
+        evaluator.handlers["ragas"].evaluate.side_effect = scores_reasons
 
         turn_data = TurnData(
             turn_id="1",
@@ -716,23 +344,13 @@ class TestMetricsEvaluator:
         assert metric_result.score == 0.65
         assert metric_result.reason == reason_combined
         assert metric_result.result == "FAIL"
-        assert mock_handlers["ragas"].evaluate.call_count == 3
+        assert evaluator.handlers["ragas"].evaluate.call_count == 3
 
     def test_evaluate_with_expected_response_string(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test _evaluate_wrapper() with string expected_response."""
-        evaluator, mock_handlers = self._setup_evaluate_test(
-            config_loader,
-            mock_metric_manager,
-            mock_script_manager,
-            mocker,
-            (0.85, "Good score"),
-        )
+        evaluator.handlers["ragas"].evaluate.return_value = (0.85, "Good score")
 
         turn_data = TurnData(
             turn_id="1", query="Q", response="R", expected_response="A", contexts=["C"]
@@ -748,7 +366,7 @@ class TestMetricsEvaluator:
         assert metric_result.score == 0.85
         assert metric_result.reason == "Good score"
         assert metric_result.result == "PASS"
-        assert mock_handlers["ragas"].evaluate.call_count == 1
+        assert evaluator.handlers["ragas"].evaluate.call_count == 1
 
     @pytest.mark.parametrize(
         "metric_identifier", ["ragas:faithfulness", "geval:technical_accuracy"]
@@ -760,21 +378,16 @@ class TestMetricsEvaluator:
     )
     def test_evaluate_with_expected_response_not_needed(
         self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        evaluator: MetricsEvaluator,
         metric_identifier: str,
         expected_response: str | list[str] | None,
     ) -> None:
         """Test _evaluate_wrapper() with metric that does not require expected_response."""
-        evaluator, mock_handlers = self._setup_evaluate_test(
-            config_loader,
-            mock_metric_manager,
-            mock_script_manager,
-            mocker,
-            [(0.3, "Low score"), (0.85, "High score")],
-        )
+        framework = metric_identifier.split(":")[0]
+        evaluator.handlers[framework].evaluate.side_effect = [
+            (0.3, "Low score"),
+            (0.85, "High score"),
+        ]
 
         turn_data = TurnData(
             turn_id="1",
@@ -792,54 +405,21 @@ class TestMetricsEvaluator:
         assert metric_result.score == 0.3
         assert metric_result.reason == "Low score"
         assert metric_result.result == "FAIL"
-
-        # Check the appropriate handler was called based on metric
-        framework = metric_identifier.split(":")[0]
-        assert mock_handlers[framework].evaluate.call_count == 1
+        assert evaluator.handlers[framework].evaluate.call_count == 1
 
     def test_evaluate_multiple_expected_responses_error_preserves_tokens(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator, mocker: MockerFixture
     ) -> None:
         """Test token preservation when error occurs during multiple expected responses evaluation.
 
         Scenario: First iteration succeeds with tokens, second iteration fails.
         Expected: Error result should preserve tokens from first iteration.
         """
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        # First call returns valid result with tokens, second call raises exception
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.side_effect = [
+        evaluator.handlers["ragas"].evaluate.side_effect = [
             (0.3, "First iteration failed threshold"),
             EvaluationError("LLM error in second iteration"),
         ]
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
 
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
-
-        # Mock token tracker to simulate tokens from first iteration
         original_evaluate = evaluator._evaluate
 
         def mock_evaluate_with_tokens(
@@ -849,7 +429,6 @@ class TestMetricsEvaluator:
             threshold: Optional[float],
         ) -> MetricResult:
             result = original_evaluate(request, scope, token_tracker, threshold)
-            # Simulate tokens were added after each successful call
             result.judge_llm_input_tokens = 150
             result.judge_llm_output_tokens = 50
             return result
@@ -873,60 +452,25 @@ class TestMetricsEvaluator:
         result = evaluator.evaluate_metric(request)
 
         assert result is not None
-        # With consistent flow, both iterations complete and accumulate tokens
-        # Result is not ERROR because we get partial results (first iteration FAIL, second ERROR)
-        # The highest score from iterations is preserved
         assert result.score == 0.3  # From first iteration
-        # Tokens accumulated from both iterations (first success + second failure mock)
         assert result.judge_llm_input_tokens == 300  # 150 + 150
         assert result.judge_llm_output_tokens == 100  # 50 + 50
-        # Error from second iteration captured in accumulated reason
         assert "error" in result.reason.lower()
 
     def test_evaluate_single_path_error_preserves_tokens(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator
     ) -> None:
         """Test token preservation when error occurs in single evaluation path.
 
         Scenario: Single evaluation call fails but tokens were tracked.
         Expected: Error result should preserve any tokens captured.
         """
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.side_effect = EvaluationError("LLM connection failed")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
+        evaluator.handlers["ragas"].evaluate.side_effect = EvaluationError(
+            "LLM connection failed"
         )
 
         turn_data = TurnData(
-            turn_id="1",
-            query="Q",
-            response="R",
-            expected_response="A",  # Single expected response
-            contexts=["C"],
+            turn_id="1", query="Q", response="R", expected_response="A", contexts=["C"]
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
         request = EvaluationRequest.for_turn(
@@ -938,46 +482,17 @@ class TestMetricsEvaluator:
         assert result is not None
         assert result.result == "ERROR"
         assert "LLM connection failed" in result.reason
-        # Token counts should be present (even if 0)
         assert result.judge_llm_input_tokens >= 0
         assert result.judge_llm_output_tokens >= 0
 
     def test_multiple_expected_responses_error_no_double_counting(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
+        self, evaluator: MetricsEvaluator, mocker: MockerFixture
     ) -> None:
         """Test token counts use deltas not cumulative totals when error on iteration 2+."""
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-
-        mock_ragas = mocker.Mock()
-        mock_ragas.evaluate.side_effect = [
+        evaluator.handlers["ragas"].evaluate.side_effect = [
             (0.3, "First iteration"),
             EvaluationError("Second iteration failed"),
         ]
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics",
-            return_value=mock_ragas,
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
-
-        evaluator = MetricsEvaluator(
-            config_loader, mock_metric_manager, mock_script_manager
-        )
 
         call_count = [0]
 
@@ -989,7 +504,6 @@ class TestMetricsEvaluator:
         ) -> MetricResult:
             call_count[0] += 1
             if call_count[0] == 1:
-                # Iteration 1: add tokens and return success
                 token_tracker.add_judge_tokens(100, 50)
                 token_tracker.add_embedding_tokens(20)
                 return MetricResult(
@@ -1001,7 +515,6 @@ class TestMetricsEvaluator:
                     judge_llm_output_tokens=50,
                     embedding_tokens=20,
                 )
-            # Iteration 2: add tokens then raise error
             token_tracker.add_judge_tokens(150, 75)
             token_tracker.add_embedding_tokens(30)
             raise EvaluationError("Second iteration failed")
@@ -1030,3 +543,63 @@ class TestMetricsEvaluator:
         assert result.judge_llm_input_tokens == 250  # 100+150
         assert result.judge_llm_output_tokens == 125  # 50+75
         assert result.embedding_tokens == 50  # 20+30
+
+    def test_execution_time_calculation(self, evaluator: MetricsEvaluator) -> None:
+        """Test execution_time is correctly calculated as evaluation_latency + agent_latency."""
+        mock_ragas = evaluator.handlers["ragas"]
+        mock_ragas.evaluate.return_value = (0.85, "Good score")
+
+        turn_data = TurnData(
+            turn_id="1", query="Q", response="R", contexts=["C"], agent_latency=1.5
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:faithfulness", 0, turn_data
+        )
+
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.agent_latency == 1.5
+        assert result.evaluation_latency > 0.0
+        assert result.execution_time == result.evaluation_latency + result.agent_latency
+        assert result.execution_time >= 1.5
+
+    def test_execution_time_in_error_result(self, evaluator: MetricsEvaluator) -> None:
+        """Test execution_time is populated even in ERROR results."""
+        turn_data = TurnData(turn_id="1", query="Q", response="R", agent_latency=2.0)
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(conv_data, "unknown:metric", 0, turn_data)
+
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.result == "ERROR"
+        assert result.agent_latency == 2.0
+        assert result.evaluation_latency > 0.0
+        assert result.execution_time == result.evaluation_latency + result.agent_latency
+        assert result.execution_time >= 2.0
+
+    def test_execution_time_conversation_level_sums_agent_latency(
+        self, evaluator: MetricsEvaluator
+    ) -> None:
+        """Test execution_time uses the summed agent_latency for conversation-level metrics."""
+        mock_deepeval = evaluator.handlers["deepeval"]
+        mock_deepeval.evaluate.return_value = (0.75, "Good conversation")
+
+        turn1 = TurnData(turn_id="1", query="Q1", response="R1", agent_latency=1.0)
+        turn2 = TurnData(turn_id="2", query="Q2", response="R2", agent_latency=3.0)
+        conv_data = EvaluationData(
+            conversation_group_id="test_conv", turns=[turn1, turn2]
+        )
+        request = EvaluationRequest.for_conversation(
+            conv_data, "deepeval:conversation_completeness"
+        )
+
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.agent_latency == 4.0
+        assert result.evaluation_latency > 0.0
+        assert result.execution_time == result.evaluation_latency + result.agent_latency
+        assert result.execution_time >= 4.0
