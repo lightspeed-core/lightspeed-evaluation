@@ -173,6 +173,9 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Shellcheck
+.shellcheck-stable/
+
 # PyPI configuration file
 .pypirc
 
