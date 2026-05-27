@@ -10,7 +10,9 @@ from typing import Any
 
 import litellm
 from deepeval.models import LiteLLMModel
+from tenacity import stop_after_attempt
 
+from lightspeed_evaluation.core.constants import DEFAULT_LLM_RETRIES
 from lightspeed_evaluation.core.llm.litellm_patch import setup_litellm_ssl
 
 logger = logging.getLogger(__name__)
@@ -46,14 +48,45 @@ class DeepEvalLLMManager:
         # LiteLLMModel stores **kwargs in self.kwargs and merges them into
         # every litellm.completion() call
         # Note: Forbidden keys are rejected at LLMParametersConfig load time
+
+        # Override DeepEval's hardcoded retry logic with user configuration
+        # DeepEval uses @retry decorators that capture MAX_RETRIES at import time
+        # We must patch the retry decorators after import but before instantiation
+        num_retries = self.llm_params.get("num_retries", DEFAULT_LLM_RETRIES)
+
+        self._patch_deepeval_retries(num_retries)
+
         self.llm_model = LiteLLMModel(
             model=self.model_name,
             timeout=self.llm_params.get("timeout"),
-            num_retries=self.llm_params.get("num_retries"),
             **self.llm_params.get("parameters", {}),
         )
 
         print(f"✅ DeepEval LLM Manager: {self.model_name}")
+
+    def _patch_deepeval_retries(self, max_retries: int) -> None:
+        """Monkey-patch DeepEval's retry decorators to use configured max_retries.
+
+        DeepEval's @retry decorators capture MAX_RETRIES at import time.
+        We patch the 'stop' attribute on each retry decorator to use our value.
+        """
+        # Patch the stop condition on all retry-decorated methods
+        for method_name in [
+            "generate",
+            "a_generate",
+            "generate_raw_response",
+            "a_generate_raw_response",
+            "generate_samples",
+        ]:
+            method = getattr(LiteLLMModel, method_name)
+            method.retry.stop = stop_after_attempt(  # pylint: disable=no-member
+                max_retries
+            )
+
+        logger.info(
+            "Patched DeepEval retry logic: max_retries=%d",
+            max_retries,
+        )
 
     def setup_ssl_verify(self) -> None:
         """Setup SSL verification based on LLM parameters.

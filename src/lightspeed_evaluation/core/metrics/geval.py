@@ -21,13 +21,6 @@ from deepeval.metrics import GEval
 from deepeval.metrics.g_eval import Rubric
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from pydantic import ValidationError
-from tenacity import (
-    retry,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_exponential,
-    before_sleep_log,
-)
 
 from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
@@ -62,11 +55,6 @@ class GEvalHandler:  # pylint: disable=R0903
         """
         self.deepeval_llm_manager = deepeval_llm_manager
         self.metric_manager = metric_manager
-
-        # Get num_retries from LLM configuration (default: 6 to match DeepEval's hardcoded value)
-        # Note: DeepEval's internal retry logic uses hardcoded MAX_RETRIES=6,
-        # but we add our own retry layer to respect user configuration
-        self.num_retries = self.deepeval_llm_manager.llm_params.get("num_retries", 6)
 
     def evaluate(  # pylint: disable=R0913,R0917
         self,
@@ -213,67 +201,6 @@ class GEvalHandler:  # pylint: disable=R0903
         # Return the successfully converted list, or None if it ended up empty
         return converted if converted else None
 
-    def _is_retryable_exception(self, exception: BaseException) -> bool:
-        """Check if exception should trigger a retry.
-
-        Retryable conditions:
-        - Rate limiting (429 errors from LLM provider)
-        - Timeout errors
-        - Temporary network failures
-        - LLM provider temporary errors
-
-        Args:
-            exception: The exception to check
-
-        Returns:
-            True if the exception should trigger a retry, False otherwise
-        """
-        # We retry on all exceptions because DeepEval/LiteLLM internally
-        # handles specific error types (RateLimitError, Timeout, etc.)
-        # This matches DeepEval's hardcoded behavior: retryable_exceptions = (Exception,)
-        return isinstance(exception, Exception)
-
-    def _measure_with_retry(
-        self, metric: GEval, test_case: LLMTestCase, context: str
-    ) -> None:
-        """Execute metric.measure() with configurable retry logic.
-
-        This method wraps DeepEval's metric.measure() with our own retry layer
-        to respect user-configured num_retries (DeepEval hardcodes MAX_RETRIES=6).
-
-        Args:
-            metric: GEval metric instance
-            test_case: LLM test case to evaluate
-            context: Description for logging (e.g., "turn-level" or "conversation-level")
-
-        Raises:
-            Exception: Re-raises the last exception if all retry attempts fail
-        """
-        retry_decorator = retry(
-            retry=retry_if_exception(self._is_retryable_exception),
-            stop=stop_after_attempt(self.num_retries),
-            wait=wait_exponential(multiplier=1, min=1, max=10),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
-            reraise=True,
-        )
-
-        @retry_decorator
-        def _measure() -> None:
-            metric.measure(test_case)
-            self.deepeval_llm_manager.flush_deepevals_pending_tasks()
-
-        try:
-            _measure()
-        except Exception as e:
-            logger.error(
-                "GEval %s evaluation failed after %d retry attempts: %s: %s",
-                context,
-                self.num_retries,
-                type(e).__name__,
-                str(e),
-            )
-            raise
-
     def _evaluate_turn(  # pylint: disable=R0913,R0917
         self,
         turn_data: Any,
@@ -367,7 +294,8 @@ class GEvalHandler:  # pylint: disable=R0903
 
         # Evaluate with retry (DeepEval normalizes score to [0, 1]; pass through as-is)
         try:
-            self._measure_with_retry(metric, test_case, "turn-level")
+            metric.measure(test_case)
+            self.deepeval_llm_manager.flush_deepevals_pending_tasks()
 
             # Extract score and reason
             score = metric.score
@@ -378,24 +306,25 @@ class GEvalHandler:  # pylint: disable=R0903
             )
 
             # CRITICAL: Warn if score is None (indicates evaluation failure)
-            # Without this warning, silent conversion to 0.0 masks bugs like:
+            # None scores indicate evaluation failures that need investigation:
             # - Rate limiting (429 errors after all retries exhausted)
             # - LLM judge returning malformed JSON that fails parsing
             # - Timeout errors from LLM provider
             # - API quota/credits exhausted
-            # This makes debugging nearly impossible as failed evaluations
-            # appear as low scores (0.0) instead of errors.
+            # Warning helps identify these failures for debugging.
             if score is None:
                 logger.warning(
-                    "GEval turn-level metric returned None score; defaulting to 0.0. "
+                    "GEval turn-level metric returned None score. "
                     "This typically indicates LLM judge failure (rate limiting, timeout, "
                     "invalid JSON response, or quota exhausted). Reason: %s",
                     reason,
                 )
-                score = 0.0
 
             return score, reason
         except Exception as e:  # pylint: disable=W0718
+            logger.error(
+                "GEval turn-level evaluation failed: %s: %s", type(e).__name__, str(e)
+            )
             logger.debug(
                 "Test case input: %s...",
                 test_case.input[:100] if test_case.input else "None",
@@ -495,7 +424,8 @@ class GEvalHandler:  # pylint: disable=R0903
 
         # Evaluate with retry (DeepEval normalizes score to [0, 1]; pass through as-is)
         try:
-            self._measure_with_retry(metric, test_case, "conversation-level")
+            metric.measure(test_case)
+            self.deepeval_llm_manager.flush_deepevals_pending_tasks()
 
             # Extract score and reason
             score = metric.score
@@ -509,15 +439,19 @@ class GEvalHandler:  # pylint: disable=R0903
             # See turn-level evaluation for detailed explanation of why this matters
             if score is None:
                 logger.warning(
-                    "GEval conversation-level metric returned None score; defaulting to 0.0. "
+                    "GEval conversation-level metric returned None score. "
                     "This typically indicates LLM judge failure (rate limiting, timeout, "
                     "invalid JSON response, or quota exhausted). Reason: %s",
                     reason,
                 )
-                score = 0.0
 
             return score, reason
         except Exception as e:  # pylint: disable=W0718
+            logger.error(
+                "GEval conversation-level evaluation failed: %s: %s",
+                type(e).__name__,
+                str(e),
+            )
             logger.debug("Conversation turns: %d", len(conv_data.turns))
             logger.debug(
                 "Test case input preview: %s...",

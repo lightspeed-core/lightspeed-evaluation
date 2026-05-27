@@ -3,10 +3,12 @@
 """Pytest configuration and fixtures for metrics tests."""
 
 import sys
+from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.nlp import NLPMetrics
 from lightspeed_evaluation.core.models import EvaluationScope, SystemConfig, TurnData
 
@@ -154,3 +156,67 @@ def mock_similarity_scorer(mocker: MockerFixture) -> MockerFixture:
         return_value=mock_scorer_instance,
     )
     return mock_scorer_instance
+
+
+@pytest.fixture
+def mock_llm_manager(mocker: MockerFixture) -> Any:
+    """Create a mock LLMManager for DeepEval tests."""
+    mock_manager = mocker.MagicMock()
+    mock_config = mocker.MagicMock()
+    mock_config.cache_enabled = False
+    mock_manager.get_config.return_value = mock_config
+    mock_manager.get_model_name.return_value = "gpt-4"
+    mock_manager.get_llm_params.return_value = {"num_retries": 3}
+    return mock_manager
+
+
+@pytest.fixture
+def mock_metric_manager(mocker: MockerFixture) -> Any:
+    """Create a mock MetricManager."""
+    return mocker.MagicMock()
+
+
+@pytest.fixture
+def mock_deepeval_llm_manager(mocker: MockerFixture) -> Any:
+    """Create a mock DeepEvalLLMManager."""
+    mock_manager = mocker.MagicMock()
+    mock_llm = mocker.MagicMock()
+    mock_manager.get_llm.return_value = mock_llm
+    mock_manager.flush_deepevals_pending_tasks.return_value = None
+    return mock_manager
+
+
+@pytest.fixture
+def mock_conv_data(mocker: MockerFixture) -> Any:
+    """Create mock conversation data with turns."""
+    turn1 = mocker.MagicMock()
+    turn1.query = "What is AI?"
+    turn1.response = "AI stands for Artificial Intelligence."
+
+    turn2 = mocker.MagicMock()
+    turn2.query = "Can you explain more?"
+    turn2.response = "AI is the simulation of human intelligence by machines."
+
+    conv_data = mocker.MagicMock()
+    conv_data.turns = [turn1, turn2]
+    return conv_data
+
+
+@pytest.fixture
+def deepeval_metrics(
+    mock_llm_manager: Any,
+    mock_metric_manager: Any,
+    mock_deepeval_llm_manager: Any,
+    mocker: MockerFixture,
+) -> DeepEvalMetrics:
+    """Create DeepEvalMetrics instance with mocked dependencies."""
+    mocker.patch(
+        "lightspeed_evaluation.core.metrics.deepeval.DeepEvalLLMManager",
+        return_value=mock_deepeval_llm_manager,
+    )
+    mocker.patch("lightspeed_evaluation.core.metrics.deepeval.GEvalHandler")
+
+    return DeepEvalMetrics(
+        llm_manager=mock_llm_manager,
+        metric_manager=mock_metric_manager,
+    )
