@@ -210,6 +210,8 @@ uv run lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml
     - [`keywords_eval`](src/lightspeed_evaluation/core/metrics/custom/keywords_eval.py) - Keywords evaluation with alternatives (ALL keywords must match, case insensitive)
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls, arguments, and optional results with regex pattern matching
+  - Agentic Workflow Evaluation
+    - [`proposal_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)

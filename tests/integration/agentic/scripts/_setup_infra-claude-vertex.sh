@@ -1,68 +1,67 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-# Deploy agentic infrastructure + OOMKill test workload for integration tests
-# using OpenAI as the LLM provider.
-# All operator-level resources use an "eval-" prefix to avoid conflicts with
-# existing cluster resources.
+# Common infrastructure setup for Claude via Vertex AI.
+# Sourced by per-scenario setup scripts — do NOT run directly.
+#
+# Deploys: namespace, Secret, LLMProvider, Agent, SandboxTemplate.
+# All operator-level resources use an "eval-" prefix.
 #
 # Required env vars:
-#   OPENAI_API_KEY   — OpenAI API key
-#   SANDBOX_IMAGE    — sandbox container image URL
+#   GCP_CREDENTIALS_FILE          — path to GCP credentials JSON file
+#                                   (default: ~/.config/gcloud/application_default_credentials.json)
+#   ANTHROPIC_VERTEX_PROJECT_ID   — GCP project ID for Vertex AI
+#   SANDBOX_IMAGE                 — sandbox container image URL
 #
 # Optional env vars:
-#   AGENT_MODEL      — default: gpt-5.2
-#
-# To test with Claude via Vertex AI instead, use
-# setup_proposal_fixtures-claude-vertex.sh and set the corresponding env vars
-# (GCP_CREDENTIALS_FILE, ANTHROPIC_VERTEX_PROJECT_ID, SANDBOX_IMAGE).
+#   CLOUD_ML_REGION  — default: global
+#   AGENT_MODEL      — default: claude-opus-4-6
 
-OPERATOR_NS="openshift-lightspeed"
-TEST_NS="lightspeed-evaluation-test"
-AGENT_MODEL="${AGENT_MODEL:-gpt-5.2}"
+set -euo pipefail
 
+export OPERATOR_NS="openshift-lightspeed"
+export TEST_NS="lightspeed-evaluation-test"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GCP_CREDENTIALS_FILE="${GCP_CREDENTIALS_FILE:-$HOME/.config/gcloud/application_default_credentials.json}"
+CLOUD_ML_REGION="${CLOUD_ML_REGION:-global}"
+AGENT_MODEL="${AGENT_MODEL:-claude-opus-4-6}"
 
-for var in OPENAI_API_KEY SANDBOX_IMAGE; do
+for var in ANTHROPIC_VERTEX_PROJECT_ID SANDBOX_IMAGE; do
   if [ -z "${!var:-}" ]; then
     echo "ERROR: $var is not set" >&2
     exit 1
   fi
 done
 
-# 1. Test namespace + OOMKill workload (static fixtures, already test-scoped)
+if [ ! -f "$GCP_CREDENTIALS_FILE" ]; then
+  echo "ERROR: GCP credentials file not found: $GCP_CREDENTIALS_FILE" >&2
+  exit 1
+fi
+
+# 1. Test namespace
 oc apply -f "$SCRIPT_DIR/../fixtures/namespace.yaml"
-oc apply -f "$SCRIPT_DIR/../fixtures/oomkill-demo.yaml"
 
-# 2. Secret (OpenAI API key + provider override) — prefixed name in operator namespace
-# LIGHTSPEED_AGENT_PROVIDER and OPENAI_MODEL are injected via envFrom so the
-# sandbox picks the OpenAI provider instead of defaulting to claude.
-cat <<EOF | oc apply -n "$OPERATOR_NS" -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: eval-llm-credentials
-type: Opaque
-stringData:
-  OPENAI_API_KEY: ${OPENAI_API_KEY}
-  LIGHTSPEED_AGENT_PROVIDER: openai
-  OPENAI_MODEL: ${AGENT_MODEL}
-EOF
+# 2. Secret (GCP credentials)
+oc create secret generic eval-llm-credentials \
+  --from-file=credentials.json="$GCP_CREDENTIALS_FILE" \
+  --from-literal=ANTHROPIC_VERTEX_PROJECT_ID="$ANTHROPIC_VERTEX_PROJECT_ID" \
+  --from-literal=CLOUD_ML_REGION="$CLOUD_ML_REGION" \
+  -n "$OPERATOR_NS" --dry-run=client -o yaml | oc apply -f -
 
-# 3. LLMProvider — references prefixed secret
+# 3. LLMProvider
 cat <<EOF | oc apply -f -
 apiVersion: agentic.openshift.io/v1alpha1
 kind: LLMProvider
 metadata:
-  name: eval-openai
+  name: eval-vertex-ai
 spec:
-  type: OpenAI
-  openAI:
+  type: GoogleCloudVertex
+  googleCloudVertex:
     credentialsSecret:
       name: eval-llm-credentials
+    projectID: $ANTHROPIC_VERTEX_PROJECT_ID
+    region: $CLOUD_ML_REGION
 EOF
 
-# 4. Agent — references prefixed LLMProvider
+# 4. Agent
 cat <<EOF | oc apply -f -
 apiVersion: agentic.openshift.io/v1alpha1
 kind: Agent
@@ -70,7 +69,7 @@ metadata:
   name: eval-default
 spec:
   llmProvider:
-    name: eval-openai
+    name: eval-vertex-ai
   model: $AGENT_MODEL
   timeouts:
     analysisSeconds: 300
@@ -133,9 +132,4 @@ spec:
         emptyDir: {}
 EOF
 
-# 6. Wait for OOMKill workload to start crashing
-echo "Waiting for oomkill-demo pod to appear..."
-oc wait --for=condition=Available=false deployment/oomkill-demo \
-  -n "$TEST_NS" --timeout=60s 2>/dev/null || true
-sleep 10
-echo "Setup complete."
+echo "Infrastructure setup complete (Claude/Vertex AI)."

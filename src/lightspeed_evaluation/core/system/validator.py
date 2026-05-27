@@ -62,6 +62,13 @@ METRIC_REQUIREMENTS = {
         "required_fields": ["expected_proposal_status"],
         "description": "requires 'expected_proposal_status' field",
     },
+    "custom:proposal_evaluation_correctness": {
+        "required_fields": ["response", "expected_outcome"],
+        "description": (
+            "requires 'response' and 'expected_outcome' fields "
+            "(Markdown workflow summary from ProposalAmender)"
+        ),
+    },
     "script:action_eval": {
         "required_fields": ["verify_script"],
         "description": "requires 'verify_script' field",

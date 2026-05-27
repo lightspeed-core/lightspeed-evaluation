@@ -76,6 +76,26 @@ class TurnData(StreamingMetricsMixin):
     expected_intent: Optional[str] = Field(
         default=None, min_length=1, description="Expected intent for intent evaluation"
     )
+    expected_outcome: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Expected outcome for proposal evaluation correctness",
+    )
+    expected_analysis_outcome: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Expected analysis/diagnosis outcome for proposal evaluation",
+    )
+    expected_execution_outcome: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Expected execution/action outcome for proposal evaluation",
+    )
+    expected_verification_outcome: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Expected verification outcome for proposal evaluation",
+    )
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation ID - populated by API if enabled"
     )
@@ -121,6 +141,10 @@ class TurnData(StreamingMetricsMixin):
     )
     proposal_status: Optional[dict[str, Any]] = Field(
         default=None, description="Raw CRD status populated by ProposalDriver"
+    )
+    proposal_results: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Structured results from child Result CRs, populated by ProposalAmender",
     )
 
     # Set of turn metrics that don't pass the validation to ignore them later
