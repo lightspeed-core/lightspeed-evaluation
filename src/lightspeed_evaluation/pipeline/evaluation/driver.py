@@ -132,8 +132,6 @@ CRD_KIND = "Proposal"
 CRD_PLURAL = "proposals"
 CRD_API_VERSION = f"{CRD_GROUP}/{CRD_VERSION}"
 
-CLI_COMMAND_TIMEOUT = 30
-
 
 class ProposalDriver(AgentDriver):
     """Driver that manages Proposal CR lifecycle via oc/kubectl CLI."""
@@ -141,14 +139,14 @@ class ProposalDriver(AgentDriver):
     def __init__(self, config: dict[str, Any], *, enabled: bool = True) -> None:
         """Initialize the proposal driver."""
         super().__init__(config, enabled=enabled)
-        self._config = ProposalAgentConfig.model_validate(config)
         self._cli = self._resolve_cli()
 
-    def validate_config(self, config: dict[str, Any]) -> None:
+    def validate_config(self, config: dict[str, Any]) -> ProposalAgentConfig:
         """Validate proposal driver configuration."""
-        ProposalAgentConfig.model_validate(config)
+        parsed = ProposalAgentConfig.model_validate(config)
         if self._enabled and not shutil.which("oc") and not shutil.which("kubectl"):
             raise ConfigurationError("Neither 'oc' nor 'kubectl' found on PATH")
+        return parsed
 
     def execute_turn(
         self, turn_data: TurnData, conversation_id: Optional[str] = None
@@ -235,7 +233,7 @@ class ProposalDriver(AgentDriver):
             text=True,
             capture_output=True,
             env=os.environ.copy(),
-            timeout=CLI_COMMAND_TIMEOUT,
+            timeout=self._config.cli_timeout,
             check=False,
         )
 

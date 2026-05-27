@@ -149,6 +149,7 @@ class ProposalAgentConfig(BaseModel):
     auto_approve: bool = True
     cleanup_proposals: bool = True
     timeout: int = Field(default=900, gt=0)
+    cli_timeout: int = Field(default=30, gt=0)
     poll_interval: int = Field(default=2, gt=0)
 
 
