@@ -11,9 +11,9 @@ Prerequisites:
 The default setup/cleanup scripts use OpenAI as the LLM provider.
 To test with a different provider (e.g. Claude via Vertex AI), set the
 corresponding env vars and point the eval data at the provider-specific
-scripts (e.g. setup_subprocess_fixtures-claude-vertex.sh).
+scripts (e.g. setup_proposal_fixtures-claude-vertex.sh).
 
-Run with: pytest tests/integration/test_subprocess_evaluation.py -v -m agentic
+Run with: pytest tests/integration/test_proposal_evaluation.py -v -m agentic
 """
 
 import os
@@ -71,14 +71,12 @@ def check_env_vars_set() -> bool:
 pytestmark = pytest.mark.agentic
 
 INTEGRATION_TEST_DIR = Path(__file__).parent
-SUBPROCESS_CONFIG_PATH = INTEGRATION_TEST_DIR / "system-config-agents-subprocess.yaml"
-SUBPROCESS_EVAL_DATA_PATH = (
-    INTEGRATION_TEST_DIR / "test_evaluation_data_subprocess.yaml"
-)
+PROPOSAL_CONFIG_PATH = INTEGRATION_TEST_DIR / "system-config-agents-proposal.yaml"
+PROPOSAL_EVAL_DATA_PATH = INTEGRATION_TEST_DIR / "test_evaluation_data_proposal.yaml"
 
 
 class TestProposalPrerequisites:
-    """Verify prerequisites for subprocess integration tests."""
+    """Verify prerequisites for proposal integration tests."""
 
     def test_cli_available(self) -> None:
         """Verify that oc CLI is available."""
@@ -117,7 +115,7 @@ class TestProposalDriverEvaluation:
         - Cleanup script removes test resources
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(SUBPROCESS_CONFIG_PATH))
+        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -126,13 +124,11 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(SUBPROCESS_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
         eval_data = [
-            d
-            for d in all_data
-            if d.conversation_group_id == "subprocess_full_lifecycle"
+            d for d in all_data if d.conversation_group_id == "proposal_full_lifecycle"
         ]
-        assert len(eval_data) == 1, "Should find subprocess_full_lifecycle data"
+        assert len(eval_data) == 1, "Should find proposal_full_lifecycle data"
 
         evaluate(system_config, eval_data)
 
@@ -163,7 +159,7 @@ class TestProposalDriverEvaluation:
         - No Executed or Verified conditions present
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(SUBPROCESS_CONFIG_PATH))
+        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -172,11 +168,11 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(SUBPROCESS_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "subprocess_analysis_only"
+            d for d in all_data if d.conversation_group_id == "proposal_analysis_only"
         ]
-        assert len(eval_data) == 1, "Should find subprocess_analysis_only data"
+        assert len(eval_data) == 1, "Should find proposal_analysis_only data"
 
         evaluate(system_config, eval_data)
 
@@ -214,7 +210,7 @@ class TestProposalDriverEvaluation:
         - Proposal CRs are cleaned up after timeout
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(SUBPROCESS_CONFIG_PATH))
+        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -228,9 +224,9 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(SUBPROCESS_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "subprocess_analysis_only"
+            d for d in all_data if d.conversation_group_id == "proposal_analysis_only"
         ]
 
         evaluate(system_config, eval_data)

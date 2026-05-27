@@ -108,7 +108,7 @@ class TurnData(StreamingMetricsMixin):
         default=None, description="Path to verify script for script-based evaluation"
     )
 
-    # Subprocess driver fields
+    # Proposal driver fields
     description: Optional[str] = Field(
         default=None, description="Human-readable label for reports"
     )

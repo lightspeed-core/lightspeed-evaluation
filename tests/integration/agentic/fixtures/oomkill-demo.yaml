@@ -16,7 +16,13 @@ spec:
       containers:
         - name: stress
           image: polinux/stress-ng
-          command: ["stress-ng", "--vm", "1", "--vm-bytes", "256M", "--vm-hang", "0"]
+          command:
+            ["stress-ng", "--vm", "1", "--vm-bytes", "256M", "--vm-hang", "0"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               memory: "64Mi"

@@ -14,7 +14,7 @@ set -euo pipefail
 #   AGENT_MODEL      — default: gpt-5.2
 #
 # To test with Claude via Vertex AI instead, use
-# setup_subprocess_fixtures-claude-vertex.sh and set the corresponding env vars
+# setup_proposal_fixtures-claude-vertex.sh and set the corresponding env vars
 # (GCP_CREDENTIALS_FILE, ANTHROPIC_VERTEX_PROJECT_ID, SANDBOX_IMAGE).
 
 OPERATOR_NS="openshift-lightspeed"

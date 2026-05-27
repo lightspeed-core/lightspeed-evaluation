@@ -17,6 +17,7 @@ set -euo pipefail
 
 OPERATOR_NS="openshift-lightspeed"
 TEST_NS="lightspeed-evaluation-test"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GCP_CREDENTIALS_FILE="${GCP_CREDENTIALS_FILE:-$HOME/.config/gcloud/application_default_credentials.json}"
 CLOUD_ML_REGION="${CLOUD_ML_REGION:-global}"
 AGENT_MODEL="${AGENT_MODEL:-claude-opus-4-6}"
@@ -34,8 +35,9 @@ if [ ! -f "$GCP_CREDENTIALS_FILE" ]; then
 fi
 
 # 1. Test namespace + OOMKill workload (static fixtures, already test-scoped)
-oc apply -f ../fixtures/namespace.yaml
-oc apply -f ../fixtures/oomkill-demo.yaml
+oc apply -f "$SCRIPT_DIR/../fixtures/namespace.yaml"
+oc apply -f "$SCRIPT_DIR/../fixtures/oomkill-demo.yaml"
+
 
 # 2. Secret (GCP credentials) — prefixed name in operator namespace
 oc create secret generic eval-llm-credentials \

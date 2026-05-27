@@ -1,8 +1,8 @@
-- conversation_group_id: subprocess_full_lifecycle
+- conversation_group_id: proposal_full_lifecycle
   description: Full lifecycle — analysis, execution, verification
-  tag: subprocess
-  setup_script: agentic/scripts/setup_subprocess_fixtures-openai.sh
-  cleanup_script: agentic/scripts/cleanup_subprocess_fixtures-openai.sh
+  tag: proposal
+  setup_script: agentic/scripts/setup_proposal_fixtures-openai.sh
+  cleanup_script: agentic/scripts/cleanup_proposal_fixtures-openai.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
@@ -33,11 +33,11 @@
         - custom:proposal_status
       turn_metrics_metadata: {}
 
-- conversation_group_id: subprocess_analysis_only
+- conversation_group_id: proposal_analysis_only
   description: Analysis-only — no execution or verification (query from proposal_spec.request)
-  tag: subprocess
-  setup_script: agentic/scripts/setup_subprocess_fixtures-openai.sh
-  cleanup_script: agentic/scripts/cleanup_subprocess_fixtures-openai.sh
+  tag: proposal
+  setup_script: agentic/scripts/setup_proposal_fixtures-openai.sh
+  cleanup_script: agentic/scripts/cleanup_proposal_fixtures-openai.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
