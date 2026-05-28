@@ -1,13 +1,29 @@
-"""Agent driver architecture for evaluation pipeline."""
+"""Agent driver implementations for evaluation pipeline."""
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import re
+import shutil
+import subprocess
+import time
+import uuid
 from abc import ABC, abstractmethod
+from enum import StrEnum
 from typing import Any, Optional, cast
 
 from lightspeed_evaluation.core.api import APIClient
-from lightspeed_evaluation.core.models import APIConfig, HttpApiAgentConfig, TurnData
+from lightspeed_evaluation.core.models import (
+    APIConfig,
+    HttpApiAgentConfig,
+    ProposalAgentConfig,
+    TurnData,
+)
+from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
+    _derive_phase,
+)
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 
@@ -84,30 +100,297 @@ class HttpApiDriver(AgentDriver):
         return APIClient(api_config)
 
 
-AGENT_DRIVERS: dict[str, type[AgentDriver]] = {
-    "http_api": HttpApiDriver,
-}
+# ---------------------------------------------------------------------------
+# Proposal driver — CRD-based agent lifecycle via oc/kubectl CLI
+# ---------------------------------------------------------------------------
 
 
-class AgentDriverRegistry:  # pylint: disable=too-few-public-methods
-    """Registry for creating agent drivers."""
+class TerminalOutcome(StrEnum):
+    """Terminal outcomes for a Proposal CR lifecycle.
 
-    def __init__(self, drivers: Optional[dict[str, type[AgentDriver]]] = None) -> None:
-        """Initialize the driver registry."""
-        self._drivers = drivers or AGENT_DRIVERS
+    These are driver-level labels, not CRD API values. The CRD exposes
+    conditions with statuses that the driver interprets:
 
-    def create_driver(
-        self, agent_config: dict[str, Any], *, enabled: bool = True
-    ) -> AgentDriver:
-        """Create a driver instance from resolved agent configuration."""
-        agent_type = agent_config.get("type")
-        if not agent_type:
-            raise ConfigurationError("Agent config missing required 'type' field")
+    - Analyzed:  True = analysis succeeded, False = failed, Unknown = in progress
+    - Executed:  True = execution succeeded, False = failed, Unknown = in progress
+    - Verified:  True = verification passed, False = failed, Unknown = in progress
+    - Denied:    True = user denied a step (terminal)
+    - Escalated: True = escalation complete (terminal), False = failed, Unknown = in progress
 
-        driver_cls = self._drivers.get(agent_type)
-        if not driver_cls:
-            raise ConfigurationError(
-                f"Unsupported agent type '{agent_type}'. "
-                f"Supported types: {sorted(self._drivers)}"
+    Special reason: RetryingExecution (Verified=False triggers retry, not failure).
+    """
+
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    DENIED = "Denied"
+    ESCALATED = "Escalated"
+
+
+CRD_GROUP = "agentic.openshift.io"
+CRD_VERSION = "v1alpha1"
+CRD_KIND = "Proposal"
+CRD_PLURAL = "proposals"
+CRD_API_VERSION = f"{CRD_GROUP}/{CRD_VERSION}"
+
+
+class ProposalDriver(AgentDriver):
+    """Driver that manages Proposal CR lifecycle via oc/kubectl CLI."""
+
+    def __init__(self, config: dict[str, Any], *, enabled: bool = True) -> None:
+        """Initialize the proposal driver."""
+        super().__init__(config, enabled=enabled)
+        self._cli = self._resolve_cli()
+
+    def validate_config(self, config: dict[str, Any]) -> ProposalAgentConfig:
+        """Validate proposal driver configuration."""
+        parsed = ProposalAgentConfig.model_validate(config)
+        if self._enabled and not shutil.which("oc") and not shutil.which("kubectl"):
+            raise ConfigurationError("Neither 'oc' nor 'kubectl' found on PATH")
+        return parsed
+
+    def execute_turn(
+        self, turn_data: TurnData, conversation_id: Optional[str] = None
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Execute a Proposal CR lifecycle for a single turn."""
+        # Proposal CR lifecycle:
+        # 1. Build Proposal CR from TurnData fields
+        # 2. Apply CR to cluster via oc/kubectl
+        # 3. Poll status — read .status.conditions each interval
+        # 4. Auto-approve — create ProposalApproval when Analyzed=True
+        # 5. Terminal detection — break on completed/failed/denied/escalated
+        # 6. Amend TurnData — set response and proposal_status in-place
+        # 7. Cleanup — delete Proposal CR if cleanup_proposals enabled
+        suffix = uuid.uuid4().hex[:8]
+        safe_id = (
+            re.sub(r"[^a-z0-9-]", "", conversation_id.lower())[:50]
+            if conversation_id
+            else ""
+        )
+        cr_name = f"eval-{safe_id}-{suffix}" if safe_id else f"eval-{suffix}"
+        proposal_spec = turn_data.proposal_spec or {}
+        manifest = self._build_proposal_cr(turn_data, cr_name)
+
+        result = self._apply(manifest)
+        if result.returncode != 0:
+            return (
+                f"Failed to apply Proposal CR: {result.stderr.strip()}",
+                None,
             )
-        return driver_cls(agent_config, enabled=enabled)
+
+        if self._config.auto_approve:
+            err = self._approve_when_ready(cr_name, proposal_spec)
+            if err:
+                self._cleanup(cr_name)
+                return (err, None)
+
+        outcome: Optional[TerminalOutcome] = None
+        status_dict: dict[str, Any] = {}
+        start = time.monotonic()
+
+        while time.monotonic() - start < self._config.timeout:
+            time.sleep(self._config.poll_interval)
+            status_dict, err = self._get_status(cr_name)
+            if err:
+                self._cleanup(cr_name)
+                return (err, None)
+            conditions = status_dict.get("conditions", [])
+
+            outcome = self._is_terminal(conditions, proposal_spec)
+            if outcome is not None:
+                break
+        else:
+            self._cleanup(cr_name)
+            return (
+                f"Timeout after {self._config.timeout}s for '{cr_name}'",
+                None,
+            )
+
+        turn_data.response = self._extract_summary(status_dict)
+        turn_data.proposal_status = status_dict
+        self._cleanup(cr_name)
+
+        if outcome == TerminalOutcome.COMPLETED:
+            return (None, None)
+        return (
+            f"Proposal '{cr_name}' terminated with outcome: {outcome}",
+            None,
+        )
+
+    @staticmethod
+    def _resolve_cli() -> str:
+        """Resolve oc or kubectl binary path."""
+        return shutil.which("oc") or shutil.which("kubectl") or ""
+
+    def _run_cli(
+        self,
+        args: list[str],
+        stdin: Optional[str] = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a CLI command and return the result."""
+        return subprocess.run(
+            [self._cli, *args],
+            input=stdin,
+            text=True,
+            capture_output=True,
+            env=os.environ.copy(),
+            timeout=self._config.cli_timeout,
+            check=False,
+        )
+
+    def _apply(self, manifest: dict[str, Any]) -> subprocess.CompletedProcess[str]:
+        """Apply a CR manifest via stdin."""
+        return self._run_cli(["apply", "-f", "-"], stdin=json.dumps(manifest))
+
+    def _get_status(self, cr_name: str) -> tuple[dict[str, Any], Optional[str]]:
+        """Get Proposal CR status."""
+        result = self._run_cli(
+            [
+                "get",
+                CRD_PLURAL,
+                cr_name,
+                "-n",
+                self._config.namespace,
+                "-o",
+                "json",
+            ]
+        )
+        if result.returncode != 0:
+            return {}, f"Failed to get status for '{cr_name}': {result.stderr.strip()}"
+        try:
+            cr = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            return {}, f"Failed to parse status JSON for '{cr_name}': {exc}"
+        return cr.get("status", {}), None
+
+    def _delete(self, cr_name: str) -> None:
+        """Delete a Proposal CR."""
+        self._run_cli(
+            [
+                "delete",
+                CRD_PLURAL,
+                cr_name,
+                "-n",
+                self._config.namespace,
+                "--ignore-not-found",
+            ]
+        )
+
+    def _cleanup(self, cr_name: str) -> None:
+        """Delete the Proposal CR if cleanup is enabled."""
+        if not self._config.cleanup_proposals:
+            return
+        try:
+            self._delete(cr_name)
+            logger.info("Cleaned up Proposal CR '%s'", cr_name)
+        except (subprocess.SubprocessError, OSError) as exc:
+            logger.warning("Failed to clean up Proposal CR '%s': %s", cr_name, exc)
+
+    def _build_proposal_cr(self, turn_data: TurnData, cr_name: str) -> dict[str, Any]:
+        """Build Proposal CR manifest from TurnData."""
+        spec: dict[str, Any] = {"request": turn_data.query}
+        if turn_data.proposal_spec:
+            spec.update(turn_data.proposal_spec)
+        spec.setdefault("analysis", {})
+        return {
+            "apiVersion": CRD_API_VERSION,
+            "kind": CRD_KIND,
+            "metadata": {
+                "name": cr_name,
+                "namespace": self._config.namespace,
+            },
+            "spec": spec,
+        }
+
+    def _build_approval_cr(
+        self, cr_name: str, proposal_spec: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build ProposalApproval CR manifest."""
+        analysis_params: dict[str, Any] = {}
+        if "analysis" in proposal_spec and isinstance(proposal_spec["analysis"], dict):
+            agent = proposal_spec["analysis"].get("agent")
+            if agent:
+                analysis_params["agent"] = agent
+        if not analysis_params:
+            analysis_params["agent"] = "default"
+
+        stages: list[dict[str, Any]] = [
+            {"type": "Analysis", "decision": "Approved", "analysis": analysis_params},
+        ]
+        if "execution" in proposal_spec:
+            exec_params: dict[str, Any] = {"option": 0}
+            if isinstance(proposal_spec["execution"], dict):
+                agent = proposal_spec["execution"].get("agent")
+                if agent:
+                    exec_params["agent"] = agent
+            stages.append(
+                {
+                    "type": "Execution",
+                    "decision": "Approved",
+                    "execution": exec_params,
+                }
+            )
+        if "verification" in proposal_spec:
+            verif_params: dict[str, Any] = {}
+            if isinstance(proposal_spec["verification"], dict):
+                agent = proposal_spec["verification"].get("agent")
+                if agent:
+                    verif_params["agent"] = agent
+            if not verif_params:
+                verif_params["agent"] = "default"
+            stages.append(
+                {
+                    "type": "Verification",
+                    "decision": "Approved",
+                    "verification": verif_params,
+                }
+            )
+        return {
+            "apiVersion": CRD_API_VERSION,
+            "kind": "ProposalApproval",
+            "metadata": {
+                "name": cr_name,
+                "namespace": self._config.namespace,
+            },
+            "spec": {"stages": stages},
+        }
+
+    def _approve_when_ready(
+        self, cr_name: str, proposal_spec: dict[str, Any]
+    ) -> Optional[str]:
+        """Wait for Proposal CR to exist on the cluster, then approve all stages."""
+        start = time.monotonic()
+        while time.monotonic() - start < self._config.timeout:
+            _, err = self._get_status(cr_name)
+            if err is None:
+                break
+            time.sleep(self._config.poll_interval)
+        else:
+            return f"Proposal '{cr_name}' not found within {self._config.timeout}s"
+
+        approval = self._build_approval_cr(cr_name, proposal_spec)
+        result = self._apply(approval)
+        if result.returncode != 0:
+            return f"Failed to apply ProposalApproval: {result.stderr.strip()}"
+        return None
+
+    _PHASE_TO_OUTCOME: dict[str, TerminalOutcome] = {
+        "Completed": TerminalOutcome.COMPLETED,
+        "Failed": TerminalOutcome.FAILED,
+        "Denied": TerminalOutcome.DENIED,
+        "Escalated": TerminalOutcome.ESCALATED,
+    }
+
+    @staticmethod
+    def _is_terminal(
+        conditions: list[dict[str, Any]], proposal_spec: dict[str, Any]
+    ) -> Optional[TerminalOutcome]:
+        """Check if conditions indicate a terminal state."""
+        phase = _derive_phase(conditions, proposal_spec or None)
+        return ProposalDriver._PHASE_TO_OUTCOME.get(phase)
+
+    @staticmethod
+    def _extract_summary(status_dict: dict[str, Any]) -> str:
+        """Extract a human-readable summary from analysis results."""
+        conditions = status_dict.get("conditions", [])
+        messages = [c["message"] for c in conditions if c.get("message")]
+        return "; ".join(messages) if messages else "No summary available"

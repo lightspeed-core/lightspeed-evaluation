@@ -6,6 +6,7 @@ from lightspeed_evaluation.core.models.agents import (
     HttpApiAgentConfig,
     MCPHeadersConfig,
     MCPServerConfig,
+    ProposalAgentConfig,
 )
 from lightspeed_evaluation.core.models.api import (
     APIRequest,
@@ -57,6 +58,7 @@ __all__ = [
     "HttpApiAgentConfig",
     "MCPHeadersConfig",
     "MCPServerConfig",
+    "ProposalAgentConfig",
     # Data models
     "TurnData",
     "EvaluationData",

@@ -41,7 +41,7 @@ class APIDataAmender:
         api_start_time = time.perf_counter()
         try:
             api_response = self.api_client.query(
-                query=turn_data.query,
+                query=turn_data.query or "",
                 conversation_id=conversation_id,
                 attachments=turn_data.attachments,
                 extra_request_params=turn_data.extra_request_params,

@@ -134,9 +134,28 @@ class HttpApiAgentConfig(HttpApiBaseFields):
     )
 
 
+class ProposalAgentConfig(BaseModel):
+    """Configuration for a Proposal CRD-based agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["proposal"] = "proposal"
+    namespace: str = Field(
+        ...,
+        min_length=1,
+        pattern=r"\S+",
+        description="Kubernetes namespace containing Proposal resources",
+    )
+    auto_approve: bool = True
+    cleanup_proposals: bool = True
+    timeout: int = Field(default=900, gt=0)
+    cli_timeout: int = Field(default=30, gt=0)
+    poll_interval: int = Field(default=2, gt=0)
+
+
 # Discriminated union of all agent config types; extend by adding new
 # config classes to support additional agent types.
-AgentDefinition = Union[HttpApiAgentConfig]
+AgentDefinition = Union[HttpApiAgentConfig, ProposalAgentConfig]
 
 
 class AgentDefaultConfig(BaseModel):

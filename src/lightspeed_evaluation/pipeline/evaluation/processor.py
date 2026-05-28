@@ -284,7 +284,7 @@ class ConversationProcessor:
                         metric_identifier,
                         error_reason,
                         turn_id=turn_data.turn_id,
-                        query=turn_data.query,
+                        query=turn_data.query or "",
                     )
                 )
                 continue

@@ -5,9 +5,13 @@ import logging
 import time
 from typing import Any, Optional
 
+from lightspeed_evaluation.core.constants import (
+    DEFAULT_METRIC_THRESHOLD,
+    NON_LLM_FRAMEWORKS,
+)
 from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
-from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
 from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
 from lightspeed_evaluation.core.metrics.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel, MetricManager
@@ -29,10 +33,6 @@ from lightspeed_evaluation.core.system.exceptions import (
 from lightspeed_evaluation.core.system.validator import (
     METRIC_REQUIREMENTS,
     check_metric_required_data,
-)
-from lightspeed_evaluation.core.constants import (
-    DEFAULT_METRIC_THRESHOLD,
-    NON_LLM_FRAMEWORKS,
 )
 from lightspeed_evaluation.pipeline.evaluation.judges import JudgeOrchestrator
 
@@ -241,8 +241,8 @@ class MetricsEvaluator:
                 turn_id=request.turn_id,
                 metric_identifier=request.metric_identifier,
                 metric_metadata=self._extract_metadata_for_csv(request),
-                query=turn_data.query if turn_data else "",
-                response=turn_data.response or "" if turn_data else "",
+                query=(turn_data.query or "") if turn_data else "",
+                response=(turn_data.response or "") if turn_data else "",
                 evaluation_latency=evaluation_latency,
                 agent_latency=agent_latency,
                 execution_time=evaluation_latency + agent_latency,
@@ -742,9 +742,9 @@ class MetricsEvaluator:
             score=None,
             threshold=None,
             reason=reason,
-            query=turn_data.query if turn_data else "",
-            response=turn_data.response or "" if turn_data else "",
             evaluation_latency=evaluation_latency,
+            query=(turn_data.query or "") if turn_data else "",
+            response=(turn_data.response or "") if turn_data else "",
             agent_latency=agent_latency,
             execution_time=evaluation_latency + agent_latency,
             api_input_tokens=api_input_tokens,
