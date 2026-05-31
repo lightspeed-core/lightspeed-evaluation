@@ -400,6 +400,53 @@ Save results to a database for querying and analysis. Supports SQLite, PostgreSQ
 
 > **Note:** Database storage is incremental - results are saved as each conversation completes. Storage failures are logged as warnings but don't stop the evaluation.
 
+### Langfuse Backend (Optional)
+Export evaluation scores to [Langfuse](https://langfuse.com) for observability, analytics, and score tracking. Creates one trace per evaluation run with one numeric score per metric result.
+
+Requires the Langfuse SDK v4:
+```bash
+# Using pip
+pip install 'lightspeed-evaluation[langfuse]'
+
+# Using uv
+uv sync --extra langfuse
+```
+
+| Setting (storage[type="langfuse"].) | Default | Description |
+|-------------------------------------|---------|-------------|
+| type | `"langfuse"` | Backend type (required) |
+| host | `null` | Langfuse API host URL (falls back to `LANGFUSE_HOST` env var) |
+| public_key | `null` | Langfuse public key (falls back to `LANGFUSE_PUBLIC_KEY` env var) |
+| secret_key | `null` | Langfuse secret key (falls back to `LANGFUSE_SECRET_KEY` env var) |
+
+> **Credentials:** Configure credentials via environment variables (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`) or inline in the YAML config. Environment variables are the recommended approach — inline config fields take precedence when set.
+
+> **Score handling:** Results with a numeric score (PASS/FAIL) are exported as `NUMERIC` scores. Results without a score (`score=None`, e.g. ERROR/SKIPPED) are skipped. All Langfuse errors are logged but never abort the evaluation.
+
+### Example: Langfuse via Environment Variables
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "langfuse"
+```
+```bash
+export LANGFUSE_PUBLIC_KEY="pk-lf-..."
+export LANGFUSE_SECRET_KEY="sk-lf-..."
+export LANGFUSE_HOST="https://cloud.langfuse.com"
+```
+
+### Example: Langfuse with Inline Credentials
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "langfuse"
+    host: "https://cloud.langfuse.com"
+    public_key: "pk-lf-..."
+    secret_key: "sk-lf-..."
+```
+
 ### Output types
 
 | Output type (in `enabled_outputs`) | Description |

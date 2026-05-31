@@ -14,9 +14,11 @@ from lightspeed_evaluation.core.storage.composite_storage import (
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
+    LangfuseBackendConfig,
     StorageBackendConfig,
 )
 from lightspeed_evaluation.core.storage.file_storage import FileStorageBackend
+from lightspeed_evaluation.core.storage.langfuse_storage import LangfuseStorageBackend
 from lightspeed_evaluation.core.storage.protocol import BaseStorageBackend
 from lightspeed_evaluation.core.storage.sql_storage import SQLStorageBackend
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
@@ -127,6 +129,9 @@ def create_pipeline_storage_backend(
                     "File storage entries in ``storage`` require ``system_config`` "
                     "when building the pipeline storage backend."
                 )
+        elif isinstance(config, LangfuseBackendConfig):
+            logger.info("Pipeline storage: langfuse backend")
+            backends.append(LangfuseStorageBackend(config))
         else:
             raise ConfigurationError(
                 f"Unknown storage backend type: {type(config).__name__!r}"

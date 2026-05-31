@@ -53,6 +53,15 @@ nlp-metrics = [
     "rapidfuzz>=3.0.0,<=3.14.3",     # Required for semantic_similarity_distance
 ]
 
+# Langfuse observability - export evaluation scores to Langfuse
+# Install with:
+#   pip install 'lightspeed-evaluation[langfuse]'
+# or
+#   uv sync --extra langfuse
+langfuse = [
+    "langfuse>=4.0.0,<5.0.0",
+]
+
 [dependency-groups]
 dev = [
     "bandit>=1.7.0,<=1.9.2",
