@@ -147,11 +147,12 @@ def _vertex_override(kwargs: dict[str, Any]) -> Generator[None, None, None]:
 async def _vertex_override_async(
     kwargs: dict[str, Any],
 ) -> AsyncGenerator[None, None]:
-    """Async version of _vertex_override using asyncio.to_thread.
+    """Async version of _vertex_override using asyncio.to_thread for acquire.
 
     Acquires litellm_state_lock before mutating globals and holds it across the
     yield so no concurrent caller can see partially-updated state.  Lock
-    acquire/release use asyncio.to_thread to avoid blocking the event loop.
+    acquire uses asyncio.to_thread to avoid blocking the event loop; release
+    is called directly since it is non-blocking.
     Uses the same lock as the synchronous path to prevent races between sync
     and async callers.
     """
@@ -160,7 +161,7 @@ async def _vertex_override_async(
         vp = kwargs.pop("vertex_project", None)
         vl = kwargs.pop("vertex_location", None)
         if vp is None and vl is None:
-            await asyncio.to_thread(litellm_state_lock.release)
+            litellm_state_lock.release()
             yield
             return
         old_vp = getattr(litellm, "vertex_project", None)
@@ -170,14 +171,14 @@ async def _vertex_override_async(
         if vl is not None:
             litellm.vertex_location = vl
     except BaseException:
-        await asyncio.to_thread(litellm_state_lock.release)
+        litellm_state_lock.release()
         raise
     try:
         yield
     finally:
         litellm.vertex_project = old_vp
         litellm.vertex_location = old_vl
-        await asyncio.to_thread(litellm_state_lock.release)
+        litellm_state_lock.release()
 
 
 # =============================================================================
