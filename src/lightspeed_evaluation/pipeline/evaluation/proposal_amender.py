@@ -48,6 +48,7 @@ class ProposalAmender:
         steps = proposal_status.get("steps", {})
         if not steps:
             turn_data.proposal_results = {}
+            turn_data.proposal_phases = []
             turn_data.response = self.build_summary(turn_data, {})
             return None
 
@@ -77,6 +78,9 @@ class ProposalAmender:
             results[step_name] = step_results
 
         turn_data.proposal_results = results
+        turn_data.proposal_phases = [
+            step for step in STEP_RESOURCES if results.get(step)
+        ]
         turn_data.response = self.build_summary(turn_data, results)
 
         return None

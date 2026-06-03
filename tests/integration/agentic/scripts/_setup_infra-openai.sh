@@ -7,20 +7,22 @@
 #
 # Required env vars:
 #   OPENAI_API_KEY   — OpenAI API key
-#   SANDBOX_IMAGE    — sandbox container image URL
 #
 # Optional env vars:
 #   AGENT_MODEL      — default: gpt-5.2
+#   SANDBOX_IMAGE    — sandbox container image URL (has default)
 
 set -euo pipefail
 
 export OPERATOR_NS="openshift-lightspeed"
 export TEST_NS="lightspeed-evaluation-test"
 AGENT_MODEL="${AGENT_MODEL:-gpt-5.2}"
+# TODO: replace with a stable tag once a versioned release is available
+SANDBOX_IMAGE="${SANDBOX_IMAGE:-quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox:d84b7970dc65ab3e66d52f3f2feeb1b3ec5b72eb}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-for var in OPENAI_API_KEY SANDBOX_IMAGE; do
+for var in OPENAI_API_KEY; do
   if [ -z "${!var:-}" ]; then
     echo "ERROR: $var is not set" >&2
     exit 1

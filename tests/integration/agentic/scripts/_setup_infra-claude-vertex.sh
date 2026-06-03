@@ -9,11 +9,11 @@
 #   GCP_CREDENTIALS_FILE          — path to GCP credentials JSON file
 #                                   (default: ~/.config/gcloud/application_default_credentials.json)
 #   ANTHROPIC_VERTEX_PROJECT_ID   — GCP project ID for Vertex AI
-#   SANDBOX_IMAGE                 — sandbox container image URL
 #
 # Optional env vars:
 #   CLOUD_ML_REGION  — default: global
 #   AGENT_MODEL      — default: claude-opus-4-6
+#   SANDBOX_IMAGE    — sandbox container image URL (has default)
 
 set -euo pipefail
 
@@ -23,8 +23,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GCP_CREDENTIALS_FILE="${GCP_CREDENTIALS_FILE:-$HOME/.config/gcloud/application_default_credentials.json}"
 CLOUD_ML_REGION="${CLOUD_ML_REGION:-global}"
 AGENT_MODEL="${AGENT_MODEL:-claude-opus-4-6}"
+# TODO: replace with a stable tag once a versioned release is available
+SANDBOX_IMAGE="${SANDBOX_IMAGE:-quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox:d84b7970dc65ab3e66d52f3f2feeb1b3ec5b72eb}"
 
-for var in ANTHROPIC_VERTEX_PROJECT_ID SANDBOX_IMAGE; do
+for var in ANTHROPIC_VERTEX_PROJECT_ID; do
   if [ -z "${!var:-}" ]; then
     echo "ERROR: $var is not set" >&2
     exit 1
@@ -41,7 +43,7 @@ oc apply -f "$SCRIPT_DIR/../fixtures/namespace.yaml"
 
 # 2. Secret (GCP credentials)
 oc create secret generic eval-llm-credentials \
-  --from-file=credentials.json="$GCP_CREDENTIALS_FILE" \
+  --from-file=GOOGLE_APPLICATION_CREDENTIALS="$GCP_CREDENTIALS_FILE" \
   --from-literal=ANTHROPIC_VERTEX_PROJECT_ID="$ANTHROPIC_VERTEX_PROJECT_ID" \
   --from-literal=CLOUD_ML_REGION="$CLOUD_ML_REGION" \
   -n "$OPERATOR_NS" --dry-run=client -o yaml | oc apply -f -
@@ -59,6 +61,7 @@ spec:
       name: eval-llm-credentials
     projectID: $ANTHROPIC_VERTEX_PROJECT_ID
     region: $CLOUD_ML_REGION
+    modelProvider: Anthropic
 EOF
 
 # 4. Agent

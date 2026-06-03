@@ -228,6 +228,24 @@ class TestAmendAnalysisOnly:
         assert "execution" not in results
         assert "verification" not in results
 
+    def test_proposal_phases_analysis_only(self) -> None:
+        """Test proposal_phases contains only 'analysis' for analysis-only workflow."""
+        cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
+        amender = ProposalAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        assert turn.proposal_phases == ["analysis"]
+
 
 class TestAmendFullPipeline:
     """Test ProposalAmender with analysis + execution + verification."""
@@ -304,6 +322,15 @@ class TestAmendFullPipeline:
         assert "Passed" in response
         assert "All checks passed" in response
 
+    def test_proposal_phases_full_pipeline(self) -> None:
+        """Test proposal_phases lists all three phases."""
+        amender = ProposalAmender(self._make_cli())
+        turn = _make_turn()
+
+        amender.amend(turn, self._make_status())
+
+        assert turn.proposal_phases == ["analysis", "execution", "verification"]
+
 
 class TestAmendEdgeCases:
     """Test ProposalAmender edge cases."""
@@ -318,6 +345,7 @@ class TestAmendEdgeCases:
         amender.amend(turn, status)
 
         assert not turn.proposal_results
+        assert not turn.proposal_phases
         response = _get_response(turn)
         assert "## Request" in response
 

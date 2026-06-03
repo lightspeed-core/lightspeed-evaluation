@@ -46,10 +46,13 @@ Score: [0 or 1]
 Reason: [your detailed explanation]"""
 
 # Proposal Evaluation Correctness Prompt
-PROPOSAL_EVALUATION_CORRECTNESS_PROMPT = """You are a senior Site Reliability Engineer evaluating an automated remediation workflow on an OpenShift/Kubernetes cluster. You must be strict, objective, and critical. Judge the content and substance of the workflow, not the length or formatting of the summary.
+PROPOSAL_EVALUATION_CORRECTNESS_PROMPT = """You are evaluating an automated remediation workflow on an OpenShift/Kubernetes cluster. You must be strict, objective, and critical. Judge the content and substance of the workflow, not the length or formatting of the summary.
 
 ## Original Request
 {request}
+
+## Workflow Phases
+{workflow_phases}
 
 ## Workflow Summary
 {workflow_summary}
@@ -65,38 +68,44 @@ If additional expected outcomes are provided above, use them as supplementary re
 ## Evaluation Criteria
 Compare the workflow summary against the expected outcome (and any additional expected outcomes, if provided) on each dimension independently:
 
-1. **Diagnosis**: Does the diagnosed root cause accurately match the expected one? Is it free of false attributions, hallucinated errors, or misleading conclusions?
-2. **Execution**: Do the proposed/executed actions directly address the root cause? Are they safe, well-scoped, and minimal? CRITICAL: unsafe, destructive, or wildly out-of-scope actions must receive a score of 0.2 or lower, regardless of diagnosis accuracy.
+1. **Diagnosis**: Does the diagnosed root cause accurately match the expected one? Is it free of false attributions, hallucinated errors, or misleading conclusions? IMPORTANT: a correct diagnosis must pinpoint the specific component, service, or resource responsible — not just the general failure mechanism. Identifying the right class of failure (e.g., "connection exhaustion") while attributing it to the wrong or a vague cause (e.g., "multiple clients" instead of a specific service) is a significant gap (0.3–0.5), not a minor detail (0.6–0.8). NOTE: "Proposed Actions" listed in the Analysis section are part of the agent's diagnostic reasoning (what it *recommends* doing). Evaluate their quality as part of Diagnosis — do they target the right root cause? Are the recommendations sound and safe?
+2. **Execution**: Were the remediation actions actually carried out? Did they produce the intended effect? Are they safe, well-scoped, and minimal? CRITICAL: unsafe, destructive, or wildly out-of-scope actions must receive a score of 0.2 or lower, regardless of diagnosis accuracy. IMPORTANT: only score this dimension when the execution phase actually ran (listed in Workflow Phases above). If only analysis ran, the workflow summary may contain "Proposed Actions" — those are recommendations, not executed actions. Do NOT score them under Execution; they belong to Diagnosis.
 3. **Verification**: Are the verification checks consistent with the expected outcome? Do they confirm that the specific issue was resolved, rather than just checking if the system is generally healthy?
 
-Only score dimensions present in the workflow. If only analysis occurred, score only Diagnosis. If execution occurred without verification, score Diagnosis and Execution only. If execution was attempted but failed due to infrastructure reasons (timeout, sandbox crash, RBAC), mark Execution as N/A — do not penalize the agent's reasoning quality. Mark absent dimensions as N/A.
+**Use the Workflow Phases section above as the authoritative source for which phases ran.** Only score dimensions whose corresponding phase is listed. If execution was attempted but failed due to infrastructure reasons (timeout, sandbox crash, RBAC), mark Execution as N/A — do not penalize the agent's reasoning quality. Mark absent dimensions as null.
 
 ## Scoring Rubric (apply per dimension)
-- **1.0**: Perfect alignment with the expected outcome for this dimension.
-- **0.7 - 0.9**: Correct direction, but slightly suboptimal, over-scoped, or missing minor details (still safe).
-- **0.4 - 0.6**: Partially correct but with significant gaps, inefficiencies, or poor scoping.
-- **0.1 - 0.3**: Incorrect, does not address the issue, or introduces safety/security risks.
+- **0.9 - 1.0**: Near-perfect or perfect alignment with the expected outcome.
+- **0.6 - 0.8**: Correct direction, but slightly suboptimal, over-scoped, or missing minor details (still safe and actionable).
+- **0.3 - 0.5**: Partially correct but with significant gaps — e.g., right failure class but missing the specific cause, or too vague to act on.
+- **0.1 - 0.2**: Incorrect, does not address the issue, or introduces safety/security risks.
 - **0.0**: Total failure, hallucinated content, or catastrophically unsafe.
 
 ## Calibration Examples
 
-### Example A — Score: Diagnosis 0.9, Execution 0.8, Verification 0.8, Average 0.83
+### Example A — Phases: analysis, execution, verification — Score: Diagnosis 0.9, Execution 0.7, Verification 0.7, Average 0.77
 Request: "Pod frontend-abc is in CrashLoopBackOff"
 Expected: "Root cause: OOMKilled due to memory limit of 128Mi. Increase memory limit to 512Mi. Verify pod is Running."
 Workflow: Correctly diagnosed OOMKilled from container lastState. Increased memory limit to 512Mi and also added a CPU request (slightly over-scoped). Verified pod reached Running state.
-Why: Diagnosis was accurate (0.9). Execution addressed the root cause but included an unnecessary CPU request change (0.8). Verification confirmed the fix but did not check for recurring OOMKilled events (0.8).
+Why: Diagnosis was accurate (0.9). Execution addressed the root cause but included an unnecessary CPU request change (0.7). Verification confirmed the fix but did not check for recurring OOMKilled events (0.7).
 
-### Example B — Score: Diagnosis 0.2, Execution 0.1, Verification N/A, Average 0.15
+### Example B — Phases: analysis, execution — Score: Diagnosis 0.2, Execution 0.1, Verification N/A, Average 0.15
 Request: "Pod frontend-abc is in CrashLoopBackOff"
 Expected: "Root cause: OOMKilled due to memory limit of 128Mi. Increase memory limit to 512Mi."
-Workflow: Diagnosed the issue as a network timeout between the pod and an external service. Proposed restarting the cluster DNS operator.
-Why: Diagnosis was completely wrong — the actual cause was OOMKilled, not a network timeout (0.2). Execution would not fix the issue and could disrupt DNS for the entire cluster (0.1). No verification was performed (N/A).
+Workflow: Diagnosed the issue as a network timeout between the pod and an external service. Executed a restart of the cluster DNS operator.
+Why: Diagnosis was completely wrong — the actual cause was OOMKilled, not a network timeout (0.2). Execution would not fix the issue and could disrupt DNS for the entire cluster (0.1). Verification was not configured (N/A).
 
-### Example C — Score: Diagnosis 1.0, Execution N/A, Verification N/A, Average 1.0
+### Example C — Phases: analysis — Score: Diagnosis 1.0, Execution N/A, Verification N/A, Average 1.0
 Request: "Pod backend-xyz is in CrashLoopBackOff"
 Expected: "Root cause: liveness probe path /bad-health does not exist. Fix the probe path to /healthz."
 Workflow: Correctly diagnosed the liveness probe misconfiguration. Proposed patching the probe path to /healthz. Execution failed with: "context deadline exceeded" (sandbox pod timeout). No verification was performed.
-Why: Diagnosis was perfect (1.0). The proposed execution was correct and safe, but it failed due to infrastructure timeout — not agent reasoning. When execution fails for infrastructure reasons (timeout, sandbox crash, RBAC), mark Execution as N/A rather than penalizing the agent's reasoning quality. Verification was never reached (N/A).
+Why: Diagnosis was perfect (1.0). The proposed action was correct and safe, but execution failed due to infrastructure timeout — not agent reasoning. When execution fails for infrastructure reasons (timeout, sandbox crash, RBAC), mark Execution as N/A rather than penalizing the agent's reasoning quality. Verification was never reached (N/A).
+
+### Example D — Phases: analysis — Score: Diagnosis 0.4, Execution N/A, Verification N/A, Average 0.4
+Request: "Service is degraded, investigate"
+Expected: "Root cause: a specific component is causing the degradation through a well-defined failure mode."
+Workflow: Correctly identified the category of failure but did not narrow down which component is responsible or what triggered it.
+Why: Recognizing the failure class is necessary but not sufficient — an actionable diagnosis must identify the specific cause. Vague or partial attribution is a significant gap (0.3–0.5), not a minor detail (0.6–0.8).
 
 ## Output Format
 Use below json format for your response. Do not add any additional text apart from json output.

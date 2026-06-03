@@ -5,7 +5,7 @@ using the ProposalDriver to create and manage Proposal CRs.
 
 Prerequisites:
     - oc CLI authenticated against a cluster with agentic CRDs installed
-    - OPENAI_API_KEY, SANDBOX_IMAGE env vars set
+    - OPENAI_API_KEY env var set
     - Network connectivity to the cluster API
 
 Each scenario has its own setup/cleanup scripts that source a shared
@@ -63,7 +63,7 @@ def check_crd_installed() -> bool:
 
 def check_env_vars_set() -> bool:
     """Check if required environment variables are set."""
-    return all(os.getenv(var) for var in ("OPENAI_API_KEY", "SANDBOX_IMAGE"))
+    return bool(os.getenv("OPENAI_API_KEY"))
 
 
 pytestmark = pytest.mark.agentic
@@ -93,7 +93,7 @@ class TestProposalPrerequisites:
     def test_env_vars_configured(self) -> None:
         """Verify that required environment variables are set."""
         assert check_env_vars_set(), (
-            "OPENAI_API_KEY and SANDBOX_IMAGE " "environment variables must be set"
+            "OPENAI_API_KEY environment variable must be set"
         )
 
 

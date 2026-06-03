@@ -146,6 +146,10 @@ class TurnData(StreamingMetricsMixin):
         default=None,
         description="Structured results from child Result CRs, populated by ProposalAmender",
     )
+    proposal_phases: Optional[list[str]] = Field(
+        default=None,
+        description="Workflow phases that actually executed (e.g. ['analysis', 'execution'])",
+    )
 
     # Set of turn metrics that don't pass the validation to ignore them later
     _invalid_metrics: set[str] = set()

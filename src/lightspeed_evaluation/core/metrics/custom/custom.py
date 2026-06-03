@@ -367,6 +367,14 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
                 sections.append(f"\n### {label}\n{value}")
         return "\n".join(sections)
 
+    @staticmethod
+    def _build_workflow_phases(turn_data: TurnData) -> str:
+        """Build the workflow phases string for the judge prompt."""
+        phases = turn_data.proposal_phases
+        if phases:
+            return "Phases executed: " + ", ".join(phases)
+        return "Phases executed: unknown (score only dimensions visible in the workflow summary)"
+
     def _evaluate_proposal_evaluation_correctness(
         self,
         _conv_data: Any,
@@ -385,9 +393,11 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             return None, "No expected outcome provided for proposal evaluation"
 
         optional_sections = self._build_optional_expected_outcomes(turn_data)
+        workflow_phases = self._build_workflow_phases(turn_data)
 
         prompt = PROPOSAL_EVALUATION_CORRECTNESS_PROMPT.format(
             request=turn_data.query or "N/A",
+            workflow_phases=workflow_phases,
             workflow_summary=turn_data.response,
             expected_outcome=turn_data.expected_outcome,
             optional_expected_outcomes=optional_sections,

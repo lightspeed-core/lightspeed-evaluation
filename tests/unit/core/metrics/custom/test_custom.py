@@ -412,3 +412,90 @@ class TestProposalEvaluationCorrectness:
 
         prompt: str = call_spy.call_args[0][0]
         assert "senior Site Reliability Engineer" in prompt
+
+    def test_prompt_contains_workflow_phases(self, mocker: MockerFixture) -> None:
+        """Test that the prompt includes workflow phases when set."""
+        cm = _make_custom_metrics(mocker)
+        call_spy = mocker.patch.object(
+            cm, "_call_llm", return_value=_LLM_RESPONSE_ALL_DIMS
+        )
+
+        turn = TurnData(
+            turn_id="t1",
+            query="q",
+            response="r",
+            expected_outcome="e",
+            proposal_phases=["analysis", "execution"],
+        )
+        cm.evaluate(METRIC_NAME, None, _make_scope(turn))
+
+        prompt: str = call_spy.call_args[0][0]
+        assert "Phases executed: analysis, execution" in prompt
+
+    def test_prompt_workflow_phases_unknown_when_none(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that missing proposal_phases produces fallback text."""
+        cm = _make_custom_metrics(mocker)
+        call_spy = mocker.patch.object(
+            cm, "_call_llm", return_value=_LLM_RESPONSE_ALL_DIMS
+        )
+
+        turn = TurnData(
+            turn_id="t1",
+            query="q",
+            response="r",
+            expected_outcome="e",
+        )
+        cm.evaluate(METRIC_NAME, None, _make_scope(turn))
+
+        prompt: str = call_spy.call_args[0][0]
+        assert "Phases executed: unknown" in prompt
+
+
+class TestBuildWorkflowPhases:
+    """Test _build_workflow_phases helper."""
+
+    def test_with_phases(self, mocker: MockerFixture) -> None:
+        """Test phases list produces comma-separated string."""
+        cm = _make_custom_metrics(mocker)
+        turn = TurnData(
+            turn_id="t1",
+            query="q",
+            proposal_phases=["analysis", "execution", "verification"],
+        )
+
+        result = cm._build_workflow_phases(turn)
+
+        assert result == "Phases executed: analysis, execution, verification"
+
+    def test_analysis_only(self, mocker: MockerFixture) -> None:
+        """Test single-phase list."""
+        cm = _make_custom_metrics(mocker)
+        turn = TurnData(
+            turn_id="t1",
+            query="q",
+            proposal_phases=["analysis"],
+        )
+
+        result = cm._build_workflow_phases(turn)
+
+        assert result == "Phases executed: analysis"
+
+    def test_none_phases(self, mocker: MockerFixture) -> None:
+        """Test None proposal_phases produces fallback."""
+        cm = _make_custom_metrics(mocker)
+        turn = TurnData(turn_id="t1", query="q")
+
+        result = cm._build_workflow_phases(turn)
+
+        assert "unknown" in result
+
+    def test_empty_phases(self, mocker: MockerFixture) -> None:
+        """Test empty list produces fallback."""
+        cm = _make_custom_metrics(mocker)
+        turn = TurnData(turn_id="t1", query="q", proposal_phases=[])
+
+        result = cm._build_workflow_phases(turn)
+
+        assert "unknown" in result
