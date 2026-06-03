@@ -1,6 +1,6 @@
 """Unit tests for storage protocol and RunInfo."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from lightspeed_evaluation.core.storage import RunInfo
 
@@ -22,9 +22,9 @@ class TestRunInfo:
 
     def test_sets_timestamp(self) -> None:
         """Test that RunInfo sets a timestamp."""
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         run_info = RunInfo()
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         assert before <= run_info.started_at <= after
 

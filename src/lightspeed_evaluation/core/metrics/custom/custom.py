@@ -5,19 +5,18 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
+from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
 from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
 )
-from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
 from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
     evaluate_proposal_status,
 )
 from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_calls
+from lightspeed_evaluation.core.metrics.manager import MetricLevel
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
-
-from lightspeed_evaluation.core.metrics.manager import MetricLevel
 
 if TYPE_CHECKING:
     from lightspeed_evaluation.core.metrics.manager import MetricManager

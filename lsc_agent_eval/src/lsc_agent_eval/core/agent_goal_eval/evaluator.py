@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from ..utils.exceptions import AgentAPIError, JudgeModelError, ScriptExecutionError
 from ..utils.prompt import ANSWER_CORRECTNESS_PROMPT, INTENT_DETECTION_PROMPT
 from .tool_call_eval import compare_tool_calls
-from .utils import create_evaluation_results
+from .utils import EvalResultItem, create_evaluation_results
 
 if TYPE_CHECKING:
     from ..utils.api_client import AgentHttpClient
@@ -42,12 +42,13 @@ class EvaluationRunner:
         """Run multiple evaluations based on configuration."""
         try:
             # Query the agent once
-            api_input = {
+            api_input: dict[str, str] = {
                 "query": data_config.eval_query,
                 "provider": agent_provider,
                 "model": agent_model,
-                "conversation_id": conversation_id,
             }
+            if conversation_id is not None:
+                api_input["conversation_id"] = conversation_id
 
             if endpoint_type == "streaming":
                 agent_response = self.agent_client.streaming_query_agent(api_input)
@@ -61,7 +62,7 @@ class EvaluationRunner:
             tool_calls = agent_response.get("tool_calls", [])
 
             # Run all evaluations
-            evaluation_results = []
+            evaluation_results: list[EvalResultItem] = []
             for eval_type in data_config.eval_types:
                 try:
                     success = self._evaluate_single_type(

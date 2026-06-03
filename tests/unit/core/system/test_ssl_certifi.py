@@ -5,10 +5,10 @@ from pathlib import Path
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.system.ssl_certifi import (
+    _get_unique_ssl_cert_paths,
     create_ssl_certifi_bundle,
     get_ssl_cert_files_paths_from_system_yaml,
     get_system_ssl_cert_file,
-    _get_unique_ssl_cert_paths,
 )
 
 

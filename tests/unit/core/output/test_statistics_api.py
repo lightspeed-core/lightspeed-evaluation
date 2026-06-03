@@ -4,8 +4,8 @@ import pytest
 
 from lightspeed_evaluation.core.models import EvaluationData, EvaluationResult, TurnData
 from lightspeed_evaluation.core.output.statistics import (
-    compute_field_numeric_stats_from_evaluation_data,
     compute_agent_token_usage,
+    compute_field_numeric_stats_from_evaluation_data,
     compute_overall_stats,
 )
 

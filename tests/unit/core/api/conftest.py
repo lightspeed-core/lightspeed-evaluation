@@ -3,8 +3,8 @@
 from typing import Any
 
 import pytest
-
 from pytest_mock import MockerFixture
+
 from lightspeed_evaluation.core.models import APIConfig
 
 

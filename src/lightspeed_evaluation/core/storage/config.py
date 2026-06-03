@@ -3,7 +3,7 @@
 Defines Pydantic models for file and database storage configuration.
 """
 
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -128,6 +128,6 @@ class DatabaseBackendConfig(BaseModel):
 
 # Discriminated union for polymorphic storage configuration
 StorageBackendConfig = Annotated[
-    Union[FileBackendConfig, DatabaseBackendConfig],
+    FileBackendConfig | DatabaseBackendConfig,
     Field(discriminator="type"),
 ]

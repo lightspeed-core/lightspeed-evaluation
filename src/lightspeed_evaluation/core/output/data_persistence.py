@@ -1,6 +1,6 @@
 """Simple data persistence utilities for evaluation framework."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -27,7 +27,7 @@ def save_evaluation_data(
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Create amended data file with timestamp in output directory
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         amended_data_path = (
             output_path
             / f"{original_path.stem}_amended_{timestamp}{original_path.suffix}"

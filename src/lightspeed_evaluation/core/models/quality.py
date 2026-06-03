@@ -10,12 +10,11 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from lightspeed_evaluation.core.models.statistics import (
+    AgentTokenStats,
     MetricStats,
     NumericStats,
     ScoreStatistics,
-    AgentTokenStats,
 )
-
 
 logger = logging.getLogger(__name__)
 

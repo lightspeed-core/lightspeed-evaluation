@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -66,7 +66,7 @@ class TurnData(StreamingMetricsMixin):
         default=None,
         description="Expected keywords for keyword evaluation (list of alternatives)",
     )
-    expected_response: Optional[Union[str, list[str]]] = Field(
+    expected_response: Optional[str | list[str]] = Field(
         default=None,
         description="Expected response or list of responses for comparison",
     )
@@ -104,7 +104,7 @@ class TurnData(StreamingMetricsMixin):
     )
 
     # Script execution support
-    verify_script: Optional[Union[str, Path]] = Field(
+    verify_script: Optional[str | Path] = Field(
         default=None, description="Path to verify script for script-based evaluation"
     )
 
@@ -161,8 +161,8 @@ class TurnData(StreamingMetricsMixin):
     @field_validator("expected_response")
     @classmethod
     def validate_expected_response(
-        cls, v: Optional[Union[str, list[str]]]
-    ) -> Optional[Union[str, list[str]]]:
+        cls, v: Optional[str | list[str]]
+    ) -> Optional[str | list[str]]:
         """Validate expected response when provided."""
         if v is None:
             return None
@@ -435,11 +435,11 @@ class EvaluationData(BaseModel):
     )
 
     # Script execution support
-    setup_script: Optional[Union[str, Path]] = Field(
+    setup_script: Optional[str | Path] = Field(
         default=None,
         description="Path to setup script to run before conversation starts",
     )
-    cleanup_script: Optional[Union[str, Path]] = Field(
+    cleanup_script: Optional[str | Path] = Field(
         default=None,
         description="Path to cleanup script to run after conversation ends",
     )
@@ -584,7 +584,7 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
     contexts: Optional[str] = Field(
         default=None, description="Contexts formatted as string"
     )
-    expected_response: Optional[Union[str, list[str]]] = Field(
+    expected_response: Optional[str | list[str]] = Field(
         default=None,
         description="Expected response or list of responses for comparison",
     )

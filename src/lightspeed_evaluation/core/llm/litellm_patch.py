@@ -34,8 +34,8 @@ warnings.filterwarnings(
 
 # pylint: disable=wrong-import-position
 from lightspeed_evaluation.core.llm.token_tracker import (  # noqa: E402
-    track_judge_tokens,
     track_embedding_tokens,
+    track_judge_tokens,
 )
 
 logger = logging.getLogger(__name__)

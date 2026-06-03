@@ -3,14 +3,15 @@
 """Unit tests for core API client module."""
 
 from pathlib import Path
-import pytest
-import httpx
-from pytest_mock import MockerFixture
-from pydantic import ValidationError
 
+import httpx
+import pytest
+from pydantic import ValidationError
+from pytest_mock import MockerFixture
+
+from lightspeed_evaluation.core.api.client import APIClient, _is_retryable_server_error
 from lightspeed_evaluation.core.models import APIConfig, APIResponse
 from lightspeed_evaluation.core.system.exceptions import APIError
-from lightspeed_evaluation.core.api.client import APIClient, _is_retryable_server_error
 
 
 class TestAPIClient:
@@ -18,7 +19,6 @@ class TestAPIClient:
 
     def test_initialization_unsupported_endpoint_type(self) -> None:
         """Test initialization fails with unsupported endpoint type."""
-
         # Pydantic will validate the endpoint_type, so this should raise ValidationError
         with pytest.raises(ValidationError, match="Endpoint type must be one of"):
             APIConfig(
@@ -150,7 +150,6 @@ class TestAPIClient:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test query handling timeout."""
-
         mock_client = mocker.Mock()
         mock_client.post.side_effect = httpx.TimeoutException("Timeout")
         mock_client.headers = {}
@@ -231,7 +230,6 @@ class TestAPIClient:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test _handle_response_errors with non-200 status."""
-
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config_query_endpoint)
@@ -488,7 +486,6 @@ class TestAPIClientConfiguration:
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:
         """Test initialization with standard (non-streaming) endpoint."""
-
         mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
 
         client = APIClient(basic_api_config_query_endpoint)

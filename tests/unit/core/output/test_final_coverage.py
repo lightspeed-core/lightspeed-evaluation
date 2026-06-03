@@ -5,6 +5,7 @@
 from pathlib import Path
 
 from pytest_mock import MockerFixture
+
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
@@ -14,11 +15,11 @@ from lightspeed_evaluation.core.models import (
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
 from lightspeed_evaluation.core.output.statistics import (
-    compute_overall_stats,
     compute_detailed_stats,
+    compute_overall_stats,
 )
-from lightspeed_evaluation.core.system.validator import DataValidator
 from lightspeed_evaluation.core.storage import FileBackendConfig
+from lightspeed_evaluation.core.system.validator import DataValidator
 
 
 class TestStatisticsEdgeCases:

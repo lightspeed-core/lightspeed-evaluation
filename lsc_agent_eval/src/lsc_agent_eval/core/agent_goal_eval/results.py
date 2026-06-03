@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -32,7 +32,7 @@ class ResultsManager:
             output_dir = Path(result_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             csv_file = output_dir / f"agent_goal_eval_results_{timestamp}.csv"
             json_file = output_dir / f"agent_goal_eval_summary_{timestamp}.json"
 

@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.system.exceptions import ConfigurationError
-from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.core.models import SystemConfig
 from lightspeed_evaluation.core.storage import get_file_config
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
+from lightspeed_evaluation.core.system.loader import ConfigLoader
 
 
 class TestConfigLoader:

@@ -1,7 +1,7 @@
 """Base Custom LLM class for evaluation framework."""
 
 import logging
-from typing import Any, Union
+from typing import Any
 
 import litellm
 from litellm.exceptions import InternalServerError
@@ -37,7 +37,7 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
         n: int = 1,
         return_single: bool = True,
         **kwargs: Any,
-    ) -> Union[str, list[str]]:
+    ) -> str | list[str]:
         """Make LLM call and return response(s).
 
         Args:

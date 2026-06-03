@@ -10,22 +10,18 @@ from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import (
     APIConfig,
+    CoreConfig,
     EmbeddingConfig,
     JudgePanelConfig,
     LLMConfig,
     LLMPoolConfig,
     SystemConfig,
     VisualizationConfig,
-    CoreConfig,
 )
 from lightspeed_evaluation.core.models.agents import (
     AgentDefaultConfig,
     AgentsConfig,
     HttpApiAgentConfig,
-)
-from lightspeed_evaluation.core.models.system import (
-    LoggingConfig,
-    QualityScoreConfig,
 )
 from lightspeed_evaluation.core.models.llm import (
     GEvalConfig,
@@ -33,6 +29,10 @@ from lightspeed_evaluation.core.models.llm import (
     LLMDefaultsConfig,
     LLMParametersConfig,
     LLMProviderConfig,
+)
+from lightspeed_evaluation.core.models.system import (
+    LoggingConfig,
+    QualityScoreConfig,
 )
 from lightspeed_evaluation.core.storage import FileBackendConfig
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError

@@ -4,9 +4,9 @@
 from typing import Any
 
 import pytest
-from pytest_mock import MockerFixture
 from deepeval.metrics.g_eval import Rubric
 from deepeval.test_case import LLMTestCaseParams
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.metrics.geval import GEvalHandler
 from lightspeed_evaluation.core.metrics.manager import MetricLevel

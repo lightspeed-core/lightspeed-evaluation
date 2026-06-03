@@ -66,6 +66,7 @@ dev = [
     "pytest-cov>=6.0.0,<=6.2.1",
     "pytest-mock==3.15.1",
     "pytest-timeout==2.4.0",
+    "types-PyYAML>=6.0.0",
 ]
 
 [project.scripts]
@@ -75,9 +76,6 @@ generate_answers = "generate_answers.generate_answers:main"
 # Note: torch[cpu] variant configuration removed for uv compatibility
 # Modern PyTorch versions are available on PyPI directly
 
-[tool.isort]
-src_paths = ["src", "tests"]
-
 [tool.black]
 line-length = 88
 
@@ -85,9 +83,12 @@ line-length = 88
 convention = "google"
 
 [tool.mypy]
-disable_error_code = ["union-attr", "return-value", "arg-type", "import-untyped"]
-ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
+explicit_package_bases = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -95,12 +96,19 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.pylint.MASTER]
+source-roots = ["src", "script", "tests"]
 load-plugins = ["pylint_pydantic"]
 init-hook = "import sys; sys.path.append('.')"
+[tool.pylint."MESSAGES CONTROL"]
+disable = ["R0801"]
+
+[tool.pyright]
+extraPaths = ["./src"]
 
 [tool.ruff]
+line-length = 88
 [tool.ruff.lint]
-extend-select = ["TID251"]
+extend-select = ["TID251", "UP006", "UP007", "UP010", "UP017", "UP035", "RUF100", "B009", "B010", "DTZ005", "D202", "I001", "PLR1733"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 unittest = { msg = "use pytest instead of unittest" }
 "unittest.mock" = { msg = "use pytest-mock instead of unittest.mock" }

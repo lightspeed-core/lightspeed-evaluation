@@ -1,16 +1,16 @@
 """Unit tests for core statistics module."""
 
-import pytest
 import pandas as pd
+import pytest
 
 from lightspeed_evaluation.core.models.data import (
     EvaluationResult,
 )
 from lightspeed_evaluation.core.models.statistics import OverallStats
 from lightspeed_evaluation.core.output.statistics import (
-    compute_score_statistics,
     bootstrap_intervals,
     compute_overall_stats,
+    compute_score_statistics,
 )
 
 

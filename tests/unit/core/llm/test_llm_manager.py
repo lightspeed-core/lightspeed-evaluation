@@ -5,18 +5,18 @@ import logging
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.models import (
-    LLMConfig,
-    SystemConfig,
-    LLMPoolConfig,
     JudgePanelConfig,
+    LLMConfig,
+    LLMPoolConfig,
+    SystemConfig,
 )
 from lightspeed_evaluation.core.models.llm import (
     LLMDefaultsConfig,
     LLMParametersConfig,
     LLMProviderConfig,
 )
-from lightspeed_evaluation.core.llm.manager import LLMManager
 
 
 class TestLLMManager:

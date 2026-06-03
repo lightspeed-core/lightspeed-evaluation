@@ -4,10 +4,10 @@ import pytest
 from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models.api import (
-    RAGChunk,
-    AttachmentData,
     APIRequest,
     APIResponse,
+    AttachmentData,
+    RAGChunk,
 )
 
 

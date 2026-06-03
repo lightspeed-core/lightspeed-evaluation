@@ -4,8 +4,8 @@ import logging
 import os
 
 import pytest
-from pytest_mock import MockerFixture
 from _pytest.capture import CaptureFixture
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import LoggingConfig
 from lightspeed_evaluation.core.system.setup import (

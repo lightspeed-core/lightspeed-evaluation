@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Optional
 
 from lightspeed_evaluation.core.models import (
-    LLMPoolConfig,
-    SystemConfig,
-    OverallStats,
     AgentTokenUsage,
+    LLMPoolConfig,
+    OverallStats,
+    SystemConfig,
 )
 
 # Import only lightweight modules at top level

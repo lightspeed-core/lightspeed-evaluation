@@ -23,10 +23,10 @@ update-deps: ## Check pyproject.toml for changes, update the lock file if needed
 	uv sync --group dev
 
 check-types: ## Checks type hints in sources
-	uv run mypy --explicit-package-bases --disallow-untyped-calls --disallow-untyped-defs --disallow-incomplete-defs src/ lsc_agent_eval/src/ tests
+	uv run mypy src/ lsc_agent_eval/src/ tests
 
 black-check:
-	uv run black src tests script lsc_agent_eval --check
+	uv run black --check src tests script lsc_agent_eval
 
 black-format:
 	uv run black src tests script lsc_agent_eval
@@ -118,7 +118,7 @@ shellcheck: ## Run shellcheck
 
 pylint:
 	uv run pylint src
-	uv run pylint --disable=R0801 lsc_agent_eval/src tests
+	uv run pylint lsc_agent_eval/src tests
 
 pyright:
 	uv run pyright src lsc_agent_eval/src tests
@@ -130,4 +130,4 @@ ruff:
 	uv run ruff check src tests script lsc_agent_eval
 
 bandit: ## Security scanning with Bandit
-	uv run bandit -r src/lightspeed_evaluation -ll
+	uv run bandit -c pyproject.toml -r src/lightspeed_evaluation -ll

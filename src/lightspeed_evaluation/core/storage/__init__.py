@@ -25,14 +25,14 @@ Example usage:
     backend.close()
 """
 
+from lightspeed_evaluation.core.storage.composite_storage import (
+    CompositeStorageBackend,
+    NoOpStorageBackend,
+)
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
     StorageBackendConfig,
-)
-from lightspeed_evaluation.core.storage.composite_storage import (
-    CompositeStorageBackend,
-    NoOpStorageBackend,
 )
 from lightspeed_evaluation.core.storage.factory import (
     create_database_backend,

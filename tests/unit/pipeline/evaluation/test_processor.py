@@ -3,7 +3,7 @@
 """Unit tests for ConversationProcessor."""
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 from _pytest.logging import LogCaptureFixture
@@ -108,7 +108,6 @@ class TestConversationProcessor:
         mocker: MockerFixture,
     ) -> None:
         """Test processing with conversation-level metrics."""
-
         turn1 = TurnData(turn_id="turn1", query="Q", response="R")
         conv_data = EvaluationData(
             conversation_group_id="conv1",
@@ -154,7 +153,6 @@ class TestConversationProcessor:
         mocker: MockerFixture,
     ) -> None:
         """Test processing with successful setup script."""
-
         sample_conv_data.setup_script = "setup.sh"
         mock_agent_driver.enabled = True
         mock_agent_driver.execute_turn.return_value = (None, "conv_123")
@@ -221,7 +219,6 @@ class TestConversationProcessor:
         mocker: MockerFixture,
     ) -> None:
         """Test cleanup script is always called."""
-
         sample_conv_data.cleanup_script = "cleanup.sh"
         mock_agent_driver.enabled = True
         mock_agent_driver.execute_turn.return_value = (None, "conv_123")
@@ -267,7 +264,6 @@ class TestConversationProcessor:
         mocker: MockerFixture,
     ) -> None:
         """Test agent execution during turn processing."""
-
         mock_agent_driver.enabled = True
         mock_agent_driver.execute_turn.return_value = (None, "conv_123")
 
@@ -346,7 +342,6 @@ class TestConversationProcessor:
         mocker: MockerFixture,
     ) -> None:
         """Test _evaluate_turn method."""
-
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
             turn_id="turn1",
@@ -376,7 +371,6 @@ class TestConversationProcessor:
         mocker: MockerFixture,
     ) -> None:
         """Test _evaluate_conversation method."""
-
         mock_result = EvaluationResult(
             conversation_group_id="conv1",
             turn_id=None,
@@ -499,7 +493,6 @@ class TestConversationProcessorEvaluateTurn:
         caplog: LogCaptureFixture,
     ) -> None:
         """Test _evaluate_turn with an invalid metric - creates ERROR result and logs error."""
-
         turn_data = TurnData(
             turn_id="1",
             query="What is Python?",
@@ -541,7 +534,6 @@ class TestConversationProcessorEvaluateTurn:
         caplog: LogCaptureFixture,
     ) -> None:
         """Test _evaluate_turn with all metrics invalid - returns ERROR results."""
-
         turn_data = TurnData(
             turn_id="1",
             query="What is Python?",
@@ -579,7 +571,6 @@ class TestConversationProcessorEvaluateTurn:
         caplog: LogCaptureFixture,
     ) -> None:
         """Test _evaluate_turn with mix of valid and invalid metrics."""
-
         turn_data = TurnData(
             turn_id="1",
             query="What is Python?",

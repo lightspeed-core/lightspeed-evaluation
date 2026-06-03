@@ -11,13 +11,13 @@ if TYPE_CHECKING:
         AgentDriver,
         ProposalDriver,
     )
-    from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
     from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
     from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
     from lightspeed_evaluation.pipeline.evaluation.pipeline import EvaluationPipeline
     from lightspeed_evaluation.pipeline.evaluation.processor import (
         ConversationProcessor,
     )
+    from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
 
 _LAZY_IMPORTS = {
     "EvaluationPipeline": (

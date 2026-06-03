@@ -1,8 +1,9 @@
 """Additional tests for script manager to increase coverage."""
 
-from pathlib import Path
-import subprocess
 import logging
+import subprocess
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockFixture
 
@@ -98,7 +99,6 @@ class TestScriptExecutionManagerAdditional:
         self, tmp_path: Path, mocker: MockFixture, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that script output is logged."""
-
         caplog.set_level(logging.DEBUG)
 
         script = tmp_path / "test_script.sh"
@@ -123,7 +123,6 @@ class TestScriptExecutionManagerAdditional:
         self, tmp_path: Path, mocker: MockFixture, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that stderr is logged as error on failure."""
-
         caplog.set_level(logging.ERROR)
 
         script = tmp_path / "test_script.sh"
@@ -147,7 +146,6 @@ class TestScriptExecutionManagerAdditional:
         self, tmp_path: Path, mocker: MockFixture, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that stderr is logged as debug on success."""
-
         caplog.set_level(logging.DEBUG)
 
         script = tmp_path / "test_script.sh"

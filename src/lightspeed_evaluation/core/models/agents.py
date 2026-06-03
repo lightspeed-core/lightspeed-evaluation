@@ -1,7 +1,7 @@
 """Agent configuration models for the evaluation framework."""
 
 import os
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -151,11 +151,18 @@ class ProposalAgentConfig(BaseModel):
     timeout: int = Field(default=900, gt=0)
     cli_timeout: int = Field(default=30, gt=0)
     poll_interval: int = Field(default=2, gt=0)
+    cache_dir: Optional[str] = Field(
+        default=None,
+        description="Location of cached API queries",
+    )
+    cache_enabled: bool = Field(
+        default=True, description="Is caching of API queries enabled?"
+    )
 
 
-# Discriminated union of all agent config types; extend by adding new
+# Type alias for all agent config types; extend by adding new
 # config classes to support additional agent types.
-AgentDefinition = Union[HttpApiAgentConfig, ProposalAgentConfig]
+AgentDefinition = HttpApiAgentConfig | ProposalAgentConfig
 
 
 class AgentDefaultConfig(BaseModel):

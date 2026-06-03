@@ -3,17 +3,16 @@
 from typing import TYPE_CHECKING
 
 # Apply litellm patching globally before any litellm usage in this package
-import lightspeed_evaluation.core.llm.litellm_patch  # noqa: F401
-
+import lightspeed_evaluation.core.llm.litellm_patch
 from lightspeed_evaluation.core.system.lazy_import import create_lazy_getattr
 
 if TYPE_CHECKING:
     # ruff: noqa: F401
     from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
-    from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
     from lightspeed_evaluation.core.llm.deepeval import DeepEvalLLMManager
     from lightspeed_evaluation.core.llm.manager import LLMManager
     from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
+    from lightspeed_evaluation.core.llm.token_tracker import TokenTracker
     from lightspeed_evaluation.core.models import LLMConfig
     from lightspeed_evaluation.core.system.env_validator import validate_provider_env
     from lightspeed_evaluation.core.system.exceptions import LLMError

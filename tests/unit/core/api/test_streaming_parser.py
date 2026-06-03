@@ -5,10 +5,10 @@ from typing import Any
 import pytest
 
 from lightspeed_evaluation.core.api.streaming_parser import (
-    parse_streaming_response,
+    _format_tool_sequences,
     _parse_sse_line,
     _parse_tool_call,
-    _format_tool_sequences,
+    parse_streaming_response,
 )
 
 

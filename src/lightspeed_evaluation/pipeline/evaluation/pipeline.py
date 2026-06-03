@@ -3,7 +3,8 @@
 import asyncio
 import concurrent.futures
 import logging
-from typing import Any, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any, Optional, cast
 
 import litellm
 import tqdm
@@ -29,13 +30,13 @@ from lightspeed_evaluation.core.system.exceptions import (
     StorageError,
 )
 from lightspeed_evaluation.pipeline.evaluation.driver import AgentDriver
-from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
 from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 from lightspeed_evaluation.pipeline.evaluation.processor import (
     ConversationProcessor,
     ProcessorComponents,
 )
+from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -270,8 +271,10 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
             if cache is not None:
                 try:
                     # Use getattr to call untyped third-party method
-                    disconnect = getattr(cache, "disconnect")
+                    disconnect = cast(
+                        Callable[[], Coroutine[Any, Any, object]], cache.disconnect
+                    )
                     asyncio.run(disconnect())
-                except (AttributeError, RuntimeError, OSError):
+                except (AttributeError, RuntimeError, OSError, TypeError):
                     logger.debug("litellm cache disconnect raised; ignoring")
                 litellm.cache = None

@@ -117,13 +117,13 @@ googleapis-common-protos==1.75.0
     #   grpcio-status
 greenlet==3.5.1 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
-grpcio==1.80.0
+grpcio==1.81.0
     # via
     #   deepeval
     #   google-ai-generativelanguage
     #   google-api-core
     #   grpcio-status
-grpcio-status==1.80.0
+grpcio-status==1.81.0
     # via google-api-core
 h11==0.16.0
     # via httpcore
@@ -148,7 +148,7 @@ huggingface-hub==1.16.1
     #   sentence-transformers
     #   tokenizers
     #   transformers
-idna==3.16
+idna==3.17
     # via
     #   anyio
     #   httpx
@@ -210,7 +210,7 @@ langchain-huggingface==1.2.2
     # via langchain
 langchain-openai==1.1.10
     # via ragas
-langchain-protocol==0.0.15
+langchain-protocol==0.0.16
     # via langchain-core
 langgraph==1.1.10
     # via langchain
@@ -222,7 +222,7 @@ langgraph-prebuilt==1.0.13
     # via langgraph
 langgraph-sdk==0.3.15
     # via langgraph
-langsmith==0.8.5
+langsmith==0.8.8
     # via
     #   langchain-community
     #   langchain-core
@@ -338,7 +338,7 @@ proto-plus==1.28.0
     # via
     #   google-ai-generativelanguage
     #   google-api-core
-protobuf==6.33.6
+protobuf==7.35.0
     # via
     #   google-ai-generativelanguage
     #   google-api-core
@@ -455,7 +455,7 @@ rich==14.3.4
     #   typer
 rouge-score==0.1.2
     # via lightspeed-evaluation
-rpds-py==0.30.0
+rpds-py==2026.5.1
     # via
     #   jsonschema
     #   referencing
@@ -477,7 +477,7 @@ seaborn==0.13.2
     # via lightspeed-evaluation
 sentence-transformers==5.2.3
     # via lightspeed-evaluation
-sentry-sdk==2.60.0
+sentry-sdk==2.61.1
     # via deepeval
 setuptools==82.0.1
     # via
@@ -534,7 +534,7 @@ tqdm==4.67.1
     #   transformers
 transformers==5.9.0
     # via sentence-transformers
-typer==0.26.1
+typer==0.26.5
     # via
     #   deepeval
     #   huggingface-hub
@@ -578,6 +578,8 @@ uuid-utils==0.16.0
     # via
     #   langchain-core
     #   langsmith
+websockets==16.0
+    # via langsmith
 wheel==0.47.0
     # via deepeval
 xxhash==3.7.0

@@ -13,20 +13,22 @@ data conflicts.
 import argparse
 import copy
 import json
-import re
 import logging
 import multiprocessing
 import os
+import re
 import sys
 import tempfile
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
-from lightspeed_evaluation.runner.evaluation import run_evaluation
+
 import numpy as np
 import yaml
+
+from lightspeed_evaluation.runner.evaluation import run_evaluation
 
 # Configure logging
 logging.basicConfig(
@@ -70,7 +72,7 @@ def _run_evaluation_worker(
     )
     worker_logger = logging.getLogger(__name__)
 
-    start_time = datetime.now()
+    start_time = datetime.now(UTC)
     temp_config_path: Optional[Path] = None
 
     # Sanitize names for filesystem
@@ -166,7 +168,7 @@ def _run_evaluation_worker(
                 )
 
     # Record end time and duration
-    end_time = datetime.now()
+    end_time = datetime.now(UTC)
     result["end_time"] = end_time.isoformat()
     result["duration_seconds"] = (end_time - start_time).total_seconds()
 
@@ -436,7 +438,7 @@ class MultiProviderEvaluationRunner:
         Returns:
             Dictionary containing evaluation results and metadata
         """
-        start_time = datetime.now()
+        start_time = datetime.now(UTC)
         temp_config_path: Optional[Path] = None
 
         # Sanitize names for filesystem and enforce confinement under output_base
@@ -508,7 +510,7 @@ class MultiProviderEvaluationRunner:
                     logger.warning(f"Failed to delete temp config: {temp_config_path}")
 
         # Record end time and duration
-        end_time = datetime.now()
+        end_time = datetime.now(UTC)
         result["end_time"] = end_time.isoformat()
         result["duration_seconds"] = (end_time - start_time).total_seconds()
 
@@ -611,8 +613,8 @@ class MultiProviderEvaluationRunner:
                         "provider_id": config["provider_id"],
                         "model": config["model"],
                         "output_dir": "",
-                        "start_time": datetime.now().isoformat(),
-                        "end_time": datetime.now().isoformat(),
+                        "start_time": datetime.now(UTC).isoformat(),
+                        "end_time": datetime.now(UTC).isoformat(),
                         "duration_seconds": 0,
                         "success": False,
                         "error": f"Worker process failed: {str(e)}",
@@ -634,7 +636,7 @@ class MultiProviderEvaluationRunner:
         failed = total - successful
 
         summary = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "total_evaluations": total,
             "successful": successful,
             "failed": failed,
@@ -1156,7 +1158,7 @@ class MultiProviderEvaluationRunner:
         analysis_data = {
             "total_models": len(self.model_stats),
             "output_base": str(self.output_base),
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "rankings": [
                 {
                     "rank": rank,

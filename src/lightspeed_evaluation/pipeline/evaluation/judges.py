@@ -1,8 +1,9 @@
 """Judge orchestration module - handles multi-judge evaluation and aggregation."""
 
 import logging
+from collections.abc import Callable
 from statistics import mean
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from lightspeed_evaluation.core.constants import DEFAULT_METRIC_THRESHOLD
 from lightspeed_evaluation.core.llm.manager import LLMManager

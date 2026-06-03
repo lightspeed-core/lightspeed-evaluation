@@ -16,8 +16,8 @@ from lightspeed_evaluation.core.constants import (
 )
 from lightspeed_evaluation.core.models import EvaluationResult
 from lightspeed_evaluation.core.output.statistics import (
-    compute_overall_stats,
     compute_detailed_stats,
+    compute_overall_stats,
 )
 
 CHART_COLORS = {
