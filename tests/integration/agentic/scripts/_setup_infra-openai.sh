@@ -2,7 +2,7 @@
 # Common infrastructure setup for OpenAI provider.
 # Sourced by per-scenario setup scripts — do NOT run directly.
 #
-# Deploys: namespace, Secret, LLMProvider, Agent, SandboxTemplate.
+# Deploys: namespace, Secret, LLMProvider, Agent.
 # All operator-level resources use an "eval-" prefix.
 #
 # Required env vars:
@@ -10,16 +10,12 @@
 #
 # Optional env vars:
 #   AGENT_MODEL      — default: gpt-5.2
-#   SANDBOX_IMAGE    — sandbox container image URL (has default)
 
 set -euo pipefail
 
 export OPERATOR_NS="openshift-lightspeed"
 export TEST_NS="lightspeed-evaluation-test"
 AGENT_MODEL="${AGENT_MODEL:-gpt-5.2}"
-# TODO: replace with a stable tag once a versioned release is available
-SANDBOX_IMAGE="${SANDBOX_IMAGE:-quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/lightspeed-agentic-sandbox:d84b7970dc65ab3e66d52f3f2feeb1b3ec5b72eb}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 for var in OPENAI_API_KEY; do
@@ -73,60 +69,6 @@ spec:
     executionSeconds: 600
     verificationSeconds: 300
   maxTurns: 200
-EOF
-
-# 5. SandboxTemplate
-cat <<EOF | oc apply -f -
-apiVersion: extensions.agents.x-k8s.io/v1alpha1
-kind: SandboxTemplate
-metadata:
-  name: eval-lightspeed-agent
-  namespace: $OPERATOR_NS
-spec:
-  networkPolicyManagement: Unmanaged
-  podTemplate:
-    spec:
-      serviceAccountName: lightspeed-agent
-      automountServiceAccountToken: true
-      containers:
-      - name: agent
-        image: $SANDBOX_IMAGE
-        imagePullPolicy: Always
-        ports:
-          - containerPort: 8080
-            protocol: TCP
-        env:
-          - name: LIGHTSPEED_SKILLS_DIR
-            value: /app/skills
-        volumeMounts:
-          - name: home
-            mountPath: /home/agent
-          - name: tmp
-            mountPath: /tmp
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: "4"
-            memory: 4Gi
-      volumes:
-      - name: home
-        emptyDir: {}
-      - name: tmp
-        emptyDir: {}
 EOF
 
 echo "Infrastructure setup complete (OpenAI)."
