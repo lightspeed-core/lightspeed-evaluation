@@ -18,12 +18,10 @@ export TEST_NS="lightspeed-evaluation-test"
 AGENT_MODEL="${AGENT_MODEL:-gpt-5.2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-for var in OPENAI_API_KEY; do
-  if [ -z "${!var:-}" ]; then
-    echo "ERROR: $var is not set" >&2
-    exit 1
-  fi
-done
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+  echo "ERROR: OPENAI_API_KEY is not set" >&2
+  exit 1
+fi
 
 # 1. Test namespace
 oc apply -f "$SCRIPT_DIR/../fixtures/namespace.yaml"

@@ -92,9 +92,7 @@ class TestProposalPrerequisites:
 
     def test_env_vars_configured(self) -> None:
         """Verify that required environment variables are set."""
-        assert check_env_vars_set(), (
-            "OPENAI_API_KEY environment variable must be set"
-        )
+        assert check_env_vars_set(), "OPENAI_API_KEY environment variable must be set"
 
 
 class TestProposalDriverEvaluation:

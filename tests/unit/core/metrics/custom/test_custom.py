@@ -411,7 +411,9 @@ class TestProposalEvaluationCorrectness:
         cm.evaluate(METRIC_NAME, None, _make_scope(turn))
 
         prompt: str = call_spy.call_args[0][0]
-        assert "senior Site Reliability Engineer" in prompt
+        assert "automated remediation workflow" in prompt
+        assert "OpenShift/Kubernetes" in prompt
+        assert "strict, objective, and critical" in prompt
 
     def test_prompt_contains_workflow_phases(self, mocker: MockerFixture) -> None:
         """Test that the prompt includes workflow phases when set."""

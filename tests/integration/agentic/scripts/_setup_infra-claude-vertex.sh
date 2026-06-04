@@ -23,12 +23,10 @@ GCP_CREDENTIALS_FILE="${GCP_CREDENTIALS_FILE:-$HOME/.config/gcloud/application_d
 CLOUD_ML_REGION="${CLOUD_ML_REGION:-global}"
 AGENT_MODEL="${AGENT_MODEL:-claude-opus-4-6}"
 
-for var in ANTHROPIC_VERTEX_PROJECT_ID; do
-  if [ -z "${!var:-}" ]; then
-    echo "ERROR: $var is not set" >&2
-    exit 1
-  fi
-done
+if [ -z "${ANTHROPIC_VERTEX_PROJECT_ID:-}" ]; then
+  echo "ERROR: ANTHROPIC_VERTEX_PROJECT_ID is not set" >&2
+  exit 1
+fi
 
 if [ ! -f "$GCP_CREDENTIALS_FILE" ]; then
   echo "ERROR: GCP credentials file not found: $GCP_CREDENTIALS_FILE" >&2
