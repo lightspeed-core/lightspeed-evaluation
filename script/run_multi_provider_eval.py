@@ -28,7 +28,7 @@ from typing import Any, Optional
 import numpy as np
 import yaml
 
-from lightspeed_evaluation.runner.evaluation import run_evaluation
+from lightspeed_evaluation.runner.evaluation import create_eval_parser, run_evaluation
 
 # Configure logging
 logging.basicConfig(
@@ -128,11 +128,17 @@ def _run_evaluation_worker(
             temp_file.close()
 
         # Run evaluation
-        summary = run_evaluation(
-            system_config_path=str(temp_config_path),
-            evaluation_data_path=eval_data_path,
-            output_dir=str(output_dir),
+        eval_args = create_eval_parser().parse_args(
+            [
+                "--system-config",
+                str(temp_config_path),
+                "--eval-data",
+                eval_data_path,
+                "--output-dir",
+                str(output_dir),
+            ]
         )
+        summary = run_evaluation(eval_args)
 
         # Check result
         if summary is not None:
@@ -473,11 +479,17 @@ class MultiProviderEvaluationRunner:
             logger.debug(f"Output directory: {output_dir}")
 
             # Run evaluation by calling the function directly
-            summary = run_evaluation(
-                system_config_path=str(temp_config_path),
-                evaluation_data_path=str(self.eval_data_path),
-                output_dir=str(output_dir),
+            eval_args = create_eval_parser().parse_args(
+                [
+                    "--system-config",
+                    str(temp_config_path),
+                    "--eval-data",
+                    str(self.eval_data_path),
+                    "--output-dir",
+                    str(output_dir),
+                ]
             )
+            summary = run_evaluation(eval_args)
 
             # Check result
             if summary is not None:

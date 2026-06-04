@@ -235,8 +235,8 @@ def run_evaluation(  # pylint: disable=too-many-locals
         return None
 
 
-def main() -> int:
-    """Command line interface."""
+def create_eval_parser() -> argparse.ArgumentParser:
+    """Create the argument parser for the evaluation runner."""
     parser = argparse.ArgumentParser(
         description="LightSpeed Evaluation Framework / Tool",
     )
@@ -274,8 +274,12 @@ def main() -> int:
         action="store_true",
         help="Enable cache warmup mode - rebuild caches without reading existing entries",
     )
+    return parser
 
-    eval_args = parser.parse_args()
+
+def main() -> int:
+    """Command line interface."""
+    eval_args = create_eval_parser().parse_args()
 
     summary = run_evaluation(eval_args)
     return 0 if summary is not None else 1
