@@ -292,17 +292,34 @@ class GEvalHandler:  # pylint: disable=R0903
         # Create test case for a single turn
         test_case = LLMTestCase(**test_case_kwargs)
 
-        # Evaluate (DeepEval normalizes score to [0, 1]; pass through as-is)
+        # Evaluate with retry (DeepEval normalizes score to [0, 1]; pass through as-is)
         try:
             metric.measure(test_case)
             self.deepeval_llm_manager.flush_deepevals_pending_tasks()
 
-            score = metric.score if metric.score is not None else 0.0
+            # Extract score and reason
+            score = metric.score
             reason = (
                 str(metric.reason)
                 if hasattr(metric, "reason") and metric.reason
                 else "No reason provided"
             )
+
+            # CRITICAL: Warn if score is None (indicates evaluation failure)
+            # None scores indicate evaluation failures that need investigation:
+            # - Rate limiting (429 errors after all retries exhausted)
+            # - LLM judge returning malformed JSON that fails parsing
+            # - Timeout errors from LLM provider
+            # - API quota/credits exhausted
+            # Warning helps identify these failures for debugging.
+            if score is None:
+                logger.warning(
+                    "GEval turn-level metric returned None score. "
+                    "This typically indicates LLM judge failure (rate limiting, timeout, "
+                    "invalid JSON response, or quota exhausted). Reason: %s",
+                    reason,
+                )
+
             return score, reason
         except Exception as e:  # pylint: disable=W0718
             logger.error(
@@ -405,17 +422,29 @@ class GEvalHandler:  # pylint: disable=R0903
             actual_output="\n".join(conversation_output),
         )
 
-        # Evaluate (DeepEval normalizes score to [0, 1]; pass through as-is)
+        # Evaluate with retry (DeepEval normalizes score to [0, 1]; pass through as-is)
         try:
             metric.measure(test_case)
             self.deepeval_llm_manager.flush_deepevals_pending_tasks()
 
-            score = metric.score if metric.score is not None else 0.0
+            # Extract score and reason
+            score = metric.score
             reason = (
                 str(metric.reason)
                 if hasattr(metric, "reason") and metric.reason
                 else "No reason provided"
             )
+
+            # CRITICAL: Warn if score is None (indicates evaluation failure)
+            # See turn-level evaluation for detailed explanation of why this matters
+            if score is None:
+                logger.warning(
+                    "GEval conversation-level metric returned None score. "
+                    "This typically indicates LLM judge failure (rate limiting, timeout, "
+                    "invalid JSON response, or quota exhausted). Reason: %s",
+                    reason,
+                )
+
             return score, reason
         except Exception as e:  # pylint: disable=W0718
             logger.error(

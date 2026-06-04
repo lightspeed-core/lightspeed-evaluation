@@ -1,5 +1,7 @@
 """Unit tests for DeepEval LLM Manager."""
 
+import logging
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -95,3 +97,62 @@ class TestDeepEvalLLMManager:
         DeepEvalLLMManager("gpt-4", {})
 
         assert mock_litellm.drop_params is True
+
+    def test_patch_deepeval_retries_called_with_configured_value(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test that _patch_deepeval_retries patches LiteLLMModel retry logic."""
+        # Mock LiteLLMModel with methods that have retry decorators
+        mock_generate = mocker.Mock()
+        mock_generate.retry = mocker.Mock()
+        mock_a_generate = mocker.Mock()
+        mock_a_generate.retry = mocker.Mock()
+        mock_generate_raw = mocker.Mock()
+        mock_generate_raw.retry = mocker.Mock()
+        mock_a_generate_raw = mocker.Mock()
+        mock_a_generate_raw.retry = mocker.Mock()
+        mock_generate_samples = mocker.Mock()
+        mock_generate_samples.retry = mocker.Mock()
+
+        mock_litellm_class = mocker.patch(
+            "lightspeed_evaluation.core.llm.deepeval.LiteLLMModel"
+        )
+        mock_litellm_class.generate = mock_generate
+        mock_litellm_class.a_generate = mock_a_generate
+        mock_litellm_class.generate_raw_response = mock_generate_raw
+        mock_litellm_class.a_generate_raw_response = mock_a_generate_raw
+        mock_litellm_class.generate_samples = mock_generate_samples
+
+        # Mock stop_after_attempt to return a mock stop condition
+        mock_stop_condition = mocker.Mock()
+        mock_stop_after_attempt = mocker.patch(
+            "lightspeed_evaluation.core.llm.deepeval.stop_after_attempt",
+            return_value=mock_stop_condition,
+        )
+
+        params = {"num_retries": 5}
+        DeepEvalLLMManager("gpt-4", params)
+
+        # Verify stop_after_attempt was called 5 times (once per method) with the configured retries
+        assert mock_stop_after_attempt.call_count == 5
+        mock_stop_after_attempt.assert_called_with(5)
+
+        # Verify each method's retry.stop was set to the new stop condition
+        assert mock_generate.retry.stop == mock_stop_condition
+        assert mock_a_generate.retry.stop == mock_stop_condition
+        assert mock_generate_raw.retry.stop == mock_stop_condition
+        assert mock_a_generate_raw.retry.stop == mock_stop_condition
+        assert mock_generate_samples.retry.stop == mock_stop_condition
+
+    def test_patch_deepeval_retries_logs_operation(
+        self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that retry patching logs the max_retries value."""
+        mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
+
+        params = {"num_retries": 7}
+
+        with caplog.at_level(logging.INFO):
+            DeepEvalLLMManager("gpt-4", params)
+
+        assert "Patched DeepEval retry logic: max_retries=7" in caplog.text

@@ -1,6 +1,7 @@
 # pylint: disable=too-many-public-methods,protected-access
 
 """Tests for GEval metrics handler."""
+import logging
 from typing import Any
 
 import pytest
@@ -21,6 +22,8 @@ class TestGEvalHandler:
         mock_manager = mocker.MagicMock()
         mock_llm = mocker.MagicMock()
         mock_manager.get_llm.return_value = mock_llm
+        # Mock llm_params to return valid num_retries (needed for retry logic)
+        mock_manager.llm_params = {"num_retries": 3}
         return mock_manager
 
     @pytest.fixture
@@ -355,13 +358,14 @@ class TestGEvalHandler:
         assert call_kwargs["expected_output"] == "Expected response"
         assert call_kwargs["context"] == ["Context 1", "Context 2"]
 
-    def test_evaluate_turn_none_score_returns_zero(
+    def test_evaluate_turn_none_score_warning(
         self,
         handler: GEvalHandler,
         mock_metric_manager: Any,
         mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test that None score from metric is converted to 0.0."""
+        """Test that None score from metric produces warning."""
         mock_geval_class = mocker.patch(
             "lightspeed_evaluation.core.metrics.geval.GEval"
         )
@@ -383,17 +387,17 @@ class TestGEvalHandler:
 
         conv_data = mocker.MagicMock()
 
-        score, reason = handler.evaluate(
-            metric_name="test_metric",
-            conv_data=conv_data,
-            _turn_idx=0,
-            turn_data=turn_data,
-            is_conversation=False,
-        )
-
-        # Should return 0.0 when score is None
-        assert score == 0.0
+        with caplog.at_level(logging.WARNING):
+            score, reason = handler.evaluate(
+                metric_name="test_metric",
+                conv_data=conv_data,
+                _turn_idx=0,
+                turn_data=turn_data,
+                is_conversation=False,
+            )
+        assert score is None
         assert reason == "Could not evaluate"
+        assert "GEval turn-level metric returned None score" in caplog.text
 
     def test_evaluate_turn_handles_exceptions(
         self,

@@ -87,17 +87,34 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
 
         return ConversationalTestCase(turns=turns)
 
-    def _evaluate_metric(self, metric: Any, test_case: Any) -> tuple[float, str]:
+    def _evaluate_metric(self, metric: Any, test_case: Any) -> tuple[float | None, str]:
         """Evaluate and get result."""
         metric.measure(test_case)
         self.llm_manager.flush_deepevals_pending_tasks()
 
+        score = metric.score
         reason = (
             metric.reason
             if hasattr(metric, "reason") and metric.reason
-            else f"Score: {metric.score:.2f}"
+            else f"Score: {score:.2f}" if score is not None else "No score returned"
         )
-        return metric.score, reason
+
+        # CRITICAL: Warn if score is None (indicates evaluation failure)
+        # None scores indicate evaluation failures that need investigation:
+        # - Rate limiting (429 errors)
+        # - LLM judge returning malformed JSON that fails parsing
+        # - Timeout errors from LLM provider
+        # - API quota/credits exhausted
+        if score is None:
+            logger.warning(
+                "%s metric returned None score. "
+                "This typically indicates LLM judge failure (rate limiting, timeout, "
+                "invalid JSON response, or quota exhausted). Reason: %s",
+                metric.__class__.__name__,
+                reason,
+            )
+
+        return score, reason
 
     def evaluate(
         self,
@@ -117,7 +134,8 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             scope: EvaluationScope containing turn info and conversation flag
 
         Returns:
-            Tuple of (score, reason)
+            tuple[float | None, str]: Tuple of (score, reason).
+                Score is in [0, 1] or None if evaluation failed.
         """
         # Route to standard DeepEval metrics
         if metric_name in self.supported_metrics:
