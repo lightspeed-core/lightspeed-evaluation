@@ -109,6 +109,14 @@
           agent: eval-default
       expected_proposal_status:
         phase: Completed
+        max_duration: "15m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
       expected_outcome: >-
         Root cause: the pod oomkill-demo is OOMKilled because its container
         memory limit is too low. Remediation: increase the container memory
