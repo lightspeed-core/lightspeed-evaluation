@@ -223,12 +223,12 @@ def _check_analysis(
     if not proposal_results:
         return False, "No proposal_results available for analysis check"
 
-    analysis_results = proposal_results.get("analysis", [])
+    analysis_results = [
+        r for r in proposal_results.get("analysis", []) if isinstance(r, dict)
+    ]
+    latest_analysis = analysis_results[-1] if analysis_results else {}
     actual_options: list[dict[str, Any]] = [
-        opt
-        for result in analysis_results
-        if isinstance(result, dict)
-        for opt in result.get("options", [])
+        opt for opt in latest_analysis.get("options", []) if isinstance(opt, dict)
     ]
 
     min_options = analysis_expected.get("min_options")
@@ -267,15 +267,18 @@ def _check_execution(
     if not proposal_results:
         return False, "No proposal_results available for execution check"
 
-    execution_results = proposal_results.get("execution", [])
+    execution_results = [
+        r for r in proposal_results.get("execution", []) if isinstance(r, dict)
+    ]
     if not execution_results:
         return False, "No execution results available"
 
+    latest_execution = execution_results[-1]
     phase = execution_expected.get("phase")
     if phase is not None:
-        actual_phase = execution_results[0].get("phase")
+        actual_phase = latest_execution.get("phase")
         if actual_phase is None:
-            conditions = execution_results[0].get("conditions", [])
+            conditions = latest_execution.get("conditions", [])
             if conditions:
                 actual_phase = conditions[0].get("reason", "Unknown")
         if actual_phase != phase:

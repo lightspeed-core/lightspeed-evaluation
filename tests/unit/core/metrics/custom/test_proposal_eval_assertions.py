@@ -582,6 +582,27 @@ class TestAnalysisCheck:
         assert not passed
         assert "does not contain" in reason
 
+    def test_uses_latest_analysis_result_on_retry(self) -> None:
+        """On retry, only options from the latest analysis result are checked."""
+        turn = _make_turn(
+            expected_proposal_status={
+                "analysis": {
+                    "options": [{"risk_in": ["low"]}],
+                },
+            },
+            proposal_status={
+                "conditions": [{"type": "Analyzed", "status": "True"}],
+            },
+            proposal_results={
+                "analysis": [
+                    {"options": [{"proposal": {"risk": "High"}, "diagnosis": {}}]},
+                    {"options": [{"proposal": {"risk": "Low"}, "diagnosis": {}}]},
+                ],
+            },
+        )
+        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        assert score == 1.0
+
     def test_option_index_out_of_range(self) -> None:
         """Expected option at index beyond actual options fails."""
         turn = _make_turn(
@@ -679,6 +700,24 @@ class TestExecutionCheck:
         )
         score, _ = evaluate_proposal_status(None, 0, turn, False)
         assert score == 1.0
+
+    def test_uses_latest_execution_result_on_retry(self) -> None:
+        """On retry, the latest execution result determines the phase."""
+        turn = _make_turn(
+            expected_proposal_status={"execution": {"phase": "Succeeded"}},
+            proposal_status={
+                "conditions": [{"type": "Executed", "status": "True"}],
+            },
+            proposal_results={
+                "execution": [
+                    {"phase": "Failed"},
+                    {"phase": "Succeeded"},
+                ],
+            },
+        )
+        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        assert score == 1.0
+        assert "Execution assertions passed" in reason
 
     def test_no_execution_results_fail(self) -> None:
         """Missing execution results fails."""
