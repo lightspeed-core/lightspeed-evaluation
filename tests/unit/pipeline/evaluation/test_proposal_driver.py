@@ -57,6 +57,7 @@ class TestProposalAgentConfig:
                 "auto_approve": False,
                 "cleanup_proposals": False,
                 "timeout": 60,
+                "cli_timeout": 15,
                 "poll_interval": 5,
             }
         )
@@ -64,6 +65,7 @@ class TestProposalAgentConfig:
         assert config.auto_approve is False
         assert config.cleanup_proposals is False
         assert config.timeout == 60
+        assert config.cli_timeout == 15
         assert config.poll_interval == 5
 
     def test_valid_config_defaults(self) -> None:
@@ -72,6 +74,7 @@ class TestProposalAgentConfig:
         assert config.auto_approve is True
         assert config.cleanup_proposals is True
         assert config.timeout == 900
+        assert config.cli_timeout == 30
         assert config.poll_interval == 2
 
     def test_missing_namespace(self) -> None:
@@ -93,6 +96,16 @@ class TestProposalAgentConfig:
         """Test negative timeout raises ValidationError."""
         with pytest.raises(ValidationError):
             ProposalAgentConfig.model_validate({**VALID_CONFIG, "timeout": -1})
+
+    def test_invalid_cli_timeout_zero(self) -> None:
+        """Test cli_timeout=0 raises ValidationError."""
+        with pytest.raises(ValidationError):
+            ProposalAgentConfig.model_validate({**VALID_CONFIG, "cli_timeout": 0})
+
+    def test_invalid_cli_timeout_negative(self) -> None:
+        """Test negative cli_timeout raises ValidationError."""
+        with pytest.raises(ValidationError):
+            ProposalAgentConfig.model_validate({**VALID_CONFIG, "cli_timeout": -1})
 
     def test_invalid_poll_interval_zero(self) -> None:
         """Test poll_interval=0 raises ValidationError."""
@@ -476,7 +489,9 @@ class TestExecuteTurn:
 
         assert error is None
         assert conv_id is None
-        assert turn.response == "Analysis done; Passed"
+        response = str(turn.response)
+        assert "Analysis done" in response
+        assert "Passed" in response
         assert turn.proposal_status == terminal_status
         driver._cleanup.assert_called_once_with("eval-abcd1234")
 
@@ -584,14 +599,13 @@ class TestExecuteTurn:
         error, _ = driver.execute_turn(turn)
 
         assert error is not None
-        assert "Failed" in error
+        assert "failed" in error
         assert turn.proposal_status == status
-        assert turn.response == "LLM error"
 
     def test_denied_terminal(
         self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
-        """Test denied proposal returns error."""
+        """Test denied proposal populates turn data and returns no error."""
         mock_time = mocker.patch(f"{MODULE}.time")
         mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
@@ -607,8 +621,8 @@ class TestExecuteTurn:
         turn = TurnData(turn_id="t1", query="Q", proposal_spec=SPEC_FULL)
         error, _ = driver.execute_turn(turn)
 
-        assert error is not None
-        assert "Denied" in error
+        assert error is None
+        assert turn.proposal_status == status
 
     def test_get_status_error(
         self, mocker: MockerFixture, driver: ProposalDriver

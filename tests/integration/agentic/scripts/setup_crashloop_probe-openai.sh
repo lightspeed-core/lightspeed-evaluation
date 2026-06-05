@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Deploy CrashLoopBackOff (misconfigured liveness probe) test workload
+# with OpenAI provider infrastructure.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=_setup_infra-openai.sh
+source "$SCRIPT_DIR/_setup_infra-openai.sh"
+
+oc apply -f "$SCRIPT_DIR/../fixtures/crashloop-probe-demo.yaml"
+
+echo "Waiting for crashloop-probe-demo pod to appear..."
+oc wait --for=condition=Available=false deployment/crashloop-probe-demo \
+  -n "$TEST_NS" --timeout=60s 2>/dev/null
+sleep 10
+echo "Setup complete."

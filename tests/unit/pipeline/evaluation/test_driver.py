@@ -14,6 +14,7 @@ from lightspeed_evaluation.pipeline.evaluation.driver import (
     AgentDriver,
     HttpApiDriver,
     ProposalDriver,
+    TerminalOutcome,
 )
 from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
 
@@ -174,6 +175,83 @@ class TestHttpApiDriver:
             HttpApiDriver(
                 {"type": "http_api", "invalid_field_only": True}, enabled=True
             )
+
+
+class TestProposalDriverExecuteTurn:
+    """Unit tests for ProposalDriver.execute_turn outcome routing."""
+
+    @pytest.fixture()
+    def _proposal_driver(self, mocker: MockerFixture) -> ProposalDriver:
+        """Create a ProposalDriver with mocked infrastructure."""
+        mocker.patch("shutil.which", return_value="/usr/bin/oc")
+        driver = ProposalDriver(
+            {"type": "proposal", "namespace": "ns", "timeout": 10, "poll_interval": 1},
+            enabled=True,
+        )
+        apply_result = mocker.Mock(returncode=0, stderr="")
+        mocker.patch.object(driver, "_apply", return_value=apply_result)
+        mocker.patch.object(driver, "_cleanup")
+        mocker.patch.object(driver, "_approve_when_ready", return_value=None)
+        mocker.patch.object(driver._amender, "amend", return_value=None)
+        return driver
+
+    def _stub_terminal(
+        self,
+        mocker: MockerFixture,
+        driver: ProposalDriver,
+        outcome: TerminalOutcome,
+    ) -> None:
+        """Stub _get_status and _is_terminal to return a given outcome immediately."""
+        mocker.patch.object(
+            driver, "_get_status", return_value=({"conditions": []}, None)
+        )
+        mocker.patch.object(driver, "_is_terminal", return_value=outcome)
+
+    def test_completed_returns_no_error(
+        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
+    ) -> None:
+        """Test COMPLETED outcome returns no error."""
+        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.COMPLETED)
+        turn = TurnData(turn_id="1", query="Q")
+
+        error, _ = _proposal_driver.execute_turn(turn)
+
+        assert error is None
+
+    def test_failed_returns_error(
+        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
+    ) -> None:
+        """Test FAILED outcome returns an error message."""
+        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.FAILED)
+        turn = TurnData(turn_id="1", query="Q")
+
+        error, _ = _proposal_driver.execute_turn(turn)
+
+        assert error is not None
+        assert "execution failed" in error
+
+    def test_denied_returns_no_error(
+        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
+    ) -> None:
+        """Test DENIED outcome returns no error so metrics are still evaluated."""
+        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.DENIED)
+        turn = TurnData(turn_id="1", query="Q")
+
+        error, _ = _proposal_driver.execute_turn(turn)
+
+        assert error is None
+
+    def test_escalated_returns_error(
+        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
+    ) -> None:
+        """Test ESCALATED outcome returns an error message."""
+        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.ESCALATED)
+        turn = TurnData(turn_id="1", query="Q")
+
+        error, _ = _proposal_driver.execute_turn(turn)
+
+        assert error is not None
+        assert "escalated" in error
 
 
 class TestAgentDriverBase:

@@ -1,5 +1,6 @@
 """Custom metrics using direct LLM integration."""
 
+import json
 import re
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -9,6 +10,7 @@ from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_key
 from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
+    PROPOSAL_EVALUATION_CORRECTNESS_PROMPT,
 )
 from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
     evaluate_proposal_status,
@@ -47,6 +49,9 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
             "proposal_status": evaluate_proposal_status,
+            "proposal_evaluation_correctness": (
+                self._evaluate_proposal_evaluation_correctness
+            ),
         }
 
         print(f"✅ Custom Metrics initialized: {self.llm.model_name}")
@@ -295,3 +300,119 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             return score, reason
         except LLMError as e:
             return None, f"Intent evaluation failed: {str(e)}"
+
+    def _parse_proposal_eval_response(
+        self, response: str
+    ) -> tuple[Optional[float], str]:
+        """Parse JSON LLM judge response for proposal evaluation.
+
+        Expected JSON schema::
+
+            {
+              "reasoning": "string",
+              "diagnosis": float | null,
+              "execution": float | null,
+              "verification": float | null,
+              "average": float
+            }
+        """
+        try:
+            data = json.loads(response)
+        except json.JSONDecodeError:
+            return None, f"Invalid JSON from LLM: {response[:120]}"
+
+        reasoning: str = data.get("reasoning", "")
+        sub_scores: dict[str, Optional[float]] = {
+            "diagnosis": self._try_parse_float(data.get("diagnosis")),
+            "execution": self._try_parse_float(data.get("execution")),
+            "verification": self._try_parse_float(data.get("verification")),
+        }
+        average: Optional[float] = self._try_parse_float(data.get("average"))
+
+        present = [v for v in sub_scores.values() if v is not None]
+        if average is None and present:
+            average = sum(present) / len(present)
+
+        parts = [
+            f"{dim}={v:.2f}" if v is not None else f"{dim}=N/A"
+            for dim, v in sub_scores.items()
+        ]
+        if average is not None:
+            parts.append(f"avg={average:.2f}")
+        detail = ", ".join(parts)
+        if reasoning:
+            detail = f"{detail} — {reasoning}"
+
+        return average, detail
+
+    @staticmethod
+    def _try_parse_float(value: Any) -> Optional[float]:
+        """Try to parse a float from a value, return None on failure."""
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def _build_optional_expected_outcomes(turn_data: TurnData) -> str:
+        """Build optional expected outcome sections for the judge prompt."""
+        sections: list[str] = []
+        mapping = {
+            "Expected Analysis Outcome": turn_data.expected_analysis_outcome,
+            "Expected Execution Outcome": turn_data.expected_execution_outcome,
+            "Expected Verification Outcome": turn_data.expected_verification_outcome,
+        }
+        for label, value in mapping.items():
+            if value:
+                sections.append(f"\n### {label}\n{value}")
+        return "\n".join(sections)
+
+    @staticmethod
+    def _build_workflow_phases(turn_data: TurnData) -> str:
+        """Build the workflow phases string for the judge prompt."""
+        phases = turn_data.proposal_phases
+        if phases:
+            return "Phases executed: " + ", ".join(phases)
+        return "Phases executed: unknown (score only dimensions visible in the workflow summary)"
+
+    def _evaluate_proposal_evaluation_correctness(
+        self,
+        _conv_data: Any,
+        _turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Evaluate agentic remediation workflow quality using LLM judge."""
+        if is_conversation:
+            return None, "Proposal evaluation correctness is a turn-level metric"
+
+        if turn_data is None or not turn_data.response:
+            return None, "TurnData with response is required for proposal evaluation"
+
+        if not turn_data.expected_outcome:
+            return None, "No expected outcome provided for proposal evaluation"
+
+        optional_sections = self._build_optional_expected_outcomes(turn_data)
+        workflow_phases = self._build_workflow_phases(turn_data)
+
+        prompt = PROPOSAL_EVALUATION_CORRECTNESS_PROMPT.format(
+            request=turn_data.query or "N/A",
+            workflow_phases=workflow_phases,
+            workflow_summary=turn_data.response,
+            expected_outcome=turn_data.expected_outcome,
+            optional_expected_outcomes=optional_sections,
+        )
+
+        try:
+            llm_response = self._call_llm(prompt)
+            score, reason = self._parse_proposal_eval_response(llm_response)
+
+            if score is None:
+                return (
+                    None,
+                    f"Could not parse score from LLM response: {llm_response[:100]}...",
+                )
+
+            return score, f"Proposal evaluation correctness: {reason}"
+        except LLMError as e:
+            return None, f"Proposal evaluation correctness failed: {str(e)}"

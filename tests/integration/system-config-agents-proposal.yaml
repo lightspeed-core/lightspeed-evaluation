@@ -1,3 +1,6 @@
+logging:
+  source_level: DEBUG
+
 core:
   max_threads: 1
   fail_on_invalid_data: true
@@ -11,14 +14,14 @@ agents:
     type: proposal
     namespace: lightspeed-evaluation-test
     auto_approve: true
-    cleanup_proposals: true
-    timeout: 900
+    cleanup_proposals: false
+    timeout: 1200
     poll_interval: 5
 
 storage:
   - type: file
     output_dir: ./eval_output
-    enabled_outputs: [json]
+    enabled_outputs: [csv, json]
 
 environment:
   LITELLM_LOG: ERROR

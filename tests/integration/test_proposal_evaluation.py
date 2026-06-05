@@ -5,13 +5,11 @@ using the ProposalDriver to create and manage Proposal CRs.
 
 Prerequisites:
     - oc CLI authenticated against a cluster with agentic CRDs installed
-    - OPENAI_API_KEY, SANDBOX_IMAGE env vars set
+    - OPENAI_API_KEY env var set
     - Network connectivity to the cluster API
 
-The default setup/cleanup scripts use OpenAI as the LLM provider.
-To test with a different provider (e.g. Claude via Vertex AI), set the
-corresponding env vars and point the eval data at the provider-specific
-scripts (e.g. setup_proposal_fixtures-claude-vertex.sh).
+Each scenario has its own setup/cleanup scripts that source a shared
+infrastructure script per provider (e.g. _setup_infra-openai.sh).
 
 Run with: pytest tests/integration/test_proposal_evaluation.py -v -m agentic
 """
@@ -65,7 +63,7 @@ def check_crd_installed() -> bool:
 
 def check_env_vars_set() -> bool:
     """Check if required environment variables are set."""
-    return all(os.getenv(var) for var in ("OPENAI_API_KEY", "SANDBOX_IMAGE"))
+    return bool(os.getenv("OPENAI_API_KEY"))
 
 
 pytestmark = pytest.mark.agentic
@@ -94,17 +92,15 @@ class TestProposalPrerequisites:
 
     def test_env_vars_configured(self) -> None:
         """Verify that required environment variables are set."""
-        assert check_env_vars_set(), (
-            "OPENAI_API_KEY and SANDBOX_IMAGE " "environment variables must be set"
-        )
+        assert check_env_vars_set(), "OPENAI_API_KEY environment variable must be set"
 
 
 class TestProposalDriverEvaluation:
     """End-to-end tests for ProposalDriver evaluation pipeline."""
 
     @pytest.mark.timeout(1200)
-    def test_full_lifecycle(self, tmp_path: Path) -> None:
-        """Test full Proposal lifecycle: analysis, execution, verification.
+    def test_oomkill_full_lifecycle(self, tmp_path: Path) -> None:
+        """Test OOMKill full lifecycle: status check + judge evaluation.
 
         Verifies:
         - Setup script deploys infrastructure and test workload
@@ -126,9 +122,9 @@ class TestProposalDriverEvaluation:
         )
         all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "proposal_full_lifecycle"
+            d for d in all_data if d.conversation_group_id == "proposal_oomkill_openai"
         ]
-        assert len(eval_data) == 1, "Should find proposal_full_lifecycle data"
+        assert len(eval_data) == 1, "Should find proposal_oomkill_openai data"
 
         evaluate(system_config, eval_data)
 
@@ -200,6 +196,40 @@ class TestProposalDriverEvaluation:
                 "Analysis-only Verified condition should be Skipped, "
                 f"got reason={by_type['Verified'].get('reason')}"
             )
+
+    @pytest.mark.timeout(1200)
+    def test_oomkill_claude_vertex(self, tmp_path: Path) -> None:
+        """Test OOMKill full lifecycle with Claude/Vertex AI provider.
+
+        Verifies:
+        - ProposalDriver populates response with workflow summary
+        - custom:proposal_evaluation_correctness metric runs against response
+        - Pipeline completes without errors
+        """
+        loader = ConfigLoader()
+        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
+        system_config.storage = [
+            FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
+        ]
+
+        validator = DataValidator(
+            api_enabled=True,
+            fail_on_invalid_data=system_config.core.fail_on_invalid_data,
+        )
+        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
+        eval_data = [
+            d
+            for d in all_data
+            if d.conversation_group_id == "proposal_oomkill_claude-vertex"
+        ]
+        assert len(eval_data) == 1, "Should find proposal_oomkill_claude-vertex data"
+
+        evaluate(system_config, eval_data)
+
+        turn = eval_data[0].turns[0]
+        assert (
+            turn.response and turn.response.strip()
+        ), "Response should be populated by ProposalDriver"
 
     @pytest.mark.timeout(120)
     def test_timeout_handling(self, tmp_path: Path) -> None:

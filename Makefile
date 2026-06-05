@@ -114,7 +114,7 @@ shellcheck: ## Run shellcheck
 	@mkdir -p .shellcheck-stable
 	@wget -qO- "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.$$(uname -m).tar.xz" | tar -xJ -C .shellcheck-stable --strip-components=1
 	@PATH="$$PWD/.shellcheck-stable:$$PATH" shellcheck --version
-	@PATH="$$PWD/.shellcheck-stable:$$PATH" find . -name "*.sh" -type f ! -path "./.venv/*" ! -path "./lsc_agent_eval/.venv/*" ! -path "./.history/*" ! -path "./.git/*" -exec shellcheck {} +
+	@PATH="$$PWD/.shellcheck-stable:$$PATH" find . -name "*.sh" -type f ! -path "./.venv/*" ! -path "./lsc_agent_eval/.venv/*" ! -path "./.history/*" ! -path "./.git/*" -exec shellcheck -e SC1091 {} +
 
 pylint:
 	uv run pylint src

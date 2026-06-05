@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -15,17 +13,19 @@ from enum import StrEnum
 from typing import Any, Optional, cast
 
 from lightspeed_evaluation.core.api import APIClient
-from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
-    _derive_phase,
-)
 from lightspeed_evaluation.core.models import (
     APIConfig,
     HttpApiAgentConfig,
     ProposalAgentConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.proposal import derive_phase
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
+from lightspeed_evaluation.pipeline.evaluation.cli import KubeCLI
+from lightspeed_evaluation.pipeline.evaluation.proposal_amender import (
+    ProposalAmender,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,12 @@ class ProposalDriver(AgentDriver):
         """Initialize the proposal driver."""
         super().__init__(config, enabled=enabled)
         self._cli = self._resolve_cli()
+        self._kube_cli = KubeCLI(
+            cli_path=self._cli,
+            namespace=self._config.namespace,
+            timeout=self._config.cli_timeout,
+        )
+        self._amender = ProposalAmender(self._kube_cli)
 
     def validate_config(self, config: dict[str, Any]) -> ProposalAgentConfig:
         """Validate proposal driver configuration."""
@@ -205,75 +211,64 @@ class ProposalDriver(AgentDriver):
                 None,
             )
 
-        turn_data.response = self._extract_summary(status_dict)
-        turn_data.proposal_status = status_dict
+        self._amend_turn_data(turn_data, status_dict)
         self._cleanup(cr_name)
+        return self._outcome_to_result(outcome, cr_name)
 
-        if outcome == TerminalOutcome.COMPLETED:
-            return (None, None)
-        return (
-            f"Proposal '{cr_name}' terminated with outcome: {outcome}",
-            None,
-        )
+    def _amend_turn_data(
+        self, turn_data: TurnData, status_dict: dict[str, Any]
+    ) -> None:
+        """Amend turn data from proposal status, with fallback on amender failure."""
+        amend_err = self._amender.amend(turn_data, status_dict)
+        if amend_err:
+            logger.warning("ProposalAmender failed: %s", amend_err)
+            if not turn_data.response:
+                turn_data.response = self._extract_summary(status_dict)
+            if not turn_data.proposal_status:
+                turn_data.proposal_status = status_dict
+
+    # Failed/Escalated → error (pipeline marks remaining turns as ERROR,
+    # metrics are NOT evaluated). Denied/Completed → no error (metrics run).
+    _OUTCOME_ERRORS: dict[TerminalOutcome, str] = {
+        TerminalOutcome.FAILED: "Proposal '{cr_name}' execution failed",
+        TerminalOutcome.ESCALATED: (
+            "Proposal '{cr_name}' escalated after verification failure"
+        ),
+    }
+
+    @staticmethod
+    def _outcome_to_result(
+        outcome: Optional[TerminalOutcome], cr_name: str
+    ) -> tuple[Optional[str], None]:
+        """Map a terminal outcome to an (error_message, None) result tuple."""
+        template = ProposalDriver._OUTCOME_ERRORS.get(outcome)  # type: ignore[arg-type]
+        if template:
+            return (template.format(cr_name=cr_name), None)
+        if outcome != TerminalOutcome.COMPLETED:
+            logger.warning(
+                "Proposal '%s' terminated with outcome: %s", cr_name, outcome
+            )
+        return (None, None)
 
     @staticmethod
     def _resolve_cli() -> str:
         """Resolve oc or kubectl binary path."""
         return shutil.which("oc") or shutil.which("kubectl") or ""
 
-    def _run_cli(
-        self,
-        args: list[str],
-        stdin: Optional[str] = None,
-    ) -> subprocess.CompletedProcess[str]:
-        """Run a CLI command and return the result."""
-        return subprocess.run(
-            [self._cli, *args],
-            input=stdin,
-            text=True,
-            capture_output=True,
-            env=os.environ.copy(),
-            timeout=self._config.cli_timeout,
-            check=False,
-        )
-
     def _apply(self, manifest: dict[str, Any]) -> subprocess.CompletedProcess[str]:
         """Apply a CR manifest via stdin."""
-        return self._run_cli(["apply", "-f", "-"], stdin=json.dumps(manifest))
+        return self._kube_cli.apply(manifest)
 
     def _get_status(self, cr_name: str) -> tuple[dict[str, Any], Optional[str]]:
         """Get Proposal CR status."""
-        result = self._run_cli(
-            [
-                "get",
-                CRD_PLURAL,
-                cr_name,
-                "-n",
-                self._config.namespace,
-                "-o",
-                "json",
-            ]
-        )
-        if result.returncode != 0:
-            return {}, f"Failed to get status for '{cr_name}': {result.stderr.strip()}"
-        try:
-            cr = json.loads(result.stdout)
-        except json.JSONDecodeError as exc:
-            return {}, f"Failed to parse status JSON for '{cr_name}': {exc}"
+        cr, err = self._kube_cli.get_resource(CRD_PLURAL, cr_name)
+        if err:
+            return {}, f"Failed to get status for '{cr_name}': {err}"
         return cr.get("status", {}), None
 
     def _delete(self, cr_name: str) -> None:
         """Delete a Proposal CR."""
-        self._run_cli(
-            [
-                "delete",
-                CRD_PLURAL,
-                cr_name,
-                "-n",
-                self._config.namespace,
-                "--ignore-not-found",
-            ]
-        )
+        self._kube_cli.delete(CRD_PLURAL, cr_name)
 
     def _cleanup(self, cr_name: str) -> None:
         """Delete the Proposal CR if cleanup is enabled."""
@@ -385,12 +380,18 @@ class ProposalDriver(AgentDriver):
         conditions: list[dict[str, Any]], proposal_spec: dict[str, Any]
     ) -> Optional[TerminalOutcome]:
         """Check if conditions indicate a terminal state."""
-        phase = _derive_phase(conditions, proposal_spec or None)
+        phase = derive_phase(conditions, proposal_spec or None)
         return ProposalDriver._PHASE_TO_OUTCOME.get(phase)
 
     @staticmethod
     def _extract_summary(status_dict: dict[str, Any]) -> str:
-        """Extract a human-readable summary from analysis results."""
+        """Extract a human-readable summary from analysis results.
+
+        Degraded fallback: only called when ProposalAmender.amend() fails.
+        Reads only condition messages, ignoring proposal_results and child
+        Result CRs (analysis/execution/verification). The full rich summary
+        is built by ProposalAmender.build_summary() in the happy path.
+        """
         conditions = status_dict.get("conditions", [])
         messages = [c["message"] for c in conditions if c.get("message")]
         return "; ".join(messages) if messages else "No summary available"

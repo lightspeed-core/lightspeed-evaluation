@@ -420,6 +420,47 @@ expected_tool_calls:
 
 ---
 
+#### Proposal Evaluation Correctness
+
+**What it measures:** How good is the agentic remediation workflow? Evaluates diagnosis, actions, risk management, and verification.
+
+**Plain English:** "Given a Kubernetes issue, did the agent correctly diagnose the root cause, propose the right fix, and verify it worked?"
+
+**Score Range:** 0.0 to 1.0 (higher is better)
+
+**How it works:** A Judge LLM evaluates the workflow summary (produced by ProposalAmender) across four aspects.
+Diagnosis Quality is the most important criterion and carries the most weight:
+1. **Diagnosis Quality** — Is the root cause correctly identified and specific? Is the reasoning sound and the confidence level appropriate?
+2. **Action Appropriateness** — Are the actions safe and well-scoped?
+3. **Risk Management** — Is the risk assessment correct?
+4. **Verification Thoroughness** — Do the checks confirm the fix?
+
+Only aspects present in the workflow are evaluated. Analysis-only workflows are scored on diagnosis quality alone.
+
+**Example:**
+```yaml
+turns:
+  - turn_id: "fix-oom"
+    proposal_spec:
+      request: "Pod CrashLoopBackOff in namespace production"
+      analysis: {}
+      execution: {}
+      verification: {}
+    turn_metrics:
+      - "custom:proposal_evaluation_correctness"
+      - "custom:proposal_status"
+    expected_proposal_status:
+      phase: "Completed"
+```
+
+**When to use:** Evaluating agentic operator workflows (Proposal CRD lifecycle)
+
+**Threshold:** 0.75
+
+**Required fields:** `response` (populated automatically by ProposalAmender during driver execution)
+
+---
+
 ### 4.3 Script-Based Metrics
 
 #### Action Evaluation
@@ -1739,6 +1780,7 @@ lightspeed-eval --eval-data config/eval_batch2.yaml
 | **custom:answer_correctness** | 0-1 | Matches expected answer | 0.75 | query, response, expected_response |
 | **custom:intent_eval** | 0/1 | Has right intent | 1 | query, response, expected_intent |
 | **custom:tool_eval** | 0/1 | Called correct tools with expected results | 1 | expected_tool_calls, tool_calls |
+| **custom:proposal_evaluation_correctness** | 0-1 | Agentic workflow quality (diagnosis, actions, risk) | 0.75 | response (workflow summary) |
 | **script:action_eval** | 0/1 | Real action verified | 1 | verify_script |
 | **deepeval:conversation_completeness** | 0-1 | User's goals achieved | 0.8 | Full conversation |
 | **deepeval:conversation_relevancy** | 0-1 | Stayed on topic | 0.7 | Full conversation |

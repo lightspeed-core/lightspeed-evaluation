@@ -3,10 +3,10 @@
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
-    _derive_phase,
     evaluate_proposal_status,
 )
 from lightspeed_evaluation.core.models import TurnData
+from lightspeed_evaluation.core.proposal import derive_phase
 
 
 def _make_turn(
@@ -61,7 +61,7 @@ class TestDerivePhase:
     def test_completed_analysis_only(self) -> None:
         """Analysis-only with Analyzed=True derives Completed."""
         conditions = [{"type": "Analyzed", "status": "True"}]
-        assert _derive_phase(conditions, {"analysis": {}}) == "Completed"
+        assert derive_phase(conditions, {"analysis": {}}) == "Completed"
 
     def test_completed_full_lifecycle(self) -> None:
         """Full lifecycle with all conditions True derives Completed."""
@@ -71,7 +71,7 @@ class TestDerivePhase:
             {"type": "Verified", "status": "True"},
         ]
         spec: dict[str, Any] = {"analysis": {}, "execution": {}, "verification": {}}
-        assert _derive_phase(conditions, spec) == "Completed"
+        assert derive_phase(conditions, spec) == "Completed"
 
     def test_completed_execution_no_verification(self) -> None:
         """Execution without verification with Executed=True derives Completed."""
@@ -80,7 +80,7 @@ class TestDerivePhase:
             {"type": "Executed", "status": "True"},
         ]
         spec: dict[str, Any] = {"analysis": {}, "execution": {}}
-        assert _derive_phase(conditions, spec) == "Completed"
+        assert derive_phase(conditions, spec) == "Completed"
 
     def test_failed_condition(self) -> None:
         """Any condition with status False derives Failed."""
@@ -88,7 +88,7 @@ class TestDerivePhase:
             {"type": "Analyzed", "status": "True"},
             {"type": "Executed", "status": "False", "reason": "Error"},
         ]
-        assert _derive_phase(conditions) == "Failed"
+        assert derive_phase(conditions) == "Failed"
 
     def test_retrying_execution_not_failed(self) -> None:
         """RetryingExecution reason does not count as failure."""
@@ -97,22 +97,22 @@ class TestDerivePhase:
             {"type": "Verified", "status": "False", "reason": "RetryingExecution"},
         ]
         spec: dict[str, Any] = {"analysis": {}, "execution": {}, "verification": {}}
-        assert _derive_phase(conditions, spec) == "InProgress"
+        assert derive_phase(conditions, spec) == "InProgress"
 
     def test_denied(self) -> None:
         """Denied=True derives Denied."""
         conditions = [{"type": "Denied", "status": "True"}]
-        assert _derive_phase(conditions) == "Denied"
+        assert derive_phase(conditions) == "Denied"
 
     def test_escalated(self) -> None:
         """Escalated=True derives Escalated."""
         conditions = [{"type": "Escalated", "status": "True"}]
-        assert _derive_phase(conditions) == "Escalated"
+        assert derive_phase(conditions) == "Escalated"
 
     def test_in_progress(self) -> None:
         """Unknown status derives InProgress."""
         conditions = [{"type": "Analyzed", "status": "Unknown"}]
-        assert _derive_phase(conditions) == "InProgress"
+        assert derive_phase(conditions) == "InProgress"
 
     def test_no_proposal_spec_infers_last_step(self) -> None:
         """Without proposal_spec, infers last step from conditions."""
@@ -121,7 +121,7 @@ class TestDerivePhase:
             {"type": "Executed", "status": "True"},
             {"type": "Verified", "status": "True"},
         ]
-        assert _derive_phase(conditions, None) == "Completed"
+        assert derive_phase(conditions, None) == "Completed"
 
 
 class TestPhaseCheck:

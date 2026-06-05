@@ -1,43 +1,8 @@
-- conversation_group_id: proposal_full_lifecycle
-  description: Full lifecycle — analysis, execution, verification
-  tag: proposal
-  setup_script: agentic/scripts/setup_proposal_fixtures-openai.sh
-  cleanup_script: agentic/scripts/cleanup_proposal_fixtures-openai.sh
-  conversation_metrics: []
-  conversation_metrics_metadata: {}
-  turns:
-    - turn_id: turn_1
-      response: null
-      proposal_spec:
-        request: >-
-          A pod named oomkill-demo in namespace lightspeed-evaluation-test
-          is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
-          fix the memory configuration, and verify the fix.
-        targetNamespaces:
-          - lightspeed-evaluation-test
-        tools:
-          skills:
-            # TODO(rioloc): replace with a stable image
-            - image: quay.io/harpatil/agentic-skills:latest
-              paths:
-                - /skills/find-token
-        analysis:
-          agent: eval-default
-        execution:
-          agent: eval-default
-        verification:
-          agent: eval-default
-      expected_proposal_status:
-        phase: Completed
-      turn_metrics:
-        - custom:proposal_status
-      turn_metrics_metadata: {}
-
 - conversation_group_id: proposal_analysis_only
   description: Analysis-only — no execution or verification (query from proposal_spec.request)
-  tag: proposal
-  setup_script: agentic/scripts/setup_proposal_fixtures-openai.sh
-  cleanup_script: agentic/scripts/cleanup_proposal_fixtures-openai.sh
+  tag: proposal_analysis_only
+  setup_script: agentic/scripts/setup_oomkill-openai.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
@@ -62,3 +27,243 @@
       turn_metrics:
         - custom:proposal_status
       turn_metrics_metadata: {}
+
+- conversation_group_id: proposal_analysis_verification_only
+  description: Analysis + verification without execution — verify diagnosis without remediation
+  tag: proposal_analysis_verification
+  setup_script: agentic/scripts/setup_oomkill-openai.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named oomkill-demo in namespace lightspeed-evaluation-test
+          is in CrashLoopBackOff. Analyze the root cause and verify the
+          diagnosis, but do not execute any remediation.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Executed
+            status: "True"
+            reason: Skipped
+      expected_outcome: >-
+        Root cause: the pod oomkill-demo is OOMKilled because its container
+        memory limit is too low (e.g. 128Mi). The verification step should
+        confirm the diagnosis by checking the pod status and OOMKill events.
+      expected_analysis_outcome: >-
+        The agent should identify that the pod oomkill-demo is being
+        OOMKilled because its container memory limit is set too low
+        (e.g. 128Mi), causing the kernel to terminate the process.
+      expected_verification_outcome: >-
+        The agent should verify the diagnosis by confirming that the pod
+        shows OOMKilled in its container last state and that the memory
+        limit is indeed insufficient.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: proposal_oomkill_openai
+  description: OOMKill full lifecycle — status check + LLM-as-judge evaluation
+  tag: proposal_oomkill
+  setup_script: agentic/scripts/setup_oomkill-openai.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named oomkill-demo in namespace lightspeed-evaluation-test
+          is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
+          fix the memory configuration, and verify the fix.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+      expected_outcome: >-
+        Root cause: the pod oomkill-demo is OOMKilled because its container
+        memory limit is too low. Remediation: increase the container memory
+        limit (e.g. to 512Mi) and verify the pod reaches Running state
+        without further OOMKill events.
+      expected_analysis_outcome: >-
+        The agent should identify that the pod oomkill-demo is being
+        OOMKilled because its container memory limit is set too low
+        (e.g. 128Mi), causing the kernel to terminate the process.
+      expected_execution_outcome: >-
+        The agent should increase the container memory limit (e.g. to
+        512Mi) by patching the pod or its owning workload resource.
+      expected_verification_outcome: >-
+        The agent should verify the pod reaches Running state without
+        further OOMKill events.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: proposal_oomkill_claude-vertex
+  description: Judge evaluation — LLM-as-judge on full lifecycle workflow
+  tag: proposal_oomkill
+  setup_script: agentic/scripts/setup_oomkill-claude-vertex.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill-claude-vertex.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named oomkill-demo in namespace lightspeed-evaluation-test
+          is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
+          fix the memory configuration, and verify the fix.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_outcome: >-
+        Root cause: the pod oomkill-demo is OOMKilled because its container
+        memory limit is too low. Remediation: increase the container memory
+        limit (e.g. to 512Mi) and verify the pod reaches Running state
+        without further OOMKill events.
+      expected_analysis_outcome: >-
+        The agent should identify that the pod oomkill-demo is being
+        OOMKilled because its container memory limit is set too low
+        (e.g. 128Mi), causing the kernel to terminate the process.
+      expected_execution_outcome: >-
+        The agent should increase the container memory limit (e.g. to
+        512Mi) by patching the pod or its owning workload resource.
+      expected_verification_outcome: >-
+        The agent should verify the pod reaches Running state without
+        further OOMKill events.
+      turn_metrics:
+        - custom:proposal_evaluation_correctness
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: proposal_crashloop_probe_openai
+  description: CrashLoopBackOff caused by misconfigured liveness probe — full lifecycle
+  tag: proposal_crashloop_probe
+  setup_script: agentic/scripts/setup_crashloop_probe-openai.sh
+  cleanup_script: agentic/scripts/cleanup_crashloop_probe-openai.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
+          is in CrashLoopBackOff. The container keeps restarting. Analyze the
+          root cause, fix the issue, and verify the pod is stable.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+      expected_outcome: >-
+        Root cause: the liveness probe on pod crashloop-probe-demo is
+        configured to check an endpoint that does not exist (/nonexistent-health),
+        causing the kubelet to kill and restart the container repeatedly.
+        Remediation: fix the liveness probe path to point to a valid health
+        endpoint (e.g. / or remove the probe) and verify the pod reaches
+        Running state without further restarts.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: proposal_crashloop_probe_claude-vertex
+  description: CrashLoopBackOff caused by misconfigured liveness probe — full lifecycle (Claude/Vertex)
+  tag: proposal_crashloop_probe
+  setup_script: agentic/scripts/setup_crashloop_probe-claude-vertex.sh
+  cleanup_script: agentic/scripts/cleanup_crashloop_probe-claude-vertex.sh
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
+          is in CrashLoopBackOff. The container keeps restarting. Analyze the
+          root cause, fix the issue, and verify the pod is stable.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools:
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+      expected_outcome: >-
+        Root cause: the liveness probe on pod crashloop-probe-demo is
+        configured to check an endpoint that does not exist (/nonexistent-health),
+        causing the kubelet to kill and restart the container repeatedly.
+        Remediation: fix the liveness probe path to point to a valid health
+        endpoint (e.g. / or remove the probe) and verify the pod reaches
+        Running state without further restarts.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
