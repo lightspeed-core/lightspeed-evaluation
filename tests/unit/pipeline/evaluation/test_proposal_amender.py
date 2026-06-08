@@ -70,7 +70,10 @@ def _get_response(turn: TurnData) -> str:
 
 
 DIAGNOSIS_STATUS: dict[str, Any] = {
-    "conditions": [{"type": "Completed", "status": "True", "reason": "Succeeded"}],
+    "conditions": [
+        {"type": "Started", "status": "True", "reason": "StepStarted"},
+        {"type": "Completed", "status": "True", "reason": "Succeeded"},
+    ],
     "options": [
         {
             "title": "Increase memory limit",
@@ -111,7 +114,10 @@ DIAGNOSIS_STATUS: dict[str, Any] = {
 }
 
 EXECUTION_STATUS: dict[str, Any] = {
-    "conditions": [{"type": "Completed", "status": "True", "reason": "Succeeded"}],
+    "conditions": [
+        {"type": "Started", "status": "True", "reason": "StepStarted"},
+        {"type": "Completed", "status": "True", "reason": "Succeeded"},
+    ],
     "actionsTaken": [
         {
             "type": "patch",
@@ -127,7 +133,10 @@ EXECUTION_STATUS: dict[str, Any] = {
 }
 
 VERIFICATION_STATUS: dict[str, Any] = {
-    "conditions": [{"type": "Completed", "status": "True", "reason": "Succeeded"}],
+    "conditions": [
+        {"type": "Started", "status": "True", "reason": "StepStarted"},
+        {"type": "Completed", "status": "True", "reason": "Succeeded"},
+    ],
     "checks": [
         {
             "name": "pod-running",
@@ -393,7 +402,10 @@ class TestAmendEdgeCases:
     def test_analysis_with_failure_reason(self) -> None:
         """Test analysis result with failureReason."""
         failed_status: dict[str, Any] = {
-            "conditions": [{"type": "Completed", "status": "False"}],
+            "conditions": [
+                {"type": "Started", "status": "True", "reason": "StepStarted"},
+                {"type": "Completed", "status": "False", "reason": "Failed"},
+            ],
             "failureReason": "LLM timeout",
         }
         cli = MockCLI({"analysisresults/ar-fail": {"status": failed_status}})
