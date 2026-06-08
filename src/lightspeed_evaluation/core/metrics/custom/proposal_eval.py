@@ -1,9 +1,33 @@
 """Proposal status evaluation for CRD-based agent workflows."""
 
+import re
+from datetime import datetime
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.models import TurnData
 from lightspeed_evaluation.core.proposal import derive_phase
+
+
+def _parse_duration(duration_str: str) -> float:
+    """Parse a Go-style duration string into total seconds.
+
+    Args:
+        duration_str: Duration like "5m", "2m30s", "1h", "1h30m15s".
+
+    Returns:
+        Total seconds as a float.
+
+    Raises:
+        ValueError: If the format is unrecognized or empty.
+    """
+    match = re.fullmatch(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?", duration_str)
+    if not match or not any(match.groups()):
+        msg = f"Unrecognized duration format: '{duration_str}'"
+        raise ValueError(msg)
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return float(hours * 3600 + minutes * 60 + seconds)
 
 
 def _check_phase(
@@ -36,6 +60,234 @@ def _check_phase_in(
     if actual in phase_in:
         return True, f"Phase '{actual}' in {phase_in}"
     return False, f"Phase '{actual}' not in {phase_in}"
+
+
+def _check_max_duration(
+    expected: dict[str, Any],
+    conditions: list[dict[str, Any]],
+) -> Optional[tuple[bool, str]]:
+    """Check that total elapsed time across conditions is within limit."""
+    max_duration = expected.get("max_duration")
+    if max_duration is None:
+        return None
+
+    timestamps: list[datetime] = []
+    for cond in conditions:
+        ts = cond.get("lastTransitionTime") if isinstance(cond, dict) else None
+        if ts is not None:
+            timestamps.append(datetime.fromisoformat(ts))
+
+    if not timestamps:
+        return False, "No lastTransitionTime found in conditions"
+
+    elapsed = (max(timestamps) - min(timestamps)).total_seconds()
+    limit = _parse_duration(max_duration)
+    if elapsed <= limit:
+        return True, f"Duration {elapsed:.0f}s within limit {max_duration}"
+    return False, f"Duration {elapsed:.0f}s exceeds limit {max_duration} ({limit:.0f}s)"
+
+
+def _check_max_attempts(
+    expected: dict[str, Any],
+    conditions: list[dict[str, Any]],
+    proposal_status: dict[str, Any],
+) -> Optional[tuple[bool, str]]:
+    """Check that the number of execution attempts is within limit."""
+    max_attempts = expected.get("max_attempts")
+    if max_attempts is None:
+        return None
+
+    actual = proposal_status.get("attempts")
+    if actual is None:
+        actual = (
+            sum(
+                1
+                for c in conditions
+                if isinstance(c, dict) and c.get("reason") == "RetryingExecution"
+            )
+            + 1
+        )
+
+    if actual <= max_attempts:
+        return True, f"Attempts {actual} within limit {max_attempts}"
+    return False, f"Attempts {actual} exceeds limit {max_attempts}"
+
+
+def _check_analysis_component(
+    comp_type: str,
+    expected_comp: dict[str, Any],
+    actual_by_type: dict[str, dict[str, Any]],
+) -> Optional[tuple[bool, str]]:
+    """Check a single expected component against actual components by type."""
+    if expected_comp.get("absent"):
+        present = comp_type in actual_by_type
+        detail = "should be absent but is present" if present else "correctly absent"
+        return not present, f"Component '{comp_type}' {detail}"
+
+    actual = actual_by_type.get(comp_type)
+    if actual is None:
+        return False, f"Component '{comp_type}' not found"
+
+    match = expected_comp.get("match")
+    if match is not None:
+        for key, value in match.items():
+            if actual.get(key) != value:
+                return (
+                    False,
+                    f"Component '{comp_type}' field '{key}': "
+                    f"expected '{value}', got '{actual.get(key)}'",
+                )
+
+    match_contains = expected_comp.get("match_contains")
+    if match_contains is not None:
+        for key, substring in match_contains.items():
+            actual_val = str(actual.get(key, ""))
+            if substring.lower() not in actual_val.lower():
+                return (
+                    False,
+                    f"Component '{comp_type}' field '{key}' does not contain "
+                    f"'{substring}': got '{actual_val[:200]}'",
+                )
+
+    required = expected_comp.get("required")
+    if required is not None:
+        for key in required:
+            if key not in actual:
+                return (
+                    False,
+                    f"Component '{comp_type}' missing required field '{key}'",
+                )
+
+    return True, f"Component '{comp_type}' assertions passed"
+
+
+def _check_analysis_option(
+    idx: int,
+    expected_opt: dict[str, Any],
+    actual_opt: dict[str, Any],
+) -> Optional[tuple[bool, str]]:
+    """Check assertions on a single analysis option by index."""
+    risk_in = expected_opt.get("risk_in")
+    if risk_in is not None:
+        actual_risk = actual_opt.get("proposal", {}).get("risk", "")
+        if actual_risk.lower() not in [r.lower() for r in risk_in]:
+            return False, f"Option[{idx}] risk '{actual_risk}' not in {risk_in}"
+
+    confidence_in = expected_opt.get("confidence_in")
+    if confidence_in is not None:
+        actual_conf = actual_opt.get("diagnosis", {}).get("confidence", "")
+        if actual_conf.lower() not in [c.lower() for c in confidence_in]:
+            return (
+                False,
+                f"Option[{idx}] confidence '{actual_conf}' not in {confidence_in}",
+            )
+
+    diagnosis_contains = expected_opt.get("diagnosis_contains")
+    if diagnosis_contains is not None:
+        summary = actual_opt.get("diagnosis", {}).get("summary", "")
+        for substring in diagnosis_contains:
+            if substring.lower() not in summary.lower():
+                return (
+                    False,
+                    f"Option[{idx}] diagnosis does not contain "
+                    f"'{substring}': got '{summary[:200]}'",
+                )
+
+    components = expected_opt.get("components")
+    if components is not None:
+        actual_by_type = {
+            c["type"]: c
+            for c in actual_opt.get("components", [])
+            if isinstance(c, dict) and "type" in c
+        }
+        for exp_comp in components:
+            ctype = exp_comp.get("type")
+            if ctype is None:
+                return False, f"Option[{idx}] component assertion missing 'type'"
+            result = _check_analysis_component(ctype, exp_comp, actual_by_type)
+            if result is not None and not result[0]:
+                return False, f"Option[{idx}]: {result[1]}"
+
+    return True, f"Option[{idx}] assertions passed"
+
+
+def _check_analysis(
+    expected: dict[str, Any],
+    proposal_results: Optional[dict[str, Any]],
+) -> Optional[tuple[bool, str]]:
+    """Check analysis-specific assertions (options, risk, confidence, components)."""
+    analysis_expected = expected.get("analysis")
+    if analysis_expected is None:
+        return None
+
+    if not proposal_results:
+        return False, "No proposal_results available for analysis check"
+
+    analysis_results = [
+        r for r in proposal_results.get("analysis", []) if isinstance(r, dict)
+    ]
+    latest_analysis = analysis_results[-1] if analysis_results else {}
+    actual_options: list[dict[str, Any]] = [
+        opt for opt in latest_analysis.get("options", []) if isinstance(opt, dict)
+    ]
+
+    min_options = analysis_expected.get("min_options")
+    if min_options is not None and len(actual_options) < min_options:
+        return (
+            False,
+            f"Analysis has {len(actual_options)} options, "
+            f"expected at least {min_options}",
+        )
+
+    expected_options = analysis_expected.get("options", [])
+    for idx, exp_opt in enumerate(expected_options):
+        if idx >= len(actual_options):
+            return (
+                False,
+                f"Option[{idx}] expected but only {len(actual_options)} options present",
+            )
+        result = _check_analysis_option(idx, exp_opt, actual_options[idx])
+        if result is not None:
+            passed, reason = result
+            if not passed:
+                return False, reason
+
+    return True, "Analysis assertions passed"
+
+
+def _check_execution(
+    expected: dict[str, Any],
+    proposal_results: Optional[dict[str, Any]],
+) -> Optional[tuple[bool, str]]:
+    """Check execution-specific assertions."""
+    execution_expected = expected.get("execution")
+    if execution_expected is None:
+        return None
+
+    if not proposal_results:
+        return False, "No proposal_results available for execution check"
+
+    execution_results = [
+        r for r in proposal_results.get("execution", []) if isinstance(r, dict)
+    ]
+    if not execution_results:
+        return False, "No execution results available"
+
+    latest_execution = execution_results[-1]
+    phase = execution_expected.get("phase")
+    if phase is not None:
+        actual_phase = latest_execution.get("phase")
+        if actual_phase is None:
+            conditions = latest_execution.get("conditions", [])
+            if conditions:
+                actual_phase = conditions[0].get("reason", "Unknown")
+        if actual_phase != phase:
+            return (
+                False,
+                f"Execution phase: expected '{phase}', got '{actual_phase}'",
+            )
+
+    return True, "Execution assertions passed"
 
 
 def _check_conditions(
@@ -145,12 +397,18 @@ def evaluate_proposal_status(
         return 0.0, "proposal_status not populated by driver"
 
     expected = turn_data.expected_proposal_status
-    conditions = turn_data.proposal_status.get("conditions", [])
+    proposal_status = turn_data.proposal_status
+    conditions = proposal_status.get("conditions", [])
     proposal_spec = turn_data.proposal_spec
+    proposal_results = turn_data.proposal_results
 
     checks = [
         _check_phase(expected, conditions, proposal_spec),
         _check_phase_in(expected, conditions, proposal_spec),
+        _check_max_duration(expected, conditions),
+        _check_max_attempts(expected, conditions, proposal_status),
+        _check_analysis(expected, proposal_results),
+        _check_execution(expected, proposal_results),
         _check_conditions(expected, conditions),
         _check_verification(expected, conditions),
     ]
