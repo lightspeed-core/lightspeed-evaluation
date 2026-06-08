@@ -1,6 +1,6 @@
 """Configuration models for storage backends.
 
-Defines Pydantic models for file and database storage configuration.
+Defines Pydantic models for file, database, and Langfuse storage configuration.
 """
 
 from typing import Annotated, Literal, Optional
@@ -126,8 +126,39 @@ class DatabaseBackendConfig(BaseModel):
         return self
 
 
+class LangfuseBackendConfig(BaseModel):
+    """Configuration for Langfuse observability storage backend.
+
+    Exports evaluation scores to Langfuse as a trace with per-metric scores.
+    Requires the ``langfuse`` optional extra: ``pip install 'lightspeed-evaluation[langfuse]'``
+
+    Credentials are resolved from config fields first, then ``LANGFUSE_PUBLIC_KEY``,
+    ``LANGFUSE_SECRET_KEY``, and ``LANGFUSE_HOST`` environment variables as fallback.
+
+    Example:
+        - type: "langfuse"
+          host: "https://cloud.langfuse.com"
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["langfuse"] = "langfuse"
+    host: Optional[str] = Field(
+        default=None,
+        description="Langfuse API host URL (falls back to LANGFUSE_HOST env var)",
+    )
+    public_key: Optional[str] = Field(
+        default=None,
+        description="Langfuse public key (falls back to LANGFUSE_PUBLIC_KEY env var)",
+    )
+    secret_key: Optional[str] = Field(
+        default=None,
+        description="Langfuse secret key (falls back to LANGFUSE_SECRET_KEY env var)",
+    )
+
+
 # Discriminated union for polymorphic storage configuration
 StorageBackendConfig = Annotated[
-    FileBackendConfig | DatabaseBackendConfig,
+    FileBackendConfig | DatabaseBackendConfig | LangfuseBackendConfig,
     Field(discriminator="type"),
 ]

@@ -300,6 +300,13 @@ storage:
   #   database: "./eval_results.db"
   #   table_name: "evaluation_results"
 
+  # Langfuse backend (optional) - export scores to Langfuse observability platform
+  # Requires: pip install 'lightspeed-evaluation[langfuse]'
+  # Credentials via env vars: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST
+  # Or provide them inline below:
+  # - type: "langfuse"
+  #   host: "https://cloud.langfuse.com"
+
 # Visualization settings
 visualization:
   figsize: [12, 8]            # Graph size (width, height)

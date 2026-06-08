@@ -255,6 +255,7 @@ The `storage` list in `system.yaml` selects where results go. You can use **seve
 |--------|---------|
 | **File backend** | CSV, JSON, and TXT under `output_dir`; tune formats with `enabled_outputs` and columns with `csv_columns`. |
 | **Database (optional)** | SQLite, PostgreSQL, or MySQL for querying and analysis; writes are **incremental** per conversation; storage errors are logged as warnings and **do not** abort the evaluation run. |
+| **Langfuse (optional)** | Export evaluation scores to [Langfuse](https://langfuse.com) for observability and analytics. Creates one trace per run with per-metric numeric scores. Requires `pip install 'lightspeed-evaluation[langfuse]'`. |
 
 For field tables, full YAML examples (file-only, file + SQLite, file + Postgres), CSV column reference, and notes on API token columns, see **[Storage](docs/configuration.md#storage)** in the configuration guide.
 

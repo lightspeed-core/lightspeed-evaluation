@@ -32,6 +32,7 @@ from lightspeed_evaluation.core.storage.composite_storage import (
 from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
+    LangfuseBackendConfig,
     StorageBackendConfig,
 )
 from lightspeed_evaluation.core.storage.factory import (
@@ -56,6 +57,7 @@ __all__ = [
     "StorageError",
     "FileBackendConfig",
     "DatabaseBackendConfig",
+    "LangfuseBackendConfig",
     "StorageBackendConfig",
     "CompositeStorageBackend",
     "NoOpStorageBackend",
