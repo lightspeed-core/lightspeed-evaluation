@@ -12,6 +12,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
 - **Panel of Judges**: Use multiple LLMs as judges to reduce bias and improve evaluation accuracy with configurable aggregation strategies
 - **API Integration**: Direct integration with external API for real-time data generation (if enabled)
+- **Agentic Lightspeed Evaluation**: Support for Agentic Lightspeed evaluation via Proposal CRD workflow
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations (per-judge tracking for panel mode)
 - **API Latency Tracking**: Measure and analyze API response times with percentile statistics (p50, p95, p99) for performance monitoring
@@ -191,6 +192,17 @@ export OPENAI_API_KEY="your-key"
 uv run lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml>
 ```
 
+#### 3. Agentic Workflow Evaluation (CRD-based)
+```bash
+# Set required environment variable(s) for Judge-LLM and cluster access
+export OPENAI_API_KEY="your-key"
+export KUBECONFIG="/path/to/your/kubeconfig"
+
+# Use system configuration with agents.enabled: true and a proposal agent
+# Evaluation data should contain proposal_spec and expected_proposal_status
+uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <PROPOSAL_EVAL_DATA.yaml>
+```
+
 ## 📊 Supported Metrics
 
 ### Turn-Level (Single Query)
@@ -211,6 +223,7 @@ uv run lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls, arguments, and optional results with regex pattern matching
   - Agentic Workflow Evaluation
+    - [`proposal_status`](src/lightspeed_evaluation/core/metrics/custom/proposal_eval.py) - Deterministic assertions on proposal CRD status (phase, timing, analysis, execution, verification)
     - [`proposal_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
 - **Script-based**
   - Action Evaluation
@@ -246,6 +259,55 @@ metrics_metadata:
 ### System Config
 
 See [`docs/configuration.md`](docs/configuration.md) for the detailed description.
+
+### Agents Config
+
+The `agents:` block in `system.yaml` is a generic configuration layer for agent-based evaluation. It supports multiple agent types through pluggable drivers:
+
+| Type | Description |
+|------|-------------|
+| `http_api` | Wraps the existing HTTP API client (query/streaming endpoint). This is the type that the legacy `api:` block auto-migrates to. |
+| `proposal` | Manages the full lifecycle of Proposal CRDs on OpenShift clusters (create → poll → auto-approve → cleanup). Used for OpenShift Agentic Lightspeed. |
+
+**Backward Compatibility:** When `agents:` is absent, the existing `api:` block auto-migrates to `agents:` with a single `http_api` agent. When both are present, `agents:` takes precedence.
+
+**Config Resolution:** Agent configuration follows a 2-level priority chain (per-key merge):
+
+```
+eval_data.agent_config  >  agents.<name> typed fields  >  default.agent_config
+(highest priority)         (agent definition)              (fallback for unset fields)
+```
+
+**Example — HTTP API agent:**
+```yaml
+agents:
+  enabled: true
+  default:
+    agent: ols_api
+  ols_api:
+    type: http_api
+    api_base: http://localhost:8080
+    endpoint_type: streaming
+    provider: openai
+    model: gpt-4o
+```
+
+**Example — Proposal CRD agent:**
+```yaml
+agents:
+  enabled: true
+  default:
+    agent: openshift_agentic_lightspeed
+  openshift_agentic_lightspeed:
+    type: proposal
+    namespace: openshift-lightspeed
+    auto_approve: true
+    cleanup_proposals: true
+    timeout: 900
+    poll_interval: 2
+```
+
+For proposal agent configuration fields, evaluation data structure, assertion reference, and full examples, see **[Agentic Lightspeed Evaluation](docs/agentic_lightspeed_evaluation.md)**.
 
 ### Storage Configuration
 
@@ -326,6 +388,8 @@ For field tables, full YAML examples (file-only, file + SQLite, file + Postgres)
 | `cleanup_script`                | string         | ❌       | Path to cleanup script (Optional, used when API is enabled)          |
 | `conversation_metrics`          | list[string]   | ❌       | Conversation-level metrics (Optional, if override is required)       |
 | `conversation_metrics_metadata` | dict           | ❌       | Conversation-level metric config (Optional, if override is required) |
+| `agent`                         | string         | ❌       | Agent to use for this conversation group (overrides default)         |
+| `agent_config`                  | dict           | ❌       | Per-conversation agent config overrides                              |
 | `turns`                         | list[TurnData] | ✅       | List of conversation turns           |
 
 #### Turn Data Fields
@@ -343,6 +407,9 @@ For field tables, full YAML examples (file-only, file + SQLite, file + Postgres)
 | `expected_tool_calls` | list[list[list[dict]]] | 📋 | Expected tool call sequences (multiple alternative sets) | ❌ |
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
 | `verify_script`       | string           | 📋       | Path to verification script          | ❌                    |
+| `description`         | string           | ❌       | Human-readable label for reports (falls back to query) | ❌              |
+| `proposal_spec`       | dict             | 📋       | Inline proposal spec for CRD-based agents | ❌                    |
+| `expected_proposal_status` | dict        | 📋       | Assertions to check against proposal status | ❌                  |
 | `turn_metrics`        | list[string]     | ❌       | Turn-specific metrics to evaluate    | ❌                    |
 | `turn_metrics_metadata` | dict           | ❌       | Turn-specific metric configuration   | ❌                    |
 
@@ -355,6 +422,8 @@ Examples
 > - `expected_tool_calls`: Required for `custom:tool_eval` (multiple alternative sets format)
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)
+> - `proposal_spec`: Required for `custom:proposal_status` (CRD-based agent workflows)
+> - `expected_proposal_status`: Required for `custom:proposal_status`
 
 **Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. GEval), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
 
@@ -461,6 +530,37 @@ Script paths in evaluation data can be specified in multiple ways:
 - **Absolute Paths**: Used as-is
 - **Home Directory Paths**: Expands to user's home directory
 
+#### Agentic Workflow Evaluation
+
+The framework supports evaluation of event-driven agentic workflows via Kubernetes CRDs. The `proposal` agent type manages the full Proposal CR lifecycle: create, poll status, auto-approve, capture results, and cleanup.
+
+```yaml
+- conversation_group_id: full_lifecycle
+  description: OOMKill remediation — full lifecycle
+  setup_script: agentic/scripts/setup.sh
+  cleanup_script: agentic/scripts/cleanup.sh
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named oomkill-demo in namespace test-ns is in CrashLoopBackOff
+          due to OOMKill. Analyze, fix, and verify.
+        targetNamespaces: [test-ns]
+        analysis: { agent: eval-default }
+        execution: { agent: eval-default }
+        verification: { agent: eval-default }
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "15m"
+        execution: { phase: Succeeded }
+        verification: { passed: true }
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+```
+
+For prerequisites, configuration, assertion reference, and full examples, see **[Agentic Lightspeed Evaluation](docs/agentic_lightspeed_evaluation.md)**.
+
 ## 🔑 Authentication & Environment
 
 ### Required Environment Variables
@@ -495,6 +595,14 @@ export AZURE_API_BASE="https://your-resource.openai.azure.com/"
 # API authentication for external system (MCP)
 export API_KEY="your-api-endpoint-key"
 ```
+
+#### For Agentic Workflow Evaluation (When using `proposal` agent type)
+```bash
+# Kubernetes cluster access
+export KUBECONFIG="/path/to/your/kubeconfig"
+```
+
+> **Note:** The Agentic Lightspeed operator must be installed on the cluster and the user must have RBAC permissions for Proposal CRD operations in the target namespace. `oc` or `kubectl` must be available in PATH.
 
 ## 📈 Output & Visualization
 
