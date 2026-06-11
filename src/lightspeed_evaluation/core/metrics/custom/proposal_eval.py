@@ -7,6 +7,8 @@ from typing import Any, Optional
 from lightspeed_evaluation.core.models import TurnData
 from lightspeed_evaluation.core.proposal import derive_phase
 
+_NON_TERMINAL_PHASES: frozenset[str] = frozenset({"StepStarted"})
+
 
 def _parse_duration(duration_str: str) -> float:
     """Parse a Go-style duration string into total seconds.
@@ -28,6 +30,56 @@ def _parse_duration(duration_str: str) -> float:
     minutes = int(match.group(2) or 0)
     seconds = int(match.group(3) or 0)
     return float(hours * 3600 + minutes * 60 + seconds)
+
+
+def _get_result_phase(result: dict[str, Any]) -> Optional[str]:
+    """Extract the outcome phase from a step result.
+
+    Checks a direct ``phase`` field first.  When absent, looks for
+    a ``Completed`` condition by type (matching the operator's
+    kubebuilder printcolumn ``conditions[?(@.type=="Completed")].reason``).
+    Falls back to the first condition's reason for in-progress results
+    that only carry a ``Started`` condition.
+
+    Args:
+        result: A single step result dictionary.
+
+    Returns:
+        The phase string, or None if not found.
+    """
+    phase = result.get("phase")
+    if phase is not None:
+        return phase
+    conditions = result.get("conditions", [])
+    for cond in conditions:
+        if isinstance(cond, dict) and cond.get("type") == "Completed":
+            return cond.get("reason")
+    if conditions and isinstance(conditions[0], dict):
+        return conditions[0].get("reason")
+    return None
+
+
+def _latest_terminal_result(
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return the latest result with a terminal phase.
+
+    Skips results whose phase is non-terminal (e.g. ``StepStarted``
+    from an in-progress retry) and returns the most recent result
+    that has reached a terminal phase.  Falls back to the last result
+    when every entry is non-terminal.
+
+    Args:
+        results: Non-empty list of step result dictionaries.
+
+    Returns:
+        The chosen result dictionary.
+    """
+    for result in reversed(results):
+        phase = _get_result_phase(result)
+        if phase is None or phase not in _NON_TERMINAL_PHASES:
+            return result
+    return results[-1]
 
 
 def _check_phase(
@@ -226,7 +278,9 @@ def _check_analysis(
     analysis_results = [
         r for r in proposal_results.get("analysis", []) if isinstance(r, dict)
     ]
-    latest_analysis = analysis_results[-1] if analysis_results else {}
+    latest_analysis = (
+        _latest_terminal_result(analysis_results) if analysis_results else {}
+    )
     actual_options: list[dict[str, Any]] = [
         opt for opt in latest_analysis.get("options", []) if isinstance(opt, dict)
     ]
@@ -273,14 +327,10 @@ def _check_execution(
     if not execution_results:
         return False, "No execution results available"
 
-    latest_execution = execution_results[-1]
+    latest_execution = _latest_terminal_result(execution_results)
     phase = execution_expected.get("phase")
     if phase is not None:
-        actual_phase = latest_execution.get("phase")
-        if actual_phase is None:
-            conditions = latest_execution.get("conditions", [])
-            if conditions:
-                actual_phase = conditions[0].get("reason", "Unknown")
+        actual_phase = _get_result_phase(latest_execution) or "Unknown"
         if actual_phase != phase:
             return (
                 False,

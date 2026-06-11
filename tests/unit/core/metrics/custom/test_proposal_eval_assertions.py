@@ -633,14 +633,21 @@ class TestExecutionCheck:
     """Execution phase assertion checks."""
 
     def test_phase_match_pass(self) -> None:
-        """Execution phase match returns 1.0."""
+        """Execution phase match returns 1.0 with realistic conditions."""
         turn = _make_turn(
             expected_proposal_status={"execution": {"phase": "Succeeded"}},
             proposal_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
             proposal_results={
-                "execution": [{"phase": "Succeeded"}],
+                "execution": [
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Succeeded"},
+                        ],
+                    },
+                ],
             },
         )
         score, reason = evaluate_proposal_status(None, 0, turn, False)
@@ -655,7 +662,14 @@ class TestExecutionCheck:
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
             proposal_results={
-                "execution": [{"phase": "Failed"}],
+                "execution": [
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Failed"},
+                        ],
+                    },
+                ],
             },
         )
         score, reason = evaluate_proposal_status(None, 0, turn, False)
@@ -664,8 +678,8 @@ class TestExecutionCheck:
         assert "'Succeeded'" in reason
         assert "'Failed'" in reason
 
-    def test_phase_from_conditions_fallback(self) -> None:
-        """Falls back to condition reason when no phase field."""
+    def test_phase_from_completed_condition(self) -> None:
+        """Reads Completed condition reason, skipping Started."""
         turn = _make_turn(
             expected_proposal_status={"execution": {"phase": "Succeeded"}},
             proposal_status={
@@ -675,11 +689,29 @@ class TestExecutionCheck:
                 "execution": [
                     {
                         "conditions": [
-                            {
-                                "type": "Completed",
-                                "status": "True",
-                                "reason": "Succeeded",
-                            }
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Succeeded"},
+                        ]
+                    },
+                ],
+            },
+        )
+        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        assert score == 1.0
+        assert "Execution assertions passed" in reason
+
+    def test_phase_from_only_completed_condition(self) -> None:
+        """Works when only Completed condition is present (no start time)."""
+        turn = _make_turn(
+            expected_proposal_status={"execution": {"phase": "Succeeded"}},
+            proposal_status={
+                "conditions": [{"type": "Executed", "status": "True"}],
+            },
+            proposal_results={
+                "execution": [
+                    {
+                        "conditions": [
+                            {"type": "Completed", "reason": "Succeeded"},
                         ]
                     },
                 ],
@@ -710,14 +742,69 @@ class TestExecutionCheck:
             },
             proposal_results={
                 "execution": [
-                    {"phase": "Failed"},
-                    {"phase": "Succeeded"},
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Failed"},
+                        ],
+                    },
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Succeeded"},
+                        ],
+                    },
                 ],
             },
         )
         score, reason = evaluate_proposal_status(None, 0, turn, False)
         assert score == 1.0
         assert "Execution assertions passed" in reason
+
+    def test_skips_trailing_non_terminal_step_started(self) -> None:
+        """A trailing in-progress result is skipped in favour of the completed one."""
+        turn = _make_turn(
+            expected_proposal_status={"execution": {"phase": "Succeeded"}},
+            proposal_status={
+                "conditions": [{"type": "Executed", "status": "True"}],
+            },
+            proposal_results={
+                "execution": [
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Succeeded"},
+                        ],
+                    },
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                        ],
+                    },
+                ],
+            },
+        )
+        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        assert score == 1.0
+        assert "Execution assertions passed" in reason
+
+    def test_all_non_terminal_falls_back_to_last(self) -> None:
+        """When every result is in-progress, the last one is used."""
+        turn = _make_turn(
+            expected_proposal_status={"execution": {"phase": "Succeeded"}},
+            proposal_status={
+                "conditions": [{"type": "Executed", "status": "True"}],
+            },
+            proposal_results={
+                "execution": [
+                    {"conditions": [{"type": "Started", "reason": "StepStarted"}]},
+                    {"conditions": [{"type": "Started", "reason": "StepStarted"}]},
+                ],
+            },
+        )
+        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        assert score == 0.0
+        assert "'StepStarted'" in reason
 
     def test_no_execution_results_fail(self) -> None:
         """Missing execution results fails."""
@@ -777,7 +864,14 @@ class TestCheckOrdering:
             },
             proposal_results={
                 "analysis": [{"options": [{"diagnosis": {}}]}],
-                "execution": [{"phase": "Succeeded"}],
+                "execution": [
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Succeeded"},
+                        ],
+                    },
+                ],
             },
         )
         score, reason = evaluate_proposal_status(None, 0, turn, False)
@@ -813,7 +907,14 @@ class TestCheckOrdering:
                 "analysis": [
                     {"options": [{"diagnosis": {}, "proposal": {}}]},
                 ],
-                "execution": [{"phase": "Succeeded"}],
+                "execution": [
+                    {
+                        "conditions": [
+                            {"type": "Started", "reason": "StepStarted"},
+                            {"type": "Completed", "reason": "Succeeded"},
+                        ],
+                    },
+                ],
             },
         )
         score, reason = evaluate_proposal_status(None, 0, turn, False)
