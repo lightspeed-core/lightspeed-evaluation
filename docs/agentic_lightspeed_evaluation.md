@@ -1,0 +1,235 @@
+# Agentic Lightspeed Evaluation
+
+This guide covers how to evaluate event-driven agentic workflows using the LightSpeed Evaluation Framework. While the framework's default mode evaluates synchronous HTTP request-response interactions, the agentic evaluation mode supports CRD-based workflows where the "answer" is a trajectory of events and a final cluster state.
+
+## Overview
+
+OpenShift Agentic Lightspeed systems is event-driven: Proposal CRDs are applied, workflows are executed, and cluster state changes. The evaluation framework now supports a `proposal` agent type in order to monitor the cluster state and evaluate agent results against it.
+
+## Prerequisites
+
+- OpenShift cluster with the Agentic Lightspeed operator installed
+- `oc` or `kubectl` CLI available in PATH
+- `KUBECONFIG` environment variable pointing to a valid kubeconfig
+- RBAC permissions for Proposal CRD operations in the target namespace
+- Judge LLM API key (e.g., `OPENAI_API_KEY`) for `proposal_evaluation_correctness`
+
+## Configuration
+
+```yaml
+agents:
+  enabled: true
+
+  default:
+    agent: openshift_agentic_lightspeed
+    agent_config:
+      timeout: 600
+
+  openshift_agentic_lightspeed:
+    type: proposal
+    namespace: openshift-lightspeed
+    auto_approve: true
+    cleanup_proposals: true
+    timeout: 900
+    poll_interval: 2
+```
+
+### Proposal Agent Configuration
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `namespace` | string | *(required)* | Kubernetes namespace containing Proposal resources |
+| `auto_approve` | bool | `true` | Automatically approve proposals when phase is Proposed |
+| `cleanup_proposals` | bool | `true` | Delete eval proposals after status is captured |
+| `timeout` | int | `900` | Total timeout in seconds for the proposal lifecycle |
+| `cli_timeout` | int | `30` | Timeout in seconds for individual oc/kubectl commands |
+| `poll_interval` | int | `2` | Seconds between status polls |
+| `cache_dir` | string | `null` | Location of cached queries |
+| `cache_enabled` | bool | `true` | Enable caching |
+
+### Turn Data Structure
+
+For agentic workflows, each turn uses `proposal_spec` to define the proposal and `expected_proposal_status` to define success criteria.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `description` | string | No | Human-readable label for reports (falls back to `query`) |
+| `proposal_spec` | dict | Conditional | Inline proposal spec — contains `request`, `targetNamespaces`, workflow phase gates |
+| `expected_proposal_status` | dict | Conditional | Assertions to check against the proposal status |
+| `proposal_status` | dict | No | Raw CRD status populated by the driver (framework-managed) |
+| `proposal_results` | dict | No | Child Result CRs populated by ProposalAmender (framework-managed) |
+
+> `query` remains required but can be auto-populated from `proposal_spec.request` when absent.
+
+### Example: Analysis-Only Workflow
+
+The simplest agentic evaluation — analysis phase only, no execution or verification:
+
+```yaml
+- conversation_group_id: analysis_only
+  description: Analysis-only — diagnose without remediating
+  setup_script: agentic/scripts/setup.sh
+  cleanup_script: agentic/scripts/cleanup.sh
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named oomkill-demo in namespace test-ns
+          is in CrashLoopBackOff. Analyze the root cause.
+        targetNamespaces:
+          - test-ns
+        tools:
+          skills:
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+      turn_metrics:
+        - custom:proposal_status
+```
+
+### Example: Full Lifecycle (Analysis + Execution + Verification)
+
+Complete remediation workflow with deterministic assertions and LLM-as-judge:
+
+```yaml
+- conversation_group_id: full_lifecycle
+  description: OOMKill remediation — full lifecycle with LLM-as-judge
+  setup_script: agentic/scripts/setup.sh
+  cleanup_script: agentic/scripts/cleanup.sh
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod named oomkill-demo in namespace test-ns
+          is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
+          fix the memory configuration, and verify the fix.
+        targetNamespaces:
+          - test-ns
+        tools:
+          skills:
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "15m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+          options:
+            - risk_in: [low, medium]
+              confidence_in: [medium, high]
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod oomkill-demo is OOMKilled because its container
+        memory limit is too low. Remediation: increase the container memory
+        limit and verify the pod reaches Running state.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+```
+
+## Proposal Lifecycle
+
+The `proposal` driver manages the full Proposal CR lifecycle:
+
+1. **Build Proposal CR** — Merge `proposal_spec` + `request` + agent config
+2. **Create CR on cluster** — Auto-generated name: `eval-<uuid8>`
+3. **Poll status** — Loop every `poll_interval` seconds
+4. **Auto-approve** — If phase is `Proposed` and `auto_approve` is enabled
+5. **Terminal phase** — `Completed` / `Failed` / `Denied` / `Escalated`
+6. **Populate turn_data** — `proposal_status` (full status dict) + `proposal_results` (child Result CRs) + `response` (Markdown workflow summary)
+7. **Cleanup proposal CR** — Delete the created CR (if `cleanup_proposals` is enabled)
+8. **Metrics evaluate** — `custom:proposal_status` and/or `custom:proposal_evaluation_correctness` on enriched data
+
+Setup/cleanup scripts are only needed for **infrastructure** (deploying the workload to trigger, LLM provider CRs, sandbox CRs, etc.). The driver handles Proposal CR lifecycle autonomously.
+
+## Metrics
+
+### `custom:proposal_status` — Deterministic Assertions
+
+A single metric that runs all assertion checks from `expected_proposal_status` in sequence, failing fast at the first failure. Score is `1.0` if all checks pass, `0.0` on first failure.
+
+Checks run in order: **phase → timing → analysis → execution → verification**.
+
+#### `expected_proposal_status` Reference
+
+**Phase checks:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phase` | string | Exact phase match (e.g., `Completed`, `Failed`, `Escalated`) |
+| `phase_in` | list[string] | Phase must be one of these values |
+
+**Timing checks:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max_duration` | string | Max elapsed time across conditions. Go-style duration: `"5m"`, `"2m30s"`, `"1h"` |
+| `max_attempts` | int | Max number of execution attempts. Read from `status.attempts` or inferred from `RetryingExecution` conditions |
+
+**Analysis checks:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `analysis.min_options` | int | Minimum number of analysis options required |
+| `analysis.options[].risk_in` | list[string] | Allowed risk levels for the option (case-insensitive) |
+| `analysis.options[].confidence_in` | list[string] | Allowed confidence levels (case-insensitive) |
+| `analysis.options[].diagnosis_contains` | list[string] | Substrings the diagnosis summary must contain (case-insensitive) |
+| `analysis.options[].components[].type` | string | Component type to assert on |
+| `analysis.options[].components[].match` | dict | Exact field match on component |
+| `analysis.options[].components[].match_contains` | dict | Substring match on component fields (case-insensitive) |
+| `analysis.options[].components[].required` | list[string] | Fields that must be present on the component |
+| `analysis.options[].components[].absent` | bool | Assert that this component type does not exist |
+
+**Execution checks:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `execution.phase` | string | Expected execution phase (e.g., `Succeeded`, `Failed`) |
+
+**Verification checks:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `verification.passed` | bool | Whether verification passed (`status == "True"` on `Verified` condition) |
+| `verification.summary_contains` | string | Substring the verification message must contain (case-insensitive) |
+
+**Condition checks:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions[].type` | string | Condition type to assert on (e.g., `Executed`, `Verified`) |
+| `conditions[].status` | string | Expected condition status (e.g., `"True"`, `"False"`) |
+| `conditions[].reason` | string | Expected condition reason (e.g., `Skipped`, `Succeeded`) |
+
+> On retried proposals, analysis and execution checks use the **latest** (most recent) Result CR, so assertions reflect the final execution state.
+
+### `custom:proposal_evaluation_correctness` — LLM-as-Judge
+
+Evaluates agentic remediation workflow quality using a Judge LLM. Scores 0.0–1.0 based on four aspects (only phases present in the workflow are scored):
+
+1. **Diagnosis Quality** — Is the root cause correctly identified? (highest weight)
+2. **Action Appropriateness** — Are the actions safe and well-scoped?
+3. **Risk Management** — Is the risk assessment correct?
+4. **Verification Thoroughness** — Do the checks confirm the fix?
+
+**Threshold:** 0.75
+
+**Required fields:** `response` (populated automatically during execution)
