@@ -70,7 +70,7 @@ api:
   enabled: true                        # Enable API calls instead of using pre-filled data
   api_base: http://localhost:8080      # Base API URL (without version)
   version: v1                          # API version (e.g., v1, v2)
-  endpoint_type: streaming             # Use "streaming" or "query" endpoint
+  endpoint_type: streaming             # Supported endpoint types: "query", "streaming", "infer" (lightspeed-stack) and "responses" (lightspeed-stack)
   timeout: 300                         # API request timeout in seconds
 
   # Retry configuration for 429 Too Many Requests API errors

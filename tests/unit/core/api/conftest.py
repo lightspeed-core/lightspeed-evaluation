@@ -49,6 +49,21 @@ def basic_api_config_infer_endpoint() -> APIConfig:
 
 
 @pytest.fixture
+def basic_api_config_responses_endpoint() -> APIConfig:
+    """Create test API config for responses endpoint."""
+    return APIConfig(
+        enabled=True,
+        api_base="http://localhost:8080",
+        version="v1",
+        endpoint_type="responses",
+        timeout=30,
+        provider="openai",
+        model="gpt-4o-mini",
+        cache_enabled=False,
+    )
+
+
+@pytest.fixture
 def mock_response(mocker: MockerFixture) -> Any:
     """Create a mock streaming response."""
     response = mocker.Mock()

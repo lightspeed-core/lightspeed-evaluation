@@ -72,6 +72,7 @@ class APIClient:
         self._standard_query_with_retry = retry_decorator(self._standard_query)
         self._streaming_query_with_retry = retry_decorator(self._streaming_query)
         self._rlsapi_infer_query_with_retry = retry_decorator(self._rlsapi_infer_query)
+        self._responses_query_with_retry = retry_decorator(self._responses_query)
 
     def _create_retry_decorator(self) -> Any:
         return retry(
@@ -201,6 +202,8 @@ class APIClient:
                 response = self._streaming_query_with_retry(api_request)
             elif self.config.endpoint_type == "infer":
                 response = self._rlsapi_infer_query_with_retry(api_request)
+            elif self.config.endpoint_type == "responses":
+                response = self._responses_query_with_retry(api_request)
             else:
                 response = self._standard_query_with_retry(api_request)
 
@@ -497,6 +500,160 @@ class APIClient:
             raise
         except Exception as e:
             raise self._handle_unexpected_error(e, "infer query") from e
+
+    def _build_responses_request(self, api_request: APIRequest) -> dict[str, Any]:
+        """Build request payload for the /responses endpoint.
+
+        Maps APIRequest fields to the OpenAI Responses API format and merges
+        any extra_request_params (e.g. explicit tools, store, stream) on top.
+
+        Args:
+            api_request: The prepared API request.
+
+        Returns:
+            Dictionary suitable for posting to the /responses endpoint.
+        """
+        # Combine provider and model into a single "provider/model" string
+        if api_request.provider and api_request.model:
+            model_str = f"{api_request.provider}/{api_request.model}"
+        else:
+            model_str = api_request.model or api_request.provider
+
+        payload: dict[str, Any] = {"input": api_request.query}
+        if model_str:
+            payload["model"] = model_str
+        if api_request.system_prompt:
+            payload["instructions"] = api_request.system_prompt
+        if api_request.conversation_id:
+            payload["conversation"] = api_request.conversation_id
+
+        # Merge extra_request_params last so callers can override or add fields
+        # (e.g. tools, store, stream). Reserved response-payload keys are not
+        # blocked here — extra_request_params takes explicit precedence.
+        if api_request.extra_request_params:
+            for key, value in api_request.extra_request_params.items():
+                payload[key] = value
+
+        return payload
+
+    @staticmethod
+    def _parse_mcp_call_item(item: dict[str, Any]) -> dict[str, Any]:
+        """Parse a single mcp_call output item into a tool call dict.
+
+        Args:
+            item: A single output item with type 'mcp_call'.
+
+        Returns:
+            Tool call dict with tool_name, arguments, and optional result/error.
+        """
+        raw_args = item.get("arguments") or {}
+        if isinstance(raw_args, str):
+            try:
+                raw_args = json.loads(raw_args)
+            except (json.JSONDecodeError, ValueError):
+                raw_args = {}
+        tool_call: dict[str, Any] = {
+            "tool_name": item.get("name", ""),
+            "arguments": raw_args,
+        }
+        output = item.get("output")
+        if output is not None:
+            tool_call["result"] = output
+        error = item.get("error")
+        if error is not None:
+            tool_call["error"] = error
+        return tool_call
+
+    def _extract_responses_data(self, response_data: dict[str, Any]) -> None:
+        """Extract and promote fields from the /responses endpoint response.
+
+        Mutates response_data in place, mapping OpenAI Responses API fields
+        to the top-level keys expected by APIResponse.from_raw_response().
+
+        Args:
+            response_data: The raw JSON response dict to update.
+        """
+        if "output_text" in response_data:
+            response_data["response"] = response_data["output_text"]
+        if "conversation" in response_data:
+            response_data["conversation_id"] = response_data["conversation"]
+        usage = response_data.get("usage", {})
+        if "input_tokens" in usage:
+            response_data["input_tokens"] = usage["input_tokens"]
+        if "output_tokens" in usage:
+            response_data["output_tokens"] = usage["output_tokens"]
+
+        # Collect RAG chunks and tool calls from output items
+        rag_chunks: list[dict[str, str]] = []
+        tool_calls: list[list[dict[str, Any]]] = []
+        for item in response_data.get("output", []):
+            item_type = item.get("type")
+            if item_type == "file_search_call":
+                for result in item.get("results", []):
+                    text = result.get("text")
+                    if text:
+                        rag_chunks.append({"content": text})
+                tool_calls.append(
+                    [
+                        {
+                            "tool_name": "file_search",
+                            "arguments": {"queries": item.get("queries", [])},
+                        }
+                    ]
+                )
+            elif item_type == "mcp_call":
+                tool_calls.append([self._parse_mcp_call_item(item)])
+        if rag_chunks:
+            response_data["rag_chunks"] = rag_chunks
+        if tool_calls:
+            response_data["tool_calls"] = tool_calls
+
+    def _responses_query(self, api_request: APIRequest) -> APIResponse:
+        """Query the /responses endpoint.
+
+        Uses the OpenAI Responses API request/response format, adapting fields
+        to and from the internal APIRequest/APIResponse models.
+
+        Args:
+            api_request: The prepared API request.
+
+        Returns:
+            APIResponse with response text, token counts, and RAG contexts.
+
+        Raises:
+            APIError: If the request fails or response is invalid.
+        """
+        if not self.client:
+            raise APIError("HTTP client not initialized")
+        try:
+            responses_request = self._build_responses_request(api_request)
+
+            response = self.client.post(
+                f"/{self.config.version}/responses",
+                json=responses_request,
+            )
+            response.raise_for_status()
+
+            response_data = response.json()
+            self._extract_responses_data(response_data)
+
+            if "response" not in response_data:
+                raise APIError("API response missing 'response' field")
+
+            return APIResponse.from_raw_response(response_data)
+
+        except httpx.TimeoutException as e:
+            raise self._handle_timeout_error("responses", self.config.timeout) from e
+        except httpx.HTTPStatusError as e:
+            if _is_retryable_server_error(e):
+                raise
+            raise self._handle_http_error(e) from e
+        except ValueError as e:
+            raise self._handle_validation_error(e) from e
+        except APIError:
+            raise
+        except Exception as e:
+            raise self._handle_unexpected_error(e, "responses query") from e
 
     def _handle_response_errors(self, response: httpx.Response) -> None:
         """Handle HTTP response errors for streaming endpoint."""
