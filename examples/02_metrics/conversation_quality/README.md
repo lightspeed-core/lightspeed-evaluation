@@ -9,7 +9,8 @@ Multi-turn dialogue evaluation using DeepEval conversation-level metrics.
 export OPENAI_API_KEY="your-key"
 uv run lightspeed-eval \
   --system-config examples/02_metrics/conversation_quality/system.yaml \
-  --eval-data examples/02_metrics/conversation_quality/eval_data.yaml
+  --eval-data examples/02_metrics/conversation_quality/eval_data.yaml \
+  --output-dir examples/02_metrics/conversation_quality/eval_output/
 ```
 
 ## Metrics & Required Data

@@ -8,7 +8,8 @@ Binary validation of AI agent tool calls with exact and regex matching.
 # From project root
 uv run lightspeed-eval \
   --system-config examples/02_metrics/tool_evaluation/system.yaml \
-  --eval-data examples/02_metrics/tool_evaluation/eval_data.yaml
+  --eval-data examples/02_metrics/tool_evaluation/eval_data.yaml \
+  --output-dir examples/02_metrics/tool_evaluation/eval_output/
 ```
 
 ## Metrics & Required Data
