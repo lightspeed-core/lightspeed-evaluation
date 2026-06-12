@@ -1,5 +1,6 @@
 """Unit tests for streaming parser."""
 
+import json
 from typing import Any
 
 import pytest
@@ -8,6 +9,7 @@ from lightspeed_evaluation.core.api.streaming_parser import (
     _format_tool_sequences,
     _parse_sse_line,
     _parse_tool_call,
+    parse_responses_streaming,
     parse_streaming_response,
 )
 
@@ -136,21 +138,21 @@ class TestParseStreamingResponse:
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_new"}}',
             'data: {"event": "tool_call", "data": '
-            '{"id": "tc_1", "name": "pods_list", "args": {"namespace": "default"}}}',
+            '{"id": "tc_1", "name": "get_weather", "args": {"city": "London"}}}',
             'data: {"event": "tool_result", "data": '
-            '{"id": "tc_1", "status": "success", "content": "pod/nginx Running"}}',
-            'data: {"event": "turn_complete", "data": {"token": "Found pods"}}',
+            '{"id": "tc_1", "status": "success", "content": "Sunny, 22C"}}',
+            'data: {"event": "turn_complete", "data": {"token": "Weather fetched"}}',
         ]
         mock_response.iter_lines.return_value = lines
 
         result = parse_streaming_response(mock_response)
 
-        assert result["response"] == "Found pods"
+        assert result["response"] == "Weather fetched"
         assert len(result["tool_calls"]) == 1
-        assert result["tool_calls"][0][0]["tool_name"] == "pods_list"
-        assert result["tool_calls"][0][0]["arguments"]["namespace"] == "default"
+        assert result["tool_calls"][0][0]["tool_name"] == "get_weather"
+        assert result["tool_calls"][0][0]["arguments"]["city"] == "London"
         # Tool result should be associated with the tool call
-        assert result["tool_calls"][0][0]["result"] == "pod/nginx Running"
+        assert result["tool_calls"][0][0]["result"] == "Sunny, 22C"
 
     def test_parse_response_with_multiple_new_format_tool_calls(
         self, mock_response: Any
@@ -159,13 +161,13 @@ class TestParseStreamingResponse:
         lines = [
             'data: {"event": "start", "data": {"conversation_id": "conv_multi"}}',
             'data: {"event": "tool_call", "data": '
-            '{"id": "tc_1", "name": "mcp_list_tools", "args": {"server_label": "kube"}}}',
+            '{"id": "tc_1", "name": "list_tools", "args": {"category": "search"}}}',
             'data: {"event": "tool_result", "data": '
             '{"id": "tc_1", "status": "success", "content": "[tools list]"}}',
             'data: {"event": "tool_call", "data": {"id": "tc_2", '
-            '"name": "pods_list_in_namespace", "args": {"namespace": "aladdin"}}}',
+            '"name": "get_items", "args": {"collection": "books"}}}',
             'data: {"event": "tool_result", "data": '
-            '{"id": "tc_2", "status": "success", "content": "pod list output"}}',
+            '{"id": "tc_2", "status": "success", "content": "item list output"}}',
             'data: {"event": "turn_complete", "data": {"token": "Done"}}',
             'data: {"event": "end", "data": {"input_tokens": 100, "output_tokens": 50}}',
         ]
@@ -174,10 +176,10 @@ class TestParseStreamingResponse:
         result = parse_streaming_response(mock_response)
 
         assert len(result["tool_calls"]) == 2
-        assert result["tool_calls"][0][0]["tool_name"] == "mcp_list_tools"
+        assert result["tool_calls"][0][0]["tool_name"] == "list_tools"
         assert result["tool_calls"][0][0]["result"] == "[tools list]"
-        assert result["tool_calls"][1][0]["tool_name"] == "pods_list_in_namespace"
-        assert result["tool_calls"][1][0]["result"] == "pod list output"
+        assert result["tool_calls"][1][0]["tool_name"] == "get_items"
+        assert result["tool_calls"][1][0]["result"] == "item list output"
         assert result["input_tokens"] == 100
         assert result["output_tokens"] == 50
 
@@ -241,13 +243,13 @@ class TestParseToolCall:
 
     def test_parse_valid_tool_call_new_format(self) -> None:
         """Test parsing valid tool call with new name/args format."""
-        token = {"name": "pods_list", "args": {"namespace": "default"}}
+        token = {"name": "get_weather", "args": {"city": "London"}}
 
         result = _parse_tool_call(token)
 
         assert result is not None
-        assert result["tool_name"] == "pods_list"
-        assert result["arguments"]["namespace"] == "default"
+        assert result["tool_name"] == "get_weather"
+        assert result["arguments"]["city"] == "London"
 
     def test_parse_tool_call_missing_tool_name(self) -> None:
         """Test parsing tool call without tool_name."""
@@ -440,3 +442,216 @@ class TestStreamingPerformanceMetrics:
         assert result["tokens_per_second"] is not None
         # Verify tokens per second is reasonable (> 0)
         assert result["tokens_per_second"] > 0
+
+
+class TestParseResponsesStreaming:
+    """Unit tests for parse_responses_streaming."""
+
+    def _make_lines(self, events: list[dict]) -> list[str]:
+        return [f"data: {json.dumps(e)}" for e in events]
+
+    def test_parse_basic_response(self, mock_response: Any) -> None:
+        """Test parsing a minimal responses streaming response."""
+        mock_response.iter_lines.return_value = self._make_lines(
+            [
+                {"type": "response.created", "response": {"conversation": "conv-abc"}},
+                {"type": "response.output_text.delta", "delta": "Hello "},
+                {"type": "response.output_text.delta", "delta": "world"},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "Hello world",
+                        "usage": {"input_tokens": 10, "output_tokens": 2},
+                        "conversation": "conv-abc",
+                    },
+                },
+            ]
+        )
+
+        result = parse_responses_streaming(mock_response)
+
+        assert result["response"] == "Hello world"
+        assert result["conversation_id"] == "conv-abc"
+        assert result["input_tokens"] == 10
+        assert result["output_tokens"] == 2
+        assert not result["tool_calls"]
+        assert not result["rag_chunks"]
+        assert result["time_to_first_token"] is not None
+
+    def test_parse_mcp_call_tool(self, mock_response: Any) -> None:
+        """Test that mcp_call output items are extracted as tool_calls."""
+        mock_response.iter_lines.return_value = self._make_lines(
+            [
+                {"type": "response.created", "response": {"conversation": "conv-1"}},
+                {
+                    "type": "response.output_item.done",
+                    "item": {
+                        "type": "mcp_call",
+                        "name": "jira_get_issue",
+                        "arguments": '{"issue_key": "PROJ-1"}',
+                        "output": "issue data",
+                    },
+                },
+                {"type": "response.output_text.delta", "delta": "Done"},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "Done",
+                        "usage": {"input_tokens": 5, "output_tokens": 1},
+                    },
+                },
+            ]
+        )
+
+        result = parse_responses_streaming(mock_response)
+
+        assert len(result["tool_calls"]) == 1
+        tc = result["tool_calls"][0][0]
+        assert tc["tool_name"] == "jira_get_issue"
+        assert tc["arguments"] == {"issue_key": "PROJ-1"}
+        assert tc["result"] == "issue data"
+
+    def test_parse_mcp_call_with_error(self, mock_response: Any) -> None:
+        """Test that mcp_call items with error field capture it."""
+        mock_response.iter_lines.return_value = self._make_lines(
+            [
+                {"type": "response.created", "response": {"conversation": "conv-2"}},
+                {
+                    "type": "response.output_item.done",
+                    "item": {
+                        "type": "mcp_call",
+                        "name": "jira_get_issue",
+                        "arguments": "{}",
+                        "error": "permission denied",
+                    },
+                },
+                {"type": "response.output_text.delta", "delta": "Failed"},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "Failed",
+                        "usage": {"input_tokens": 5, "output_tokens": 1},
+                    },
+                },
+            ]
+        )
+
+        result = parse_responses_streaming(mock_response)
+
+        tc = result["tool_calls"][0][0]
+        assert tc["error"] == "permission denied"
+        assert "result" not in tc
+
+    def test_parse_file_search_call(self, mock_response: Any) -> None:
+        """Test that file_search_call items produce rag_chunks and a tool_call."""
+        mock_response.iter_lines.return_value = self._make_lines(
+            [
+                {"type": "response.created", "response": {"conversation": "conv-3"}},
+                {
+                    "type": "response.output_item.done",
+                    "item": {
+                        "type": "file_search_call",
+                        "queries": ["python async tutorial"],
+                        "results": [{"text": "Some RAG chunk"}],
+                    },
+                },
+                {"type": "response.output_text.delta", "delta": "Answer"},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "Answer",
+                        "usage": {"input_tokens": 8, "output_tokens": 1},
+                    },
+                },
+            ]
+        )
+
+        result = parse_responses_streaming(mock_response)
+
+        assert result["rag_chunks"] == [{"content": "Some RAG chunk"}]
+        assert len(result["tool_calls"]) == 1
+        assert result["tool_calls"][0][0]["tool_name"] == "file_search"
+        assert result["tool_calls"][0][0]["arguments"] == {
+            "queries": ["python async tutorial"]
+        }
+
+    def test_missing_response_raises(self, mock_response: Any) -> None:
+        """Test that missing response text raises ValueError."""
+        mock_response.iter_lines.return_value = self._make_lines(
+            [
+                {"type": "response.created", "response": {"conversation": "conv-4"}},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "",
+                        "usage": {},
+                    },
+                },
+            ]
+        )
+
+        with pytest.raises(ValueError, match="No final response"):
+            parse_responses_streaming(mock_response)
+
+    def test_missing_conversation_id_raises(self, mock_response: Any) -> None:
+        """Test that missing conversation_id raises ValueError."""
+        mock_response.iter_lines.return_value = self._make_lines(
+            [
+                {"type": "response.output_text.delta", "delta": "hi"},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "hi",
+                        "usage": {},
+                    },
+                },
+            ]
+        )
+
+        with pytest.raises(ValueError, match="No conversation_id"):
+            parse_responses_streaming(mock_response)
+
+    def test_done_sentinel_stops_parsing(self, mock_response: Any) -> None:
+        """Test that [DONE] after response.completed stops parsing cleanly."""
+        lines = self._make_lines(
+            [
+                {"type": "response.created", "response": {"conversation": "conv-5"}},
+                {"type": "response.output_text.delta", "delta": "Hi"},
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "output_text": "Hi",
+                        "usage": {"input_tokens": 5, "output_tokens": 1},
+                    },
+                },
+            ]
+        ) + ["data: [DONE]"]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_responses_streaming(mock_response)
+
+        assert result["response"] == "Hi"
+        assert result["input_tokens"] == 5
+        assert result["output_tokens"] == 1
+
+    def test_done_sentinel_before_completed_raises(self, mock_response: Any) -> None:
+        """Test that [DONE] before response.completed raises due to missing response."""
+        created = {"type": "response.created", "response": {"conversation": "conv-6"}}
+        delta = {"type": "response.output_text.delta", "delta": "Hi"}
+        completed = {
+            "type": "response.completed",
+            "response": {
+                "output_text": "should be ignored",
+                "usage": {"input_tokens": 99, "output_tokens": 99},
+            },
+        }
+        lines = [
+            f"data: {json.dumps(created)}",
+            f"data: {json.dumps(delta)}",
+            "data: [DONE]",
+            f"data: {json.dumps(completed)}",
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        with pytest.raises(ValueError, match="No final response"):
+            parse_responses_streaming(mock_response)
