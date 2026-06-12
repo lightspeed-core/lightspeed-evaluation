@@ -298,6 +298,15 @@ def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) 
     expected_name = expected.get("tool_name")
     actual_name = actual.get("tool_name")
 
+    # Surface tool-level errors reported by the server
+    if actual.get("error") is not None:
+        logger.debug(
+            "Tool call '%s' returned an error: %s",
+            actual_name,
+            actual["error"],
+        )
+        return False
+
     if expected_name != actual_name:
         logger.debug(
             "Tool name mismatch: expected '%s', got '%s'",
@@ -517,6 +526,25 @@ def _create_success_message(
     return True, f"{pattern_type} matched: {message}"
 
 
+def _extract_tool_errors(actual: list[list[dict[str, Any]]]) -> str:
+    """Extract error messages from actual tool calls, if any.
+
+    Args:
+        actual: Actual tool call sequences from API response.
+
+    Returns:
+        Comma-separated string of 'tool_name: error' pairs, or empty string.
+    """
+    errors = []
+    for sequence in actual:
+        for tool_call in sequence:
+            error = tool_call.get("error")
+            if error is not None:
+                tool_name = tool_call.get("tool_name", "unknown")
+                errors.append(f"{tool_name}: {error}")
+    return "; ".join(errors)
+
+
 def _create_failure_message(
     expected: list[list[list[dict[str, Any]]]],
     actual: list[list[dict[str, Any]]],
@@ -542,9 +570,12 @@ def _create_failure_message(
             "No actual tool calls made and this is not set as an expected alternative",
         )
 
+    tool_errors = _extract_tool_errors(actual)
+    error_suffix = f"; tool errors: [{tool_errors}]" if tool_errors else ""
+
     base_msg = (
         f"Tool calls made but didn't match any of the {len(expected)} "
-        f"expected pattern(s)"
+        f"expected pattern(s){error_suffix}"
     )
 
     if best_stats and not full_match:

@@ -1,0 +1,10 @@
+- conversation_group_id: responses_test
+  description: Test Responses endpoint for coding assistance
+  turns:
+    - turn_id: turn_1
+      query: What is new in Openshift 4.21?
+      expected_tool_calls:
+      - - tool_name: file_search
+          arguments:
+            queries: .*
+      expected_response: "OpenShift 4.21 introduces several new features and improvements primarily focused on monitoring, metrics, and alert management. Here are the key updates:\n\n1. **Enhanced Metrics Collection**: OpenShift 4.21 allows cluster components to be monitored by scraping metrics from service endpoints. Users can also configure metrics for their own workloads, which can be exposed via Prometheus client libraries at the application level. Metrics are made accessible through an HTTP service endpoint under the `/metrics` canonical name. Developers can list available metrics for a service using a simple curl command on the endpoint.\n\n2. **User Workload Monitoring**: There are updated resources for configuring metrics specific to user workloads, which allow for better insight into how applications are performing within the cluster.\n\n3. **Alert Management**: The Alerting UI has been improved to manage alerts effectively. This includes features for creating alerting rules that define conditions under which alerts are triggered, managing alerts raised by these rules, and silencing them to prevent notifications while issues are being resolved.\n\n4. **Documentation Resources**: OpenShift 4.21 comes with extensive documentation that outlines first steps in both core platform monitoring and user workload monitoring, providing guidance on managing alerts as both administrators and developers.\n\nThese enhancements aim to provide users with better tools for monitoring and managing their applications and cluster performance more effectively."
