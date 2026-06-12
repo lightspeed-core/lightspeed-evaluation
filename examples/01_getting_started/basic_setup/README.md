@@ -9,8 +9,7 @@ Minimal configuration to start evaluating with LightSpeed Evaluation.
 export OPENAI_API_KEY="your-key"
 uv run lightspeed-eval \
   --system-config examples/01_getting_started/basic_setup/system.yaml \
-  --eval-data examples/01_getting_started/basic_setup/eval_data.yaml \
-  --output-dir examples/01_getting_started/basic_setup/eval_output/
+  --eval-data examples/01_getting_started/basic_setup/eval_data.yaml
 ```
 
 ## What It Does

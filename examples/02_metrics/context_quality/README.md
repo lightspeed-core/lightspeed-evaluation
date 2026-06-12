@@ -9,8 +9,7 @@ Evaluate retrieval quality and context relevance for RAG systems.
 export OPENAI_API_KEY="your-key"
 uv run lightspeed-eval \
   --system-config examples/02_metrics/context_quality/system.yaml \
-  --eval-data examples/02_metrics/context_quality/eval_data.yaml \
-  --output-dir examples/02_metrics/context_quality/eval_output/
+  --eval-data examples/02_metrics/context_quality/eval_data.yaml
 ```
 
 ## Metrics & Required Data

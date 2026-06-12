@@ -17,8 +17,7 @@ uv sync --group nlp-metrics
 # From project root
 uv run lightspeed-eval \
   --system-config examples/02_metrics/nlp_metrics/system.yaml \
-  --eval-data examples/02_metrics/nlp_metrics/eval_data.yaml \
-  --output-dir examples/02_metrics/nlp_metrics/eval_output/
+  --eval-data examples/02_metrics/nlp_metrics/eval_data.yaml
 ```
 
 ## Metrics & Required Data

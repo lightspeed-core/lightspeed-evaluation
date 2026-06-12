@@ -8,8 +8,7 @@ Case-insensitive keyword matching with alternative sets.
 # From project root
 uv run lightspeed-eval \
   --system-config examples/02_metrics/keywords_evaluation/system.yaml \
-  --eval-data examples/02_metrics/keywords_evaluation/eval_data.yaml \
-  --output-dir examples/02_metrics/keywords_evaluation/eval_output/
+  --eval-data examples/02_metrics/keywords_evaluation/eval_data.yaml
 ```
 
 ## Metrics & Required Data
