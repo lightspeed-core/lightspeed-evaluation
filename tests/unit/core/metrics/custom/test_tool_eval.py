@@ -832,3 +832,56 @@ class TestToolCallWithResult:
 
         success, _ = evaluate_tool_calls(expected, actual)
         assert success is True
+
+
+class TestToolCallErrorHandling:
+    """Test cases for tool call error field handling."""
+
+    def test_actual_tool_call_with_error_fails(self) -> None:
+        """Tool call with an error field is treated as a mismatch."""
+        expected = {"tool_name": "jira_get_issue", "arguments": {"issue_key": "PROJ-1"}}
+        actual = {
+            "tool_name": "jira_get_issue",
+            "arguments": {"issue_key": "PROJ-1"},
+            "error": "permission denied",
+        }
+
+        result = _compare_single_tool_call(expected, actual)
+        assert result is False
+
+    def test_actual_tool_call_without_error_passes(self) -> None:
+        """Tool call without error field compares normally."""
+        expected = {"tool_name": "jira_get_issue", "arguments": {"issue_key": "PROJ-1"}}
+        actual = {"tool_name": "jira_get_issue", "arguments": {"issue_key": "PROJ-1"}}
+
+        result = _compare_single_tool_call(expected, actual)
+        assert result is True
+
+    def test_failure_message_includes_multiple_tool_errors(self) -> None:
+        """Failure reason includes all tool errors when multiple calls errored."""
+        expected = [
+            [
+                [{"tool_name": "tool_a", "arguments": {}}],
+                [{"tool_name": "tool_b", "arguments": {}}],
+            ]
+        ]
+        actual = [
+            [{"tool_name": "tool_a", "arguments": {}, "error": "timeout"}],
+            [{"tool_name": "tool_b", "arguments": {}, "error": "not found"}],
+        ]
+
+        success, reason = evaluate_tool_calls(expected, actual)
+        assert success is False
+        assert "timeout" in reason
+        assert "not found" in reason
+
+    def test_no_error_field_failure_message_unchanged(self) -> None:
+        """Failure reason does not mention tool errors when none occurred."""
+        expected = [
+            [[{"tool_name": "jira_get_issue", "arguments": {"issue_key": "PROJ-1"}}]]
+        ]
+        actual = [[{"tool_name": "wrong_tool", "arguments": {}}]]
+
+        success, reason = evaluate_tool_calls(expected, actual)
+        assert success is False
+        assert "tool errors" not in reason

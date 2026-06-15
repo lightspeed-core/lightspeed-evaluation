@@ -1,0 +1,119 @@
+core:
+  max_threads: 1
+  fail_on_invalid_data: true
+  skip_on_failure: false
+  cache_enabled: false
+  cache_base_dir: .caches
+llm_pool:
+  defaults:
+    timeout: 300
+    num_retries: 3
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 1024
+  models:
+    judge_gpt_4o_mini:
+      provider: openai
+      model: gpt-4o-mini
+judge_panel:
+  judges:
+    - judge_gpt_4o_mini
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+  provider_kwargs: {}
+api:
+  enabled: true
+  api_base: http://localhost:8080
+  version: v1
+  endpoint_type: responses
+  timeout: 300
+  num_retries: 3
+  provider: "openai"
+  model: "gpt-4o-mini"
+  no_tools: null
+  system_prompt: null
+  extra_request_params: {
+    tool_choice: {
+      type: "allowed_tools",
+      tools: [{"type": "file_search"}],
+      mode: "required"
+    },
+    tools: [
+      {
+        type: "file_search",
+        vector_store_ids: ["okp"]
+      }
+    ]
+  }
+  mcp_headers:
+    enabled: false
+    servers:
+      filesystem-tools:
+        env_var: API_KEY
+metrics_metadata:
+  turn_level:
+    ragas:response_relevancy:
+      threshold: 0.8
+      description: "How relevant the response is to the question"
+      default: true
+    custom:tool_eval:
+      description: Binary validation of tool calls (exact/regex matching)
+      default: true
+      ordered: true
+      full_match: true
+storage:
+  - type: "file"
+    output_dir: "examples/03_endpoints/responses/eval_output/"
+    base_filename: "evaluation"
+    enabled_outputs:
+      - csv
+      - json
+      - txt
+    csv_columns:
+      - "conversation_group_id"
+      - "turn_id"
+      - "metric_identifier"
+      - "metric_metadata"
+      - "result"
+      - "score"
+      - "threshold"
+      - "reason"
+      - "execution_time"
+      - "evaluation_latency"
+      - "query"
+      - "response"
+      - "api_input_tokens"
+      - "api_output_tokens"
+      - "agent_latency"
+      - "judge_llm_input_tokens"
+      - "judge_llm_output_tokens"
+      - "embedding_tokens"
+      - "judge_scores"
+      - "tool_calls"
+      - "contexts"
+      - "expected_response"
+      - "expected_intent"
+      - "expected_keywords"
+      - "expected_tool_calls"
+    summary_config_sections:
+      - core
+      - llm_pool
+      - judge_panel
+      - embedding
+      - api
+visualization:
+  figsize: [12, 8]
+  dpi: 300
+  enabled_graphs:
+    - "pass_rates"
+    - "score_distribution"
+    - "conversation_heatmap"
+    - "status_breakdown"
+environment:
+  LITELLM_LOG: ERROR
+logging:
+  source_level: INFO
+  package_level: WARNING
+  log_format: '%(asctime)s - %(levelname)s - %(message)s'
+  show_timestamps: true
