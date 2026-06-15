@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from lightspeed_evaluation.core.llm import LLMManager
     from lightspeed_evaluation.core.models import (
         APIConfig,
+        ConversationMetadata,
+        DatasetMetadata,
         EvaluationData,
         EvaluationResult,
         LLMConfig,
@@ -79,6 +81,11 @@ _LAZY_IMPORTS = {
     "VisualizationConfig": ("lightspeed_evaluation.core.models", "VisualizationConfig"),
     "EvaluationData": ("lightspeed_evaluation.core.models", "EvaluationData"),
     "TurnData": ("lightspeed_evaluation.core.models", "TurnData"),
+    "ConversationMetadata": (
+        "lightspeed_evaluation.core.models",
+        "ConversationMetadata",
+    ),
+    "DatasetMetadata": ("lightspeed_evaluation.core.models", "DatasetMetadata"),
     "EvaluationResult": ("lightspeed_evaluation.core.models", "EvaluationResult"),
     "EvaluationSummary": (
         "lightspeed_evaluation.core.models.summary",

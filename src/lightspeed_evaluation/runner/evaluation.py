@@ -148,17 +148,19 @@ def run_evaluation(  # pylint: disable=too-many-locals
         print("✅ Configuration loaded & Setup is done !")
 
         # Load, filter, and validate evaluation data
-        evaluation_data = DataValidator(
+        data_validator = DataValidator(
             api_enabled=system_config.agents is not None
             and system_config.agents.enabled,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
             system_config=system_config,
-        ).load_evaluation_data(
+        )
+        evaluation_data = data_validator.load_evaluation_data(
             eval_args.eval_data,
             tags=eval_args.tags,
             conv_ids=eval_args.conv_ids,
             metrics=eval_args.metrics,
         )
+        dataset_metadata = data_validator.dataset_metadata
 
         print(
             f"✅ System config: {system_config.llm.provider}/{system_config.llm.model}"
@@ -175,7 +177,11 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
         print("\n🔄 Running Evaluation...")
         results = evaluate(
-            system_config, evaluation_data, output_dir=eval_args.output_dir
+            system_config,
+            evaluation_data,
+            output_dir=eval_args.output_dir,
+            original_data_path=eval_args.eval_data,
+            dataset_metadata=dataset_metadata,
         )
 
         file_entries = [

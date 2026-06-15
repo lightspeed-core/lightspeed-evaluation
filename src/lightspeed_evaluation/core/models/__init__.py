@@ -14,6 +14,8 @@ from lightspeed_evaluation.core.models.api import (
     AttachmentData,
 )
 from lightspeed_evaluation.core.models.data import (
+    ConversationMetadata,
+    DatasetMetadata,
     EvaluationData,
     EvaluationRequest,
     EvaluationResult,
@@ -62,6 +64,8 @@ __all__ = [
     # Data models
     "TurnData",
     "EvaluationData",
+    "ConversationMetadata",
+    "DatasetMetadata",
     "EvaluationRequest",
     "JudgeScore",
     "MetricResult",

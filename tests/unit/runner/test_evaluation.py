@@ -170,8 +170,14 @@ class TestRunEvaluation:
         assert result is not None
         assert result["TOTAL"] == 1
         assert result["PASS"] == 1
-        mock_evaluate.assert_called_once_with(
-            mock_config, mock_eval_data, output_dir=None
+        mock_evaluate.assert_called_once()
+        call_args = mock_evaluate.call_args
+        assert call_args[0] == (mock_config, mock_eval_data)
+        assert call_args[1]["output_dir"] is None
+        assert call_args[1]["original_data_path"] == "config/evaluation_data.yaml"
+        assert (
+            call_args[1]["dataset_metadata"]
+            is mock_validator.return_value.dataset_metadata
         )
 
     def test_run_evaluation_with_output_dir_override(
@@ -216,9 +222,14 @@ class TestRunEvaluation:
 
         run_evaluation(_make_eval_args(output_dir="/custom/output"))
 
-        # Verify custom output dir was passed to evaluate()
-        mock_evaluate.assert_called_once_with(
-            mock_config, mock_eval_data, output_dir="/custom/output"
+        mock_evaluate.assert_called_once()
+        call_args = mock_evaluate.call_args
+        assert call_args[0] == (mock_config, mock_eval_data)
+        assert call_args[1]["output_dir"] == "/custom/output"
+        assert call_args[1]["original_data_path"] == "config/evaluation_data.yaml"
+        assert (
+            call_args[1]["dataset_metadata"]
+            is mock_validator.return_value.dataset_metadata
         )
 
     def test_run_evaluation_file_not_found(

@@ -5,6 +5,10 @@ from pathlib import Path
 import yaml
 
 from lightspeed_evaluation.core.models import EvaluationData, TurnData
+from lightspeed_evaluation.core.models.data import (
+    ConversationMetadata,
+    DatasetMetadata,
+)
 from lightspeed_evaluation.core.output.data_persistence import save_evaluation_data
 
 
@@ -180,3 +184,119 @@ def test_save_evaluation_data_error_handling(tmp_path: Path) -> None:
 
     # Should return None on error
     assert result is None
+
+
+def test_save_evaluation_data_with_dataset_metadata(tmp_path: Path) -> None:
+    """Test that dataset metadata is preserved in the dict-format output."""
+    dataset_meta = DatasetMetadata(
+        team_product="Team LEADS",
+        dataset_version="1.0",
+        pii_confirmed_removed=True,
+        generation_tools=["SDG-hub"],
+        llms_used=["gpt-4o"],
+        additional_metadata={"grade": "Gold"},
+    )
+    evaluation_data = [
+        EvaluationData(
+            conversation_group_id="conv1",
+            turns=[TurnData(turn_id="t1", query="Q", response="A")],
+        )
+    ]
+
+    temp_eval_file = tmp_path / "test_eval.yaml"
+    temp_eval_file.write_text("# placeholder\n")
+
+    output_file = save_evaluation_data(
+        evaluation_data=evaluation_data,
+        original_data_path=str(temp_eval_file),
+        output_dir=str(tmp_path),
+        dataset_metadata=dataset_meta,
+    )
+
+    assert output_file is not None
+    with open(output_file, "r", encoding="utf-8") as f:
+        saved = yaml.safe_load(f)
+
+    # Should be dict format with metadata + conversations
+    assert isinstance(saved, dict)
+    assert "metadata" in saved
+    assert "conversations" in saved
+    assert saved["metadata"]["team_product"] == "Team LEADS"
+    assert saved["metadata"]["dataset_version"] == "1.0"
+    assert saved["metadata"]["pii_confirmed_removed"] is True
+    assert saved["metadata"]["generation_tools"] == ["SDG-hub"]
+    assert saved["metadata"]["llms_used"] == ["gpt-4o"]
+    assert saved["metadata"]["additional_metadata"] == {"grade": "Gold"}
+    assert len(saved["conversations"]) == 1
+    assert saved["conversations"][0]["conversation_group_id"] == "conv1"
+
+
+def test_save_evaluation_data_without_dataset_metadata_uses_list(
+    tmp_path: Path,
+) -> None:
+    """Test that omitting dataset metadata keeps the original list format."""
+    evaluation_data = [
+        EvaluationData(
+            conversation_group_id="conv1",
+            turns=[TurnData(turn_id="t1", query="Q", response="A")],
+        )
+    ]
+
+    temp_eval_file = tmp_path / "test_eval.yaml"
+    temp_eval_file.write_text("# placeholder\n")
+
+    output_file = save_evaluation_data(
+        evaluation_data=evaluation_data,
+        original_data_path=str(temp_eval_file),
+        output_dir=str(tmp_path),
+    )
+
+    assert output_file is not None
+    with open(output_file, "r", encoding="utf-8") as f:
+        saved = yaml.safe_load(f)
+
+    assert isinstance(saved, list)
+    assert len(saved) == 1
+
+
+def test_save_preserves_conversation_metadata(tmp_path: Path) -> None:
+    """Test that conversation-level metadata round-trips via save."""
+    evaluation_data = [
+        EvaluationData(
+            conversation_group_id="conv1",
+            metadata=ConversationMetadata(
+                scenario_category="Edge Case",
+                use_case="RAG",
+                complexity="Complex",
+                human_verified=True,
+                additional_metadata={"priority": "high"},
+            ),
+            turns=[
+                TurnData(
+                    turn_id="t1",
+                    query="Q",
+                    response="A",
+                )
+            ],
+        )
+    ]
+
+    temp_eval_file = tmp_path / "test_eval.yaml"
+    temp_eval_file.write_text("# placeholder\n")
+
+    output_file = save_evaluation_data(
+        evaluation_data=evaluation_data,
+        original_data_path=str(temp_eval_file),
+        output_dir=str(tmp_path),
+    )
+
+    assert output_file is not None
+    with open(output_file, "r", encoding="utf-8") as f:
+        saved = yaml.safe_load(f)
+
+    conv = saved[0]
+    assert conv["metadata"]["scenario_category"] == "Edge Case"
+    assert conv["metadata"]["use_case"] == "RAG"
+    assert conv["metadata"]["complexity"] == "Complex"
+    assert conv["metadata"]["human_verified"] is True
+    assert conv["metadata"]["additional_metadata"] == {"priority": "high"}
