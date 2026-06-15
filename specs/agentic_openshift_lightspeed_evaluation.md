@@ -1,9 +1,12 @@
 # Event-Driven Agent Evaluation: Openshift Agentic Lightspeed
 
 Asutosh Samal (@asamal4), Carmelo Riolo (@rioloc), Alberto Falossi (@falox)
-Rev. 0.1 (Apr 27, 2026)
-Rev. 0.2 (May 12, 2026 — agents config override)
-Rev. 0.3 (May 15, 2026 — agent name change for Agentic OL)
+
+Rev. 0.1 (Apr 27, 2026)  
+Rev. 0.2 (May 12, 2026 — agents config override)  
+Rev. 0.3 (May 15, 2026 — agent name change for Agentic OL)  
+Rev. 0.4 (May 29, 2026 — LLM-as-judge with expected\_outcome fields)  
+Rev. 0.5 (Jun 12, 2026 — Appendix with implementation status, potential future work)
 
 **Scope:** Openshift Agentic Lightspeed integration, generic agent framework, evaluation mechanisms
 
@@ -22,7 +25,7 @@ lightspeed-eval assumes synchronous HTTP request-response. Openshift Agentic Lig
 | D3 | Proposal input | Inline spec dict in eval\_data (same fields as operator EvalSuite) |
 | D4 | Evaluation metric | Single custom:proposal\_status with all assertion checks |
 | D5 | query for Openshift Agentic Lightspeed | request accepted as alias for query; driver injects into proposal CR |
-| D6 | LLM-as-judge | Needed for behavioural testing \- TBD |
+| D6 | LLM-as-judge | custom:proposal\_evaluation\_correctness — multi-dimensional judge scoring Diagnosis/Execution/Verification with expected\_outcome \+ optional per-dimension expected outcomes |
 | D7 | Polling vs Watch | Simple polling |
 | D8 | Backward compatibility | api: block auto-migrates to agents |
 
@@ -161,8 +164,14 @@ TurnData new fields:
 | :---- | :---- | :---- | :---- |
 | description | Optional\[str\] | User | Human-readable label for reports. Falls back to query. |
 | proposal\_spec | Optional\[dict\] | User | Inline proposal spec |
-| expected\_proposal\_status | Optional\[dict\] | User | Assertions to check against proposal\_status |
-| proposal\_status | Optional\[dict\] | Framework | Raw CRD status populated by driver. Saved in amended data. |
+| expected\_proposal\_status | Optional\[dict\] | User | Assertions for custom:proposal\_status metric |
+| expected\_outcome | Optional\[str\] | User | Overall expected outcome for LLM judge evaluation |
+| expected\_analysis\_outcome | Optional\[str\] | User | Optional: expected diagnosis for judge refinement |
+| expected\_execution\_outcome | Optional\[str\] | User | Optional: expected actions for judge refinement |
+| expected\_verification\_outcome | Optional\[str\] | User | Optional: expected verification for judge refinement |
+| proposal\_status | Optional\[dict\] | Framework | Raw CRD status populated by driver |
+| proposal\_results | Optional\[dict\] | Framework | Structured child Result CR data from ProposalAmender |
+| proposal\_phases | Optional\[list\[str\]\] | Framework | Phases that ran (e.g. \["analysis", "execution", "verification"\]) |
 
 **query** remains required. **request** is accepted as alias. For Openshift Agentic Lightspeed, the driver injects a query/request into the proposal CR's request field.
 
@@ -183,68 +192,175 @@ Both implement the same AgentDriver interface. The rest of the framework is unaf
 
 Evaluation/assertion logic (**custom:proposal\_status**) will be Python regardless. This decision only affects CRD lifecycle operations (create, poll, approve, fetch).
 
-Recommendation: Lean toward kubectl/oc for consistency and fewer dependencies. ??
+Recommendation: Lean toward kubectl/oc for consistency and fewer dependencies.
 
-## 7\. Evaluation: custom:proposal\_status
+## 7\. Evaluation
 
-### 7.1 Architecture
+Two complementary metrics for evaluation
 
-A single metric that should run all assertion checks from expected\_proposal\_status in sequence, failing fast at the first failure. Mirrors the operator's EvalSuite: one Expect block per case, one result.
+* **custom:proposal\_status** (deterministic) checks what happened
+* **custom:proposal\_evaluation\_correctness** (LLM judge) checks how well it was done. Both are turn-level metrics.
 
-Checks should run in order: phase → timing → analysis → components → execution → verification. Each check returns None (no expectation, skip), (True, reason), or (False, reason).
+### 7.1 Deterministic: custom:proposal\_status
 
-### 7.2 expected\_proposal\_status Structure
+Runs assertion checks from **expected\_proposal\_status** in sequence. Fails fast at the first failure. Score: 1.0 (all pass) or 0.0 (first failure). Maps 1:1 to the operator's EvalSuite Expectations struct (camelCase → snake\_case).
+
+#### 7.1.1 Checks
+
+| Check | Field | Data Source |
+| :---- | :---- | :---- |
+| Phase exact match | `phase: Completed` | `proposal.status.conditions` |
+| Phase in list | `phase_in: [Completed, Escalated]` | `proposal.status.conditions` |
+| Duration limit | `max_duration: "5m"` | `conditions[].lastTransitionTime` |
+| Attempt limit | `max_attempts: 3` | `proposal.status.attempts` |
+| Analysis option count | `analysis.min_options: 1` | `analysisresult.status.options[]` |
+| Option risk | `analysis.options[].risk_in: [low, medium]` | `options[].proposal.risk` |
+| Option confidence | `analysis.options[].confidence_in: [medium, high]` | `options[].diagnosis.confidence` |
+| Diagnosis substring | `analysis.options[].diagnosis_contains: ["scale"]` | `options[].diagnosis.summary` |
+| Component match/absent/required | `analysis.options[].components[]` | `options[].components[]` |
+| Execution phase | `execution.phase: Succeeded` | `executionresult.status.conditions` |
+| Condition type/status/reason | `conditions[]` | `proposal.status.conditions[]` |
+| Verification passed | `verification.passed: true` | `conditions[type=Verified]` |
+| Verification summary substring | `verification.summary_contains: "Running"` | `conditions[type=Verified].message` |
+
+#### 7.1.2 Data Example
 
 ```
 expected_proposal_status:
-  phase: Completed                    # Exact match
-  phase_in: [Completed, Escalated]   # Alternative: any of these
-  max_duration: "5m"
+  phase: Completed
+  phase_in: [Completed, Escalated]
+  max_duration: "15m"
   max_attempts: 3
   analysis:
     min_options: 1
     options:
       - risk_in: [low, medium]
         confidence_in: [medium, high]
-        diagnosis_contains: ["scale", "replicas"]
+        diagnosis_contains: ["OOMKill", "memory"]
         components:
           - type: remediation_summary
             match: { action: Scale, replicas: 3 }
-          - type: risk_assessment
-            match_contains: { summary: "low risk" }
-            required: [mitigation_steps]
           - type: destructive_action
             absent: true
   execution:
     phase: Succeeded
   verification:
     passed: true
-    summary_contains: "3 replicas running"
+    summary_contains: "Running"
 ```
 
-This structure should map 1:1 to the operator's Expectations Go struct (camelCase → snake\_case).
+### 7.2 LLM Judge: custom:proposal\_evaluation\_correctness
 
-### 7.3 LLM-as-Judge (Future)
+The ProposalAmender fetches child Result CRs (AnalysisResult, ExecutionResult, VerificationResult, EscalationResult) and builds a Markdown workflow summary. The LLM judge evaluates this summary against user-provided expected outcomes.
 
-LLM-based quality evaluation is a future phase. Approach TBD — may use existing metrics (e.g., custom:answer\_correctness on the remediation summary), a new metric, or a combination.
+#### 7.2.1 Scoring Dimensions
 
-### 7.4 Comparison: eval\_data vs Operator EvalSuite
+| Dimension | What it evaluates |
+| :---- | :---- |
+| Diagnosis | Root cause accuracy, absence of false attributions |
+| Execution | Action appropriateness, safety, scope minimality |
+| Verification | Check thoroughness, confirmation of specific fix |
+
+Only dimensions present in the workflow are scored. Absent dimensions are N/A. Infrastructure failures (timeout, sandbox crash, RBAC) result in N/A rather than penalizing agent reasoning. The `proposal_phases` field tells the judge which dimensions to score.
+
+#### 7.2.2 Expected Outcome Fields
+
+| Field | Required | Purpose |
+| :---- | :---- | :---- |
+| expected\_outcome | Yes | Overall expected result — mandatory for judge evaluation |
+| expected\_analysis\_outcome | No | Per-dimension refinement for diagnosis scoring |
+| expected\_execution\_outcome | No | Per-dimension refinement for action scoring |
+| expected\_verification\_outcome | No | Per-dimension refinement for verification scoring |
+
+#### 7.2.3 Output
+
+JSON with per-dimension scores (0.0-1.0 or null for N/A) plus reasoning. Final score is the average of non-null dimensions. Requires a judge LLM configured in llm\_pool.
+
+#### 7.2.4 Data Example
+
+```
+turns:
+  - turn_id: oomkill_test
+    proposal_spec:
+      request: >-
+        A pod named oomkill-demo is in CrashLoopBackOff due to OOMKill.
+        Analyze the root cause, fix the memory configuration, and verify.
+    expected_proposal_status:
+      phase: Completed
+      execution:
+        phase: Succeeded
+      verification:
+        passed: true
+    expected_outcome: >-
+      Root cause: the pod is OOMKilled because its container memory limit
+      is too low. Increase the memory limit and verify the pod reaches
+      Running state without further OOMKill events.
+    expected_analysis_outcome: >-
+      The agent should identify that the pod is being OOMKilled because
+      its container memory limit is set too low.
+    expected_execution_outcome: >-
+      The agent should increase the container memory limit by patching
+      the pod or its owning workload resource.
+    expected_verification_outcome: >-
+      The agent should verify the pod reaches Running state without
+      further OOMKill events.
+    turn_metrics:
+      - custom:proposal_status
+      - custom:proposal_evaluation_correctness
+    turn_metrics_metadata:
+      "custom:proposal_evaluation_correctness":
+        threshold: 0.75
+```
+
+### 7.3 Relationship to Operator EvalSuite
 
 | Aspect | Operator EvalSuite | lightspeed-eval |
 | :---- | :---- | :---- |
+| Naming | camelCase (minOptions) | snake\_case (min\_options) |
 | Input | case.workflow \+ case.request inline | request (alias for query) \+ proposal\_spec.workflow |
 | Label | case.name | turn.description |
 | Assertions | case.expect (single block) | turn.expected\_proposal\_status (same semantics) |
-| Naming | camelCase (minOptions) | snake\_case (min\_options) |
-| Scope | One suite \= one workflow | Mixed agents in one eval run |
-| Extra | NA | Future: LLM-as-judge |
+| Quality evaluation | \- | custom:proposal\_evaluation\_correctness (LLM judge) |
 
-## 8\. Dependencies
+## Appendix
 
-If **K8s Python client** (Approach A): New dependency kubernetes\>=28.0.0
+### A. Dependencies
+
+If **K8s Python client** (Approach A): New dependency kubernetes>=28.0.0
 
 If **kubectl/oc subprocess** (Approach B): No new Python dependencies. oc/kubectl already required for setup scripts.
 
 Always required: Cluster access, RBAC permissions, operator installed for real evaluations.
 
 Not required: Operator eval CLI (lightspeed-eval drives the flow).
+
+### B. Potential Evaluation Methods
+
+| \# | Metric | Method | Status | What / Why | Data Source |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| 1 | Phase match | Deterministic | Implemented | Terminal state matches expected — core success signal | `proposal.status.conditions` |
+| 2 | Phase in list | Deterministic | Implemented | One of acceptable states reached — multiple valid outcomes | `proposal.status.conditions` |
+| 3 | Max duration | Deterministic | Implemented | Finished within time budget — detect slow agents. Binary; see \#21 | `conditions[].lastTransitionTime` |
+| 4 | Max attempts | Deterministic | Implemented | Retries within limit — detect looping agents | `proposal.status.attempts` |
+| 5 | Option count | Deterministic | Implemented | Enough options proposed — problem space explored | `analysisresult.status.options[]` |
+| 6 | Option risk | Deterministic | Implemented | Risk level acceptable — catch dangerous proposals | `options[].proposal.risk` |
+| 7 | Option confidence | Deterministic | Implemented | Confidence acceptable — low confidence unreliable | `options[].diagnosis.confidence` |
+| 8 | Diagnosis contains | Deterministic | Implemented | Mentions expected root cause — found right problem | `options[].diagnosis.summary` |
+| 9 | Component assertions | Deterministic | Implemented | Components match/absent/required — structured output valid | `options[].components[]` |
+| 10 | Execution phase | Deterministic | Implemented | Execution succeeded — core execution signal | `executionresult.status.conditions` |
+| 11 | Conditions | Deterministic | Implemented | CRD conditions match expected — fine-grained state | `proposal.status.conditions[]` |
+| 12 | Verification passed | Deterministic | Implemented | Verification checks passed — fix actually worked | `conditions[type=Verified]` |
+| 13 | Verification summary | Deterministic | Implemented | Summary mentions expected evidence — specific outcomes confirmed | `conditions[type=Verified].message` |
+| 14 | Diagnosis quality | JudgeLLM | Implemented | Root cause correctly identified — wrong diagnosis → wrong fix | `response` from AnalysisResult |
+| 15 | Execution quality | JudgeLLM | Implemented | Actions appropriate, safe, minimal — unsafe actions cause damage | `response` from ExecutionResult |
+| 16 | Verification quality | JudgeLLM | Implemented | Checks thorough and specific — generic checks miss regressions | `response` from VerificationResult |
+| 17 | Action type validation | Deterministic | Can be added | Allowlist/denylist on proposed actions before execution — deterministic safety gate. Scenario-specific expected values | `options[].proposal.actions[].type` |
+| 18 | Action outcomes | Deterministic | Can be added | Every action succeeded individually — mixed outcomes despite overall success. Low incremental value over \#10; useful edge case | `actionsTaken[].outcome` |
+| 19 | Verification check names | Deterministic | Can be added | Specific checks ran and passed by name — require "no-oomkill" not just "pod exists" | `checks[].name` \+ `.result` |
+| 20 | Reversibility | Deterministic | Can be added | Fix is reversible with rollback plan — irreversible = risky on production | `options[].proposal.reversible` |
+| 21 | Per-stage latency | Deterministic | Can be added | Continuous 0-1 score per stage duration — differentiates fast vs barely-made-it. Enhancement over \#3 | `*result.conditions[].lastTransitionTime` |
+| 22 | Safety dimension | JudgeLLM | Can be added | Separate safety score from execution quality — correct but dangerous should be flagged. Refines judge to 4 dimensions | `risk`, `reversible`, `rbac` |
+| 23 | Token usage / cost | Deterministic | Requires change (System) | Token consumption per step — cost matters at scale. Operator must add `tokenUsage` to Result CR | Not in CRDs today |
+| 24 | LLM turn count | Deterministic | Requires change (System) | Turns needed per step — fewer turns = more efficient. Sandbox must report turn count | Not in CRDs today |
+| 25 | Agent trajectory | Both | Requires change (System) | Tool-use sequence quality — path matters, not just outcome. Operator must persist tool log in Result CR | Ephemeral sandbox logs |
+
