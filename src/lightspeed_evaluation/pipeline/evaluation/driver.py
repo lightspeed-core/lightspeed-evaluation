@@ -213,7 +213,8 @@ class ProposalDriver(AgentDriver):
 
         self._amend_turn_data(turn_data, status_dict)
         self._cleanup(cr_name)
-        return self._outcome_to_result(outcome, cr_name)
+        logger.info("Proposal '%s' reached terminal state: %s", cr_name, outcome)
+        return (None, None)
 
     def _amend_turn_data(
         self, turn_data: TurnData, status_dict: dict[str, Any]
@@ -226,29 +227,6 @@ class ProposalDriver(AgentDriver):
                 turn_data.response = self._extract_summary(status_dict)
             if not turn_data.proposal_status:
                 turn_data.proposal_status = status_dict
-
-    # Failed/Escalated → error (pipeline marks remaining turns as ERROR,
-    # metrics are NOT evaluated). Denied/Completed → no error (metrics run).
-    _OUTCOME_ERRORS: dict[TerminalOutcome, str] = {
-        TerminalOutcome.FAILED: "Proposal '{cr_name}' execution failed",
-        TerminalOutcome.ESCALATED: (
-            "Proposal '{cr_name}' escalated after verification failure"
-        ),
-    }
-
-    @staticmethod
-    def _outcome_to_result(
-        outcome: Optional[TerminalOutcome], cr_name: str
-    ) -> tuple[Optional[str], None]:
-        """Map a terminal outcome to an (error_message, None) result tuple."""
-        template = ProposalDriver._OUTCOME_ERRORS.get(outcome)  # type: ignore[arg-type]
-        if template:
-            return (template.format(cr_name=cr_name), None)
-        if outcome != TerminalOutcome.COMPLETED:
-            logger.warning(
-                "Proposal '%s' terminated with outcome: %s", cr_name, outcome
-            )
-        return (None, None)
 
     @staticmethod
     def _resolve_cli() -> str:

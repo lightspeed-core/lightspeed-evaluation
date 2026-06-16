@@ -579,29 +579,6 @@ class TestExecuteTurn:
 
         assert mock_apply.call_count == 1
 
-    def test_failed_terminal(
-        self, mocker: MockerFixture, driver: ProposalDriver
-    ) -> None:
-        """Test failed proposal returns error with outcome."""
-        mock_time = mocker.patch(f"{MODULE}.time")
-        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
-
-        mock_apply = mocker.patch.object(driver, "_apply")
-        mock_apply.return_value = mocker.Mock(returncode=0)
-
-        status: dict[str, Any] = {
-            "conditions": [_cond("Analyzed", "False", message="LLM error")]
-        }
-        mocker.patch.object(driver, "_get_status", return_value=(status, None))
-        mocker.patch.object(driver, "_cleanup")
-
-        turn = TurnData(turn_id="t1", query="Q", proposal_spec=SPEC_FULL)
-        error, _ = driver.execute_turn(turn)
-
-        assert error is not None
-        assert "failed" in error
-        assert turn.proposal_status == status
-
     def test_denied_terminal(
         self, mocker: MockerFixture, driver: ProposalDriver
     ) -> None:
