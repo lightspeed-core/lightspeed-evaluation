@@ -56,6 +56,10 @@ For agentic workflows, each turn uses `proposal_spec` to define the proposal and
 | `description` | string | No | Human-readable label for reports (falls back to `query`) |
 | `proposal_spec` | dict | Conditional | Inline proposal spec — contains `request`, `targetNamespaces`, workflow phase gates |
 | `expected_proposal_status` | dict | Conditional | Assertions to check against the proposal status |
+| `expected_outcome` | string | Conditional | Expected outcome description for LLM-as-judge evaluation |
+| `expected_analysis_outcome` | string | No | Optional per-phase expected outcome for analysis/diagnosis |
+| `expected_execution_outcome` | string | No | Optional per-phase expected outcome for execution/actions |
+| `expected_verification_outcome` | string | No | Optional per-phase expected outcome for verification |
 | `proposal_status` | dict | No | Raw CRD status populated by the driver (framework-managed) |
 | `proposal_results` | dict | No | Child Result CRs populated by ProposalAmender (framework-managed) |
 
@@ -223,13 +227,12 @@ Checks run in order: **phase → timing → analysis → execution → verificat
 
 ### `custom:proposal_evaluation_correctness` — LLM-as-Judge
 
-Evaluates agentic remediation workflow quality using a Judge LLM. Scores 0.0–1.0 based on four aspects (only phases present in the workflow are scored):
+Evaluates agentic remediation workflow quality using a Judge LLM. Scores 0.0–1.0 across three dimensions (only phases present in the workflow are scored; absent dimensions are marked N/A):
 
-1. **Diagnosis Quality** — Is the root cause correctly identified? (highest weight)
-2. **Action Appropriateness** — Are the actions safe and well-scoped?
-3. **Risk Management** — Is the risk assessment correct?
-4. **Verification Thoroughness** — Do the checks confirm the fix?
+1. **Diagnosis** — Is the root cause correctly identified? Are the proposed actions sound and safe?
+2. **Execution** — Were the remediation actions carried out? Are they safe, well-scoped, and minimal?
+3. **Verification** — Do the checks confirm the specific issue was resolved?
 
 **Threshold:** 0.75
 
-**Required fields:** `response` (populated automatically during execution)
+**Required fields:** `response` (populated automatically during execution), `expected_outcome`

@@ -271,7 +271,7 @@ The `agents:` block in `system.yaml` is a generic configuration layer for agent-
 
 **Backward Compatibility:** When `agents:` is absent, the existing `api:` block auto-migrates to `agents:` with a single `http_api` agent. When both are present, `agents:` takes precedence.
 
-**Config Resolution:** Agent configuration follows a 2-level priority chain (per-key merge):
+**Config Resolution:** Agent configuration follows a 3-level priority chain (per-key merge):
 
 ```
 eval_data.agent_config  >  agents.<name> typed fields  >  default.agent_config
@@ -410,6 +410,10 @@ For field tables, full YAML examples (file-only, file + SQLite, file + Postgres)
 | `description`         | string           | ❌       | Human-readable label for reports (falls back to query) | ❌              |
 | `proposal_spec`       | dict             | 📋       | Inline proposal spec for CRD-based agents | ❌                    |
 | `expected_proposal_status` | dict        | 📋       | Assertions to check against proposal status | ❌                  |
+| `expected_outcome`    | string           | 📋       | Expected outcome for proposal evaluation correctness | ❌           |
+| `expected_analysis_outcome` | string     | ❌       | Optional per-phase expected outcome for analysis/diagnosis | ❌     |
+| `expected_execution_outcome` | string    | ❌       | Optional per-phase expected outcome for execution/actions | ❌      |
+| `expected_verification_outcome` | string | ❌       | Optional per-phase expected outcome for verification | ❌           |
 | `turn_metrics`        | list[string]     | ❌       | Turn-specific metrics to evaluate    | ❌                    |
 | `turn_metrics_metadata` | dict           | ❌       | Turn-specific metric configuration   | ❌                    |
 
@@ -424,6 +428,8 @@ Examples
 > - `response`: Required for most metrics (auto-populated if API enabled)
 > - `proposal_spec`: Required for `custom:proposal_status` (CRD-based agent workflows)
 > - `expected_proposal_status`: Required for `custom:proposal_status`
+> - `expected_outcome`: Required for `custom:proposal_evaluation_correctness`
+> - `expected_analysis_outcome`, `expected_execution_outcome`, `expected_verification_outcome`: Optional per-phase outcomes for `custom:proposal_evaluation_correctness` (refine scoring precision)
 
 **Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. GEval), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
 
