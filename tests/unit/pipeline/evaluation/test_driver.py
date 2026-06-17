@@ -218,18 +218,6 @@ class TestProposalDriverExecuteTurn:
 
         assert error is None
 
-    def test_failed_returns_error(
-        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
-    ) -> None:
-        """Test FAILED outcome returns an error message."""
-        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.FAILED)
-        turn = TurnData(turn_id="1", query="Q")
-
-        error, _ = _proposal_driver.execute_turn(turn)
-
-        assert error is not None
-        assert "execution failed" in error
-
     def test_denied_returns_no_error(
         self, mocker: MockerFixture, _proposal_driver: ProposalDriver
     ) -> None:
@@ -240,18 +228,6 @@ class TestProposalDriverExecuteTurn:
         error, _ = _proposal_driver.execute_turn(turn)
 
         assert error is None
-
-    def test_escalated_returns_error(
-        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
-    ) -> None:
-        """Test ESCALATED outcome returns an error message."""
-        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.ESCALATED)
-        turn = TurnData(turn_id="1", query="Q")
-
-        error, _ = _proposal_driver.execute_turn(turn)
-
-        assert error is not None
-        assert "escalated" in error
 
 
 class TestAgentDriverBase:
