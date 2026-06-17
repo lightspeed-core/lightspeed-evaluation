@@ -1,0 +1,703 @@
+# OKP RAG Quality Benchmarks — LCORE Regression
+#
+# These scenarios validate RAG retrieval quality, faithfulness, and response
+# relevancy against real product documentation indexed in OKP (Solr).
+#
+# Data sources:
+#   - OpenShift Installer evaluation data (cluster installation, OCI, hardware)
+#   - RHEL Lightspeed CLA evaluation data (SAP, HA, SELinux, registration)
+#
+# When api.enabled is true, the evaluation framework auto-populates:
+#   response   — the LLM's answer from the stack
+#   contexts   — the RAG chunks the stack retrieved from OKP
+#
+# We provide:
+#   query              → sent to the stack
+#   expected_response  → used by custom:answer_correctness (semantic comparison)
+#   expected_keywords  → used by custom:keywords_eval (deterministic matching)
+#   expected_intent    → used by custom:intent_eval (intent match)
+#   turn_metrics       → which metrics to run on each turn
+#
+# Keyword format:
+#   Inner list = OR (at least one term must appear)
+#   Outer list = AND (all groups must match)
+#
+# Sections:
+#   1. OpenShift — retrieval precision (specific facts from OCP docs)
+#   2. OpenShift — OCI deployment (Oracle Cloud Infrastructure specifics)
+#   3. RHEL — SAP Solutions (product-specific knowledge)
+#   4. RHEL — High Availability (Pacemaker/Corosync specifics)
+#   5. RHEL — platform-specific (SELinux, AWS, Samba)
+#   6. Multi-turn retention (follow-up questions testing context retention)
+
+# ===========================================================================
+# 1. OPENSHIFT — RETRIEVAL PRECISION
+# ===========================================================================
+
+- conversation_group_id: okp_sno_requirements
+  description: >
+    Tests whether OKP retrieves the correct documentation about Single
+    Node OpenShift (SNO) hardware requirements. The answer contains
+    specific numbers (8 vCPUs, 120 GB storage) that can only come
+    from the OpenShift documentation.
+  tag: okp_openshift
+  turns:
+    - turn_id: sno_hw_requirements
+      query: >
+        What are the host requirements for a single node OpenShift cluster?
+      expected_response: >
+        A single node OpenShift cluster requires a minimum of 8 vCPUs
+        and 120 GB of storage. You need only a temporary bootstrap
+        machine and one cloud instance for the control plane node,
+        with no separate compute nodes required.
+      expected_keywords:
+        - - "8"
+          - vCPU
+        - - "120"
+          - storage
+      expected_intent: >
+        Retrieve hardware requirements for Single Node OpenShift
+        including CPU and storage specifications
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_multinode_requirements
+  description: >
+    Tests retrieval of multi-node cluster hardware requirements. The
+    answer must distinguish between control plane nodes (4 CPU, 16 GB
+    RAM, 100 GB) and compute nodes (2 CPU, 8 GB RAM, 100 GB). Getting
+    both sets of numbers correct proves the right doc chunks were
+    retrieved.
+  tag: okp_openshift
+  turns:
+    - turn_id: multinode_hw_requirements
+      query: >
+        What are the minimum resource requirements for control plane
+        and compute nodes in an OpenShift high availability cluster?
+      expected_response: >
+        Control plane nodes in a multi-node cluster require 4 CPU cores,
+        16 GB of RAM, and 100 GB of storage. The compute nodes require
+        2 CPU cores, 8 GB of RAM, and 100 GB of storage.
+      expected_keywords:
+        - - control plane
+          - master
+        - - compute
+          - worker
+        - - CPU
+          - RAM
+          - storage
+      expected_intent: >
+        Retrieve hardware requirements for multi-node OpenShift clusters
+        including separate specifications for control plane and compute nodes
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_assisted_installer
+  description: >
+    Tests retrieval of Assisted Installer documentation. The response
+    should describe the overall installation workflow including cluster
+    definition, discovery ISO, host discovery, and installation steps.
+  tag: okp_openshift
+  turns:
+    - turn_id: assisted_installer_overview
+      query: >
+        What is the Assisted Installer and how does the installation
+        workflow work?
+      expected_response: >
+        The Assisted Installer is a tool that simplifies the deployment
+        of OpenShift clusters. The workflow involves defining a cluster
+        configuration, generating and downloading a Discovery ISO,
+        booting hosts with the ISO so they are discovered, configuring
+        the hosts and networking, and then running the installation.
+        The Assisted Installer manages the process and monitors progress.
+      expected_keywords:
+        - - Assisted Installer
+        - - Discovery ISO
+          - ISO
+        - - cluster
+          - install
+      expected_intent: >
+        Explain what the Assisted Installer is and describe the
+        installation workflow steps
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_supported_platforms
+  description: >
+    Tests whether OKP retrieves the correct list of supported
+    on-premise platforms for OpenShift installation. The response
+    must include bare metal, vSphere, Nutanix, and OCI.
+  tag: okp_openshift
+  turns:
+    - turn_id: supported_platforms
+      query: >
+        Which platforms are supported for installing OpenShift
+        clusters using the Assisted Installer?
+      expected_response: >
+        The supported on-premise platforms for OpenShift installation
+        include bare metal, vSphere, Nutanix, and Oracle Cloud
+        Infrastructure (OCI).
+      expected_keywords:
+        - - bare metal
+          - baremetal
+        - - vSphere
+        - - Nutanix
+        - - OCI
+          - Oracle
+      expected_intent: >
+        List the supported platforms for OpenShift cluster installation
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+# ===========================================================================
+# 2. OPENSHIFT — OCI DEPLOYMENT
+# ===========================================================================
+
+- conversation_group_id: okp_oci_vpu_requirements
+  description: >
+    Tests retrieval of very specific OCI volume performance unit
+    recommendations. The answer includes exact numbers for three
+    environment tiers (test: 100GB/20-30 VPUs, basic: 500GB/60 VPUs,
+    heavy production: 500GB+/100+ VPUs). These numbers would
+    hallucinate without correct RAG retrieval.
+  tag: okp_oci
+  turns:
+    - turn_id: oci_vpu_recommendations
+      query: >
+        What volume performance units are recommended for installing
+        an OpenShift cluster on Oracle Cloud Infrastructure?
+      expected_response: >
+        To ensure the best performance for your OpenShift cluster
+        on OCI, size your volume performance units appropriately.
+        For a test or proof of concept environment, use 100 GB and
+        20 to 30 VPUs. For a basic environment, use 500 GB and
+        60 VPUs. For a heavy production environment, use more than
+        500 GB and 100 or more VPUs. Consider reserving additional
+        VPUs for updates and scaling activities.
+      expected_keywords:
+        - - VPU
+          - volume performance
+        - - "100"
+        - - "500"
+      expected_intent: >
+        Retrieve VPU sizing recommendations for OpenShift on OCI
+        across different environment tiers
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_oci_deployment_flow
+  description: >
+    Tests retrieval of the OCI deployment flow procedure. The answer
+    should describe the multi-step process specific to deploying
+    OpenShift on OCI through the Assisted Installer.
+  tag: okp_oci
+  turns:
+    - turn_id: oci_deployment_steps
+      query: >
+        What is the deployment flow when deploying OpenShift
+        to Oracle Cloud Infrastructure?
+      expected_response: >
+        The deployment flow for OpenShift on OCI involves configuring
+        the OCI account, setting up a cluster in the Assisted Installer,
+        creating the infrastructure in OCI, and completing the cluster
+        installation through the Assisted Installer.
+      expected_keywords:
+        - - OCI
+          - Oracle
+        - - Assisted Installer
+        - - cluster
+          - install
+      expected_intent: >
+        Describe the step-by-step deployment flow for deploying
+        OpenShift on Oracle Cloud Infrastructure
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_oci_manifests
+  description: >
+    Tests retrieval of specific technical details about OCI
+    deployment — the mandatory custom manifest files that must be
+    uploaded to the Assisted Installer. The specific file names
+    (oci-ccm.yml, oci-csi.yml, machineconfig-ccm.yml,
+    machineconfig-csi.yml) prove RAG retrieval worked.
+  tag: okp_oci
+  turns:
+    - turn_id: oci_mandatory_manifests
+      query: >
+        Are there any mandatory manifests needed by the Assisted
+        Installer when deploying a cluster on OCI?
+      expected_response: >
+        Yes, when deploying a cluster on OCI using the Assisted
+        Installer, you need to upload four mandatory custom manifests
+        provided by Oracle: oci-ccm.yml, oci-csi.yml,
+        machineconfig-ccm.yml, and machineconfig-csi.yml. These
+        should be placed in the appropriate manifests and openshift
+        folders.
+      expected_keywords:
+        - - manifest
+        - - oci-ccm
+          - oci-csi
+          - machineconfig
+      expected_intent: >
+        Identify mandatory manifest files required for OCI deployment
+        through the Assisted Installer
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+# ===========================================================================
+# 3. RHEL — SAP SOLUTIONS
+# ===========================================================================
+
+- conversation_group_id: okp_rhel_sap_definition
+  description: >
+    Tests whether OKP retrieves the RHEL for SAP Solutions product
+    definition. The answer must explain how it differs from standard
+    RHEL, including SAP-specific repositories, tools, and support.
+    This is product-specific knowledge that requires RAG.
+  tag: okp_rhel
+  turns:
+    - turn_id: sap_solutions_definition
+      query: >
+        What is RHEL for SAP Solutions and how is it different
+        from standard RHEL?
+      expected_response: >
+        RHEL for SAP Solutions is a Red Hat subscription that consists
+        of Red Hat Enterprise Linux and additional software repositories
+        and services specifically designed for running SAP HANA and SAP
+        ABAP Platform, including SAP S/4HANA, on Red Hat Enterprise
+        Linux. It combines the reliability and performance of Linux with
+        technologies that meet SAP workload requirements. It is certified
+        for integration with SAP S/4HANA and built on the same foundation
+        as standard RHEL, but includes additional SAP-specific
+        repositories, tools, and support.
+      expected_keywords:
+        - - SAP
+          - RHEL
+        - - SAP HANA
+          - S/4HANA
+        - - repositories
+          - subscription
+      expected_intent: >
+        Define RHEL for SAP Solutions and explain how it differs
+        from standard RHEL
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_sap_system_roles
+  description: >
+    Tests retrieval of the three specific RHEL System Role names
+    for SAP. The answer must include the exact role names:
+    sap_general_preconfigure, sap_hana_preconfigure, and
+    sap_netweaver_preconfigure. These are precise identifiers
+    that can only come from the documentation.
+  tag: okp_rhel
+  turns:
+    - turn_id: sap_role_names
+      query: >
+        What are the names of the three RHEL System Roles for SAP
+        used to preconfigure systems?
+      expected_response: >
+        The three RHEL System Roles for SAP are sap_general_preconfigure,
+        sap_hana_preconfigure, and sap_netweaver_preconfigure. The
+        sap_general_preconfigure role provides general SAP system
+        configuration, sap_hana_preconfigure prepares systems for
+        SAP HANA installation, and sap_netweaver_preconfigure prepares
+        systems for SAP NetWeaver installation.
+      expected_keywords:
+        - - sap_general_preconfigure
+        - - sap_hana_preconfigure
+        - - sap_netweaver_preconfigure
+      expected_intent: >
+        Retrieve the exact names and purposes of the three RHEL
+        System Roles for SAP preconfiguration
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+# ===========================================================================
+# 4. RHEL — HIGH AVAILABILITY
+# ===========================================================================
+
+- conversation_group_id: okp_ha_fencing
+  description: >
+    Tests retrieval of Red Hat's policy on HA cluster fencing. The
+    answer must mention stonith-enabled=false, state that Red Hat does
+    not support clusters without fencing in production, and explain
+    why fencing is important. This is RHEL-specific guidance.
+  tag: okp_rhel
+  turns:
+    - turn_id: fencing_policy
+      query: >
+        Can I create a Pacemaker cluster without fencing on RHEL?
+      expected_response: >
+        While it is technically possible to create a cluster without
+        fencing by setting stonith-enabled=false, it is not recommended
+        for production environments. Red Hat does not support clusters
+        when fencing is disabled as it compromises reliability and
+        safety. Fencing is crucial for ensuring that failed nodes are
+        isolated to prevent data corruption and inconsistencies.
+      expected_keywords:
+        - - fencing
+          - stonith
+        - - Red Hat
+          - support
+        - - production
+      expected_intent: >
+        Explain Red Hat's policy on running HA clusters without
+        fencing and why fencing is important
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+# ===========================================================================
+# 5. RHEL — PLATFORM-SPECIFIC KNOWLEDGE
+# ===========================================================================
+
+- conversation_group_id: okp_aws_secure_boot
+  description: >
+    Tests retrieval of RHEL-specific AWS documentation about Secure
+    Boot. The answer must mention that AWS supports Secure Boot for
+    Nitro instances and that it works with both Marketplace AMIs and
+    custom RHEL AMIs. This is platform-specific knowledge.
+  tag: okp_rhel
+  turns:
+    - turn_id: aws_secure_boot
+      query: >
+        How do I configure RHEL on AWS with Secure Boot?
+      expected_response: >
+        AWS supports the Secure Boot mechanism for Nitro instances.
+        You can use the feature for both Marketplace AMIs and custom
+        RHEL Amazon Machine Images. For detailed configuration steps,
+        refer to the Red Hat documentation for setting up Secure Boot
+        on AWS.
+      expected_keywords:
+        - - Secure Boot
+        - - Nitro
+        - - AMI
+          - Amazon Machine Image
+      expected_intent: >
+        Explain how to configure RHEL instances on AWS with Secure
+        Boot, including which instance types support it
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - ragas:context_precision_without_reference
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_rhel_registration
+  description: >
+    Tests retrieval of RHEL system registration documentation.
+    The answer should reference subscription-manager and optionally
+    rhc connect as registration methods. These are RHEL-specific
+    tools.
+  tag: okp_rhel
+  turns:
+    - turn_id: rhel_registration
+      query: >
+        How do I register my RHEL system with Red Hat to access
+        content repositories and updates?
+      expected_response: >
+        To register a RHEL system using the CLI, use the
+        subscription-manager command line tool. Run
+        subscription-manager register with your activation key
+        and organization ID. Alternatively, you can use rhc connect
+        to register and connect to Red Hat services including
+        Red Hat Insights.
+      expected_keywords:
+        - - subscription-manager
+          - rhc
+        - - register
+          - connect
+      expected_intent: >
+        Explain how to register a RHEL system to Red Hat from
+        the command line using available tools
+      turn_metrics:
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+# ===========================================================================
+# 6. MULTI-TURN RETENTION — follow-up questions testing context retention
+# ===========================================================================
+
+- conversation_group_id: okp_retention_openshift_hw_to_platforms
+  description: >
+    Turn 1 asks about SNO hardware requirements. Turn 2 asks how
+    those requirements differ for multi-node clusters. The assistant
+    must remember the SNO specs from turn 1 and contrast them with
+    multi-node specs, demonstrating retention of retrieved facts
+    across turns.
+  tag: okp_retention
+  conversation_metrics:
+    - deepeval:knowledge_retention
+  turns:
+    - turn_id: sno_requirements_recap
+      query: >
+        What are the hardware requirements for a single node
+        OpenShift cluster?
+      expected_response: >
+        A single node OpenShift cluster requires a minimum of
+        8 vCPUs and 120 GB of storage.
+      expected_keywords:
+        - - "8"
+          - vCPU
+        - - "120"
+          - storage
+      expected_intent: retrieve SNO hardware requirements
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+
+    - turn_id: multinode_contrast
+      query: >
+        How do those requirements differ for a multi-node cluster?
+      expected_response: >
+        Multi-node clusters have different requirements for control
+        plane and compute nodes. Control plane nodes require 4 vCPUs,
+        16 GB of RAM, and 100 GB of storage, while compute nodes
+        require 2 vCPUs, 8 GB of RAM, and 100 GB of storage.
+        Compared to the single node requirements of 8 vCPUs and
+        120 GB storage, each individual node in a multi-node cluster
+        needs fewer resources since the workload is distributed.
+      expected_keywords:
+        - - control plane
+          - master
+        - - compute
+          - worker
+        - - "4"
+          - "2"
+      expected_intent: >
+        Compare multi-node cluster requirements with the SNO
+        requirements from the previous answer
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_retention_sap_solutions_to_roles
+  description: >
+    Turn 1 asks about RHEL for SAP Solutions. Turn 2 asks about
+    the specific RHEL System Roles for SAP preconfiguration. The
+    assistant must remember the SAP Solutions context and connect
+    it to the concrete role names.
+  tag: okp_retention
+  conversation_metrics:
+    - deepeval:knowledge_retention
+  turns:
+    - turn_id: sap_solutions_overview
+      query: >
+        What is RHEL for SAP Solutions and what does the subscription
+        include?
+      expected_response: >
+        RHEL for SAP Solutions is a Red Hat subscription that includes
+        Red Hat Enterprise Linux and additional software repositories
+        and services designed for running SAP HANA and SAP ABAP
+        Platform. It includes SAP-specific repositories, tools,
+        high availability solutions, and certified integration
+        with SAP S/4HANA.
+      expected_keywords:
+        - - SAP
+        - - repositories
+          - subscription
+      expected_intent: >
+        Describe the RHEL for SAP Solutions subscription and what
+        it includes
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+
+    - turn_id: sap_preconfigure_roles
+      query: >
+        What are the specific RHEL System Roles for preconfiguring
+        systems for SAP workloads, and what does each role do?
+      expected_response: >
+        The RHEL System Roles for SAP preconfiguration are
+        sap_general_preconfigure for general SAP system setup,
+        sap_hana_preconfigure for preparing systems for SAP HANA
+        installation, and sap_netweaver_preconfigure for preparing
+        systems for SAP NetWeaver installation. These roles automate
+        the configuration steps required before installing SAP
+        software.
+      expected_keywords:
+        - - sap_general_preconfigure
+        - - sap_hana_preconfigure
+        - - sap_netweaver_preconfigure
+      expected_intent: >
+        List the specific RHEL System Roles for SAP preconfiguration,
+        building on the previous answer about SAP Solutions tools
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_retention_oci_requirements_to_flow
+  description: >
+    Turn 1 asks about OCI volume sizing recommendations. Turn 2
+    asks about the OCI deployment flow using the Assisted Installer.
+    The assistant must retain the VPU context and connect it to
+    the broader deployment procedure.
+  tag: okp_retention
+  conversation_metrics:
+    - deepeval:knowledge_retention
+  turns:
+    - turn_id: oci_sizing
+      query: >
+        What volume performance units are recommended for deploying
+        OpenShift on Oracle Cloud Infrastructure?
+      expected_response: >
+        For a test or proof of concept environment, use 100 GB and
+        20 to 30 VPUs. For a basic environment, use 500 GB and
+        60 VPUs. For a heavy production environment, use more than
+        500 GB and 100 or more VPUs. Reserve additional VPUs for
+        updates and scaling.
+      expected_keywords:
+        - - VPU
+          - volume performance
+        - - "100"
+        - - "500"
+      expected_intent: >
+        Retrieve VPU sizing recommendations for OpenShift on OCI
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+
+    - turn_id: oci_flow_after_sizing
+      query: >
+        What is the deployment flow for installing an OpenShift
+        cluster on Oracle Cloud Infrastructure using the Assisted
+        Installer?
+      expected_response: >
+        After sizing your OCI infrastructure, the deployment flow
+        involves configuring your OCI account, setting up a cluster
+        in the Assisted Installer, creating the infrastructure in
+        OCI including copying the dynamic_custom_manifest.yml from
+        the Terraform stack, and completing the cluster installation
+        through the Assisted Installer.
+      expected_keywords:
+        - - OCI
+          - Oracle
+        - - Assisted Installer
+        - - cluster
+          - install
+      expected_intent: >
+        Describe the OCI deployment flow, connecting infrastructure
+        sizing from the previous answer to the installation steps
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval
+
+- conversation_group_id: okp_retention_ha_fencing_to_resources
+  description: >
+    Turn 1 asks about HA cluster fencing on RHEL. Turn 2 asks how
+    to configure pcs resource ordering and colocation constraints.
+    The assistant must retain the Pacemaker/pcs context from turn 1.
+  tag: okp_retention
+  conversation_metrics:
+    - deepeval:knowledge_retention
+  turns:
+    - turn_id: ha_fencing_context
+      query: >
+        What is Red Hat's recommendation on running Pacemaker
+        clusters without fencing?
+      expected_response: >
+        Red Hat does not support Pacemaker clusters without fencing
+        in production environments. While you can set
+        stonith-enabled=false to disable it, fencing is crucial
+        for isolating failed nodes and preventing data corruption.
+      expected_keywords:
+        - - fencing
+          - stonith
+        - - Red Hat
+          - support
+      expected_intent: >
+        Understand Red Hat's policy on HA cluster fencing
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+
+    - turn_id: ha_resource_ordering
+      query: >
+        How do I configure pcs constraint order and pcs constraint
+        colocation to control resource startup sequence in a RHEL
+        High Availability Pacemaker cluster?
+      expected_response: >
+        To make resources start in sequence and run on the same node,
+        use the pcs command-line utility. Create an order constraint
+        with pcs constraint order to ensure the first resource starts
+        before the second. Then create a colocation constraint with
+        pcs constraint colocation add to ensure both resources run on
+        the same node. Use INFINITY as the score to make the
+        colocation mandatory.
+      expected_keywords:
+        - - pcs
+        - - constraint
+        - - order
+          - colocation
+      expected_intent: >
+        Explain how to configure resource ordering and colocation
+        constraints in a Pacemaker cluster, building on the HA
+        context from the previous answer
+      turn_metrics:
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+        - custom:intent_eval

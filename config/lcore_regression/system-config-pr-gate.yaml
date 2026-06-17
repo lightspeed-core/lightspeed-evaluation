@@ -1,0 +1,140 @@
+# System configuration for LCORE regression PR gate evaluation.
+#
+# This config tells the evaluation framework:
+#   - How to call the lightspeed-stack API (api section)
+#   - Which LLM judge to use for scoring (llm_pool + judge_panel)
+#   - Which embedding model to use for semantic metrics (embedding)
+#   - Default thresholds for each metric (metrics_metadata)
+#   - Where to write results (storage)
+#
+# The stack under test runs at localhost:8080 (started by docker-compose).
+# The judge LLM is a separate OpenAI call (gpt-4o-mini) used only for scoring.
+
+core:
+  max_threads: 1
+  fail_on_invalid_data: true
+  skip_on_failure: true
+
+llm_pool:
+  defaults:
+    cache_enabled: false
+    timeout: 120
+    num_retries: 3
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 4096
+  models:
+    judge_gpt_4o_mini:
+      provider: openai
+      model: gpt-4o-mini
+
+judge_panel:
+  judges:
+    - judge_gpt_4o_mini
+
+embedding:
+  provider: openai
+  model: text-embedding-3-small
+  cache_enabled: false
+
+api:
+  enabled: true
+  api_base: http://localhost:8080
+  version: v1
+  endpoint_type: query
+  timeout: 300
+  provider: openai
+  model: gpt-4o-mini
+  cache_enabled: false
+
+metrics_metadata:
+  turn_level:
+    # --- RAG faithfulness (hallucination detection) ---
+    ragas:faithfulness:
+      threshold: 0.8
+      description: Detects hallucinations by comparing response claims to retrieved context
+      default: false
+
+    # --- Response relevancy ---
+    ragas:response_relevancy:
+      threshold: 0.75
+      description: Measures how well the response addresses the original query
+      default: false
+
+    # --- Context retrieval precision ---
+    ragas:context_precision_without_reference:
+      threshold: 0.7
+      description: Evaluates whether retrieved context chunks are relevant to the query
+      default: false
+
+    # --- Answer correctness (LLM-judged) ---
+    custom:answer_correctness:
+      threshold: 0.75
+      description: Semantic comparison of response against expected answer
+      default: false
+
+    # --- Keyword presence (deterministic) ---
+    custom:keywords_eval:
+      description: Verifies required facts and terms appear in the response
+      default: false
+
+    # --- Intent match (LLM-judged) ---
+    custom:intent_eval:
+      description: Checks whether the response addresses the user's stated intent
+      default: false
+
+    # --- Tool evaluation (for future tool-calling benchmarks) ---
+    custom:tool_eval:
+      threshold: 1.0
+      description: Validates tool call correctness against expected tool calls
+      default: false
+
+  conversation_level:
+    # --- Context retention across turns ---
+    deepeval:knowledge_retention:
+      threshold: 0.7
+      description: Measures how well the model retains information from previous turns
+      default: false
+
+storage:
+  - type: file
+    output_dir: ./eval_output/lcore_regression
+    base_filename: evaluation
+    enabled_outputs:
+      - csv
+      - json
+      - txt
+    csv_columns:
+      - conversation_group_id
+      - turn_id
+      - metric_identifier
+      - result
+      - score
+      - threshold
+      - reason
+      - query
+      - response
+      - contexts
+      - expected_response
+      - expected_keywords
+      - api_input_tokens
+      - api_output_tokens
+
+visualization:
+  figsize:
+    - 14
+    - 10
+  dpi: 150
+  enabled_graphs:
+    - pass_rates
+    - score_distribution
+    - status_breakdown
+
+environment:
+  LITELLM_LOG: ERROR
+
+logging:
+  source_level: INFO
+  package_level: WARNING
+  log_format: "%(asctime)s - %(levelname)s - %(message)s"
+  show_timestamps: true
