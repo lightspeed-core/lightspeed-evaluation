@@ -344,15 +344,17 @@ class TestDataValidator:
         finally:
             Path(temp_path).unlink()
 
-    def test_load_evaluation_data_not_list(self) -> None:
-        """Test loading YAML with non-list root raises error."""
+    def test_load_evaluation_data_dict_without_conversations_key(self) -> None:
+        """Test loading YAML dict without 'conversations' key raises error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("conversation_group_id: test\n")
             temp_path = f.name
 
         try:
             validator = DataValidator()
-            with pytest.raises(DataValidationError, match="must be a list"):
+            with pytest.raises(
+                DataValidationError, match="missing required 'conversations' key"
+            ):
                 validator.load_evaluation_data(temp_path)
         finally:
             Path(temp_path).unlink()
@@ -711,3 +713,213 @@ class TestMetricsFilter:
             metrics=["deepeval:conversation_completeness"],
         )
         assert result[0].conversation_metrics == ["deepeval:conversation_completeness"]
+
+
+class TestMetadataLoading:
+    """Tests for user-defined metadata loading at dataset, conversation, and turn levels."""
+
+    def test_scalar_root_raises(self) -> None:
+        """Test loading YAML with a scalar root raises error."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("just a string\n")
+            temp_path = f.name
+
+        try:
+            validator = DataValidator()
+            with pytest.raises(DataValidationError, match="must be a list or a dict"):
+                validator.load_evaluation_data(temp_path)
+        finally:
+            Path(temp_path).unlink()
+
+    def test_dict_format_with_dataset_metadata(self, mocker: MockerFixture) -> None:
+        """Dict root with metadata and additional_metadata loads correctly."""
+        yaml_data = {
+            "metadata": {
+                "team_product": "Team LEADS",
+                "dataset_version": "1.0",
+                "pii_confirmed_removed": True,
+                "additional_metadata": {"grade": "Gold"},
+            },
+            "conversations": [
+                {
+                    "conversation_group_id": "conv1",
+                    "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+                },
+            ],
+        }
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+
+        assert len(result) == 1
+        assert validator.dataset_metadata is not None
+        assert validator.dataset_metadata.team_product == "Team LEADS"
+        assert validator.dataset_metadata.pii_confirmed_removed is True
+        assert validator.dataset_metadata.additional_metadata == {"grade": "Gold"}
+
+    def test_dict_format_without_metadata_key(self, mocker: MockerFixture) -> None:
+        """Dict root without metadata key still loads conversations."""
+        yaml_data = {
+            "conversations": [
+                {
+                    "conversation_group_id": "conv1",
+                    "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+                },
+            ],
+        }
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+
+        assert len(result) == 1
+        assert validator.dataset_metadata is None
+
+    def test_null_metadata_treated_as_absent(self, mocker: MockerFixture) -> None:
+        """metadata: null is silently ignored (same as omitted)."""
+        yaml_data = {
+            "metadata": None,
+            "conversations": [
+                {
+                    "conversation_group_id": "conv1",
+                    "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+                },
+            ],
+        }
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+
+        assert len(result) == 1
+        assert validator.dataset_metadata is None
+
+    def test_non_dict_metadata_raises(self, mocker: MockerFixture) -> None:
+        """Non-mapping metadata value raises DataValidationError."""
+        yaml_data = {
+            "metadata": "not a mapping",
+            "conversations": [
+                {
+                    "conversation_group_id": "conv1",
+                    "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+                },
+            ],
+        }
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        with pytest.raises(DataValidationError, match="'metadata' must be a mapping"):
+            validator.load_evaluation_data("dummy.yaml")
+
+    def test_invalid_dataset_metadata_raises(self, mocker: MockerFixture) -> None:
+        """Unknown field in dataset metadata raises DataValidationError."""
+        yaml_data = {
+            "metadata": {"unknown_field": "bad"},
+            "conversations": [
+                {
+                    "conversation_group_id": "conv1",
+                    "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+                },
+            ],
+        }
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        with pytest.raises(DataValidationError, match="Invalid dataset metadata"):
+            validator.load_evaluation_data("dummy.yaml")
+
+    def test_dict_conversations_not_list_raises(self, mocker: MockerFixture) -> None:
+        """Non-list conversations value in dict format raises error."""
+        yaml_data = {"conversations": "not a list"}
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        with pytest.raises(DataValidationError, match="'conversations' must be a list"):
+            validator.load_evaluation_data("dummy.yaml")
+
+    def test_conversation_metadata(self, mocker: MockerFixture) -> None:
+        """Conversation-level metadata is parsed from YAML."""
+        yaml_data = [
+            {
+                "conversation_group_id": "conv1",
+                "metadata": {
+                    "scenario_category": "Core/Happy path",
+                    "use_case": "RAG",
+                    "complexity": "Complex",
+                    "human_verified": True,
+                    "persona": "developer",
+                },
+                "turns": [
+                    {
+                        "turn_id": "t1",
+                        "query": "Q",
+                        "response": "A",
+                    }
+                ],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+
+        assert result[0].metadata is not None
+        assert result[0].metadata.scenario_category == "Core/Happy path"
+        assert result[0].metadata.use_case == "RAG"
+        assert result[0].metadata.complexity == "Complex"
+        assert result[0].metadata.human_verified is True
+        assert result[0].metadata.persona == "developer"
+
+    def test_dataset_and_conversation_metadata_together(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Dataset and conversation metadata coexist in one file."""
+        yaml_data = {
+            "metadata": {"team_product": "OLS Team"},
+            "conversations": [
+                {
+                    "conversation_group_id": "conv1",
+                    "metadata": {
+                        "scenario_category": "Edge Case",
+                        "complexity": "Simple",
+                        "additional_metadata": {"priority": "high"},
+                    },
+                    "turns": [
+                        {
+                            "turn_id": "t1",
+                            "query": "Q",
+                            "response": "A",
+                        }
+                    ],
+                },
+            ],
+        }
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+
+        assert validator.dataset_metadata is not None
+        assert validator.dataset_metadata.team_product == "OLS Team"
+        assert result[0].metadata is not None
+        assert result[0].metadata.scenario_category == "Edge Case"
+        assert result[0].metadata.complexity == "Simple"
+        assert result[0].metadata.additional_metadata == {"priority": "high"}
+
+    def test_no_metadata_backward_compatibility(self, mocker: MockerFixture) -> None:
+        """Existing list-format files without metadata still work unchanged."""
+        yaml_data = [
+            {
+                "conversation_group_id": "conv1",
+                "turns": [{"turn_id": "t1", "query": "Q", "response": "A"}],
+            },
+        ]
+        mocker.patch("builtins.open", mocker.mock_open(read_data=""))
+        mocker.patch("yaml.safe_load", return_value=yaml_data)
+        validator = DataValidator()
+        result = validator.load_evaluation_data("dummy.yaml")
+
+        assert len(result) == 1
+        assert validator.dataset_metadata is None
+        assert result[0].metadata is None

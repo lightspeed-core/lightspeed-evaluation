@@ -44,7 +44,9 @@ class TestEvaluate:
         results = evaluate(config, data)
 
         assert results == mock_results
-        mock_pipeline.run_evaluation.assert_called_once_with(data)
+        mock_pipeline.run_evaluation.assert_called_once_with(
+            data, original_data_path=None, dataset_metadata=None
+        )
         mock_pipeline.close.assert_called_once()
 
     def test_evaluate_empty_data(self) -> None:

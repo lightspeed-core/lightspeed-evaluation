@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models.data import (
+    ConversationMetadata,
+    DatasetMetadata,
     EvaluationData,
     EvaluationResult,
     JudgeScore,
@@ -719,3 +721,107 @@ class TestEvaluationDataAgentFields:
                 agent="",
                 turns=[TurnData(turn_id="t1", query="Q")],
             )
+
+
+class TestConversationMetadata:
+    """Tests for ConversationMetadata model."""
+
+    def test_defaults_to_none_and_accepts_all_fields(self) -> None:
+        """Empty construction defaults to None; all fields are assignable."""
+        assert ConversationMetadata().scenario_category is None
+
+        meta = ConversationMetadata(
+            scenario_category="Core/Happy path",
+            use_case="RAG",
+            interaction_type="Multi-turn",
+            topic="networking",
+            jtbd_reference="JTBD-001",
+            complexity="Complex",
+            data_source="Human-written",
+            human_verified=True,
+            verified_by="jane.doe",
+            persona="admin",
+            additional_metadata={"region": "EMEA"},
+        )
+        assert meta.scenario_category == "Core/Happy path"
+        assert meta.use_case == "RAG"
+        assert meta.complexity == "Complex"
+        assert meta.human_verified is True
+        assert meta.persona == "admin"
+        assert meta.additional_metadata == {"region": "EMEA"}
+
+    def test_extra_fields_forbidden(self) -> None:
+        """ConversationMetadata rejects unknown fields."""
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            ConversationMetadata.model_validate({"unknown": "x"})
+
+    def test_optional_on_evaluation_data(self) -> None:
+        """EvaluationData accepts metadata and defaults to None without it."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.metadata is None
+
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            turns=[TurnData(turn_id="t1", query="Q")],
+            metadata=ConversationMetadata(scenario_category="Edge Case"),
+        )
+        assert data.metadata is not None
+        assert data.metadata.scenario_category == "Edge Case"
+
+    def test_serialization_round_trip(self) -> None:
+        """ConversationMetadata survives model_dump / model_validate."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            turns=[TurnData(turn_id="t1", query="Q")],
+            metadata=ConversationMetadata(
+                use_case="Agent/Tools", additional_metadata={"region": "EMEA"}
+            ),
+        )
+        restored = EvaluationData.model_validate(data.model_dump(mode="json"))
+        assert restored.metadata is not None
+        assert restored.metadata.use_case == "Agent/Tools"
+
+
+class TestDatasetMetadata:
+    """Tests for DatasetMetadata model."""
+
+    def test_defaults_to_none_and_accepts_all_fields(self) -> None:
+        """Empty construction defaults to None; all fields are assignable."""
+        assert DatasetMetadata().team_product is None
+
+        meta = DatasetMetadata(
+            description="OLS evaluation dataset",
+            jtbd_source="JTBD-2025-Q2",
+            team_product="Team LEADS / OLS",
+            dataset_version="1.2.0",
+            pii_confirmed_removed=True,
+            generation_tools=["SDG-hub", "Ragas"],
+            llms_used=["gpt-4o", "granite-3.2"],
+            last_updated="2025-06-15",
+            additional_metadata={"env": "staging"},
+        )
+        assert meta.description == "OLS evaluation dataset"
+        assert meta.jtbd_source == "JTBD-2025-Q2"
+        assert meta.team_product == "Team LEADS / OLS"
+        assert meta.pii_confirmed_removed is True
+        assert meta.generation_tools == ["SDG-hub", "Ragas"]
+        assert meta.last_updated == "2025-06-15"
+
+    def test_extra_fields_forbidden(self) -> None:
+        """DatasetMetadata rejects unknown fields."""
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            DatasetMetadata.model_validate({"bad_field": 123})
+
+    def test_serialization_round_trip(self) -> None:
+        """DatasetMetadata survives model_dump / model_validate."""
+        meta = DatasetMetadata(
+            team_product="OLS",
+            pii_confirmed_removed=True,
+            additional_metadata={"grade": "Gold"},
+        )
+        restored = DatasetMetadata.model_validate(meta.model_dump(mode="json"))
+        assert restored.team_product == "OLS"
+        assert restored.additional_metadata == {"grade": "Gold"}

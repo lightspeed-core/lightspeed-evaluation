@@ -12,6 +12,89 @@ from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 logger = logging.getLogger(__name__)
 
 
+class ConversationMetadata(BaseModel):
+    """Optional user-defined metadata for a conversation group."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_category: Optional[str] = Field(
+        default=None,
+        description=(
+            "Scenario category (e.g. Core/Happy path,"
+            " Edge Case, Negative/Adversarial,"
+            " Negative/Ambiguous, Negative/I-dont-know)"
+        ),
+    )
+    use_case: Optional[str] = Field(
+        default=None,
+        description="System capability (e.g. RAG, Agent/Tools)",
+    )
+    interaction_type: Optional[str] = Field(
+        default=None,
+        description="Interaction type (e.g. Single-turn, Multi-turn)",
+    )
+    topic: Optional[str] = Field(
+        default=None,
+        description="Domain subject area (e.g. networking, storage)",
+    )
+    jtbd_reference: Optional[str] = Field(
+        default=None, description="Jobs-to-be-done reference (Job/Task)"
+    )
+    complexity: Optional[str] = Field(
+        default=None,
+        description="Complexity level (e.g. Simple, Moderate, Complex)",
+    )
+    data_source: Optional[str] = Field(
+        default=None,
+        description="Data source (e.g. Human-written, Production log, Synthetic)",
+    )
+    human_verified: Optional[bool] = Field(
+        default=None, description="Whether a domain expert verified this conversation"
+    )
+    verified_by: Optional[str] = Field(default=None, description="Verifier name or ID")
+    persona: Optional[str] = Field(
+        default=None,
+        description="User persona represented (e.g. developer, admin, beginner)",
+    )
+    additional_metadata: Optional[dict[str, Any]] = Field(
+        default=None, description="Arbitrary key-value pairs for extra metadata"
+    )
+
+
+class DatasetMetadata(BaseModel):
+    """Optional user-defined metadata for the entire evaluation dataset."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    description: Optional[str] = Field(
+        default=None, description="Brief description of the dataset"
+    )
+    jtbd_source: Optional[str] = Field(
+        default=None, description="Jobs-to-be-done source reference"
+    )
+    team_product: Optional[str] = Field(
+        default=None, description="Owning team or product (with contact details)"
+    )
+    dataset_version: Optional[str] = Field(
+        default=None, description="Dataset version for tracking iterations"
+    )
+    pii_confirmed_removed: Optional[bool] = Field(
+        default=None, description="Whether PII has been confirmed removed"
+    )
+    generation_tools: Optional[list[str]] = Field(
+        default=None, description="Tools used for synthetic data generation"
+    )
+    llms_used: Optional[list[str]] = Field(
+        default=None, description="LLMs used in the generation pipeline"
+    )
+    last_updated: Optional[str] = Field(
+        default=None, description="Date the dataset was last updated (e.g. 2025-06-15)"
+    )
+    additional_metadata: Optional[dict[str, Any]] = Field(
+        default=None, description="Arbitrary key-value pairs for extra metadata"
+    )
+
+
 def _validate_and_deduplicate_metrics(
     metrics: list[str], metric_type: str = "metric"
 ) -> list[str]:
@@ -427,6 +510,10 @@ class EvaluationData(BaseModel):
 
     conversation_group_id: str = Field(
         ..., min_length=1, description="Unique conversation group identifier"
+    )
+    metadata: Optional[ConversationMetadata] = Field(
+        default=None,
+        description="User-defined metadata for traceability and quality grading",
     )
     description: Optional[str] = Field(
         default=None,

@@ -382,6 +382,7 @@ For field tables, full YAML examples (file-only, file + SQLite, file + Postgres)
 | Field                           | Type           | Required | Description                                                          |
 |---------------------------------|----------------|----------|----------------------------------------------------------------------|
 | `conversation_group_id`         | string         | ✅       | Unique identifier for conversation                                   |
+| `metadata`                      | ConversationMetadata | ❌ | User-defined metadata for traceability and quality grading           |
 | `description`                   | string         | ❌       | Optional description                                                 |
 | `tag`                           | string         | ❌       | Tag for grouping eval conversations (default: "eval")             |
 | `setup_script`                  | string         | ❌       | Path to setup script (Optional, used when API is enabled)            |

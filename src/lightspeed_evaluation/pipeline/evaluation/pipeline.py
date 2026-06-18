@@ -4,7 +4,7 @@ import asyncio
 import concurrent.futures
 import logging
 from collections.abc import Callable, Coroutine
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import litellm
 import tqdm
@@ -37,6 +37,9 @@ from lightspeed_evaluation.pipeline.evaluation.processor import (
     ProcessorComponents,
 )
 from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
+
+if TYPE_CHECKING:
+    from lightspeed_evaluation.core.models.data import DatasetMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -167,12 +170,15 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
         self,
         evaluation_data: list[EvaluationData],
         original_data_path: Optional[str] = None,
+        dataset_metadata: Optional["DatasetMetadata"] = None,
     ) -> list[EvaluationResult]:
         """Run evaluation on provided data.
 
         Args:
             evaluation_data: List of conversation data to evaluate
             original_data_path: Path to original data file for saving updates
+            dataset_metadata: Optional dataset-level metadata to preserve in
+                amended output.
 
         Returns:
             List of evaluation results.
@@ -194,7 +200,7 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
 
         if self.system_config.agents is not None and self.system_config.agents.enabled:
             logger.info("Saving amended evaluation data")
-            self._save_amended_data(evaluation_data)
+            self._save_amended_data(evaluation_data, dataset_metadata)
 
         logger.info("Evaluation complete: %d results generated", len(results))
         return results
@@ -235,7 +241,11 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
             if is_per_conversation:
                 driver.close()
 
-    def _save_amended_data(self, evaluation_data: list[EvaluationData]) -> None:
+    def _save_amended_data(
+        self,
+        evaluation_data: list[EvaluationData],
+        dataset_metadata: Optional["DatasetMetadata"] = None,
+    ) -> None:
         """Save amended evaluation data with API amendments to output directory."""
         if not self.original_data_path:
             logger.warning("No original data path available, cannot save amended data")
@@ -243,7 +253,10 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
 
         try:
             amended_file = save_evaluation_data(
-                evaluation_data, self.original_data_path, self.output_dir
+                evaluation_data,
+                self.original_data_path,
+                self.output_dir,
+                dataset_metadata=dataset_metadata,
             )
             if amended_file:
                 logger.info("Amended data saved: %s", amended_file)

@@ -23,7 +23,7 @@ For structured results with computed statistics::
     print(summary.by_metric)
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from lightspeed_evaluation.core.models import (
     EvaluationData,
@@ -35,22 +35,31 @@ from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
+if TYPE_CHECKING:
+    from lightspeed_evaluation.core.models.data import DatasetMetadata
+
 
 def evaluate(
     config: SystemConfig,
     data: list[EvaluationData],
     output_dir: Optional[str] = None,
+    original_data_path: Optional[str] = None,
+    dataset_metadata: Optional["DatasetMetadata"] = None,
 ) -> list[EvaluationResult]:
     """Run evaluation on the provided data using the given configuration.
 
     Creates a fully-initialized pipeline from the ``SystemConfig``, runs
-    evaluation on every conversation in *data*, and returns the raw results.
+    evaluation on every conversations in *data*, and returns the raw results.
     No reports are generated -- file I/O is the caller's responsibility.
 
     Args:
         config: A pre-built SystemConfig instance.
         data: List of EvaluationData conversations to evaluate.
         output_dir: Optional override for the output directory.
+        original_data_path: Path to the original evaluation data file.
+            Required for saving amended data when agents are enabled.
+        dataset_metadata: Optional dataset-level metadata to preserve in
+            amended output files.
 
     Returns:
         List of EvaluationResult objects (one per metric per turn/conversation).
@@ -61,7 +70,11 @@ def evaluate(
     loader = ConfigLoader.from_config(config)
     pipeline = EvaluationPipeline(loader, output_dir)
     try:
-        return pipeline.run_evaluation(data)
+        return pipeline.run_evaluation(
+            data,
+            original_data_path=original_data_path,
+            dataset_metadata=dataset_metadata,
+        )
     finally:
         pipeline.close()
 

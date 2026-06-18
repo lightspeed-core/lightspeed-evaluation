@@ -8,6 +8,7 @@ import yaml
 from pydantic import ValidationError
 
 from lightspeed_evaluation.core.models import EvaluationData, TurnData
+from lightspeed_evaluation.core.models.data import DatasetMetadata
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
 
 if TYPE_CHECKING:
@@ -167,6 +168,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         """
         self.validation_errors: list[str] = []
         self.evaluation_data: Optional[list[EvaluationData]] = None
+        self.dataset_metadata: Optional[DatasetMetadata] = None
         self.api_enabled = api_enabled
         self.original_data_path: Optional[str] = None
         self.fail_on_invalid_data = fail_on_invalid_data
@@ -188,6 +190,15 @@ class DataValidator:  # pylint: disable=too-few-public-methods
 
     def _load_and_parse_yaml(self, data_path: str) -> list[EvaluationData]:
         """Load a YAML file and convert each entry to an EvaluationData model.
+
+        Supports two root formats for backward compatibility:
+
+        1. **List format** (original): YAML root is a list of conversations.
+        2. **Dict format** (new): YAML root is a dict with optional ``metadata``
+           and required ``conversations`` keys.
+
+        When the dict format is used, dataset-level metadata is parsed and
+        stored on ``self.dataset_metadata``.
 
         Args:
             data_path: Path to the evaluation data YAML file.
@@ -211,13 +222,12 @@ class DataValidator:  # pylint: disable=too-few-public-methods
 
         if raw_data is None:
             raise DataValidationError("Empty or invalid YAML file")
-        if not isinstance(raw_data, list):
-            raise DataValidationError(
-                f"YAML root must be a list, got {type(raw_data).__name__}"
-            )
+
+        self.dataset_metadata = None
+        raw_conversations = self._extract_conversations_and_metadata(raw_data)
 
         evaluation_data = []
-        for i, data_dict in enumerate(raw_data):
+        for i, data_dict in enumerate(raw_conversations):
             try:
                 eval_data = EvaluationData(**data_dict)
                 evaluation_data.append(eval_data)
@@ -234,6 +244,57 @@ class DataValidator:  # pylint: disable=too-few-public-methods
                     f"Failed to parse evaluation data item {i + 1}: {e}"
                 ) from e
         return evaluation_data
+
+    def _extract_conversations_and_metadata(self, raw_data: object) -> list[dict]:
+        """Extract conversation list and optional dataset metadata from raw YAML.
+
+        Args:
+            raw_data: Parsed YAML data (list or dict).
+
+        Returns:
+            List of raw conversation dicts.
+
+        Raises:
+            DataValidationError: If the structure is invalid.
+        """
+        if isinstance(raw_data, list):
+            return raw_data
+
+        if isinstance(raw_data, dict):
+            if "conversations" not in raw_data:
+                raise DataValidationError(
+                    "YAML root is a dict but missing required 'conversations' key. "
+                    "Expected either a list of conversations or a dict with "
+                    "'conversations' (and optional 'metadata') keys."
+                )
+
+            metadata_raw = raw_data.get("metadata")
+            if metadata_raw is not None:
+                if not isinstance(metadata_raw, dict):
+                    raise DataValidationError(
+                        f"'metadata' must be a mapping, "
+                        f"got {type(metadata_raw).__name__}"
+                    )
+                try:
+                    self.dataset_metadata = DatasetMetadata(**metadata_raw)
+                except ValidationError as e:
+                    error_details = format_pydantic_error(e)
+                    raise DataValidationError(
+                        f"Invalid dataset metadata: {error_details}"
+                    ) from e
+
+            raw_conversations = raw_data["conversations"]
+            if not isinstance(raw_conversations, list):
+                raise DataValidationError(
+                    "'conversations' must be a list, "
+                    f"got {type(raw_conversations).__name__}"
+                )
+            return raw_conversations
+
+        raise DataValidationError(
+            f"YAML root must be a list or a dict with 'conversations' key, "
+            f"got {type(raw_data).__name__}"
+        )
 
     def _apply_metrics_filter(
         self, evaluation_data: list[EvaluationData], metrics: list[str]
