@@ -1,0 +1,3191 @@
+{
+  "timestamp": "2026-06-17T15:21:33.531659+00:00",
+  "total_evaluations": 102,
+  "summary_stats": {
+    "overall": {
+      "TOTAL": 102,
+      "PASS": 87,
+      "FAIL": 8,
+      "ERROR": 0,
+      "SKIPPED": 7,
+      "pass_rate": 85.29411764705883,
+      "fail_rate": 7.8431372549019605,
+      "error_rate": 0.0,
+      "skipped_rate": 6.862745098039216,
+      "total_judge_llm_input_tokens": 179456,
+      "total_judge_llm_output_tokens": 30209,
+      "total_judge_llm_tokens": 209665,
+      "total_embedding_tokens": 805,
+      "total_api_input_tokens": 48417,
+      "total_api_output_tokens": 5758,
+      "total_api_tokens": 54175,
+      "total_tokens": 263840
+    },
+    "by_metric": {
+      "custom:answer_correctness": {
+        "pass": 19,
+        "fail": 0,
+        "error": 0,
+        "skipped": 1,
+        "pass_rate": 95.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 5.0,
+        "score_statistics": {
+          "count": 19,
+          "mean": 0.9052631578947369,
+          "median": 0.9,
+          "std": 0.07050361858740391,
+          "min": 0.8,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 0.8736842105263158,
+            "mean": 0.9052631578947368,
+            "high": 0.9368421052631577,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "custom:intent_eval": {
+        "pass": 15,
+        "fail": 0,
+        "error": 0,
+        "skipped": 1,
+        "pass_rate": 93.75,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 6.25,
+        "score_statistics": {
+          "count": 15,
+          "mean": 1.0,
+          "median": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 1.0,
+            "mean": 1.0,
+            "high": 1.0,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "custom:keywords_eval": {
+        "pass": 19,
+        "fail": 0,
+        "error": 0,
+        "skipped": 1,
+        "pass_rate": 95.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 5.0,
+        "score_statistics": {
+          "count": 19,
+          "mean": 1.0,
+          "median": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 1.0,
+            "mean": 1.0,
+            "high": 1.0,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "deepeval:knowledge_retention": {
+        "pass": 0,
+        "fail": 1,
+        "error": 0,
+        "skipped": 3,
+        "pass_rate": 0.0,
+        "fail_rate": 25.0,
+        "error_rate": 0.0,
+        "skipped_rate": 75.0,
+        "score_statistics": {
+          "count": 1,
+          "mean": 0.0,
+          "median": 0.0,
+          "std": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "confidence_interval": null
+        }
+      },
+      "ragas:context_precision_without_reference": {
+        "pass": 10,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0,
+        "score_statistics": {
+          "count": 10,
+          "mean": 0.9833333332941666,
+          "median": 0.9999999999666667,
+          "std": 0.052704627670351424,
+          "min": 0.8333333332916666,
+          "max": 0.9999999999666667,
+          "confidence_interval": {
+            "low": 0.9666666666233336,
+            "mean": 0.9833333332941667,
+            "high": 1.0166666666291668,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "ragas:faithfulness": {
+        "pass": 13,
+        "fail": 6,
+        "error": 0,
+        "skipped": 1,
+        "pass_rate": 65.0,
+        "fail_rate": 30.0,
+        "error_rate": 0.0,
+        "skipped_rate": 5.0,
+        "score_statistics": {
+          "count": 19,
+          "mean": 0.8605122756724588,
+          "median": 0.9230769230769231,
+          "std": 0.18628281368305857,
+          "min": 0.2916666666666667,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 0.7851721485989223,
+            "mean": 0.8626809498663046,
+            "high": 0.9492356465997771,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "ragas:response_relevancy": {
+        "pass": 11,
+        "fail": 1,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 91.66666666666666,
+        "fail_rate": 8.333333333333332,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0,
+        "score_statistics": {
+          "count": 12,
+          "mean": 0.8674888841149518,
+          "median": 0.8843919620221392,
+          "std": 0.06756334034680092,
+          "min": 0.7437253602987827,
+          "max": 0.9770659352057603,
+          "confidence_interval": {
+            "low": 0.8319722173239221,
+            "mean": 0.8676250595243568,
+            "high": 0.904891507209533,
+            "confidence_level": 95.0
+          }
+        }
+      }
+    },
+    "by_conversation": {
+      "okp_assisted_installer": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_aws_secure_boot": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_ha_fencing": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_multinode_requirements": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_oci_deployment_flow": {
+        "pass": 4,
+        "fail": 2,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 66.66666666666666,
+        "fail_rate": 33.33333333333333,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_oci_manifests": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_oci_vpu_requirements": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_retention_ha_fencing_to_resources": {
+        "pass": 7,
+        "fail": 1,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 87.5,
+        "fail_rate": 12.5,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_retention_oci_requirements_to_flow": {
+        "pass": 6,
+        "fail": 1,
+        "error": 0,
+        "skipped": 1,
+        "pass_rate": 75.0,
+        "fail_rate": 12.5,
+        "error_rate": 0.0,
+        "skipped_rate": 12.5
+      },
+      "okp_retention_openshift_hw_to_platforms": {
+        "pass": 2,
+        "fail": 1,
+        "error": 0,
+        "skipped": 5,
+        "pass_rate": 25.0,
+        "fail_rate": 12.5,
+        "error_rate": 0.0,
+        "skipped_rate": 62.5
+      },
+      "okp_retention_sap_solutions_to_roles": {
+        "pass": 6,
+        "fail": 1,
+        "error": 0,
+        "skipped": 1,
+        "pass_rate": 75.0,
+        "fail_rate": 12.5,
+        "error_rate": 0.0,
+        "skipped_rate": 12.5
+      },
+      "okp_rhel_registration": {
+        "pass": 4,
+        "fail": 1,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 80.0,
+        "fail_rate": 20.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_rhel_sap_definition": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_sap_system_roles": {
+        "pass": 6,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_sno_requirements": {
+        "pass": 5,
+        "fail": 1,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 83.33333333333334,
+        "fail_rate": 16.666666666666664,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      },
+      "okp_supported_platforms": {
+        "pass": 5,
+        "fail": 0,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 100.0,
+        "fail_rate": 0.0,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0
+      }
+    },
+    "by_tag": {
+      "okp_oci": {
+        "pass": 16,
+        "fail": 2,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 88.88888888888889,
+        "fail_rate": 11.11111111111111,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0,
+        "score_statistics": {
+          "count": 18,
+          "mean": 0.9173098654811098,
+          "median": 0.9499999999833333,
+          "std": 0.094174745352531,
+          "min": 0.7437253602987827,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 0.876180275994589,
+            "mean": 0.9177490054850239,
+            "high": 0.9608804877328214,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "okp_openshift": {
+        "pass": 22,
+        "fail": 1,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 95.65217391304348,
+        "fail_rate": 4.3478260869565215,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0,
+        "score_statistics": {
+          "count": 23,
+          "mean": 0.9360399901368648,
+          "median": 0.9999999999666667,
+          "std": 0.09120191577804566,
+          "min": 0.7,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 0.9017089437630853,
+            "mean": 0.9368076927742921,
+            "high": 0.9740095934064849,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "okp_retention": {
+        "pass": 21,
+        "fail": 4,
+        "error": 0,
+        "skipped": 7,
+        "pass_rate": 65.625,
+        "fail_rate": 12.5,
+        "error_rate": 0.0,
+        "skipped_rate": 21.875,
+        "score_statistics": {
+          "count": 25,
+          "mean": 0.8874285714285715,
+          "median": 1.0,
+          "std": 0.24117038925114648,
+          "min": 0.0,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 0.8074285714285712,
+            "mean": 0.8916666666666667,
+            "high": 0.9917619047619046,
+            "confidence_level": 95.0
+          }
+        }
+      },
+      "okp_rhel": {
+        "pass": 28,
+        "fail": 1,
+        "error": 0,
+        "skipped": 0,
+        "pass_rate": 96.55172413793103,
+        "fail_rate": 3.4482758620689653,
+        "error_rate": 0.0,
+        "skipped_rate": 0.0,
+        "score_statistics": {
+          "count": 29,
+          "mean": 0.9505766049164017,
+          "median": 0.9999999999666667,
+          "std": 0.08629515020802725,
+          "min": 0.625,
+          "max": 1.0,
+          "confidence_interval": {
+            "low": 0.9231672793585973,
+            "mean": 0.951526120753843,
+            "high": 0.9851005840924858,
+            "confidence_level": 95.0
+          }
+        }
+      }
+    },
+    "agent_latency_stats": {
+      "count": 19,
+      "mean": 7.6139752476868265,
+      "median": 6.74802041699877,
+      "std": 3.6226005948633384,
+      "min": 3.535511291003786,
+      "max": 18.347605500021018,
+      "p95": 13.762586737220397,
+      "p99": 17.430601747460898
+    }
+  },
+  "configuration": {
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "ssl_verify": true,
+      "ssl_cert_file": null,
+      "temperature": 0.0,
+      "max_tokens": 512,
+      "timeout": 300,
+      "num_retries": 3,
+      "cache_enabled": false,
+      "parameters": {
+        "temperature": 0.0,
+        "max_completion_tokens": 512
+      }
+    },
+    "embedding": {
+      "provider": "openai",
+      "model": "text-embedding-3-small",
+      "provider_kwargs": null,
+      "cache_enabled": false
+    },
+    "api": {
+      "api_base": "http://localhost:8080",
+      "version": "v1",
+      "endpoint_type": "query",
+      "timeout": 300,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "no_tools": null,
+      "system_prompt": null,
+      "extra_request_params": null,
+      "cache_enabled": false,
+      "num_retries": 3,
+      "enabled": true,
+      "mcp_headers": null
+    }
+  },
+  "results": [
+    {
+      "conversation_group_id": "okp_sno_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "sno_hw_requirements",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "FAIL",
+      "score": 0.7,
+      "threshold": 0.8,
+      "execution_time": 17.797679124982096,
+      "evaluation_latency": 12.784726791956928,
+      "judge_llm_input_tokens": 2432,
+      "judge_llm_output_tokens": 798,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.7,
+          "reason": "Ragas faithfulness: 0.70",
+          "judge_input_tokens": 2432,
+          "judge_output_tokens": 798,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.012952333025169,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sno_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "sno_hw_requirements",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.9069008221953584,
+      "threshold": 0.75,
+      "execution_time": 9.841973832983058,
+      "evaluation_latency": 4.829021499957889,
+      "judge_llm_input_tokens": 2397,
+      "judge_llm_output_tokens": 93,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9069008221953584,
+          "reason": "Ragas response relevancy: 0.91",
+          "judge_input_tokens": 2397,
+          "judge_output_tokens": 93,
+          "embedding_tokens": 55
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.012952333025169,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sno_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "sno_hw_requirements",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.99999999995,
+      "threshold": 0.7,
+      "execution_time": 7.877888499002438,
+      "evaluation_latency": 2.8649361659772694,
+      "judge_llm_input_tokens": 3038,
+      "judge_llm_output_tokens": 123,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.99999999995,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 3038,
+          "judge_output_tokens": 123,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.012952333025169,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sno_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "sno_hw_requirements",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.8,
+      "threshold": 0.75,
+      "execution_time": 7.341900083061773,
+      "evaluation_latency": 2.3289477500366047,
+      "judge_llm_input_tokens": 333,
+      "judge_llm_output_tokens": 159,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8,
+          "reason": "Custom answer correctness: 0.80 - The response provides accurate information regarding the resource requirements for a single-node OpenShift cluster, specifically mentioning the minimum of 8 vCPUs and 120GB of storage, which aligns with the expected response. However, it introduces additional details about the `install-config.yaml` file settings and the need for a temporary bootstrap machine, which, while relevant, may not be necessary for a basic understanding of the host requirements. The expected response simplifies the requirements by stating that only a temporary bootstrap machine and one cloud instance for the control plane node are needed, without delving into configuration specifics. This makes the original response slightly more complex than necessary for the question asked. Overall, the response is mostly correct but could be more concise and focused on the essential requirements.",
+          "judge_input_tokens": 333,
+          "judge_output_tokens": 159,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.012952333025169,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sno_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "sno_hw_requirements",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 5.013064542028587,
+      "evaluation_latency": 0.000112209003418684,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: '8', 'vCPU'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.012952333025169,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sno_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "sno_hw_requirements",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.609913500025868,
+      "evaluation_latency": 1.5969611670006998,
+      "judge_llm_input_tokens": 394,
+      "judge_llm_output_tokens": 89,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively addresses the expected intent of retrieving hardware requirements for a single-node OpenShift cluster. It provides specific details about the resource requirements, including CPU and storage specifications, which are crucial for setting up the cluster. Additionally, it includes configuration settings relevant to the installation process, which further aligns with the intent of providing comprehensive information about the requirements. Overall, the response is informative and directly matches the expected intent.",
+          "judge_input_tokens": 394,
+          "judge_output_tokens": 89,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.012952333025169,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_multinode_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "multinode_hw_requirements",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 17.5947135000024,
+      "evaluation_latency": 13.080755625036545,
+      "judge_llm_input_tokens": 3402,
+      "judge_llm_output_tokens": 744,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 3402,
+          "judge_output_tokens": 744,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.513957874965854,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_multinode_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "multinode_hw_requirements",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.9008052914271292,
+      "threshold": 0.75,
+      "execution_time": 8.646638999984134,
+      "evaluation_latency": 4.13268112501828,
+      "judge_llm_input_tokens": 2184,
+      "judge_llm_output_tokens": 93,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9008052914271292,
+          "reason": "Ragas response relevancy: 0.90",
+          "judge_input_tokens": 2184,
+          "judge_output_tokens": 93,
+          "embedding_tokens": 62
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.513957874965854,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_multinode_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "multinode_hw_requirements",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.9999999999666667,
+      "threshold": 0.7,
+      "execution_time": 8.046697124955244,
+      "evaluation_latency": 3.5327392499893904,
+      "judge_llm_input_tokens": 5147,
+      "judge_llm_output_tokens": 143,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9999999999666667,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 5147,
+          "judge_output_tokens": 143,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.513957874965854,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_multinode_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "multinode_hw_requirements",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.75,
+      "execution_time": 6.432017332932446,
+      "evaluation_latency": 1.9180594579665922,
+      "judge_llm_input_tokens": 278,
+      "judge_llm_output_tokens": 112,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Custom answer correctness: 1.00 - The response accurately reflects the minimum resource requirements for control plane and compute nodes in an OpenShift high availability cluster, matching the expected response in terms of vCPUs, RAM, and storage. It also provides additional context about the typical configuration of the cluster, mentioning the need for three control plane nodes and at least two compute nodes for redundancy and high availability. This additional information enhances the completeness of the response without introducing any contradictions. Overall, the response is factually correct, complete, and aligned with the expected answer.",
+          "judge_input_tokens": 278,
+          "judge_output_tokens": 112,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.513957874965854,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_multinode_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "multinode_hw_requirements",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 4.514145499968436,
+      "evaluation_latency": 0.00018762500258162618,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 3 - all keywords matched: 'CPU', 'RAM', 'storage'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.513957874965854,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_multinode_requirements",
+      "tag": "okp_openshift",
+      "turn_id": "multinode_hw_requirements",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.073915541928727,
+      "evaluation_latency": 1.5599576669628732,
+      "judge_llm_input_tokens": 341,
+      "judge_llm_output_tokens": 114,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively provides the minimum resource requirements for both control plane and compute nodes in an OpenShift high availability cluster, which aligns perfectly with the expected intent of retrieving hardware requirements for multi-node OpenShift clusters. It clearly separates the specifications for control plane and compute nodes, fulfilling the request for distinct information. Additionally, the mention of the typical configuration of three control plane nodes and at least two compute nodes adds valuable context regarding redundancy and high availability, further supporting the intent of the question. Overall, the response meets the expected intent comprehensively.",
+          "judge_input_tokens": 341,
+          "judge_output_tokens": 114,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.513957874965854,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_assisted_installer",
+      "tag": "okp_openshift",
+      "turn_id": "assisted_installer_overview",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 51.899321957957,
+      "evaluation_latency": 42.21422087500105,
+      "judge_llm_input_tokens": 4093,
+      "judge_llm_output_tokens": 2289,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 4093,
+          "judge_output_tokens": 2289,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.685101082955953,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_assisted_installer",
+      "tag": "okp_openshift",
+      "turn_id": "assisted_installer_overview",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.8116330177627907,
+      "threshold": 0.75,
+      "execution_time": 13.899294707924128,
+      "evaluation_latency": 4.214193624968175,
+      "judge_llm_input_tokens": 3528,
+      "judge_llm_output_tokens": 91,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8116330177627907,
+          "reason": "Ragas response relevancy: 0.81",
+          "judge_input_tokens": 3528,
+          "judge_output_tokens": 91,
+          "embedding_tokens": 57
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.685101082955953,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_assisted_installer",
+      "tag": "okp_openshift",
+      "turn_id": "assisted_installer_overview",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.9999999999666667,
+      "threshold": 0.7,
+      "execution_time": 13.338252541958354,
+      "evaluation_latency": 3.6531514590024017,
+      "judge_llm_input_tokens": 6361,
+      "judge_llm_output_tokens": 164,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9999999999666667,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 6361,
+          "judge_output_tokens": 164,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.685101082955953,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_assisted_installer",
+      "tag": "okp_openshift",
+      "turn_id": "assisted_installer_overview",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.8,
+      "threshold": 0.75,
+      "execution_time": 12.875720832962543,
+      "evaluation_latency": 3.19061975000659,
+      "judge_llm_input_tokens": 708,
+      "judge_llm_output_tokens": 212,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8,
+          "reason": "Custom answer correctness: 0.80 - The response provides a comprehensive overview of the Assisted Installer, highlighting its key features and installation workflow. It accurately describes the tool's purpose in simplifying the deployment of OpenShift Container Platform clusters and mentions important aspects such as the web interface, elimination of the bootstrap node, preinstallation validation, and REST API access.",
+          "judge_input_tokens": 708,
+          "judge_output_tokens": 212,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.685101082955953,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_assisted_installer",
+      "tag": "okp_openshift",
+      "turn_id": "assisted_installer_overview",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 9.685199374973308,
+      "evaluation_latency": 9.829201735556126e-05,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'Assisted Installer'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.685101082955953,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_assisted_installer",
+      "tag": "okp_openshift",
+      "turn_id": "assisted_installer_overview",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 13.304727373993956,
+      "evaluation_latency": 3.619626291038003,
+      "judge_llm_input_tokens": 751,
+      "judge_llm_output_tokens": 115,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively explains what the Assisted Installer is and provides a detailed description of the installation workflow steps. It begins by defining the Assisted Installer and its purpose, highlighting key features that contribute to its functionality. The response then outlines the installation workflow in a clear, step-by-step manner, covering preinstallation setup, cluster creation, the installation process, completion, postinstallation steps, and access. This aligns perfectly with the expected intent of explaining the Assisted Installer and describing the installation workflow steps. Overall, the response meets the criteria for the expected intent.",
+          "judge_input_tokens": 751,
+          "judge_output_tokens": 115,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.685101082955953,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_supported_platforms",
+      "tag": "okp_openshift",
+      "turn_id": "supported_platforms",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 0.8333333333333334,
+      "threshold": 0.8,
+      "execution_time": 16.4938911239733,
+      "evaluation_latency": 11.080062915978488,
+      "judge_llm_input_tokens": 5094,
+      "judge_llm_output_tokens": 505,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8333333333333334,
+          "reason": "Ragas faithfulness: 0.83",
+          "judge_input_tokens": 5094,
+          "judge_output_tokens": 505,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.413828207994811,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_supported_platforms",
+      "tag": "okp_openshift",
+      "turn_id": "supported_platforms",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.876247308545946,
+      "threshold": 0.75,
+      "execution_time": 10.489935874007642,
+      "evaluation_latency": 5.076107666012831,
+      "judge_llm_input_tokens": 2220,
+      "judge_llm_output_tokens": 99,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.876247308545946,
+          "reason": "Ragas response relevancy: 0.88",
+          "judge_input_tokens": 2220,
+          "judge_output_tokens": 99,
+          "embedding_tokens": 66
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.413828207994811,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_supported_platforms",
+      "tag": "okp_openshift",
+      "turn_id": "supported_platforms",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 9.079322000034153,
+      "evaluation_latency": 3.6654937920393422,
+      "judge_llm_input_tokens": 254,
+      "judge_llm_output_tokens": 153,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response accurately lists the supported platforms for installing OpenShift clusters using the Assisted Installer, including bare metal, Nutanix, vSphere, and Oracle Cloud Infrastructure, which aligns with the expected response. Additionally, it provides extra information about supported CPU architectures, which enhances the completeness of the answer. However, the expected response specifically mentions \"on-premise platforms,\" while the original response includes Oracle Cloud Infrastructure, which is a cloud platform. This slight deviation from the expected focus on on-premise platforms could lead to some confusion, hence the score is not a perfect 1.0. Overall, the response is mostly correct and informative, but the inclusion of OCI as an on-premise platform is a point of contention.",
+          "judge_input_tokens": 254,
+          "judge_output_tokens": 153,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.413828207994811,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_supported_platforms",
+      "tag": "okp_openshift",
+      "turn_id": "supported_platforms",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 5.413957624987233,
+      "evaluation_latency": 0.0001294169924221933,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 2 - all keywords matched: 'vSphere'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.413828207994811,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_supported_platforms",
+      "tag": "okp_openshift",
+      "turn_id": "supported_platforms",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.913107207976282,
+      "evaluation_latency": 1.4992789999814704,
+      "judge_llm_input_tokens": 329,
+      "judge_llm_output_tokens": 102,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively lists the supported platforms for installing OpenShift clusters using the Assisted Installer, which aligns perfectly with the expected intent of providing that information. It not only names the platforms (Bare Metal, Nutanix, vSphere, Oracle Cloud Infrastructure) but also includes additional relevant details about supported CPU architectures. This additional information enhances the response without deviating from the primary intent, which is to inform the user about the supported platforms. Therefore, the response meets the expected intent.",
+          "judge_input_tokens": 329,
+          "judge_output_tokens": 102,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.413828207994811,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_vpu_requirements",
+      "tag": "okp_oci",
+      "turn_id": "oci_vpu_recommendations",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 26.598452125035692,
+      "evaluation_latency": 22.799637000018265,
+      "judge_llm_input_tokens": 3420,
+      "judge_llm_output_tokens": 745,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 3420,
+          "judge_output_tokens": 745,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.798815125017427,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_vpu_requirements",
+      "tag": "okp_oci",
+      "turn_id": "oci_vpu_recommendations",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.8616772829095055,
+      "threshold": 0.75,
+      "execution_time": 14.598831375013106,
+      "evaluation_latency": 10.800016249995679,
+      "judge_llm_input_tokens": 2346,
+      "judge_llm_output_tokens": 129,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8616772829095055,
+          "reason": "Ragas response relevancy: 0.86",
+          "judge_input_tokens": 2346,
+          "judge_output_tokens": 129,
+          "embedding_tokens": 95
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.798815125017427,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_vpu_requirements",
+      "tag": "okp_oci",
+      "turn_id": "oci_vpu_recommendations",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.9999999999666667,
+      "threshold": 0.7,
+      "execution_time": 7.365922458004206,
+      "evaluation_latency": 3.5671073329867795,
+      "judge_llm_input_tokens": 5253,
+      "judge_llm_output_tokens": 172,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9999999999666667,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 5253,
+          "judge_output_tokens": 172,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.798815125017427,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_vpu_requirements",
+      "tag": "okp_oci",
+      "turn_id": "oci_vpu_recommendations",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 8.280352875008248,
+      "evaluation_latency": 4.481537749990821,
+      "judge_llm_input_tokens": 367,
+      "judge_llm_output_tokens": 200,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response provided is largely accurate and aligns well with the expected response regarding the recommended Volume Performance Units (VPUs) for installing an OpenShift cluster on Oracle Cloud Infrastructure (OCI). The details about the storage size and the corresponding VPUs for different environment types (Test, Basic, and Heavy Production) are consistent with the expected response.",
+          "judge_input_tokens": 367,
+          "judge_output_tokens": 200,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.798815125017427,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_vpu_requirements",
+      "tag": "okp_oci",
+      "turn_id": "oci_vpu_recommendations",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 3.7989580830326304,
+      "evaluation_latency": 0.00014295801520347595,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'VPU', 'volume performance'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.798815125017427,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_vpu_requirements",
+      "tag": "okp_oci",
+      "turn_id": "oci_vpu_recommendations",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.480128417024389,
+      "evaluation_latency": 2.681313292006962,
+      "judge_llm_input_tokens": 386,
+      "judge_llm_output_tokens": 118,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively provides specific recommendations for Volume Performance Units (VPUs) required for installing an OpenShift cluster on Oracle Cloud Infrastructure (OCI) across different environment tiers (Test, Basic, and Heavy Production). This aligns perfectly with the expected intent of retrieving VPU sizing recommendations. The response is clear, structured, and directly addresses the question, fulfilling the purpose of providing relevant information for different environments. Additionally, it suggests reserving extra VPUs for future needs, which adds value to the response. Overall, the intent of the response matches the expected intent.",
+          "judge_input_tokens": 386,
+          "judge_output_tokens": 118,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.798815125017427,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_deployment_flow",
+      "tag": "okp_oci",
+      "turn_id": "oci_deployment_steps",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "FAIL",
+      "score": 0.782608695652174,
+      "threshold": 0.8,
+      "execution_time": 35.39315241598524,
+      "evaluation_latency": 26.199931457987987,
+      "judge_llm_input_tokens": 4339,
+      "judge_llm_output_tokens": 1816,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.782608695652174,
+          "reason": "Ragas faithfulness: 0.78",
+          "judge_input_tokens": 4339,
+          "judge_output_tokens": 1816,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.193220957997255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_deployment_flow",
+      "tag": "okp_oci",
+      "turn_id": "oci_deployment_steps",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "FAIL",
+      "score": 0.7437253602987827,
+      "threshold": 0.75,
+      "execution_time": 13.240162040980067,
+      "evaluation_latency": 4.046941082982812,
+      "judge_llm_input_tokens": 3393,
+      "judge_llm_output_tokens": 105,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.7437253602987827,
+          "reason": "Ragas response relevancy: 0.74",
+          "judge_input_tokens": 3393,
+          "judge_output_tokens": 105,
+          "embedding_tokens": 71
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.193220957997255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_deployment_flow",
+      "tag": "okp_oci",
+      "turn_id": "oci_deployment_steps",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.8333333332916666,
+      "threshold": 0.7,
+      "execution_time": 12.650283791997936,
+      "evaluation_latency": 3.4570628340006806,
+      "judge_llm_input_tokens": 6590,
+      "judge_llm_output_tokens": 169,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8333333332916666,
+          "reason": "Ragas context precision without reference: 0.83",
+          "judge_input_tokens": 6590,
+          "judge_output_tokens": 169,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.193220957997255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_deployment_flow",
+      "tag": "okp_oci",
+      "turn_id": "oci_deployment_steps",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 12.213737457990646,
+      "evaluation_latency": 3.0205164999933913,
+      "judge_llm_input_tokens": 640,
+      "judge_llm_output_tokens": 201,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response provides a comprehensive and detailed overview of the deployment flow for OpenShift on Oracle Cloud Infrastructure (OCI) using the Assisted Installer. It accurately outlines the key steps involved in the process, including preparation, infrastructure setup, downloading the discovery ISO, bootstrapping the cluster, configuration, installation, post-installation verification, and management.",
+          "judge_input_tokens": 640,
+          "judge_output_tokens": 201,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.193220957997255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_deployment_flow",
+      "tag": "okp_oci",
+      "turn_id": "oci_deployment_steps",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 9.193427832971793,
+      "evaluation_latency": 0.0002068749745376408,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'OCI', 'Oracle'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.193220957997255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_deployment_flow",
+      "tag": "okp_oci",
+      "turn_id": "oci_deployment_steps",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 11.216747042024508,
+      "evaluation_latency": 2.023526084027253,
+      "judge_llm_input_tokens": 710,
+      "judge_llm_output_tokens": 90,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively describes the step-by-step deployment flow for deploying OpenShift on Oracle Cloud Infrastructure, aligning perfectly with the expected intent. It provides a clear and structured overview of the process, detailing each phase from preparation to post-installation management. The response includes specific actions and considerations relevant to the deployment, demonstrating a comprehensive understanding of the topic. Overall, it meets the intent of providing instructional guidance on the deployment flow.",
+          "judge_input_tokens": 710,
+          "judge_output_tokens": 90,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.193220957997255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_manifests",
+      "tag": "okp_oci",
+      "turn_id": "oci_mandatory_manifests",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 0.8,
+      "threshold": 0.8,
+      "execution_time": 13.921611791010946,
+      "evaluation_latency": 9.731588708003983,
+      "judge_llm_input_tokens": 2791,
+      "judge_llm_output_tokens": 519,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8,
+          "reason": "Ragas faithfulness: 0.80",
+          "judge_input_tokens": 2791,
+          "judge_output_tokens": 519,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.190023083006963,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_manifests",
+      "tag": "okp_oci",
+      "turn_id": "oci_mandatory_manifests",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.790232906574515,
+      "threshold": 0.75,
+      "execution_time": 8.222358874976635,
+      "evaluation_latency": 4.032335791969672,
+      "judge_llm_input_tokens": 2310,
+      "judge_llm_output_tokens": 108,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.790232906574515,
+          "reason": "Ragas response relevancy: 0.79",
+          "judge_input_tokens": 2310,
+          "judge_output_tokens": 108,
+          "embedding_tokens": 78
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.190023083006963,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_manifests",
+      "tag": "okp_oci",
+      "turn_id": "oci_mandatory_manifests",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.9999999999666667,
+      "threshold": 0.7,
+      "execution_time": 7.897590874985326,
+      "evaluation_latency": 3.707567791978363,
+      "judge_llm_input_tokens": 4631,
+      "judge_llm_output_tokens": 161,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9999999999666667,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 4631,
+          "judge_output_tokens": 161,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.190023083006963,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_manifests",
+      "tag": "okp_oci",
+      "turn_id": "oci_mandatory_manifests",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 7.414026374986861,
+      "evaluation_latency": 3.2240032919798978,
+      "judge_llm_input_tokens": 328,
+      "judge_llm_output_tokens": 202,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response is largely correct and aligns well with the expected response in terms of factual accuracy. It correctly identifies the four mandatory manifests needed for deploying a cluster on OCI using the Assisted Installer. Additionally, it provides specific details about where to upload these manifests, which adds to the completeness of the information.",
+          "judge_input_tokens": 328,
+          "judge_output_tokens": 202,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.190023083006963,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_manifests",
+      "tag": "okp_oci",
+      "turn_id": "oci_mandatory_manifests",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 4.190136082994286,
+      "evaluation_latency": 0.00011299998732283711,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'manifest'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.190023083006963,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_oci_manifests",
+      "tag": "okp_oci",
+      "turn_id": "oci_mandatory_manifests",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.157872167008463,
+      "evaluation_latency": 1.9678490840015002,
+      "judge_llm_input_tokens": 369,
+      "judge_llm_output_tokens": 96,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively identifies the mandatory manifest files required for deploying a cluster on Oracle Cloud Infrastructure (OCI) using the Assisted Installer. It lists the specific files needed, provides their names, and explains where to upload them within the Assisted Installer interface. Additionally, it emphasizes the importance of preparing these files according to Oracle's guidelines, which aligns with the expected intent of identifying mandatory manifest files. Overall, the response meets the expected intent clearly and comprehensively.",
+          "judge_input_tokens": 369,
+          "judge_output_tokens": 96,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 4.190023083006963,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_sap_definition",
+      "tag": "okp_rhel",
+      "turn_id": "sap_solutions_definition",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 0.9230769230769231,
+      "threshold": 0.8,
+      "execution_time": 38.83897095895372,
+      "evaluation_latency": 32.21796258399263,
+      "judge_llm_input_tokens": 3131,
+      "judge_llm_output_tokens": 2075,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9230769230769231,
+          "reason": "Ragas faithfulness: 0.92",
+          "judge_input_tokens": 3131,
+          "judge_output_tokens": 2075,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.621008374961093,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_sap_definition",
+      "tag": "okp_rhel",
+      "turn_id": "sap_solutions_definition",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.9296380206346374,
+      "threshold": 0.75,
+      "execution_time": 19.137278541980777,
+      "evaluation_latency": 12.516270167019684,
+      "judge_llm_input_tokens": 3156,
+      "judge_llm_output_tokens": 99,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9296380206346374,
+          "reason": "Ragas response relevancy: 0.93",
+          "judge_input_tokens": 3156,
+          "judge_output_tokens": 99,
+          "embedding_tokens": 65
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.621008374961093,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_sap_definition",
+      "tag": "okp_rhel",
+      "turn_id": "sap_solutions_definition",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.99999999995,
+      "threshold": 0.7,
+      "execution_time": 9.328008833981585,
+      "evaluation_latency": 2.7070004590204917,
+      "judge_llm_input_tokens": 3686,
+      "judge_llm_output_tokens": 120,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.99999999995,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 3686,
+          "judge_output_tokens": 120,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.621008374961093,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_sap_definition",
+      "tag": "okp_rhel",
+      "turn_id": "sap_solutions_definition",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 10.31205837498419,
+      "evaluation_latency": 3.691050000023097,
+      "judge_llm_input_tokens": 635,
+      "judge_llm_output_tokens": 233,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response provided is largely accurate and covers many key aspects of RHEL for SAP Solutions compared to standard RHEL. It correctly identifies that RHEL for SAP Solutions is tailored for SAP applications and includes additional features and capabilities. The response also highlights several important differences, such as SAP-specific components, high availability features, automation with system roles, extended update support, update services for SAP solutions, and the Insights Dashboard.",
+          "judge_input_tokens": 635,
+          "judge_output_tokens": 233,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.621008374961093,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_sap_definition",
+      "tag": "okp_rhel",
+      "turn_id": "sap_solutions_definition",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.62108404195169,
+      "evaluation_latency": 7.566699059680104e-05,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'SAP', 'RHEL'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.621008374961093,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_sap_definition",
+      "tag": "okp_rhel",
+      "turn_id": "sap_solutions_definition",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 8.694699541956652,
+      "evaluation_latency": 2.073691166995559,
+      "judge_llm_input_tokens": 643,
+      "judge_llm_output_tokens": 89,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively defines RHEL for SAP Solutions and clearly explains how it differs from standard RHEL. It provides a detailed breakdown of the key differences, including specific features and functionalities that are tailored for SAP workloads. The structure of the response aligns well with the expected intent of defining the specialized version of RHEL and highlighting its distinctions from the standard version. Overall, the response meets the intent and purpose as described.",
+          "judge_input_tokens": 643,
+          "judge_output_tokens": 89,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.621008374961093,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sap_system_roles",
+      "tag": "okp_rhel",
+      "turn_id": "sap_role_names",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 10.99717516603414,
+      "evaluation_latency": 7.461663875030354,
+      "judge_llm_input_tokens": 3995,
+      "judge_llm_output_tokens": 360,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 3995,
+          "judge_output_tokens": 360,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.535511291003786,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sap_system_roles",
+      "tag": "okp_rhel",
+      "turn_id": "sap_role_names",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.9770659352057603,
+      "threshold": 0.75,
+      "execution_time": 9.673273249005433,
+      "evaluation_latency": 6.137761958001647,
+      "judge_llm_input_tokens": 2025,
+      "judge_llm_output_tokens": 99,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9770659352057603,
+          "reason": "Ragas response relevancy: 0.98",
+          "judge_input_tokens": 2025,
+          "judge_output_tokens": 99,
+          "embedding_tokens": 67
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.535511291003786,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sap_system_roles",
+      "tag": "okp_rhel",
+      "turn_id": "sap_role_names",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.9999999999666667,
+      "threshold": 0.7,
+      "execution_time": 6.82301637501223,
+      "evaluation_latency": 3.287505084008444,
+      "judge_llm_input_tokens": 5708,
+      "judge_llm_output_tokens": 162,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9999999999666667,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 5708,
+          "judge_output_tokens": 162,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.535511291003786,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sap_system_roles",
+      "tag": "okp_rhel",
+      "turn_id": "sap_role_names",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.75,
+      "execution_time": 6.231616124045104,
+      "evaluation_latency": 2.6961048330413178,
+      "judge_llm_input_tokens": 246,
+      "judge_llm_output_tokens": 95,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Custom answer correctness: 1.00 - The response accurately lists the three RHEL System Roles for SAP: **sap_general_preconfigure**, **sap_netweaver_preconfigure**, and **sap_hana_preconfigure**. It correctly identifies the purpose of each role, aligning with the expected response. The information is complete, factual, and does not contain any contradictions. The response effectively conveys the necessary details about the roles and their functions, matching the expected format and content.",
+          "judge_input_tokens": 246,
+          "judge_output_tokens": 95,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.535511291003786,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sap_system_roles",
+      "tag": "okp_rhel",
+      "turn_id": "sap_role_names",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 3.5356405830243602,
+      "evaluation_latency": 0.00012929202057421207,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'sap_general_preconfigure'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.535511291003786,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_sap_system_roles",
+      "tag": "okp_rhel",
+      "turn_id": "sap_role_names",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 4.9270373320323415,
+      "evaluation_latency": 1.3915260410285555,
+      "judge_llm_input_tokens": 288,
+      "judge_llm_output_tokens": 75,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response directly addresses the expected intent by providing the exact names of the three RHEL System Roles for SAP used to preconfigure systems, along with a brief description of their purposes. This aligns perfectly with the request to retrieve both the names and the specific functions of each role, demonstrating a clear understanding of the question and fulfilling the expected purpose.",
+          "judge_input_tokens": 288,
+          "judge_output_tokens": 75,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 3.535511291003786,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_ha_fencing",
+      "tag": "okp_rhel",
+      "turn_id": "fencing_policy",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.8,
+      "execution_time": 23.157705041987356,
+      "evaluation_latency": 13.188253208994865,
+      "judge_llm_input_tokens": 5493,
+      "judge_llm_output_tokens": 855,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Ragas faithfulness: 0.90",
+          "judge_input_tokens": 5493,
+          "judge_output_tokens": 855,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.96945183299249,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_ha_fencing",
+      "tag": "okp_rhel",
+      "turn_id": "fencing_policy",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.9163368533862761,
+      "threshold": 0.75,
+      "execution_time": 16.7683771669399,
+      "evaluation_latency": 6.798925333947409,
+      "judge_llm_input_tokens": 2373,
+      "judge_llm_output_tokens": 102,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9163368533862761,
+          "reason": "Ragas response relevancy: 0.92",
+          "judge_input_tokens": 2373,
+          "judge_output_tokens": 102,
+          "embedding_tokens": 64
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.96945183299249,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_ha_fencing",
+      "tag": "okp_rhel",
+      "turn_id": "fencing_policy",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.9999999999666667,
+      "threshold": 0.7,
+      "execution_time": 17.57088254194241,
+      "evaluation_latency": 7.60143070894992,
+      "judge_llm_input_tokens": 7327,
+      "judge_llm_output_tokens": 206,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9999999999666667,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 7327,
+          "judge_output_tokens": 206,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.96945183299249,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_ha_fencing",
+      "tag": "okp_rhel",
+      "turn_id": "fencing_policy",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.75,
+      "execution_time": 13.746810874028597,
+      "evaluation_latency": 3.7773590410361066,
+      "judge_llm_input_tokens": 347,
+      "judge_llm_output_tokens": 122,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Custom answer correctness: 1.00 - The response accurately reflects the importance of fencing (STONITH) in a Pacemaker cluster on RHEL. It correctly states that creating a cluster without fencing is not recommended and is considered unsupported, aligning with best practices for high availability. The mention of the documentation reinforces the factual accuracy of the response. Additionally, it emphasizes the risks associated with not implementing fencing, such as data corruption and service interruptions, which adds to the completeness of the information. There are no contradictions in the response, and it aligns well with the expected response, making it a thorough and correct answer.",
+          "judge_input_tokens": 347,
+          "judge_output_tokens": 122,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.96945183299249,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_ha_fencing",
+      "tag": "okp_rhel",
+      "turn_id": "fencing_policy",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 9.969597249000799,
+      "evaluation_latency": 0.00014541600830852985,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'fencing', 'stonith'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.96945183299249,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_ha_fencing",
+      "tag": "okp_rhel",
+      "turn_id": "fencing_policy",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 11.86404199898243,
+      "evaluation_latency": 1.8945901659899391,
+      "judge_llm_input_tokens": 394,
+      "judge_llm_output_tokens": 94,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively explains Red Hat's policy on running high availability (HA) clusters without fencing and emphasizes the importance of fencing in maintaining cluster integrity and preventing data corruption. It clearly states that creating a Pacemaker cluster without fencing is not recommended and cites documentation to support this claim. The response aligns well with the expected intent by providing a thorough explanation of why fencing is critical in a Pacemaker cluster, thus fulfilling the purpose of the inquiry.",
+          "judge_input_tokens": 394,
+          "judge_output_tokens": 94,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 9.96945183299249,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_aws_secure_boot",
+      "tag": "okp_rhel",
+      "turn_id": "aws_secure_boot",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 32.599070373980794,
+      "evaluation_latency": 19.345930165960453,
+      "judge_llm_input_tokens": 3616,
+      "judge_llm_output_tokens": 1137,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 3616,
+          "judge_output_tokens": 1137,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 13.25314020802034,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_aws_secure_boot",
+      "tag": "okp_rhel",
+      "turn_id": "aws_secure_boot",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.8925366154983324,
+      "threshold": 0.75,
+      "execution_time": 17.236597708018962,
+      "evaluation_latency": 3.9834574999986216,
+      "judge_llm_input_tokens": 4128,
+      "judge_llm_output_tokens": 101,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8925366154983324,
+          "reason": "Ragas response relevancy: 0.89",
+          "judge_input_tokens": 4128,
+          "judge_output_tokens": 101,
+          "embedding_tokens": 62
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 13.25314020802034,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_aws_secure_boot",
+      "tag": "okp_rhel",
+      "turn_id": "aws_secure_boot",
+      "metric_identifier": "ragas:context_precision_without_reference",
+      "result": "PASS",
+      "score": 0.99999999995,
+      "threshold": 0.7,
+      "execution_time": 15.661897333047818,
+      "evaluation_latency": 2.4087571250274777,
+      "judge_llm_input_tokens": 4712,
+      "judge_llm_output_tokens": 105,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.99999999995,
+          "reason": "Ragas context precision without reference: 1.00",
+          "judge_input_tokens": 4712,
+          "judge_output_tokens": 105,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 13.25314020802034,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_aws_secure_boot",
+      "tag": "okp_rhel",
+      "turn_id": "aws_secure_boot",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.8,
+      "threshold": 0.75,
+      "execution_time": 17.73047808301635,
+      "evaluation_latency": 4.47733787499601,
+      "judge_llm_input_tokens": 839,
+      "judge_llm_output_tokens": 316,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8,
+          "reason": "Custom answer correctness: 0.80 - The response provides a detailed and technically accurate set of steps for configuring RHEL on AWS with Secure Boot, including prerequisites, configuration steps, and verification methods. It correctly outlines the process of generating a custom certificate, creating an AWS blob, registering the AMI with Secure Boot variables, and verifying the Secure Boot state.",
+          "judge_input_tokens": 839,
+          "judge_output_tokens": 316,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 13.25314020802034,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_aws_secure_boot",
+      "tag": "okp_rhel",
+      "turn_id": "aws_secure_boot",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 13.253192625008523,
+      "evaluation_latency": 5.241698818281293e-05,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'Secure Boot'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 13.25314020802034,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_aws_secure_boot",
+      "tag": "okp_rhel",
+      "turn_id": "aws_secure_boot",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 16.592342749994714,
+      "evaluation_latency": 3.339202541974373,
+      "judge_llm_input_tokens": 905,
+      "judge_llm_output_tokens": 130,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively explains how to configure Red Hat Enterprise Linux (RHEL) on Amazon Web Services (AWS) with Secure Boot. It provides a clear set of prerequisites and detailed step-by-step instructions, including commands and explanations for generating a custom certificate, creating an AWS blob, registering the AMI, and verifying the Secure Boot configuration. The intent of the response aligns well with the expected intent, which is to provide instructions on configuring RHEL instances on AWS with Secure Boot. The response does not explicitly mention which instance types support Secure Boot, but it fulfills the primary purpose of guiding the user through the configuration process.",
+          "judge_input_tokens": 905,
+          "judge_output_tokens": 130,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 13.25314020802034,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_registration",
+      "tag": "okp_rhel",
+      "turn_id": "rhel_registration",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "FAIL",
+      "score": 0.625,
+      "threshold": 0.8,
+      "execution_time": 31.714994041016325,
+      "evaluation_latency": 23.331043915997725,
+      "judge_llm_input_tokens": 3762,
+      "judge_llm_output_tokens": 1418,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.625,
+          "reason": "Ragas faithfulness: 0.62",
+          "judge_input_tokens": 3762,
+          "judge_output_tokens": 1418,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.3839501250186,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_registration",
+      "tag": "okp_rhel",
+      "turn_id": "rhel_registration",
+      "metric_identifier": "ragas:response_relevancy",
+      "result": "PASS",
+      "score": 0.8030671949403881,
+      "threshold": 0.75,
+      "execution_time": 13.430967124993913,
+      "evaluation_latency": 5.0470169999753125,
+      "judge_llm_input_tokens": 3438,
+      "judge_llm_output_tokens": 96,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8030671949403881,
+          "reason": "Ragas response relevancy: 0.80",
+          "judge_input_tokens": 3438,
+          "judge_output_tokens": 96,
+          "embedding_tokens": 63
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.3839501250186,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_registration",
+      "tag": "okp_rhel",
+      "turn_id": "rhel_registration",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 12.358731249987613,
+      "evaluation_latency": 3.974781124969013,
+      "judge_llm_input_tokens": 669,
+      "judge_llm_output_tokens": 177,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The provided response is largely correct and offers a comprehensive guide on how to register a Red Hat Enterprise Linux (RHEL) system with Red Hat. It accurately describes the use of the `subscription-manager` command for registration, including both username/password and activation key methods, and provides additional context for attaching subscriptions and using Kickstart for automation.",
+          "judge_input_tokens": 669,
+          "judge_output_tokens": 177,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.3839501250186,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_registration",
+      "tag": "okp_rhel",
+      "turn_id": "rhel_registration",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 8.384141500049736,
+      "evaluation_latency": 0.00019137503113597631,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 2 - all keywords matched: 'register', 'connect'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.3839501250186,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_rhel_registration",
+      "tag": "okp_rhel",
+      "turn_id": "rhel_registration",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 10.345213624997996,
+      "evaluation_latency": 1.9612634999793954,
+      "judge_llm_input_tokens": 730,
+      "judge_llm_output_tokens": 126,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively matches the expected intent of explaining how to register a RHEL system with Red Hat using available tools, particularly through the command line interface. It provides clear, step-by-step instructions for different registration methods, including using the command line, during installation, via Kickstart, and connecting to Insights. Each method is detailed with appropriate commands and explanations, ensuring that the user can follow along easily. Additionally, it includes helpful tips and links to official documentation for further assistance, which aligns well with the intent to provide comprehensive guidance. Overall, the response is instructional and directly addresses the user's query.",
+          "judge_input_tokens": 730,
+          "judge_output_tokens": 126,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.3839501250186,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "sno_requirements_recap",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "FAIL",
+      "score": 0.7857142857142857,
+      "threshold": 0.8,
+      "execution_time": 35.68250962503953,
+      "evaluation_latency": 17.33490412501851,
+      "judge_llm_input_tokens": 3885,
+      "judge_llm_output_tokens": 1051,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.7857142857142857,
+          "reason": "Ragas faithfulness: 0.79",
+          "judge_input_tokens": 3885,
+          "judge_output_tokens": 1051,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 18.347605500021018,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "sno_requirements_recap",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 22.827313208021224,
+      "evaluation_latency": 4.4797077080002055,
+      "judge_llm_input_tokens": 324,
+      "judge_llm_output_tokens": 217,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response provides a comprehensive overview of the hardware requirements for a single-node OpenShift cluster, including the minimum requirements for vCPUs, memory, and storage. It accurately states that at least 8 vCPUs and 120 GB of storage are necessary, which aligns with the expected response. Additionally, it includes the memory requirement of 16 GB RAM, which is relevant and adds value to the information provided, even though it was not mentioned in the expected response.",
+          "judge_input_tokens": 324,
+          "judge_output_tokens": 217,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 18.347605500021018,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "sno_requirements_recap",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 18.347750667016953,
+      "evaluation_latency": 0.00014516699593514204,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: '8', 'vCPU'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 18.347605500021018,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "multinode_contrast",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "multinode_contrast",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "multinode_contrast",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": "multinode_contrast",
+      "metric_identifier": "custom:intent_eval",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_openshift_hw_to_platforms",
+      "tag": "okp_retention",
+      "turn_id": null,
+      "metric_identifier": "deepeval:knowledge_retention",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_solutions_overview",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 31.366775793023407,
+      "evaluation_latency": 24.236283459002152,
+      "judge_llm_input_tokens": 4600,
+      "judge_llm_output_tokens": 1665,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 4600,
+          "judge_output_tokens": 1665,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 7.130492334021255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_solutions_overview",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 10.67443908401765,
+      "evaluation_latency": 3.543946749996394,
+      "judge_llm_input_tokens": 503,
+      "judge_llm_output_tokens": 198,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response accurately describes RHEL for SAP Solutions as a specialized offering from Red Hat tailored for SAP workloads, including SAP HANA and SAP S/4HANA. It correctly identifies the core components of the subscription, such as the inclusion of Red Hat Enterprise Linux, SAP-specific components, RHEL System Roles for SAP, and technical support.",
+          "judge_input_tokens": 503,
+          "judge_output_tokens": 198,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 7.130492334021255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_solutions_overview",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 7.130676251021214,
+      "evaluation_latency": 0.00018391699995845556,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'SAP'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 7.130492334021255,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_preconfigure_roles",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "FAIL",
+      "score": 0.7083333333333334,
+      "threshold": 0.8,
+      "execution_time": 37.877108291955665,
+      "evaluation_latency": 31.129087874956895,
+      "judge_llm_input_tokens": 4793,
+      "judge_llm_output_tokens": 1990,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.7083333333333334,
+          "reason": "Ragas faithfulness: 0.71",
+          "judge_input_tokens": 4793,
+          "judge_output_tokens": 1990,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.74802041699877,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_preconfigure_roles",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 9.065498624986503,
+      "evaluation_latency": 2.317478207987733,
+      "judge_llm_input_tokens": 608,
+      "judge_llm_output_tokens": 158,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response provides a comprehensive overview of the RHEL System Roles for SAP, detailing not only the roles mentioned in the expected response but also additional roles that are relevant for high availability and specific configurations. The factual accuracy is high, as it correctly identifies the roles and their functions. However, the expected response is more concise and focuses on the three primary roles for preconfiguration, while the provided response includes additional roles that, while relevant, may not be necessary for a basic understanding of preconfiguration for SAP workloads. This additional information enhances completeness but diverges from the simplicity of the expected response. Overall, the response is accurate and informative, but the extra details may not align perfectly with the expected brevity, leading to a slight deduction in the score.",
+          "judge_input_tokens": 608,
+          "judge_output_tokens": 158,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.74802041699877,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_preconfigure_roles",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.7481544589973055,
+      "evaluation_latency": 0.00013404199853539467,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'sap_general_preconfigure'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.74802041699877,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": "sap_preconfigure_roles",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 9.14440058299806,
+      "evaluation_latency": 2.3963801659992896,
+      "judge_llm_input_tokens": 660,
+      "judge_llm_output_tokens": 103,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively lists the specific RHEL System Roles for preconfiguring systems for SAP workloads, as requested in the question. It provides a clear and detailed description of each role, outlining its purpose and function in the context of SAP applications on Red Hat Enterprise Linux. This aligns perfectly with the expected intent of building on previous information about SAP Solutions tools by providing specific roles and their functionalities. The response is informative and directly addresses the question, demonstrating a strong match with the expected intent.",
+          "judge_input_tokens": 660,
+          "judge_output_tokens": 103,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.74802041699877,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_sap_solutions_to_roles",
+      "tag": "okp_retention",
+      "turn_id": null,
+      "metric_identifier": "deepeval:knowledge_retention",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_sizing",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 12.790317917009816,
+      "evaluation_latency": 7.455351124983281,
+      "judge_llm_input_tokens": 3199,
+      "judge_llm_output_tokens": 533,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 3199,
+          "judge_output_tokens": 533,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.334966792026535,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_sizing",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.75,
+      "execution_time": 8.475593334063888,
+      "evaluation_latency": 3.140626542037353,
+      "judge_llm_input_tokens": 348,
+      "judge_llm_output_tokens": 110,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Custom answer correctness: 1.00 - The response accurately reflects the expected response regarding the recommended volume performance units (VPUs) for deploying OpenShift on Oracle Cloud Infrastructure. It provides specific volume sizes and corresponding VPUs for different environment types (test/proof of concept, basic, and heavy production), which aligns perfectly with the expected guidelines. Additionally, the advice to reserve extra VPUs for updates and scaling is consistent with best practices in cloud deployments. There is no contradictory information, and the response is complete and factual, making it fully correct.",
+          "judge_input_tokens": 348,
+          "judge_output_tokens": 110,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.334966792026535,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_sizing",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 5.335115083027631,
+      "evaluation_latency": 0.00014829100109636784,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'VPU', 'volume performance'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 5.334966792026535,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_flow_after_sizing",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "FAIL",
+      "score": 0.2916666666666667,
+      "threshold": 0.8,
+      "execution_time": 29.167605541006196,
+      "evaluation_latency": 23.1149509579991,
+      "judge_llm_input_tokens": 2946,
+      "judge_llm_output_tokens": 1748,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.2916666666666667,
+          "reason": "Ragas faithfulness: 0.29",
+          "judge_input_tokens": 2946,
+          "judge_output_tokens": 1748,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.052654583007097,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_flow_after_sizing",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.8,
+      "threshold": 0.75,
+      "execution_time": 9.861202625033911,
+      "evaluation_latency": 3.808548042026814,
+      "judge_llm_input_tokens": 560,
+      "judge_llm_output_tokens": 221,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.8,
+          "reason": "Custom answer correctness: 0.80 - The response provides a comprehensive overview of the deployment flow for installing an OpenShift cluster on Oracle Cloud Infrastructure (OCI) using the Assisted Installer. It covers key steps such as preparation, resource provisioning, installation environment setup, downloading the discovery ISO, the installation process, configuration, and post-installation verification.",
+          "judge_input_tokens": 560,
+          "judge_output_tokens": 221,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.052654583007097,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_flow_after_sizing",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 6.053155249974225,
+      "evaluation_latency": 0.0005006669671274722,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'OCI', 'Oracle'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.052654583007097,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": "oci_flow_after_sizing",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 8.145353625004645,
+      "evaluation_latency": 2.092699041997548,
+      "judge_llm_input_tokens": 620,
+      "judge_llm_output_tokens": 130,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively describes the deployment flow for installing an OpenShift cluster on Oracle Cloud Infrastructure (OCI) using the Assisted Installer, which aligns with the expected intent. It provides a clear, step-by-step overview of the process, including preparation, resource provisioning, installation environment setup, downloading the discovery ISO, the installation process itself, configuration, and post-installation verification. Additionally, it connects the infrastructure sizing aspect by mentioning the need to allocate sufficient resources according to OpenShift's requirements. Overall, the response meets the intent of providing a comprehensive guide to the deployment flow, making it instructional and relevant to the question asked.",
+          "judge_input_tokens": 620,
+          "judge_output_tokens": 130,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 6.052654583007097,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_oci_requirements_to_flow",
+      "tag": "okp_retention",
+      "turn_id": null,
+      "metric_identifier": "deepeval:knowledge_retention",
+      "result": "SKIPPED",
+      "score": null,
+      "threshold": null,
+      "execution_time": 0.0,
+      "evaluation_latency": 0.0,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": null,
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 0.0,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_fencing_context",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 20.679341792012565,
+      "evaluation_latency": 11.853101541986689,
+      "judge_llm_input_tokens": 4541,
+      "judge_llm_output_tokens": 817,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 4541,
+          "judge_output_tokens": 817,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.826240250025876,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_fencing_context",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.75,
+      "execution_time": 10.879445583035704,
+      "evaluation_latency": 2.053205333009828,
+      "judge_llm_input_tokens": 311,
+      "judge_llm_output_tokens": 104,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Custom answer correctness: 1.00 - The response accurately reflects Red Hat's strong recommendation against running Pacemaker clusters without fencing, specifically highlighting the importance of STONITH for maintaining cluster integrity and preventing data corruption. It correctly emphasizes that fencing is critical for isolating failed nodes and ensuring the stability of the cluster. The response is complete, providing a clear rationale for the necessity of fencing in production environments, and aligns well with the expected response. There is no contradictory information present, making the response fully correct and informative.",
+          "judge_input_tokens": 311,
+          "judge_output_tokens": 104,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.826240250025876,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_fencing_context",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 8.826437875046395,
+      "evaluation_latency": 0.00019762502051889896,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'fencing', 'stonith'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.826240250025876,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_resource_ordering",
+      "metric_identifier": "ragas:faithfulness",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": 0.8,
+      "execution_time": 27.96476874902146,
+      "evaluation_latency": 19.310179416032042,
+      "judge_llm_input_tokens": 5204,
+      "judge_llm_output_tokens": 1400,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Ragas faithfulness: 1.00",
+          "judge_input_tokens": 5204,
+          "judge_output_tokens": 1400,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.654589332989417,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_resource_ordering",
+      "metric_identifier": "custom:answer_correctness",
+      "result": "PASS",
+      "score": 0.9,
+      "threshold": 0.75,
+      "execution_time": 11.800940625020303,
+      "evaluation_latency": 3.146351292030886,
+      "judge_llm_input_tokens": 623,
+      "judge_llm_output_tokens": 198,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.9,
+          "reason": "Custom answer correctness: 0.90 - The response provided is largely accurate and covers the essential aspects of configuring `pcs` constraints for ordering and colocation in a RHEL High Availability Pacemaker cluster. It correctly explains the purpose of both ordering and colocation constraints, provides the correct syntax for the commands, and includes relevant examples.",
+          "judge_input_tokens": 623,
+          "judge_output_tokens": 198,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.654589332989417,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_resource_ordering",
+      "metric_identifier": "custom:keywords_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 8.654735832940787,
+      "evaluation_latency": 0.00014649995137006044,
+      "judge_llm_input_tokens": 0,
+      "judge_llm_output_tokens": 0,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "Keywords eval successful: Option 1 - all keywords matched: 'pcs'",
+          "judge_input_tokens": 0,
+          "judge_output_tokens": 0,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.654589332989417,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": "ha_resource_ordering",
+      "metric_identifier": "custom:intent_eval",
+      "result": "PASS",
+      "score": 1.0,
+      "threshold": null,
+      "execution_time": 10.532318457961082,
+      "evaluation_latency": 1.8777291249716654,
+      "judge_llm_input_tokens": 669,
+      "judge_llm_output_tokens": 107,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 1.0,
+          "reason": "The response effectively matches the expected intent of explaining how to configure resource ordering and colocation constraints in a Pacemaker cluster. It provides clear instructions on using the `pcs` command to set up both ordering and colocation constraints, including syntax, examples, and additional notes that enhance understanding. The response is instructional and directly addresses the question, ensuring that the reader can follow along and implement the configurations in a Red Hat High Availability environment. Overall, the intent of the response aligns well with the expected intent.",
+          "judge_input_tokens": 669,
+          "judge_output_tokens": 107,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 8.654589332989417,
+      "tokens_per_second": null
+    },
+    {
+      "conversation_group_id": "okp_retention_ha_fencing_to_resources",
+      "tag": "okp_retention",
+      "turn_id": null,
+      "metric_identifier": "deepeval:knowledge_retention",
+      "result": "FAIL",
+      "score": 0.0,
+      "threshold": 0.7,
+      "execution_time": 19.27879720798228,
+      "evaluation_latency": 1.7979676249669865,
+      "judge_llm_input_tokens": 1659,
+      "judge_llm_output_tokens": 38,
+      "judge_scores": [
+        {
+          "judge_id": "judge_gpt_4o_mini",
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no retained facts or context from previous interactions, indicating complete forgetfulness.",
+          "judge_input_tokens": 1659,
+          "judge_output_tokens": 38,
+          "embedding_tokens": 0
+        }
+      ],
+      "time_to_first_token": null,
+      "streaming_duration": null,
+      "agent_latency": 17.480829583015293,
+      "tokens_per_second": null
+    }
+  ]
+}
