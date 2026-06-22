@@ -2,6 +2,7 @@
 
 """Pytest configuration and fixtures for script tests."""
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -212,3 +213,45 @@ def sample_evaluation_summary() -> dict[str, Any]:
         ]
         * 5,  # Repeat to get 10 results
     }
+
+
+def make_summary(
+    metrics: dict[str, tuple[float, float]],
+    timestamp: str = "2026-01-01T00:00:00",
+) -> dict[str, Any]:
+    """Build a minimal summary dict matching the real evaluation output format.
+
+    Args:
+        metrics: Mapping of metric name to (mean_score, pass_rate).
+        timestamp: Timestamp string for the summary.
+
+    Returns:
+        A dict shaped like a real *_summary.json file.
+    """
+    by_metric = {}
+    for name, (mean, pass_rate) in metrics.items():
+        by_metric[name] = {
+            "pass_rate": pass_rate,
+            "score_statistics": {"mean": mean},
+        }
+
+    total = len(metrics) * 10
+    return {
+        "timestamp": timestamp,
+        "total_evaluations": total,
+        "summary_stats": {
+            "overall": {"TOTAL": total, "PASS": total, "FAIL": 0},
+            "by_metric": by_metric,
+        },
+    }
+
+
+def write_summary(
+    directory: Path,
+    data: dict[str, Any],
+    name: str = "evaluation_20260101_000000_summary.json",
+) -> Path:
+    """Write a summary dict to a JSON file in the given directory."""
+    path = directory / name
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
