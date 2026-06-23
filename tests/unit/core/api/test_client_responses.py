@@ -280,6 +280,79 @@ class TestResponsesEndpoint:
         with pytest.raises(APIError, match="API error: 400"):
             client.query("test query", conversation_id="conv_abc")
 
+    def test_responses_streaming_dispatches_to_parse_responses_streaming(
+        self, basic_api_config_responses_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test that stream=True in extra_request_params uses the streaming path."""
+        mock_raw = {
+            "response": "Streaming answer.",
+            "conversation_id": "conv-stream-123",
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "tool_calls": [],
+            "rag_chunks": [],
+            "time_to_first_token": 0.1,
+            "streaming_duration": 0.5,
+            "tokens_per_second": 10.0,
+        }
+        mock_parse = mocker.patch(
+            "lightspeed_evaluation.core.api.client.parse_responses_streaming",
+            return_value=mock_raw,
+        )
+
+        mock_stream_response = mocker.MagicMock()
+        mock_stream_response.status_code = 200
+        mock_stream_cm = mocker.MagicMock()
+        mock_stream_cm.__enter__ = mocker.Mock(return_value=mock_stream_response)
+        mock_stream_cm.__exit__ = mocker.Mock(return_value=False)
+
+        mock_client = mocker.Mock()
+        mock_client.stream.return_value = mock_stream_cm
+        mock_client.headers = {}
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        client = APIClient(basic_api_config_responses_endpoint)
+        result = client.query("test query", extra_request_params={"stream": True})
+
+        assert isinstance(result, APIResponse)
+        assert result.response == "Streaming answer."
+        assert result.conversation_id == "conv-stream-123"
+        mock_client.stream.assert_called_once()
+        mock_client.post.assert_not_called()
+        mock_parse.assert_called_once_with(mock_stream_response)
+
+    def test_responses_non_streaming_does_not_use_streaming_path(
+        self, basic_api_config_responses_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test that stream=False (default) uses the regular POST path."""
+        mock_response = mocker.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "output_text": "Regular answer.",
+            "conversation": "conv-regular-456",
+            "usage": {"input_tokens": 20, "output_tokens": 10},
+        }
+
+        mock_client = mocker.Mock()
+        mock_client.post.return_value = mock_response
+        mock_client.headers = {}
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        client = APIClient(basic_api_config_responses_endpoint)
+        result = client.query("test query")
+
+        assert result.response == "Regular answer."
+        mock_client.post.assert_called_once()
+        mock_client.stream.assert_not_called()
+
     def test_responses_query_retries_on_429(
         self, basic_api_config_responses_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:

@@ -17,7 +17,10 @@ from tenacity import (
     wait_exponential,
 )
 
-from lightspeed_evaluation.core.api.streaming_parser import parse_streaming_response
+from lightspeed_evaluation.core.api.streaming_parser import (
+    parse_responses_streaming,
+    parse_streaming_response,
+)
 from lightspeed_evaluation.core.constants import (
     SUPPORTED_ENDPOINT_TYPES,
 )
@@ -627,6 +630,16 @@ class APIClient:
             raise APIError("HTTP client not initialized")
         try:
             responses_request = self._build_responses_request(api_request)
+
+            if responses_request.get("stream"):
+                with self.client.stream(
+                    "POST",
+                    f"/{self.config.version}/responses",
+                    json=responses_request,
+                ) as response:
+                    self._handle_response_errors(response)
+                    raw_data = parse_responses_streaming(response)
+                    return APIResponse.from_raw_response(raw_data)
 
             response = self.client.post(
                 f"/{self.config.version}/responses",
