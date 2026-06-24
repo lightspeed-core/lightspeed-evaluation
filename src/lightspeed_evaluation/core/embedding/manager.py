@@ -1,7 +1,11 @@
 """Embedding Manager - Generic embedding configuration, validation, and parameter provider."""
 
+import logging
+
 from lightspeed_evaluation.core.models import EmbeddingConfig, SystemConfig
 from lightspeed_evaluation.core.system.env_validator import validate_provider_env
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingError(Exception):
@@ -31,16 +35,36 @@ def check_huggingface_available() -> None:
         ) from e
 
 
-class EmbeddingManager:  # pylint: disable=too-few-public-methods
-    """Generic Embedding Manager."""
+class EmbeddingManager:
+    """Generic Embedding Manager with lazy validation.
+
+    Validation of provider environment variables is deferred until first actual
+    use. This allows the evaluation pipeline to start without requiring embedding
+    provider credentials when no metric relying on embeddings is configured.
+    """
 
     def __init__(self, config: EmbeddingConfig):
-        """Initialize with validated environment and constructed model name."""
+        """Initialize with config. Validation is deferred until ensure_ready() is called."""
         self.config = config
+        self._validated = False
+
+    def ensure_ready(self) -> None:
+        """Validate provider config and environment variables on first use.
+
+        This method is idempotent - subsequent calls after successful validation
+        are no-ops. Should be called before accessing embedding functionality.
+
+        Raises:
+            EmbeddingError: If provider is unsupported or env vars are missing.
+        """
+        if self._validated:
+            return
         self._validate_config()
-        print(
-            f"""
-✅ Embedding Manager: {self.config.provider} -- {self.config.model} {self.config.provider_kwargs}"""
+        self._validated = True
+        logger.info(
+            "Embedding Manager ready: %s -- %s",
+            self.config.provider,
+            self.config.model,
         )
 
     def _validate_config(self) -> None:
