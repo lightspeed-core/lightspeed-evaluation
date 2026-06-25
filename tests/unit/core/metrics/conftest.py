@@ -8,9 +8,16 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
 from lightspeed_evaluation.core.metrics.deepeval import DeepEvalMetrics
 from lightspeed_evaluation.core.metrics.nlp import NLPMetrics
-from lightspeed_evaluation.core.models import EvaluationScope, SystemConfig, TurnData
+from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
+from lightspeed_evaluation.core.models import (
+    EmbeddingConfig,
+    EvaluationScope,
+    SystemConfig,
+    TurnData,
+)
 
 
 @pytest.fixture
@@ -219,4 +226,46 @@ def deepeval_metrics(
     return DeepEvalMetrics(
         llm_manager=mock_llm_manager,
         metric_manager=mock_metric_manager,
+    )
+
+
+@pytest.fixture
+def mock_ragas_deps(mocker: MockerFixture) -> dict[str, Any]:
+    """Mock all heavy dependencies needed to construct RagasMetrics."""
+    mock_llm_manager = mocker.MagicMock()
+    mock_llm_config = mocker.MagicMock()
+    mock_llm_config.cache_enabled = False
+    mock_llm_manager.get_config.return_value = mock_llm_config
+
+    mock_embedding_manager = mocker.MagicMock(spec=EmbeddingManager)
+    mock_embedding_manager.config = EmbeddingConfig(
+        provider="openai", model="text-embedding-3-small", cache_enabled=False
+    )
+
+    mocker.patch("lightspeed_evaluation.core.metrics.ragas.RagasLLMManager")
+
+    return {
+        "llm_manager": mock_llm_manager,
+        "embedding_manager": mock_embedding_manager,
+    }
+
+
+@pytest.fixture
+def ragas_metrics(mock_ragas_deps: dict[str, Any]) -> RagasMetrics:
+    """Create RagasMetrics with mocked dependencies."""
+    return RagasMetrics(**mock_ragas_deps)
+
+
+@pytest.fixture
+def turn_scope() -> EvaluationScope:
+    """Create a turn-level evaluation scope."""
+    return EvaluationScope(
+        turn_idx=0,
+        turn_data=TurnData(
+            turn_id="t1",
+            query="What is Python?",
+            response="A programming language.",
+            expected_response="A programming language.",
+        ),
+        is_conversation=False,
     )

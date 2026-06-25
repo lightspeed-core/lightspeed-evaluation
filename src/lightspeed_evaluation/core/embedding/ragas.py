@@ -19,7 +19,12 @@ class RagasEmbeddingManager:  # pylint: disable=too-few-public-methods
 
         Args:
             embedding_manager: Pre-configured EmbeddingManager with validated parameters
+
+        Raises:
+            EmbeddingError: If provider environment variables are not configured.
+            ConfigurationError: If embedding provider is unknown.
         """
+        embedding_manager.ensure_ready()
         self.config = embedding_manager.config
 
         # Map provider names to litellm format

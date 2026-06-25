@@ -2,6 +2,7 @@
 
 import errno
 import math
+import threading
 from typing import Any, Optional
 
 import litellm
@@ -16,12 +17,16 @@ from ragas.metrics.collections import (
     Faithfulness,
 )
 
-from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
+from lightspeed_evaluation.core.embedding.manager import (
+    EmbeddingError,
+    EmbeddingManager,
+)
 from lightspeed_evaluation.core.embedding.ragas import RagasEmbeddingManager
 from lightspeed_evaluation.core.llm.litellm_patch import litellm_state_lock
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
+from lightspeed_evaluation.core.system.exceptions import EvaluationError
 
 
 def _clamp_score(score: float) -> float:
@@ -45,7 +50,8 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters
-            embedding_manager: Pre-configured EmbeddingManager with validated parameters
+            embedding_manager: EmbeddingManager; validation is deferred until
+                a metric requiring embeddings is evaluated.
         """
         # litellm.cache is process-global; serialize setup with the shared lock
         # so that concurrent pipelines don't race.
@@ -70,7 +76,10 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
 
         # Create Ragas LLM Manager for metric configuration
         self.llm_manager = RagasLLMManager(llm_manager)
-        self.embedding_manager = RagasEmbeddingManager(embedding_manager)
+        # Store base embedding manager for lazy initialization of RagasEmbeddingManager
+        self._embedding_manager = embedding_manager
+        self._ragas_embedding_manager: Optional[RagasEmbeddingManager] = None
+        self._embedding_lock = threading.Lock()
 
         self.supported_metrics = {
             # Response evaluation metrics
@@ -84,6 +93,23 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
                 self._evaluate_context_precision_without_reference
             ),
         }
+
+    @property
+    def embedding_manager(self) -> RagasEmbeddingManager:
+        """Lazily initialize RagasEmbeddingManager on first access.
+
+        This defers embedding provider validation until a metric that actually
+        requires embeddings is evaluated (e.g., response_relevancy).
+        A lock prevents concurrent threads from creating duplicate instances,
+        which matters for HuggingFace local models that load into memory.
+        """
+        if self._ragas_embedding_manager is None:
+            with self._embedding_lock:
+                if self._ragas_embedding_manager is None:
+                    self._ragas_embedding_manager = RagasEmbeddingManager(
+                        self._embedding_manager
+                    )
+        return self._ragas_embedding_manager
 
     def _extract_turn_data(
         self, turn_data: Optional[TurnData]
@@ -128,7 +154,14 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
                     f"(network/LLM timeout): {str(e)}"
                 )
             return None, err_msg
-        except (RuntimeError, ValueError, TypeError, ImportError) as e:
+        except (
+            EvaluationError,
+            EmbeddingError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            ImportError,
+        ) as e:
             return None, f"Ragas {metric_name} evaluation failed: {str(e)}"
 
         if result[0] is not None and math.isnan(result[0]):
