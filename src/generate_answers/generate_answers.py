@@ -1,4 +1,4 @@
-"""Evaluation of LightSpeed services using MLFlow."""
+"""Evaluation of Lightspeed services using MLFlow."""
 
 import json
 import logging
@@ -84,7 +84,7 @@ def parallel_apply(
 
 @click.command(
     help="""
-Generate answers from LLMs by connection to LightSpeed core service.
+Generate answers from LLMs by connection to Lightspeed core service.
 """,
     #    no_args_is_help=True,
     context_settings={

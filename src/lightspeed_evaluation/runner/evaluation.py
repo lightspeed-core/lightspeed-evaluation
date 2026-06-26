@@ -1,4 +1,4 @@
-"""LightSpeed Evaluation Framework - Main Evaluation Runner."""
+"""Lightspeed Evaluation Framework - Main Evaluation Runner."""
 
 import argparse
 import shutil
@@ -120,7 +120,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
     Returns:
         dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR, SKIPPED
     """
-    print("🚀 LightSpeed Evaluation Framework")
+    print("🚀 Lightspeed Evaluation Framework")
     print("=" * 50)
 
     try:
@@ -244,7 +244,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
 def create_eval_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the evaluation runner."""
     parser = argparse.ArgumentParser(
-        description="LightSpeed Evaluation Framework / Tool",
+        description="Lightspeed Evaluation Framework / Tool",
     )
     parser.add_argument(
         "--system-config",

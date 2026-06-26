@@ -1,6 +1,6 @@
 # Agentic Lightspeed Evaluation
 
-This guide covers how to evaluate event-driven agentic workflows using the LightSpeed Evaluation Framework. While the framework's default mode evaluates synchronous HTTP request-response interactions, the agentic evaluation mode supports CRD-based workflows where the "answer" is a trajectory of events and a final cluster state.
+This guide covers how to evaluate event-driven agentic workflows using the Lightspeed Evaluation Framework. While the framework's default mode evaluates synchronous HTTP request-response interactions, the agentic evaluation mode supports CRD-based workflows where the "answer" is a trajectory of events and a final cluster state.
 
 ## Overview
 

@@ -1,4 +1,4 @@
-"""LightSpeed client module."""
+"""Lightspeed client module."""
 
 import hashlib
 import json
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class LSClient:  # pylint: disable=too-few-public-methods
-    """LightSpeed client."""
+    """Lightspeed client."""
 
     def __init__(  # pylint: disable=R0913,R0917
         self,
@@ -25,7 +25,7 @@ class LSClient:  # pylint: disable=too-few-public-methods
         verify_ssl: bool = True,
         timeout: float = 120.0,
     ):
-        """Init LightSpeed."""
+        """Init Lightspeed."""
         self.url = ls_url
         self.version = version
         self.provider = provider
@@ -67,7 +67,7 @@ class LSClient:  # pylint: disable=too-few-public-methods
                 logging.info("Returning cached answer for query '%s'", query)
                 return cached_answer
 
-        logging.info("Calling LightSpeed service for query '%s'", query)
+        logging.info("Calling Lightspeed service for query '%s'", query)
         response = self.client.post(
             f"/{self.version}/query",
             json={

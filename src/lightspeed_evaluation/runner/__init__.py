@@ -1,4 +1,4 @@
-"""Runner/CLI module for LightSpeed Evaluation Framework."""
+"""Runner/CLI module for Lightspeed Evaluation Framework."""
 
 from lightspeed_evaluation.runner.evaluation import main, run_evaluation
 

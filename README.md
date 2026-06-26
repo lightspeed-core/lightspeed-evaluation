@@ -1,4 +1,4 @@
-# LightSpeed Evaluation Framework
+# Lightspeed Evaluation Framework
 
 A comprehensive framework for evaluating GenAI applications.
 

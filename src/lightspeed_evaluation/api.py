@@ -1,4 +1,4 @@
-"""Programmatic API for the LightSpeed Evaluation Framework.
+"""Programmatic API for the Lightspeed Evaluation Framework.
 
 Provides clean public functions for using the framework as a Python library,
 without requiring YAML files or CLI argument parsing.
