@@ -1,4 +1,4 @@
-# LightSpeed Evaluation Framework: Complete Guide
+# Lightspeed Evaluation Framework: Complete Guide
 
 **Last Updated:** December 23, 2025  
 **Assisted by:** AI to generate the document
@@ -39,7 +39,7 @@
 
 ## 1. Introduction
 
-The LightSpeed Evaluation Framework is a comprehensive system designed to evaluate AI-powered applications, particularly conversational AI systems and chatbots. This guide explains everything you need to know to evaluate your AI applications effectively—all without requiring deep technical or data science expertise.
+The Lightspeed Evaluation Framework is a comprehensive system designed to evaluate AI-powered applications, particularly conversational AI systems and chatbots. This guide explains everything you need to know to evaluate your AI applications effectively—all without requiring deep technical or data science expertise.
 
 ### What This Framework Does
 
@@ -1932,7 +1932,7 @@ This repository:
 
 # Conclusion
 
-This comprehensive guide has covered everything you need to know to effectively evaluate AI applications using the LightSpeed Evaluation Framework:
+This comprehensive guide has covered everything you need to know to effectively evaluate AI applications using the Lightspeed Evaluation Framework:
 
 ✅ **Understanding** - What evaluation is and why it matters  
 ✅ **Methodologies** - All 13 evaluation metrics explained in plain English  

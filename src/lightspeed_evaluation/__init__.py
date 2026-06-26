@@ -1,4 +1,4 @@
-"""LightSpeed Evaluation Framework.
+"""Lightspeed Evaluation Framework.
 
 Main components:
 - EvaluationPipeline: Runs complete evaluation pipeline

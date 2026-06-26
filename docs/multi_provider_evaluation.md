@@ -228,7 +228,7 @@ settings:
 
 ### 2. System Configuration (`system.yaml`)
 
-Standard LightSpeed system configuration. The script automatically overrides `api.provider` and `api.model` for each evaluation.
+Standard Lightspeed system configuration. The script automatically overrides `api.provider` and `api.model` for each evaluation.
 
 ### 3. Evaluation Data (`evaluation_data.yaml`)
 
@@ -268,7 +268,7 @@ eval_output/
 1. **Initialization:** Validates configuration files and creates output directory
 2. **Parallel Evaluation:** Launches multiple worker processes (configurable) that run concurrently:
    - Each worker creates temporary system config with updated provider/model
-   - Runs standard LightSpeed evaluation in isolated process
+   - Runs standard Lightspeed evaluation in isolated process
    - Saves results to `{output_base}/{provider}/{model}/` (no file conflicts)
    - Cleans up temporary files
    - Progress tracked and logged in real-time

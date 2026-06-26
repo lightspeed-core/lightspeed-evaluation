@@ -1,5 +1,5 @@
 # AGENTS Guidelines
-This document serves as a guide for AI coding agents working on the LightSpeed Evaluation Framework. This document provides context, instructions, and best practices to help agents understand the codebase and contribute effectively.
+This document serves as a guide for AI coding agents working on the Lightspeed Evaluation Framework. This document provides context, instructions, and best practices to help agents understand the codebase and contribute effectively.
 
 ---
 
@@ -77,7 +77,7 @@ make test            # Or: uv run pytest tests
 
 ## Project Overview
 
-The LightSpeed Evaluation Framework is a comprehensive evaluation system for GenAI applications, supporting multiple evaluation frameworks (Ragas, DeepEval, custom metrics) with both turn-level and conversation-level assessments.
+The Lightspeed Evaluation Framework is a comprehensive evaluation system for GenAI applications, supporting multiple evaluation frameworks (Ragas, DeepEval, custom metrics) with both turn-level and conversation-level assessments.
 
 ### Key Components
 
