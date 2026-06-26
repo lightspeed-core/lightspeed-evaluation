@@ -217,11 +217,11 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <PROPOSA
     - [`context_precision_with_reference`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-with-reference)
 - **Custom**
   - Response Evaluation
-    - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom.py)
-    - [`intent_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Evaluates whether the response demonstrates the expected intent or purpose
+    - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py)
+    - [`intent_eval`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - Evaluates whether the response demonstrates the expected intent or purpose
     - [`keywords_eval`](src/lightspeed_evaluation/core/metrics/custom/keywords_eval.py) - Keywords evaluation with alternatives (ALL keywords must match, case insensitive)
   - Tool Evaluation
-    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom.py) - Validates tool calls, arguments, and optional results with regex pattern matching
+    - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom/tool_eval.py) - Validates tool calls, arguments, and optional results with regex pattern matching
   - Agentic Workflow Evaluation
     - [`proposal_status`](src/lightspeed_evaluation/core/metrics/custom/proposal_eval.py) - Deterministic assertions on proposal CRD status (phase, timing, analysis, execution, verification)
     - [`proposal_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
