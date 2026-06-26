@@ -13,6 +13,7 @@
 | `core/metrics/custom/custom.py` | `CustomMetrics` | Custom LLM-based metric handler |
 | `core/metrics/custom/keywords_eval.py` | — | Keyword matching evaluation logic |
 | `core/metrics/custom/tool_eval.py` | — | Tool use evaluation logic |
+| `core/metrics/custom/proposal_eval.py` | `evaluate_proposal_status()` | Proposal status assertion metric (phase, duration, attempts, conditions) |
 | `core/metrics/custom/prompts.py` | — | Prompt templates for custom metrics |
 | `pipeline/evaluation/evaluator.py` | `MetricsEvaluator` | Metric dispatch, multi-expected-response logic, status determination |
 | `pipeline/evaluation/judges.py` | `JudgeOrchestrator` | Panel scoring, aggregation strategies |
