@@ -4,12 +4,32 @@ import logging
 from typing import Any
 
 import litellm
+from instructor import Mode, Provider
+from instructor.v2.core.registry import mode_registry
 from ragas.llms import llm_factory
 
 from lightspeed_evaluation.core.llm.litellm_patch import setup_litellm_ssl
 from lightspeed_evaluation.core.llm.manager import LLMManager
 
 logger = logging.getLogger(__name__)
+
+
+def _warmup_instructor_registry() -> None:
+    """Pre-warm the instructor v2 mode registry to avoid a thread-safety race.
+
+    Instructor's ModeRegistry.get_handlers() uses dict.pop() on lazy loaders
+    without synchronization. When multiple threads call it concurrently, one
+    thread can pop the loader while another finds the key missing and raises
+    KeyError with "Available modes: []". Triggering the lazy load once from the
+    main thread before any concurrent usage prevents this race.
+    """
+    try:
+        mode_registry.get_handlers(Provider.OPENAI, Mode.JSON)
+    except KeyError:
+        pass
+
+
+_warmup_instructor_registry()
 
 
 class RagasLLMManager:
