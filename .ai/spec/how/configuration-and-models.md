@@ -6,7 +6,7 @@
 |---|---|---|
 | `core/models/system.py` | `SystemConfig` | Top-level system config Pydantic model |
 | `core/models/data.py` | `EvaluationData`, `TurnData`, `MetricResult`, `EvaluationResult` | Evaluation dataset, turn, and result models |
-| `core/models/agents.py` | `AgentConfig` | Agent driver configuration |
+| `core/models/agents.py` | `HttpApiAgentConfig`, `ProposalAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent driver configuration models |
 | `core/models/api.py` | Legacy API config | Backward-compatible API config (deprecated) |
 | `core/models/llm.py` | LLM config models | LLM pool and judge panel models |
 | `core/models/summary.py` | `EvaluationSummary` | Result aggregation models |
