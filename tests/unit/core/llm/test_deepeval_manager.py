@@ -77,17 +77,17 @@ class TestDeepEvalLLMManager:
         assert info["temperature"] == 0.5
         assert info["max_completion_tokens"] == 1024
 
-    def test_initialization_prints_message(
-        self, llm_params: dict, mocker: MockerFixture, capsys: pytest.CaptureFixture
+    def test_initialization_logs_message(
+        self, llm_params: dict, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Test that initialization prints configuration message."""
+        """Test that initialization logs configuration message."""
         mocker.patch("lightspeed_evaluation.core.llm.deepeval.LiteLLMModel")
 
-        DeepEvalLLMManager("gpt-4", llm_params)
+        with caplog.at_level("INFO", logger="lightspeed_evaluation.core.llm.deepeval"):
+            DeepEvalLLMManager("gpt-4", llm_params)
 
-        captured = capsys.readouterr()
-        assert "DeepEval LLM Manager" in captured.out
-        assert "gpt-4" in captured.out
+        assert "DeepEval LLM Manager" in caplog.text
+        assert "gpt-4" in caplog.text
 
     def test_drop_params_always_enabled(self, mocker: MockerFixture) -> None:
         """Test drop_params is always enabled for cross-provider compatibility."""

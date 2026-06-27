@@ -1,6 +1,7 @@
 """Custom metrics using direct LLM integration."""
 
 import json
+import logging
 import re
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -22,6 +23,8 @@ from lightspeed_evaluation.core.system.exceptions import LLMError
 
 if TYPE_CHECKING:
     from lightspeed_evaluation.core.metrics.manager import MetricManager
+
+logger = logging.getLogger(__name__)
 
 
 class CustomMetrics:  # pylint: disable=too-few-public-methods
@@ -54,7 +57,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             ),
         }
 
-        print(f"✅ Custom Metrics initialized: {self.llm.model_name}")
+        logger.info("Custom Metrics initialized: %s", self.llm.model_name)
 
     def evaluate(
         self,
