@@ -77,7 +77,7 @@ make test            # Or: uv run pytest tests
 
 ## Project Overview
 
-The Lightspeed Evaluation Framework is a comprehensive evaluation system for GenAI applications, supporting multiple evaluation frameworks (Ragas, DeepEval, custom metrics) with both turn-level and conversation-level assessments.
+The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
 
 ### Key Components
 
@@ -112,9 +112,9 @@ Refer to `README.md` for full list. Key variables:
 ```text
 src/lightspeed_evaluation/
 ├── core/
-│   ├── api/           # API client for real-time data
+│   ├── api/           # API client for live data
 │   ├── llm/           # LLM provider management
-│   ├── metrics/       # Evaluation metrics (Ragas, DeepEval, custom)
+│   ├── metrics/       # Evaluation metrics (Ragas, DeepEval, NLP, custom, script, user-defined)
 │   ├── models/        # Pydantic data models
 │   ├── output/        # Report generation and visualization
 │   ├── script/        # Script execution for environment validation

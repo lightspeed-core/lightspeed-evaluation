@@ -1,11 +1,11 @@
 [project]
 name = "lightspeed-evaluation"
 version = "0.7.0"
-description = "LSC Evaluation Framework - Comprehensive evaluation tooling for GenAI applications"
+description = "Evaluate LLM-powered applications (e2e) — responses, context, tool calls, and agentic workflows"
 authors = []
 requires-python = ">=3.11,<3.14"
 readme = "README.md"
-license = {text = "Apache"}
+license = {file = "LICENSE"}
 
 dependencies = [
     "ragas>=0.4.0,<=0.4.3",

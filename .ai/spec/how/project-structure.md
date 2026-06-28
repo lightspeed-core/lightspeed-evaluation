@@ -15,7 +15,7 @@
 | `pipeline/evaluation/registry.py` | `AgentDriverRegistry`, `AGENT_DRIVERS` | Driver type registry and factory |
 | `pipeline/evaluation/amender.py` | `APIDataAmender` | Mutates turn data with HTTP agent response, tokens, latency |
 | `pipeline/evaluation/proposal_amender.py` | `ProposalAmender` | Fetches child Result CRs, builds Markdown summary for proposal turns |
-| `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI abstraction and Kubernetes (oc/kubectl) implementation |
+| `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI abstraction and OpenShift (oc/kubectl) implementation |
 | `pipeline/evaluation/errors.py` | `EvaluationErrorHandler` | Pipeline error handling (marks metrics as ERROR on failures) |
 | `core/metrics/manager.py` | `MetricManager` | Metric resolution (defaults vs overrides) and registration |
 | `core/metrics/ragas.py` | `RagasMetrics` | Ragas framework adapter |
@@ -54,7 +54,7 @@
 | `core/storage/factory.py` | `create_pipeline_storage_backend()` | Backend instantiation from config |
 | `core/storage/sql_storage.py` | `SQLStorageBackend` | Database persistence |
 | `core/storage/file_storage.py` | `FileStorageBackend` | File-based persistence + reports |
-| `core/storage/langfuse_storage.py` | `LangfuseStorageBackend` | Langfuse observability platform persistence |
+| `core/storage/langfuse_storage.py` | `LangfuseStorageBackend` | Stores evaluation scores to Langfuse |
 | `core/storage/composite_storage.py` | `CompositeStorageBackend` | Multi-backend chaining |
 | `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig` | Storage configuration models |
 | `core/api/client.py` | `APIClient` | HTTP client with caching, retries; supports query/streaming/infer/responses |

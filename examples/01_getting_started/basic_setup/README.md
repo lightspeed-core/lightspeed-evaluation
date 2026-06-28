@@ -1,6 +1,6 @@
 # Basic Setup
 
-Minimal configuration to start evaluating with LightSpeed Evaluation.
+Minimal configuration to start evaluating with Lightspeed Evaluation.
 
 ## Run Example
 

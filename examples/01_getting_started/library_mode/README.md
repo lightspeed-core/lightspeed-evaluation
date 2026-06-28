@@ -1,6 +1,6 @@
 # Library Mode - Programmatic API Usage
 
-Use LightSpeed Evaluation as a Python library for real-time integration.
+Use Lightspeed Evaluation as a Python library for real-time integration with your applications.
 
 ## Run Example
 

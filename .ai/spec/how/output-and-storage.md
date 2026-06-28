@@ -12,7 +12,7 @@
 | `core/storage/factory.py` | `create_pipeline_storage_backend()` | Backend instantiation from config |
 | `core/storage/file_storage.py` | `FileStorageBackend` | File output + report generation |
 | `core/storage/sql_storage.py` | `SQLStorageBackend` | Database persistence |
-| `core/storage/langfuse_storage.py` | `LangfuseStorageBackend` | Langfuse observability platform persistence |
+| `core/storage/langfuse_storage.py` | `LangfuseStorageBackend` | Stores evaluation scores to Langfuse |
 | `core/storage/composite_storage.py` | `CompositeStorageBackend` | Multi-backend chaining |
 | `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig` | Storage configuration models |
 
@@ -31,7 +31,7 @@
 
 **The factory pattern** in `create_pipeline_storage_backend()` reads the config's storage list and instantiates the appropriate backends (file, sql, langfuse). If multiple backends are configured, they're wrapped in a `CompositeStorageBackend`. When no storage is configured, a `NoOpStorageBackend` is returned.
 
-**FileStorageBackend** accumulates results in memory during `save_run()` and needs `SystemConfig` plus the full evaluation dataset (`set_evaluation_context()`) to generate reports in `finalize()`. **SQLStorageBackend** commits to the database immediately per conversation and its `finalize()` is a no-op. **LangfuseStorageBackend** accumulates results and writes traces/scores to Langfuse on `finalize()`.
+**FileStorageBackend** accumulates results in memory during `save_run()` and needs `SystemConfig` plus the full evaluation dataset (`set_evaluation_context()`) to generate reports in `finalize()`. **SQLStorageBackend** commits to the database immediately per conversation and its `finalize()` is a no-op. **LangfuseStorageBackend** accumulates results and writes scores to Langfuse on `finalize()`.
 
 ## Integration Points
 
