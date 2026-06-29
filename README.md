@@ -115,6 +115,8 @@ cp uv-gpu.lock uv.lock && uv sync --extra local-embeddings --frozen
 After changing `pyproject.toml`:
 ```bash
 make sync-lock-and-requirements  # Regenerate uv.lock, uv-gpu.lock, requirements-*.txt
+# A 7-day cooldown is applied by default (skips packages published < 7 days ago).
+# Override: make sync-lock-and-requirements COOLDOWN_DAYS=0
 ```
 
 ### Basic Usage
