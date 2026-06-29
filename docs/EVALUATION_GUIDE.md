@@ -1,6 +1,5 @@
 # Lightspeed Evaluation Framework: Complete Guide
 
-**Last Updated:** December 23, 2025  
 **Assisted by:** AI to generate the document
 
 ---
@@ -13,16 +12,16 @@
 
 ### Part 2: Evaluation Methodologies
 3. [Methodologies Overview](#3-methodologies-overview)
-4. [Turn-Level Metrics (Single Q&A)](#4-turn-level-metrics)
+4. [Turn-Level Metrics (Single Q&A)](#4-turn-level-metrics) — Ragas, Custom, Script-Based, NLP, User-Defined Criteria
 5. [Conversation-Level Metrics](#5-conversation-level-metrics)
 6. [Metric Selection Guide](#6-metric-selection-guide)
 
 ### Part 3: Practical Implementation
 7. [Step-by-Step Setup](#7-step-by-step-setup)
-8. [Configuration Guide](#8-configuration-guide)
+8. [Configuration Guide](#8-configuration-guide) — includes Evaluation Modes, Storage Backends
 9. [Running Evaluations](#9-running-evaluations)
 10. [Programmatic API](#10-programmatic-api)
-11. [Understanding Results](#11-understanding-results)
+11. [Understanding Results](#11-understanding-results) — includes Latency, Streaming Metrics, Token Tracking
 
 ### Part 4: Real-World Application
 12. [Common Use Cases](#12-common-use-cases)
@@ -39,7 +38,7 @@
 
 ## 1. Introduction
 
-The Lightspeed Evaluation Framework is a comprehensive system designed to evaluate AI-powered applications, particularly conversational AI systems and chatbots. This guide explains everything you need to know to evaluate your AI applications effectively—all without requiring deep technical or data science expertise.
+The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow outcomes — in both live and offline modes. It supports multiple evaluation metrics (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, multi-judge scoring, statistical analysis, and environment setup/cleanup scripts. Available as a CLI tool and as a Python library. This guide explains everything you need to know to evaluate your applications effectively.
 
 ### What This Framework Does
 
@@ -86,45 +85,11 @@ Unlike traditional software where behavior is deterministic (same input always p
 
 ---
 
-## 3. Quick Start
-
-### Installation
-
-```bash
-# Navigate to project directory
-cd lightspeed-evaluation
-# Install dependencies
-uv sync
-# OR using pip
-pip install -e .
-```
-
-### Set Environment Variables
-
-```bash
-# Required: Judge LLM (the AI that evaluates your AI)
-export OPENAI_API_KEY="sk-your-api-key-here"
-# Optional: For live API testing
-export API_KEY="your-api-endpoint-key"
-```
-
-### Run Your First Evaluation
-
-```bash
-lightspeed-eval \
-  --system-config config/system.yaml \
-  --eval-data config/evaluation_data.yaml
-```
-
-That's it! Results will be in `eval_output/` directory.
-
----
-
 # Part 2: Evaluation Methodologies
 
 ## 3. Methodologies Overview
 
-The framework uses **four main categories** of evaluation methods:
+The framework uses **six categories** of evaluation methods:
 
 | Category | What It Does | When to Use | Level |
 |----------|-------------|-------------|-------|
@@ -132,6 +97,8 @@ The framework uses **four main categories** of evaluation methods:
 | **DeepEval Metrics** | Advanced conversation analysis | Multi-turn conversations | Conversation |
 | **Custom Metrics** | Specialized evaluations for specific needs | Intent checking, tool validation | Turn |
 | **Script-Based Metrics** | Real-world validation through automated scripts | E2E RAG/agent workflows | Turn |
+| **NLP Metrics** | Text comparison without LLM calls | Quick reference-based checks | Turn |
+| **User-Defined Criteria** | Custom criteria-based evaluation via LLM | Domain-specific quality checks | Turn |
 
 ### Quick Selection Guide
 
@@ -154,6 +121,14 @@ The framework uses **four main categories** of evaluation methods:
 - Your AI performs actions in real systems
 - You need to verify real-world outcomes
 - You want to test end-to-end workflows
+
+**Choose NLP Metrics when:**
+- You want fast, deterministic text comparison without LLM calls
+- You have reference answers and want to measure textual overlap
+
+**Choose User-Defined Criteria when:**
+- Standard metrics don't capture what matters for your domain
+- You want to define custom evaluation rubrics in YAML without code changes
 
 ---
 
@@ -356,6 +331,31 @@ about OpenShift. How can I assist you today?"
 
 ---
 
+#### Keywords Evaluation
+
+**What it measures:** Does the response contain all expected keywords?
+
+**Plain English:** "Check if specific terms or phrases appear in the AI's answer."
+
+**Score:** Binary (1.0 if all keywords match, 0.0 otherwise)
+
+**How it works:** You provide a list of keywords (or multiple alternative keyword lists). The metric checks if ALL keywords in at least one list appear in the response (case insensitive).
+
+**Example:**
+```yaml
+expected_keywords:
+  - ["configmap", "key-value"]           # Option 1: must contain both
+  - ["configuration", "data", "pairs"]   # Option 2: must contain all three
+```
+
+**When to use:** Verifying the response mentions required technical terms or concepts
+
+**Threshold:** 1.0 (all keywords must match)
+
+**Required fields:** `response`, `expected_keywords`
+
+---
+
 #### Tool Evaluation
 
 **What it measures:** Does the AI call the right tools with correct parameters and get expected results?
@@ -461,6 +461,24 @@ turns:
 
 ---
 
+#### Proposal Status
+
+**What it measures:** Deterministic assertions on Proposal CRD status — phase, timing, analysis, and execution outcomes.
+
+**Plain English:** "Did the agentic workflow reach the expected state within the expected constraints?"
+
+**Score:** Binary (1.0 pass, 0.0 fail)
+
+**How it works:** Compares the actual Proposal CR status against expected assertions: phase (Completed/Failed/Escalated), max duration, max attempts, analysis checks, and execution checks.
+
+**When to use:** Agentic Lightspeed evaluation — validating CRD workflow outcomes
+
+**Threshold:** 1.0
+
+**Required fields:** `expected_proposal_status` (see [Agentic Lightspeed Evaluation Guide](agentic_lightspeed_evaluation.md) for full assertion syntax)
+
+---
+
 ### 4.3 Script-Based Metrics
 
 #### Action Evaluation
@@ -504,6 +522,68 @@ exit $?  # Returns 0 if namespace exists
 **Threshold:** 1 (must succeed)
 
 **Required fields:** `verify_script` (API mode must be enabled)
+
+---
+
+### 4.4 NLP Metrics (No LLM Required)
+
+NLP metrics use traditional text comparison techniques — no LLM judge calls needed. They compare the response against an expected reference answer.
+
+**Installation:** `pip install 'lightspeed-evaluation[nlp-metrics]'` or `uv sync --extra nlp-metrics`
+
+#### BLEU Score
+
+**What it measures:** N-gram precision — how many word sequences in the response match the reference.
+
+**Score Range:** 0.0 to 1.0 (higher is better)
+
+**When to use:** Checking if responses use similar phrasing to a reference answer. Best for short, factual responses where wording matters.
+
+**Threshold:** 0.5
+
+**Required fields:** `response`, `expected_response`
+
+---
+
+#### ROUGE Score
+
+**What it measures:** Recall-oriented overlap — how much of the reference answer is captured in the response.
+
+**Score Range:** 0.0 to 1.0 (higher is better)
+
+**When to use:** Checking if the response covers the key content from a reference answer. More forgiving than BLEU for paraphrased responses.
+
+**Threshold:** 0.5
+
+**Required fields:** `response`, `expected_response`
+
+---
+
+### 4.5 User-Defined Criteria Metrics
+
+You can define your own evaluation criteria in YAML — the LLM judge scores the response based on your criteria and optional evaluation steps. This uses DeepEval's GEval under the hood.
+
+**What it measures:** Whatever you define. You provide the evaluation criteria and optionally the steps the judge should follow.
+
+**Score Range:** 0.0 to 1.0 (normalized from 0-10 scale)
+
+**Example configuration:**
+```yaml
+metrics_metadata:
+  geval:helpfulness:
+    criteria: "How helpful and actionable is the response for the user's specific question?"
+    evaluation_steps:
+      - "Check if the response directly addresses the question"
+      - "Check if the response provides actionable next steps"
+      - "Check if the response avoids unnecessary information"
+    evaluation_params: [query, response]
+```
+
+**When to use:** When standard metrics don't capture what matters for your use case — you define the rubric.
+
+**Threshold:** Configurable per metric
+
+**Required fields:** `criteria` in metrics_metadata (see [Configuration Guide](configuration.md) for full options including rubrics)
 
 ---
 
@@ -598,22 +678,35 @@ What are you evaluating?
 │
 ├─ Single Q&A (Turn-Level)
 │  │
-│  ├─ Answer Quality?
+│  ├─ Response Quality?
 │  │  ├─ Is answer relevant? → response_relevancy
-│  │  ├─ Is answer factual? → faithfulness
-│  │  └─ Matches expected? → answer_correctness
+│  │  ├─ Is answer factual (grounded in context)? → faithfulness
+│  │  ├─ Matches expected answer? → answer_correctness
+│  │  └─ Contains required keywords? → keywords_eval
 │  │
-│  ├─ Information Retrieval?
+│  ├─ Context / Retrieval Quality?
 │  │  ├─ Found everything needed? → context_recall
-│  │  ├─ Is retrieved info relevant? → context_relevance
-│  │  └─ Too much irrelevant info? → context_precision
+│  │  ├─ Is retrieved context relevant? → context_relevance
+│  │  ├─ Precision (have expected answer)? → context_precision_with_reference
+│  │  └─ Precision (no expected answer)? → context_precision_without_reference
 │  │
-│  ├─ AI Behavior?
+│  ├─ Tool Calls & AI Behavior?
 │  │  ├─ Right intent? → intent_eval
-│  │  └─ Right tools? → tool_eval
+│  │  └─ Right tools + arguments? → tool_eval
 │  │
-│  └─ Real Actions?
-│     └─ Infrastructure changes? → action_eval
+│  ├─ Agentic Workflows?
+│  │  ├─ Workflow reached expected state? → proposal_status
+│  │  └─ Workflow quality (diagnosis, actions)? → proposal_evaluation_correctness
+│  │
+│  ├─ Real Actions?
+│  │  └─ Infrastructure changes verified? → action_eval
+│  │
+│  ├─ Text Comparison (No LLM)?
+│  │  ├─ N-gram precision vs reference? → nlp:bleu
+│  │  └─ Recall overlap vs reference? → nlp:rouge
+│  │
+│  └─ Custom Criteria?
+│     └─ Define your own evaluation criteria → geval:your_metric_name
 │
 └─ Conversation (Conversation-Level)
    ├─ Goals achieved? → conversation_completeness
@@ -655,6 +748,24 @@ turn_metrics:
 turn_metrics:
   - script:action_eval          # Action worked?
   - custom:tool_eval            # Called right tool?
+```
+
+#### Recipe 5: Agentic Workflow (Proposal CRD)
+```yaml
+turn_metrics:
+  - custom:proposal_status                  # Reached expected state?
+  - custom:proposal_evaluation_correctness  # Quality of remediation?
+```
+
+#### Recipe 6: Custom Evaluation Criteria
+```yaml
+# Define your own criteria in metrics_metadata — no code changes needed
+turn_metrics:
+  - geval:helpfulness
+metrics_metadata:
+  geval:helpfulness:
+    criteria: "How helpful and actionable is the response?"
+    evaluation_params: [query, response]
 ```
 
 ---
@@ -887,6 +998,36 @@ Skip remaining turns completely (no API calls or evaluations) when a turn fails:
       query: "Deploy to namespace"
       turn_metrics: ["script:action_eval"]
 ```
+
+---
+
+### Evaluation Modes: Live vs Offline
+
+The framework supports three modes of operation:
+
+| Mode | Description | When to Use |
+|------|-------------|-------------|
+| **Offline** | Responses and data are pre-populated in the evaluation data YAML | Testing against known good/bad responses, regression testing |
+| **Live** | API or agent drivers fetch responses at evaluation time | End-to-end testing against a running service |
+| **Agentic** | Proposal CRD-based workflows on Kubernetes | Evaluating agentic remediation workflows |
+
+- **Offline mode** requires no API configuration — provide `response` (and other required fields like `contexts`, `proposal_status`) directly in your evaluation data YAML.
+- **Live mode** requires API configuration in system.yaml — see [Configuration Guide](configuration.md#lightspeed-api-for-live-data-generation).
+- **Agentic mode** uses the Proposal driver to manage CRD lifecycle on a Kubernetes cluster. Can also run offline with pre-populated proposal data. See [Agentic Lightspeed Evaluation Guide](agentic_lightspeed_evaluation.md).
+
+### Storage Backends
+
+The framework supports multiple storage backends for persisting evaluation results:
+
+| Backend | Description |
+|---------|-------------|
+| **File** (default) | CSV, JSON, TXT reports + visualization graphs |
+| **SQLite** | Local database for querying results |
+| **PostgreSQL** | Remote database for team-wide analysis |
+| **MySQL** | Remote database alternative |
+| **Langfuse** | Observability platform integration |
+
+Storage is optional and configurable in `system.yaml`. See [Configuration Guide — Storage](configuration.md#storage) for setup details.
 
 ---
 
@@ -1249,6 +1390,74 @@ ragas:faithfulness:
 | 80-90% | Good quality | Minor improvements |
 | 70-80% | Acceptable for testing | Needs improvement |
 | < 70% | Not ready | Significant work needed |
+
+---
+
+### Quality Score (Guiding Metric)
+
+The Quality Score aggregates selected sub-metrics into a single number that represents overall system quality. Configure it in `system.yaml`:
+
+```yaml
+quality_score:
+  metrics:
+    - "ragas:faithfulness"
+    - "ragas:context_precision_with_reference"
+    - "custom:tool_eval"
+  default: true
+```
+
+The score is a weighted average of the selected metrics (weighted by sample size). When configured, the tool generates a `*_quality_report.json` containing:
+
+- **quality_score** — the aggregated score
+- **quality_metrics** — per-metric mean and count for selected metrics
+- **extra_metrics** — all other evaluated metrics (not part of the quality score)
+- **agent_latency_stats** — p95, p99 latency (when live mode is used)
+- **agent_token_stats** — input/output token percentiles (when live mode is used)
+
+Which sub-metrics to include depends on your system type:
+
+| System Type | Recommended Sub-Metrics |
+|-------------|------------------------|
+| RAG-only | Faithfulness + Context Precision |
+| Agent/Tool | Faithfulness + Tool Call Accuracy |
+| RAG + Agent | All three |
+
+Use the quality score to compare across runs — version-over-version, model comparison, or measuring the impact of RAG/prompt changes. When the score changes, drill into sub-metric scores to identify which quality dimension drove the change.
+
+---
+
+### Operational Metrics
+
+In addition to quality metrics (scores from evaluation), the framework captures operational metrics — latency, streaming performance, and token usage — when live mode is used. These are included in the quality report (under `agent_latency_stats` and `agent_token_stats`) and in the detailed CSV output.
+
+#### API Latency Tracking
+
+When using live mode, the framework records per-turn API latency and computes aggregate statistics:
+
+- **Per-turn**: Response time for each API call (in seconds)
+- **Aggregate**: Median (p50), p95, and p99 percentiles across all turns
+- **Output**: Included in the summary report and CSV detailed results
+
+#### Streaming Performance Metrics
+
+When using a streaming endpoint, additional metrics are captured:
+
+| Metric | Description |
+|--------|-------------|
+| **Time to First Token (TTFT)** | Seconds until the first token arrives |
+| **Streaming Duration** | Total time for the full streamed response |
+| **Tokens per Second** | Throughput of the streaming response |
+
+These are populated automatically when the API endpoint type is set to `streaming`.
+
+#### Token Usage Tracking
+
+The framework tracks token consumption at multiple levels:
+
+- **API tokens**: Input and output tokens per API call (live mode)
+- **Judge LLM tokens**: Input and output tokens per metric evaluation
+- **Per-judge tracking**: In panel mode, tokens are tracked per judge independently
+- **Output**: Token counts appear in CSV detailed results and summary reports
 
 ---
 
@@ -1776,12 +1985,18 @@ lightspeed-eval --eval-data config/eval_batch2.yaml
 | **ragas:faithfulness** | 0-1 | No made-up information | 0.8 | response, contexts |
 | **ragas:context_recall** | 0-1 | Found all needed info | 0.8 | contexts, expected_response |
 | **ragas:context_relevance** | 0-1 | Retrieved info is relevant | 0.7 | query, contexts |
-| **ragas:context_precision_*** | 0-1 | Retrieved info is useful | 0.7 | query, contexts, response |
+| **ragas:context_precision_without_reference** | 0-1 | Retrieved info is useful | 0.7 | query, contexts, response |
+| **ragas:context_precision_with_reference** | 0-1 | Retrieved info is useful (vs reference) | 0.7 | query, contexts, response, expected_response |
 | **custom:answer_correctness** | 0-1 | Matches expected answer | 0.75 | query, response, expected_response |
 | **custom:intent_eval** | 0/1 | Has right intent | 1 | query, response, expected_intent |
 | **custom:tool_eval** | 0/1 | Called correct tools with expected results | 1 | expected_tool_calls, tool_calls |
 | **custom:proposal_evaluation_correctness** | 0-1 | Agentic workflow quality (diagnosis, actions, risk) | 0.75 | response (workflow summary) |
+| **custom:keywords_eval** | 0/1 | Expected keywords present | 1 | response, expected_keywords |
+| **custom:proposal_status** | 0/1 | Proposal CRD reached expected state | 1 | expected_proposal_status |
 | **script:action_eval** | 0/1 | Real action verified | 1 | verify_script |
+| **nlp:bleu** | 0-1 | N-gram precision vs reference | 0.5 | response, expected_response |
+| **nlp:rouge** | 0-1 | Recall overlap vs reference | 0.5 | response, expected_response |
+| **geval:*custom_name*** | 0-1 | User-defined criteria | Configurable | Per criteria config |
 | **deepeval:conversation_completeness** | 0-1 | User's goals achieved | 0.8 | Full conversation |
 | **deepeval:conversation_relevancy** | 0-1 | Stayed on topic | 0.7 | Full conversation |
 | **deepeval:knowledge_retention** | 0-1 | Remembered context | 0.7 | Full conversation |
@@ -1954,9 +2169,6 @@ This comprehensive guide has covered everything you need to know to effectively 
 - Connect via Slack channel: #forum-lightspeed
 
 ---
-
-**Last Updated:** December 23, 2025  
-**Status:** Complete and Ready for Use  
 
 **Feedback:** Please submit suggestions via GitHub issues or pull requests.
 
