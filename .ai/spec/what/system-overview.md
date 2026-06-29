@@ -1,12 +1,12 @@
 # System Overview
 
-LightSpeed Evaluation Framework is a CLI and programmatic tool for evaluating GenAI application responses. It takes YAML-defined evaluation datasets (conversations with turns), runs each turn through configurable metrics using LLM judges, and produces scored reports with statistical analysis. It supports both single-turn and multi-turn conversation evaluation, multiple evaluation backends, concurrent execution, and optional real-time data generation via pluggable agent drivers.
+Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes — in both live and offline modes. It takes YAML-defined evaluation datasets (conversations with turns), runs each turn through configurable metrics using LLM judges, and produces scored reports with statistical analysis. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, environment setup/cleanup scripts, pluggable agent drivers, concurrent execution, and both single-turn and multi-turn conversation evaluation.
 
 ## Behavioral Rules
 
 ### System Role
 
-- The framework evaluates GenAI responses — it does not generate them (generation is handled by agent drivers or pre-populated data).
+- The framework operates in two modes: **live mode** where agent drivers collect responses from external services and then evaluate them, and **offline mode** where pre-populated responses are evaluated directly.
 - Evaluation is driven by two YAML configurations: a system config (judge LLMs, metrics, infrastructure) and evaluation data (conversations with turns to evaluate).
 - The CLI entry point is `lightspeed-eval`; the programmatic API is `lightspeed_evaluation.api`.
 

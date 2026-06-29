@@ -1,6 +1,6 @@
 # Getting Started
 
-Basic set up examples for LightSpeed Evaluation Framework.
+Basic set up examples for Lightspeed Evaluation Framework.
 
 ## Examples
 

@@ -1,5 +1,5 @@
 # pylint: disable=redefined-outer-name,too-many-arguments,too-many-positional-arguments,import-outside-toplevel,fixme
-"""End-to-End Integration tests for LightSpeed Evaluation Framework.
+"""End-to-End Integration tests for Lightspeed Evaluation Framework.
 
 These tests run the complete evaluation pipeline with real services:
 - Real Lightspeed-stack API on localhost:8080

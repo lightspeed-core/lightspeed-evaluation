@@ -1,6 +1,6 @@
 # Output and Reporting
 
-The framework produces structured evaluation reports in multiple formats with statistical analysis, visualizations, and optional database/observability persistence.
+The framework produces structured evaluation reports in multiple formats with statistical analysis, visualizations, and optional persistence to databases and Langfuse.
 
 ## Behavioral Rules
 
@@ -34,7 +34,7 @@ The framework produces structured evaluation reports in multiple formats with st
 
 - FileStorageBackend accumulates results in memory during evaluation and defers all disk writes (CSV/JSON/TXT/graphs) to `finalize()`. It requires the full evaluation dataset via `set_evaluation_context()` for cross-conversation report generation.
 - SQLStorageBackend commits results to a database (SQLite, PostgreSQL, or MySQL) immediately per conversation in `save_run()`. Its `finalize()` is a no-op (just logs a count).
-- LangfuseStorageBackend accumulates results and writes traces and scores to Langfuse on `finalize()`. Config supports inline `host`/`public_key`/`secret_key` or falls back to `LANGFUSE_HOST`/`LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` environment variables.
+- LangfuseStorageBackend accumulates results and writes scores to Langfuse on `finalize()`. Config supports inline `host`/`public_key`/`secret_key` or falls back to `LANGFUSE_HOST`/`LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` environment variables.
 - CompositeStorageBackend chains multiple backends — a run can write to file, database, and Langfuse simultaneously.
 - Storage backends follow a lifecycle: initialize → save_run (per conversation) → set_evaluation_context → finalize → close.
 
@@ -61,4 +61,4 @@ The framework produces structured evaluation reports in multiple formats with st
 - File backend requires SystemConfig access and the full evaluation dataset (`set_evaluation_context()`) for report generation.
 - Database backend uses SQLAlchemy with URL encoding for special characters in connection strings.
 - Langfuse backend requires the `langfuse` optional dependency.
-- `finalize()` is called once after all conversations in the entire evaluation run complete. This matters for file storage (which defers all writes) and Langfuse (which writes traces), but not for SQL storage (which persists incrementally).
+- `finalize()` is called once after all conversations in the entire evaluation run complete. This matters for file storage (which defers all writes) and Langfuse (which writes scores), but not for SQL storage (which persists incrementally).

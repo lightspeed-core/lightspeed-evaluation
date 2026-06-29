@@ -60,7 +60,7 @@ The tool supports multiple input formats for evaluation data:
 ```
 Usage: generate_answers [OPTIONS]
 
-  Generate answers from LLMs by connection to LightSpeed core service.
+  Generate answers from LLMs by connection to Lightspeed core service.
 
 Options:
   -c, --config-filename PATH  Configuration file  [default:
