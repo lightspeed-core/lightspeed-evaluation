@@ -3,7 +3,7 @@ name = "lightspeed-evaluation"
 version = "0.7.0"
 description = "LSC Evaluation Framework - Comprehensive evaluation tooling for GenAI applications"
 authors = []
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.15"
 readme = "README.md"
 license = {text = "Apache"}
 
