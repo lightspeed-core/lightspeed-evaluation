@@ -4,6 +4,7 @@ core:
   skip_on_failure: false
   cache_enabled: false
   cache_base_dir: .caches
+
 llm_pool:
   defaults:
     timeout: 300
@@ -15,42 +16,53 @@ llm_pool:
     judge_gpt_4o_mini:
       provider: openai
       model: gpt-4o-mini
+
 judge_panel:
   judges:
     - judge_gpt_4o_mini
+
 embedding:
   provider: "openai"
   model: "text-embedding-3-small"
   provider_kwargs: {}
-api:
+
+agents:
   enabled: true
-  api_base: http://localhost:8080
-  version: v1
-  endpoint_type: responses
-  timeout: 300
-  num_retries: 3
-  provider: "openai"
-  model: "gpt-4o-mini"
-  no_tools: null
-  system_prompt: null
-  extra_request_params: {
-    tool_choice: {
-      type: "allowed_tools",
-      tools: [{"type": "file_search"}],
-      mode: "required"
-    },
-    tools: [
-      {
-        type: "file_search",
-        vector_store_ids: ["okp"]
-      }
-    ]
-  }
-  mcp_headers:
-    enabled: false
-    servers:
-      filesystem-tools:
-        env_var: API_KEY
+  default:
+    agent: ls_api
+    agent_config:
+      timeout: 200
+      num_retries: 3
+
+  ls_api:
+    type: http_api
+    api_base: http://localhost:8080
+    version: v1
+    endpoint_type: responses
+    timeout: 300
+    provider: "openai"
+    model: "gpt-4o-mini"
+    system_prompt: null
+    no_tools: null
+    extra_request_params: {
+      tool_choice: {
+        type: "allowed_tools",
+        tools: [{"type": "file_search"}],
+        mode: "required"
+      },
+      tools: [
+        {
+          type: "file_search",
+          vector_store_ids: ["okp"]
+        }
+      ]
+    }
+    mcp_headers:
+      enabled: false
+      servers:
+        filesystem-tools:
+          env_var: API_KEY
+
 metrics_metadata:
   turn_level:
     ragas:response_relevancy:
@@ -62,6 +74,7 @@ metrics_metadata:
       default: true
       ordered: true
       full_match: true
+
 storage:
   - type: "file"
     output_dir: "examples/03_endpoints/responses/eval_output/"
@@ -101,7 +114,8 @@ storage:
       - llm_pool
       - judge_panel
       - embedding
-      - api
+      - agents
+
 visualization:
   figsize: [12, 8]
   dpi: 300
@@ -110,8 +124,10 @@ visualization:
     - "score_distribution"
     - "conversation_heatmap"
     - "status_breakdown"
+
 environment:
   LITELLM_LOG: ERROR
+
 logging:
   source_level: INFO
   package_level: WARNING
