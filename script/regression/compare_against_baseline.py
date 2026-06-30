@@ -151,7 +151,9 @@ def compute_metric_deltas(
         is_critical = metric in CRITICAL_METRICS
         threshold = critical_delta if is_critical else warn_delta
 
-        if score_delta is not None and score_delta < -threshold:
+        if baseline_mean is not None and current_mean is None:
+            status = "FAIL" if is_critical else "WARN"
+        elif score_delta is not None and score_delta < -threshold:
             status = "FAIL" if is_critical else "WARN"
         else:
             status = "PASS"
@@ -229,15 +231,6 @@ def main() -> int:
         print(f"Error: {err}", file=sys.stderr)
         return 1
 
-    print(
-        f"Baseline: {baseline_data['total_evaluations']} evaluations "
-        f"({baseline_data['timestamp']})"
-    )
-    print(
-        f"Current:  {current_data['total_evaluations']} evaluations "
-        f"({current_data['timestamp']})"
-    )
-
     deltas = compute_metric_deltas(
         baseline_data,
         current_data,
@@ -250,6 +243,15 @@ def main() -> int:
     if args.check_only:
         print("regression" if has_critical_fail else "ok")
         return 0
+
+    print(
+        f"Baseline: {baseline_data['total_evaluations']} evaluations "
+        f"({baseline_data['timestamp']})"
+    )
+    print(
+        f"Current:  {current_data['total_evaluations']} evaluations "
+        f"({current_data['timestamp']})"
+    )
 
     print(
         f"\n{'Metric':<50} {'Baseline':>10} {'Current':>10} "

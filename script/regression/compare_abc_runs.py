@@ -96,8 +96,10 @@ def determine_gate_verdict(
     if okp_has_critical and not pr_has_critical:
         return ("WARN", "OKP data caused regression, not the PR (A vs B).")
 
-    if total_has_critical and pr_deltas is None:
-        return ("FAIL", "Critical regression detected vs baseline (A vs C).")
+    if total_has_critical:
+        if pr_deltas is None:
+            return ("FAIL", "Critical regression detected vs baseline (A vs C).")
+        return ("WARN", "Overall quality degraded (A vs C) but not attributable to PR.")
 
     has_any_warn = (
         _has_noncritical_regression(okp_deltas)

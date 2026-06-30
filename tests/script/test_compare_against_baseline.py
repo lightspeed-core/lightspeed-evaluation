@@ -45,10 +45,10 @@ class TestFindAndLoadSummary:
         with pytest.raises(RuntimeError, match="Multiple summary files"):
             find_and_load_summary(str(tmp_path))
 
-    def test_raises_on_missing_directory(self) -> None:
+    def test_raises_on_missing_directory(self, tmp_path: Path) -> None:
         """Non-existent directory should raise FileNotFoundError."""
         with pytest.raises(FileNotFoundError, match="Directory not found"):
-            find_and_load_summary("/tmp/nonexistent_dir_abc123")
+            find_and_load_summary(str(tmp_path / "nonexistent_subdir"))
 
 
 # ---------------------------------------------------------------------------
@@ -148,8 +148,8 @@ class TestComputeMetricDeltas:
         assert by_metric["custom:intent_eval"] == "WARN"
         assert by_metric["ragas:response_relevancy"] == "PASS"
 
-    def test_metric_only_in_baseline(self) -> None:
-        """A metric present in baseline but missing from current gets None deltas."""
+    def test_critical_metric_only_in_baseline_is_fail(self) -> None:
+        """A critical metric present in baseline but missing from current is FAIL."""
         baseline = make_summary({"ragas:faithfulness": (0.90, 100.0)})
         current = make_summary({})
 
@@ -160,7 +160,21 @@ class TestComputeMetricDeltas:
         faith = [d for d in deltas if d["metric"] == "ragas:faithfulness"][0]
         assert faith["current_mean"] is None
         assert faith["score_delta"] is None
-        assert faith["status"] == "PASS"
+        assert faith["status"] == "FAIL"
+
+    def test_noncritical_metric_only_in_baseline_is_warn(self) -> None:
+        """A non-critical metric present in baseline but missing from current is WARN."""
+        baseline = make_summary({"custom:intent_eval": (0.90, 100.0)})
+        current = make_summary({})
+
+        deltas = compute_metric_deltas(
+            baseline, current, critical_delta=0.03, warn_delta=0.03
+        )
+
+        intent = [d for d in deltas if d["metric"] == "custom:intent_eval"][0]
+        assert intent["current_mean"] is None
+        assert intent["score_delta"] is None
+        assert intent["status"] == "WARN"
 
     def test_metric_only_in_current(self) -> None:
         """A new metric in current but not in baseline gets None deltas and PASS."""
