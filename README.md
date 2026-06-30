@@ -1,5 +1,9 @@
 # Lightspeed Evaluation Framework
 
+[![License](https://img.shields.io/badge/license-Apache-blue)](https://github.com/lightspeed-core/lightspeed-evaluation/blob/main/LICENSE)
+[![Required Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Flightspeed-core%2Flightspeed-evaluation%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](https://www.python.org/)
+[![Tag](https://img.shields.io/github/v/tag/lightspeed-core/lightspeed-evaluation)](https://github.com/lightspeed-core/lightspeed-evaluation/releases)
+
 An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes in both live and offline modes. Supports multiple evaluation metrics (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, multi-judge scoring, statistical analysis, and environment setup/cleanup scripts. Works with API-based and Agentic Lightspeed workflows out of the box, with extensible integrations. Available as a CLI tool and as a Python library.
 
 ## 🎯 Key Features
