@@ -1,8 +1,10 @@
 core:
   max_threads: 1
-api:
-  enabled: false
   cache_enabled: false
+
+agents:
+  enabled: false
+
 metrics_metadata:
   turn_level:
     custom:tool_eval:
@@ -10,6 +12,7 @@ metrics_metadata:
       default: true
       ordered: true
       full_match: true
+
 storage:
 - type: file
   output_dir: examples/02_metrics/tool_evaluation/eval_output
@@ -27,6 +30,7 @@ storage:
   - result
   - reason
   - query
+
 visualization:
   figsize:
   - 10
@@ -35,6 +39,7 @@ visualization:
   enabled_graphs:
   - pass_rates
   - status_breakdown
+
 logging:
   source_level: INFO
   package_level: WARNING

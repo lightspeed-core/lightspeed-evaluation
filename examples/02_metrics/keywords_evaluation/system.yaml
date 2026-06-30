@@ -1,13 +1,16 @@
 core:
   max_threads: 1
-api:
-  enabled: false
   cache_enabled: false
+
+agents:
+  enabled: false
+
 metrics_metadata:
   turn_level:
     custom:keywords_eval:
       description: Binary keyword matching (ALL keywords must match, case insensitive)
       default: true
+
 storage:
 - type: file
   output_dir: examples/02_metrics/keywords_evaluation/eval_output
@@ -26,6 +29,7 @@ storage:
   - reason
   - query
   - response
+
 visualization:
   figsize:
   - 10
@@ -34,6 +38,7 @@ visualization:
   enabled_graphs:
   - pass_rates
   - status_breakdown
+
 logging:
   source_level: INFO
   package_level: WARNING

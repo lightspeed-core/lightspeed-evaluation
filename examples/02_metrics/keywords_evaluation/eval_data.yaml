@@ -9,6 +9,7 @@
     - - namespace
       - isolation
       - openshift
+
 - conversation_group_id: alternative_keywords
   description: Match any of the alternative keyword sets
   tag: keywords
@@ -21,6 +22,7 @@
       - organize
     - - project
       - organize
+
 - conversation_group_id: case_insensitive
   description: Keywords match regardless of case
   tag: keywords
@@ -32,6 +34,7 @@
     - - namespace
       - isolation
       - scope
+
 - conversation_group_id: missing_keyword
   description: Missing required keyword should fail
   tag: keywords

@@ -10,6 +10,7 @@
     - The OpenShift web console provides a visual interface to view pod status and details.
     - You can use 'oc describe pod <pod-name>' for detailed pod information including status.
     expected_response: Use 'oc get pods' command or the OpenShift web console to check pod status.
+
 - conversation_group_id: poor_retrieval
   description: Irrelevant context retrieved
   tag: rag

@@ -1,8 +1,9 @@
 core:
   max_threads: 1
+  cache_enabled: false
+
 llm_pool:
   defaults:
-    cache_enabled: false
     timeout: 60
     num_retries: 1
     parameters:
@@ -12,16 +13,18 @@ llm_pool:
     judge_gpt_4o_mini:
       provider: openai
       model: gpt-4o-mini
+
 judge_panel:
   judges:
   - judge_gpt_4o_mini
+
 embedding:
   provider: openai
   model: text-embedding-3-small
-  cache_enabled: false
-api:
+
+agents:
   enabled: false
-  cache_enabled: false
+
 metrics_metadata:
   turn_level:
     ragas:faithfulness:
@@ -39,6 +42,7 @@ metrics_metadata:
     custom:intent_eval:
       description: Binary check if response addresses user intent
       default: true
+
 storage:
 - type: file
   output_dir: examples/02_metrics/response_quality/eval_output
@@ -57,6 +61,7 @@ storage:
   - reason
   - query
   - response
+
 visualization:
   figsize:
   - 14
@@ -66,8 +71,10 @@ visualization:
   - pass_rates
   - score_distribution
   - status_breakdown
+
 environment:
   LITELLM_LOG: ERROR
+
 logging:
   source_level: INFO
   package_level: WARNING

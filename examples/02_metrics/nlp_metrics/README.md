@@ -22,15 +22,15 @@ uv run lightspeed-eval \
 
 ## Metrics & Required Data
 
-**Current Config:** API Disabled (`api.enabled: false`) - all data in eval_data.yaml
+**Current Config:** Offline mode (`agents.enabled: false`) - all data in eval_data.yaml
 
-| Metric                              | Name                   | Description                                                                          | Required Data (API Disabled)      | Required Data (API Enabled) |
+| Metric                              | Name                   | Description                                                                          | Required Data (Offline)      | Required Data (Live) |
 |-------------------------------------|------------------------|--------------------------------------------------------------------------------------|-----------------------------------|-----------------------------|
 | `nlp:bleu`                          | BLEU Score             | N-gram overlap between response and reference (default: BLEU-4)                      | response, expected_response | query, expected_response    |
 | `nlp:rouge`                         | ROUGE Score            | Recall-oriented n-gram overlap (default: ROUGE-L)                                    | response, expected_response | query, expected_response    |
 | `nlp:semantic_similarity_distance`  | String Similarity      | Character-level string distance (default: Levenshtein)                               | response, expected_response | query, expected_response    |
 
-**Note:** With API enabled, `response` is fetched from live API using `query`. Query is  not used for evaluation.
+**Note:** In live mode, `response` is fetched from live API using `query`. `query` is not used for evaluation.
 
 ## Configuration Options
 
