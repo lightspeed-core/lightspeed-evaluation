@@ -28,26 +28,26 @@ def _deltas(
 # ---------------------------------------------------------------------------
 
 GOOD_SCORES: dict[str, tuple[float, float]] = {
-    "ragas:faithfulness": (0.90, 100.0),
-    "custom:answer_correctness": (0.85, 95.0),
+    "ragas:context_recall": (0.90, 100.0),
+    "ragas:context_precision_with_reference": (0.85, 95.0),
     "custom:intent_eval": (0.95, 100.0),
 }
 
 SLIGHTLY_BETTER: dict[str, tuple[float, float]] = {
-    "ragas:faithfulness": (0.92, 100.0),
-    "custom:answer_correctness": (0.87, 95.0),
+    "ragas:context_recall": (0.92, 100.0),
+    "ragas:context_precision_with_reference": (0.87, 95.0),
     "custom:intent_eval": (0.96, 100.0),
 }
 
 CRITICAL_REGRESSION: dict[str, tuple[float, float]] = {
-    "ragas:faithfulness": (0.50, 60.0),
-    "custom:answer_correctness": (0.85, 95.0),
+    "ragas:context_recall": (0.50, 60.0),
+    "ragas:context_precision_with_reference": (0.85, 95.0),
     "custom:intent_eval": (0.95, 100.0),
 }
 
 NONCRITICAL_REGRESSION: dict[str, tuple[float, float]] = {
-    "ragas:faithfulness": (0.90, 100.0),
-    "custom:answer_correctness": (0.85, 95.0),
+    "ragas:context_recall": (0.90, 100.0),
+    "ragas:context_precision_with_reference": (0.85, 95.0),
     "custom:intent_eval": (0.60, 70.0),
 }
 
@@ -141,8 +141,8 @@ class TestDetermineGateVerdict:
         a = make_summary(GOOD_SCORES)
         b = make_summary(CRITICAL_REGRESSION)
         c_scores = {
-            "ragas:faithfulness": (0.30, 40.0),
-            "custom:answer_correctness": (0.85, 95.0),
+            "ragas:context_recall": (0.30, 40.0),
+            "ragas:context_precision_with_reference": (0.85, 95.0),
             "custom:intent_eval": (0.95, 100.0),
         }
         c = make_summary(c_scores)
@@ -363,8 +363,8 @@ class TestGenerateAbcMarkdownSummary:
             explanation="No critical regressions detected.",
         )
 
-        assert "ragas:faithfulness" in md
-        assert "custom:answer_correctness" in md
+        assert "ragas:context_recall" in md
+        assert "ragas:context_precision_with_reference" in md
         assert "custom:intent_eval" in md
 
 

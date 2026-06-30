@@ -15,16 +15,10 @@ from pathlib import Path
 from typing import Any
 
 CRITICAL_METRICS = {
-    "ragas:faithfulness",
-    "custom:answer_correctness",
+    "ragas:context_recall",
+    "ragas:context_precision_with_reference",
     "ragas:context_precision_without_reference",
-    "ragas:response_relevancy",
-}
-
-NON_CRITICAL_METRICS = {
-    "custom:intent_eval",
-    "custom:keywords_eval",
-    "deepeval:knowledge_retention",
+    "ragas:context_relevance",
 }
 
 

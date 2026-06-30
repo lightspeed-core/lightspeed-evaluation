@@ -28,10 +28,6 @@ llm_pool:
       provider: openai
       model: gpt-4o-mini
 
-judge_panel:
-  judges:
-    - judge_gpt_4o_mini
-
 embedding:
   provider: openai
   model: text-embedding-3-small
@@ -49,51 +45,24 @@ api:
 
 metrics_metadata:
   turn_level:
-    # --- RAG faithfulness (hallucination detection) ---
-    ragas:faithfulness:
+    ragas:context_recall:
       threshold: 0.8
-      description: Detects hallucinations by comparing response claims to retrieved context
+      description: Did we fetch every fact the answer needs?
       default: false
 
-    # --- Response relevancy ---
-    ragas:response_relevancy:
-      threshold: 0.75
-      description: Measures how well the response addresses the original query
+    ragas:context_precision_with_reference:
+      threshold: 0.7
+      description: How precise the retrieved context is (with reference)
       default: false
 
-    # --- Context retrieval precision ---
     ragas:context_precision_without_reference:
       threshold: 0.7
-      description: Evaluates whether retrieved context chunks are relevant to the query
+      description: How precise the retrieved context is (without reference)
       default: false
 
-    # --- Answer correctness (LLM-judged) ---
-    custom:answer_correctness:
-      threshold: 0.75
-      description: Semantic comparison of response against expected answer
-      default: false
-
-    # --- Keyword presence (deterministic) ---
-    custom:keywords_eval:
-      description: Verifies required facts and terms appear in the response
-      default: false
-
-    # --- Intent match (LLM-judged) ---
-    custom:intent_eval:
-      description: Checks whether the response addresses the user's stated intent
-      default: false
-
-    # --- Tool evaluation (for future tool-calling benchmarks) ---
-    custom:tool_eval:
-      threshold: 1.0
-      description: Validates tool call correctness against expected tool calls
-      default: false
-
-  conversation_level:
-    # --- Context retention across turns ---
-    deepeval:knowledge_retention:
+    ragas:context_relevance:
       threshold: 0.7
-      description: Measures how well the model retains information from previous turns
+      description: Is what we retrieved actually relevant to user query?
       default: false
 
 storage:

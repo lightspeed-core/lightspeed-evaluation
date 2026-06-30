@@ -157,7 +157,7 @@ def sample_evaluation_summary() -> dict[str, Any]:
                 "error_rate": 0.0,
             },
             "by_metric": {
-                "ragas:faithfulness": {
+                "ragas:context_recall": {
                     "pass": 4,
                     "fail": 0,
                     "error": 0,
@@ -173,7 +173,7 @@ def sample_evaluation_summary() -> dict[str, Any]:
                         "count": 4,
                     },
                 },
-                "ragas:response_relevancy": {
+                "ragas:context_relevance": {
                     "pass": 4,
                     "fail": 2,
                     "error": 0,
@@ -195,7 +195,7 @@ def sample_evaluation_summary() -> dict[str, Any]:
             {
                 "conversation_group_id": "conv1",
                 "turn_id": "turn1",
-                "metric_identifier": "ragas:faithfulness",
+                "metric_identifier": "ragas:context_recall",
                 "result": "PASS",
                 "score": 0.95,
                 "threshold": 0.8,
@@ -204,7 +204,7 @@ def sample_evaluation_summary() -> dict[str, Any]:
             {
                 "conversation_group_id": "conv1",
                 "turn_id": "turn2",
-                "metric_identifier": "ragas:response_relevancy",
+                "metric_identifier": "ragas:context_relevance",
                 "result": "PASS",
                 "score": 0.85,
                 "threshold": 0.7,

@@ -70,12 +70,10 @@
         Retrieve hardware requirements for Single Node OpenShift
         including CPU, RAM, and storage specifications
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_multinode_requirements
   description: >
@@ -107,12 +105,10 @@
         Retrieve hardware requirements for multi-node OpenShift clusters
         including separate specifications for control plane and compute nodes
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_assisted_installer
   description: >
@@ -141,12 +137,10 @@
         Explain what the Assisted Installer is and describe the
         installation workflow steps
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_supported_platforms
   description: >
@@ -172,11 +166,10 @@
       expected_intent: >
         List the supported platforms for OpenShift cluster installation
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_chatbot_capabilities
   description: >
@@ -203,11 +196,10 @@
         Describe capabilities for helping with OpenShift installation
         using the Assisted Installer
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_vsphere_support
   description: >
@@ -231,11 +223,10 @@
         Offer to help create a cluster with vSphere platform and
         request necessary information
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_nutanix_support
   description: >
@@ -259,11 +250,10 @@
         Offer to help create a cluster with Nutanix platform and
         request necessary information
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_static_networking
   description: >
@@ -288,11 +278,10 @@
         Offer to help create a cluster and explain that static
         network configuration can be set up for hosts
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_discovery_iso
   description: >
@@ -320,12 +309,10 @@
         Explain that the Discovery ISO is a bootable image used to
         discover and register hosts for OpenShift clusters
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_hw_comparison
   description: >
@@ -356,12 +343,10 @@
         Compare hardware requirements between single node and
         multi-node OpenShift clusters with specific specifications
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_ignition_failure
   description: >
@@ -391,10 +376,10 @@
         common causes like network connectivity, DNS, or firewall
         issues
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 # ===========================================================================
 # 2. OPENSHIFT — OCI DEPLOYMENT
@@ -430,12 +415,10 @@
         Retrieve VPU sizing recommendations for OpenShift on OCI
         across different environment tiers
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_oci_deployment_flow
   description: >
@@ -462,12 +445,10 @@
         Describe the step-by-step deployment flow for deploying
         OpenShift on Oracle Cloud Infrastructure
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_oci_manifests
   description: >
@@ -493,12 +474,10 @@
         Identify mandatory manifest files required for OCI deployment
         through the Assisted Installer
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_oci_role_assignment
   description: >
@@ -527,12 +506,10 @@
         Explain how to assign roles to nodes when deploying
         OpenShift on OCI
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 # ===========================================================================
 # 3. RHEL — SAP SOLUTIONS
@@ -571,12 +548,10 @@
         Define RHEL for SAP Solutions and explain how it differs
         from standard RHEL
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_sap_system_roles
   description: >
@@ -606,12 +581,10 @@
         Retrieve the exact names and purposes of the three RHEL
         System Roles for SAP preconfiguration
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_sap_repositories
   description: >
@@ -642,12 +615,10 @@
         List the repositories included with the RHEL for SAP
         Solutions subscription
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 # ===========================================================================
 # 4. RHEL — HIGH AVAILABILITY
@@ -681,12 +652,10 @@
         Explain Red Hat's policy on running HA clusters without
         fencing and why fencing is important
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_ha_resource_ordering
   description: >
@@ -715,10 +684,10 @@
         Provide pcs commands for resource ordering and colocation
         constraints in a Pacemaker cluster
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_ha_resource_move
   description: >
@@ -746,12 +715,10 @@
         Provide the pcs command to move a Pacemaker resource to a
         specific node
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_ha_batch_creation
   description: >
@@ -782,12 +749,10 @@
         Explain how to speed up bulk resource creation using
         offline CIB files in a Pacemaker cluster
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 # ===========================================================================
 # 5. RHEL — PLATFORM-SPECIFIC KNOWLEDGE
@@ -819,12 +784,10 @@
         Explain how to configure RHEL instances on AWS with Secure
         Boot, including which instance types support it
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_rhel_registration
   description: >
@@ -856,11 +819,10 @@
         Explain how to register a RHEL system to Red Hat from
         the command line using available tools
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_aws_certification
   description: >
@@ -892,10 +854,10 @@
         Identify the Red Hat Ecosystem Catalog section for verifying
         RHEL certification on AWS instances
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_selinux_status
   description: >
@@ -921,12 +883,10 @@
         Explain how to check if SELinux is enabled using the
         sestatus command
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_selinux_disable
   description: >
@@ -954,12 +914,10 @@
         Explain how to temporarily disable SELinux using
         setenforce 0
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_selinux_avc
   description: >
@@ -989,10 +947,10 @@
         Explain how to view and interpret AVC messages using
         ausearch and audit2allow
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_selinux_policy
   description: >
@@ -1019,12 +977,10 @@
         Explain how to create and load a custom SELinux policy
         module from AVC messages
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_insights_registration
   description: >
@@ -1046,12 +1002,10 @@
       expected_intent: >
         Explain how to register a system with Red Hat Insights
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_rhc_registration
   description: >
@@ -1079,12 +1033,10 @@
         Provide the rhc command to register a RHEL system using
         username and password credentials
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_firewall_rules
   description: >
@@ -1110,12 +1062,10 @@
         Explain how to add a permanent firewall rule for HTTPS
         using firewall-cmd
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_uuid_partuuid
   description: >
@@ -1146,12 +1096,10 @@
         Explain the difference between UUID and PARTUUID including
         where each is used
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_libvirt_passwordless
   description: >
@@ -1177,12 +1125,10 @@
         Explain how to configure passwordless libvirt access by
         adding a user to the libvirt group
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_file_acl
   description: >
@@ -1209,12 +1155,10 @@
       expected_intent: >
         Explain how to modify file ACLs using the setfacl command
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_dhcp_tftp
   description: >
@@ -1244,10 +1188,10 @@
         Identify the next-server parameter in dhcpd.conf as the
         TFTP server address setting
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_kernel_version
   description: >
@@ -1269,11 +1213,10 @@
         Provide the command to check the current running kernel
         version
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_systemd_service
   description: >
@@ -1297,11 +1240,10 @@
         Explain how to check systemd service status using
         systemctl status
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_journal_logs
   description: >
@@ -1328,11 +1270,10 @@
         Explain how to view the last N lines of journal logs for a
         specific service using journalctl
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_package_search
   description: >
@@ -1354,11 +1295,10 @@
       expected_intent: >
         Explain how to search for packages using dnf search
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_listening_ports
   description: >
@@ -1383,11 +1323,10 @@
         Explain how to list listening network ports using the ss
         command
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_cups_listing
   description: >
@@ -1409,12 +1348,10 @@
       expected_intent: >
         Explain how to list printers and their status using lpstat
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_cups_add_printer
   description: >
@@ -1442,12 +1379,10 @@
       expected_intent: >
         Explain how to add a printer queue using lpadmin
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_cups_scheduler
   description: >
@@ -1475,11 +1410,10 @@
         Troubleshoot the CUPS scheduler not running error by
         starting and enabling the cups service
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_disk_uuid
   description: >
@@ -1501,11 +1435,10 @@
       expected_intent: >
         Provide commands to identify disk storage UUIDs
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_os_version
   description: >
@@ -1528,11 +1461,10 @@
         Provide commands to check the current operating system
         version
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_env_var_unset
   description: >
@@ -1552,11 +1484,10 @@
       expected_intent: >
         Provide the unset command to remove an environment variable
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_file_truncate
   description: >
@@ -1578,11 +1509,10 @@
       expected_intent: >
         Explain how to use the truncate command to change file size
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_grep_contents
   description: >
@@ -1606,11 +1536,10 @@
         Provide the grep command to recursively search for text
         within files
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_numa_vcpu_pin
   description: >
@@ -1641,10 +1570,10 @@
         Provide commands for identifying NUMA node cores and pinning
         VM vCPUs using virsh vcpupin
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 # ===========================================================================
 # 6. MULTI-TURN RETENTION — follow-up questions testing context retention
@@ -1658,8 +1587,6 @@
     multi-node specs, demonstrating retention of retrieved facts
     across turns.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: sno_requirements_recap
       query: >
@@ -1676,9 +1603,10 @@
           - storage
       expected_intent: retrieve SNO hardware requirements
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: multinode_contrast
       query: >
@@ -1702,10 +1630,10 @@
         Compare multi-node cluster requirements with the SNO
         requirements from the previous answer
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_sap_solutions_to_roles
   description: >
@@ -1717,8 +1645,6 @@
     conversational follow-ups. See
     okp_retention_sap_solutions_to_roles_guided for optimized version.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: sap_solutions_overview
       query: >
@@ -1739,9 +1665,10 @@
         Describe the RHEL for SAP Solutions subscription and what
         it includes
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: sap_preconfigure_roles
       query: >
@@ -1763,10 +1690,10 @@
         List the specific RHEL System Roles for SAP preconfiguration,
         building on the previous answer about SAP Solutions tools
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_oci_requirements_to_flow
   description: >
@@ -1778,8 +1705,6 @@
     contextual follow-ups. See
     okp_retention_oci_requirements_to_flow_guided for optimized version.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: oci_sizing
       query: >
@@ -1799,9 +1724,10 @@
       expected_intent: >
         Retrieve VPU sizing recommendations for OpenShift on OCI
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: oci_flow_after_sizing
       query: >
@@ -1822,9 +1748,10 @@
         Describe the OCI deployment flow, connecting infrastructure
         sizing from the previous answer to the installation steps
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_ha_fencing_to_resources
   description: >
@@ -1835,8 +1762,6 @@
     tests whether the system handles conversational references. See
     okp_retention_ha_fencing_to_resources_guided for optimized version.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: ha_fencing_context
       query: >
@@ -1854,9 +1779,10 @@
       expected_intent: >
         Understand Red Hat's policy on HA cluster fencing
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: ha_resource_ordering
       query: >
@@ -1880,10 +1806,10 @@
         constraints in a Pacemaker cluster, building on the HA
         context from the previous answer
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_selinux_status_to_disable
   description: >
@@ -1892,8 +1818,6 @@
     connect the two topics, demonstrating retention of the SELinux
     context across turns.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: selinux_check_status
       query: >
@@ -1910,9 +1834,10 @@
       expected_intent: >
         Explain how to check SELinux status
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: selinux_then_disable
       query: >
@@ -1932,10 +1857,10 @@
         Explain how to temporarily disable SELinux using setenforce,
         building on the SELinux context from the previous answer
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_selinux_avc_to_policy
   description: >
@@ -1944,8 +1869,6 @@
     The assistant must connect the two topics, demonstrating
     retention of the SELinux troubleshooting context.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: selinux_view_avc
       query: >
@@ -1963,8 +1886,10 @@
       expected_intent: >
         Explain how to view and interpret AVC messages
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: selinux_then_policy
       query: >
@@ -1985,10 +1910,10 @@
         Explain how to create a custom SELinux policy module from
         the AVC messages discussed in the previous answer
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_context_basic
   description: >
@@ -1998,8 +1923,6 @@
     turn 1, testing whether context is retained across an
     intervening topic change.
   tag: okp_retention
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: name_cluster
       query: >
@@ -2013,8 +1936,10 @@
       expected_intent: >
         Acknowledge the cluster name and offer to help
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: list_versions
       query: >
@@ -2027,8 +1952,10 @@
       expected_intent: >
         Provide a list of available OpenShift versions
       turn_metrics:
-        - custom:answer_correctness
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: recall_cluster_name
       query: >
@@ -2040,9 +1967,10 @@
       expected_intent: >
         Recall the cluster name from the first turn
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 # ===========================================================================
 # 7. GUIDED QUERIES — retrieval-optimized versions of natural-language tests
@@ -2087,12 +2015,10 @@
         Retrieve hardware requirements for multi-node OpenShift clusters
         including separate specifications for control plane and compute nodes
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_rhel_registration_guided
   description: >
@@ -2123,11 +2049,10 @@
         Explain how to register a RHEL system to Red Hat from
         the command line using available tools
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_sap_solutions_to_roles_guided
   description: >
@@ -2137,8 +2062,6 @@
     okp_retention_sap_solutions_to_roles to measure OKP's ability
     to handle conversational follow-ups.
   tag: okp_guided
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: sap_solutions_overview
       query: >
@@ -2159,9 +2082,10 @@
         Describe the RHEL for SAP Solutions subscription and what
         it includes
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: sap_preconfigure_roles
       query: >
@@ -2183,10 +2107,10 @@
         List the specific RHEL System Roles for SAP preconfiguration,
         building on the previous answer about SAP Solutions tools
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_oci_requirements_to_flow_guided
   description: >
@@ -2197,8 +2121,6 @@
     with okp_retention_oci_requirements_to_flow to measure OKP's
     ability to handle contextual follow-ups.
   tag: okp_guided
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: oci_sizing
       query: >
@@ -2218,9 +2140,10 @@
       expected_intent: >
         Retrieve VPU sizing recommendations for OpenShift on OCI
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: oci_flow_after_sizing
       query: >
@@ -2242,10 +2165,10 @@
         Describe the OCI deployment flow, connecting infrastructure
         sizing from the previous answer to the installation steps
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_retention_ha_fencing_to_resources_guided
   description: >
@@ -2257,8 +2180,6 @@
     Compare with okp_retention_ha_fencing_to_resources to measure
     OKP's ability to handle conversational references.
   tag: okp_guided
-  conversation_metrics:
-    - deepeval:knowledge_retention
   turns:
     - turn_id: ha_fencing_context
       query: >
@@ -2276,9 +2197,10 @@
       expected_intent: >
         Understand Red Hat's policy on HA cluster fencing
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
     - turn_id: ha_resource_ordering
       query: >
@@ -2303,10 +2225,10 @@
         constraints in a Pacemaker cluster, building on the HA
         context from the previous answer
       turn_metrics:
-        - ragas:faithfulness
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 # ===========================================================================
 # 8. EDGE CASES & DOMAIN BOUNDARIES
@@ -2341,12 +2263,10 @@
       expected_intent: >
         Provide information about SSH despite typos in the query
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_typo_password
   description: >
@@ -2370,12 +2290,10 @@
         Provide the passwd command for changing user passwords
         despite typos in the query
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_multi_method_disk
   description: >
@@ -2403,10 +2321,10 @@
         Provide three different methods for checking disk space
         usage on RHEL
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_multi_method_user
   description: >
@@ -2429,11 +2347,10 @@
         Provide both sudo and su options for running commands as a
         different user
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_specific_find
   description: >
@@ -2459,10 +2376,10 @@
         Provide the exact find command with -type f and -name
         constraints
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_hugepages_rhel10
   description: >
@@ -2491,12 +2408,10 @@
         Provide version-specific instructions for configuring 1G
         hugepages at boot time on RHEL 10 using grubby
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_rhel_free
   description: >
@@ -2524,11 +2439,10 @@
         Explain legitimate ways to obtain RHEL at no cost through
         Red Hat programs
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_invalid_ssh
   description: >
@@ -2557,10 +2471,10 @@
         Indicate that the provided SSH key is not in a valid format
         and ask the user to provide a valid SSH key
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_custom_manifests
   description: >
@@ -2586,10 +2500,10 @@
       expected_intent: >
         Decline to create a cluster with custom manifests
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_api_spec
   description: >
@@ -2614,10 +2528,10 @@
         Decline to provide the API specification and explain
         available capabilities
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_multiple_clusters
   description: >
@@ -2643,10 +2557,10 @@
         Indicate that the assistant can only create one cluster at
         a time
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_oci_synonym
   description: >
@@ -2674,10 +2588,10 @@
         Create a cluster with Oracle Cloud Infrastructure platform
         integration, resolving the full name to OCI
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_nonexistent_cluster
   description: >
@@ -2701,10 +2615,10 @@
         Indicate that a cluster with the given name does not exist
         or could not be found
       turn_metrics:
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_vague_query
   description: >
@@ -2731,11 +2645,10 @@
         Offer to guide through cluster creation and request
         necessary information
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_edge_samba_restriction
   description: >
@@ -2771,12 +2684,10 @@
         Directory domain controller due to a RHEL-specific
         restriction
       turn_metrics:
-        - ragas:faithfulness
-        - ragas:response_relevancy
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
         - ragas:context_precision_without_reference
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_relevance
 
 # ===========================================================================
 # 9. NEGATIVE RAG SCENARIOS
@@ -2814,9 +2725,10 @@
         Redirect the user to RHEL-related topics without attempting
         to answer the nonsense input
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_robot_origin
   description: >
@@ -2841,9 +2753,10 @@
         Decline to answer a general knowledge question and redirect
         to RHEL topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_brownies
   description: >
@@ -2869,9 +2782,10 @@
       expected_intent: >
         Decline to provide a recipe and redirect to RHEL topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_capybaras
   description: >
@@ -2895,9 +2809,10 @@
       expected_intent: >
         Decline to answer an off-topic question about animals
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_who_created
   description: >
@@ -2920,9 +2835,10 @@
       expected_intent: >
         Redirect to RHEL topics without revealing internal details
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_pi_number
   description: >
@@ -2946,9 +2862,10 @@
         Decline to answer a math question and redirect to RHEL
         topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_ultimate_answer
   description: >
@@ -2976,9 +2893,10 @@
         Decline to answer a pop culture question and redirect to
         RHEL topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_five_times_five
   description: >
@@ -3002,9 +2920,10 @@
         Decline to answer a math question and redirect to RHEL
         topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_windows_server
   description: >
@@ -3029,9 +2948,10 @@
       expected_intent: >
         Decline to help with Windows Server and redirect to RHEL
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_ceo_contact
   description: >
@@ -3055,9 +2975,10 @@
       expected_intent: >
         Decline to provide personal contact information
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_other_user
   description: >
@@ -3083,9 +3004,10 @@
       expected_intent: >
         Refuse to share other users' private conversations
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_git_log
   description: >
@@ -3106,9 +3028,10 @@
       expected_intent: >
         Provide the git log --oneline command
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_python_http
   description: >
@@ -3135,9 +3058,10 @@
         Provide the Python HTTP server command while noting it is
         not suitable for production
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_azure_cluster
   description: >
@@ -3165,9 +3089,10 @@
         Explain that Azure is not a supported platform and list
         the supported platforms
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_french_revolution
   description: >
@@ -3192,9 +3117,10 @@
         Decline to answer an off-topic historical question and
         redirect to OpenShift topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_life_100_years
   description: >
@@ -3218,9 +3144,10 @@
       expected_intent: >
         Decline to answer an off-topic historical question
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_bash_script
   description: >
@@ -3245,9 +3172,10 @@
         Respond to a coding exercise request, ideally noting RHEL
         focus
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_palindrome
   description: >
@@ -3272,9 +3200,10 @@
         Redirect a general Python coding question toward
         RHEL-related Python topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_lentil_soup
   description: >
@@ -3299,9 +3228,10 @@
       expected_intent: >
         Decline to help with cooking and redirect to RHEL topics
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
 
 - conversation_group_id: okp_neg_mixed_valid_offtopic
   description: >
@@ -3329,6 +3259,7 @@
         Decline the off-topic part of the mixed query while
         acknowledging the valid OpenShift question
       turn_metrics:
-        - custom:answer_correctness
-        - custom:keywords_eval
-        - custom:intent_eval
+        - ragas:context_recall
+        - ragas:context_precision_with_reference
+        - ragas:context_precision_without_reference
+        - ragas:context_relevance
