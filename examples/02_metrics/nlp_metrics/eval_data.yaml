@@ -6,6 +6,7 @@
     query: What is a namespace in OpenShift?
     response: A namespace provides isolation and scope for resources in OpenShift.
     expected_response: A namespace provides isolation and scope for resources in OpenShift
+
 - conversation_group_id: similar_phrasing
   description: Same meaning, different wording
   tag: nlp
@@ -14,6 +15,7 @@
     query: What is a namespace in OpenShift?
     response: In OpenShift, namespaces offer resource isolation and scoping capabilities.
     expected_response: A namespace provides isolation and scope for resources in OpenShift
+
 - conversation_group_id: different_content
   description: Completely different response
   tag: nlp

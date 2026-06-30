@@ -14,6 +14,7 @@
         arguments:
           kind: pod
           namespace: openshift-monitoring
+
 - conversation_group_id: regex_pattern_matching
   description: Tool calls with dynamic values (regex patterns)
   tag: tools
@@ -32,6 +33,7 @@
           kind: pod
           name: lightspeed-.*
           namespace: openshift-lightspeed
+
 - conversation_group_id: wrong_tool
   description: Agent uses wrong tool
   tag: tools
@@ -48,6 +50,7 @@
         arguments:
           kind: pod
           namespace: default
+
 - conversation_group_id: tool_result_validation
   description: Validate tool call result/output
   tag: tools
@@ -68,6 +71,7 @@
           name: my-namespace-pod
           namespace: default
         result: '.*Running.*'
+
 - conversation_group_id: alternative_tool_paths
   description: Alternative approaches - 2-step sequence OR single tool
   tag: tools

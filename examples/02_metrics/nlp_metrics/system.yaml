@@ -1,8 +1,10 @@
 core:
   max_threads: 1
-api:
-  enabled: false
   cache_enabled: false
+
+agents:
+  enabled: false
+
 metrics_metadata:
   turn_level:
     nlp:bleu:
@@ -20,6 +22,7 @@ metrics_metadata:
       description: String similarity using Levenshtein distance
       default: true
       distance_measure: levenshtein
+
 storage:
 - type: file
   output_dir: examples/02_metrics/nlp_metrics/eval_output
@@ -38,6 +41,7 @@ storage:
   - reason
   - query
   - response
+
 visualization:
   figsize:
   - 14
@@ -47,6 +51,7 @@ visualization:
   - pass_rates
   - score_distribution
   - status_breakdown
+
 logging:
   source_level: INFO
   package_level: WARNING
