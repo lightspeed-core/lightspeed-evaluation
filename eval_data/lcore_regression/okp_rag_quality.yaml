@@ -391,7 +391,6 @@
         common causes like network connectivity, DNS, or firewall
         issues
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
         - custom:answer_correctness
         - custom:keywords_eval
@@ -716,9 +715,7 @@
         Provide pcs commands for resource ordering and colocation
         constraints in a Pacemaker cluster
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
-        - ragas:context_precision_without_reference
         - custom:answer_correctness
         - custom:keywords_eval
         - custom:intent_eval
@@ -895,9 +892,7 @@
         Identify the Red Hat Ecosystem Catalog section for verifying
         RHEL certification on AWS instances
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
-        - ragas:context_precision_without_reference
         - custom:answer_correctness
         - custom:keywords_eval
         - custom:intent_eval
@@ -994,9 +989,7 @@
         Explain how to view and interpret AVC messages using
         ausearch and audit2allow
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
-        - ragas:context_precision_without_reference
         - custom:answer_correctness
         - custom:keywords_eval
         - custom:intent_eval
@@ -1251,9 +1244,7 @@
         Identify the next-server parameter in dhcpd.conf as the
         TFTP server address setting
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
-        - ragas:context_precision_without_reference
         - custom:answer_correctness
         - custom:keywords_eval
         - custom:intent_eval
@@ -1650,9 +1641,7 @@
         Provide commands for identifying NUMA node cores and pinning
         VM vCPUs using virsh vcpupin
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
-        - ragas:context_precision_without_reference
         - custom:answer_correctness
         - custom:keywords_eval
         - custom:intent_eval
@@ -1833,7 +1822,6 @@
         Describe the OCI deployment flow, connecting infrastructure
         sizing from the previous answer to the installation steps
       turn_metrics:
-        - ragas:faithfulness
         - custom:answer_correctness
         - custom:keywords_eval
         - custom:intent_eval
@@ -1975,7 +1963,6 @@
       expected_intent: >
         Explain how to view and interpret AVC messages
       turn_metrics:
-        - ragas:faithfulness
         - custom:answer_correctness
         - custom:keywords_eval
 
@@ -2416,7 +2403,6 @@
         Provide three different methods for checking disk space
         usage on RHEL
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
         - custom:answer_correctness
         - custom:keywords_eval
@@ -2473,7 +2459,6 @@
         Provide the exact find command with -type f and -name
         constraints
       turn_metrics:
-        - ragas:faithfulness
         - ragas:response_relevancy
         - custom:answer_correctness
         - custom:keywords_eval
