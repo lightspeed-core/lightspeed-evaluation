@@ -1,11 +1,13 @@
 """Ragas metrics evaluation using LLM Manager with Ragas 0.4+ API."""
 
 import errno
+import logging
 import math
 import threading
 from typing import Any, Optional
 
 import litellm
+from instructor.v2.core.registry import mode_registry
 from litellm.caching.caching import Cache
 from litellm.types.caching import CachingSupportedCallTypes, LiteLLMCacheType
 from ragas.metrics.collections import (
@@ -27,6 +29,27 @@ from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import EvaluationError
+
+logger = logging.getLogger(__name__)
+
+
+def _warm_instructor_registry() -> None:
+    """Eagerly load instructor's lazy-registered mode handlers.
+
+    Instructor 1.15+ uses a thread-unsafe lazy registry: get_handlers() pops a
+    key from _lazy_loaders before calling the loader. When multiple threads hit
+    the same key simultaneously, all but the first see an empty registry and
+    raise KeyError. Warming the registry from the main thread before any
+    ThreadPoolExecutor work eliminates the race.
+    """
+    for key in mode_registry.list_modes():
+        try:
+            mode_registry.get_handlers(*key)
+        except (KeyError, ImportError) as exc:
+            logger.debug("Skipped instructor handler %s: %s", key, exc)
+
+
+_warm_instructor_registry()
 
 
 def _clamp_score(score: float) -> float:
