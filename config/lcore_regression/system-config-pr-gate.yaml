@@ -11,9 +11,9 @@
 # The judge LLM is a separate OpenAI call (gpt-4o-mini) used only for scoring.
 
 core:
-  max_threads: 1
+  max_threads: 4
   fail_on_invalid_data: true
-  skip_on_failure: true
+  skip_on_failure: false
 
 llm_pool:
   defaults:
