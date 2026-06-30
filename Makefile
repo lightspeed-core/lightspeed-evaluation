@@ -18,9 +18,7 @@ uv-lock-check: ## Check that the uv.lock file is in a good shape
 install-deps-test: ## Install all required dev dependencies needed to test the service, according to uv.lock
 	uv sync --group dev
 
-update-deps: ## Check pyproject.toml for changes, update the lock file if needed, then sync.
-	uv lock
-	uv sync --group dev
+update-deps: uv-lock-regenerate install-deps-test ## Regenerate lock files (with cooldown) and sync dev deps
 
 check-types: ## Checks type hints in sources
 	uv run mypy src/ lsc_agent_eval/src/ tests
@@ -31,9 +29,15 @@ black-check:
 black-format:
 	uv run black src tests script lsc_agent_eval
 
-uv-lock-regenerate: ## Regenerate both CPU and GPU lock files from pyproject.toml
+# Skip packages published within this many days (supply-chain cooldown).
+# Override: make sync-lock-and-requirements COOLDOWN_DAYS=0
+COOLDOWN_DAYS ?= 7
+
+uv-lock-regenerate: ## Regenerate both CPU and GPU lock files from pyproject.toml (with cooldown)
+	$(eval COOLDOWN_CUTOFF := $(shell python3 -c "from datetime import datetime,timezone,timedelta;print((datetime.now(timezone.utc)-timedelta(days=$(COOLDOWN_DAYS))).strftime('%Y-%m-%dT%H:%M:%SZ'))"))
 	@echo "Regenerating CPU lock file (uv.lock)..."
-	uv lock
+	@echo "Cooldown: excluding packages newer than $(COOLDOWN_CUTOFF) ($(COOLDOWN_DAYS) days)"
+	uv lock --exclude-newer "$(COOLDOWN_CUTOFF)"
 	@echo "Regenerating GPU lock file (uv-gpu.lock)..."
 	@# Use mktemp for safe temporary files
 	@( \
@@ -44,14 +48,14 @@ uv-lock-regenerate: ## Regenerate both CPU and GPU lock files from pyproject.tom
 		cp pyproject.toml $$BACKUP_FILE; \
 		sed '/^\[tool\.uv\.sources\]/,/^torch = /d' pyproject.toml > $$TEMP_FILE; \
 		mv $$TEMP_FILE pyproject.toml; \
-		uv lock --locked 2>/dev/null || uv lock; \
+		uv lock --locked 2>/dev/null || uv lock --exclude-newer "$(COOLDOWN_CUTOFF)"; \
 		mv uv.lock uv-gpu.lock; \
 		mv $$BACKUP_FILE pyproject.toml; \
 		trap - EXIT; \
 	)
 	@echo "Restoring CPU lock file (uv.lock)..."
-	uv lock
-	@echo "✅ Done! Created uv.lock (CPU) and uv-gpu.lock (GPU)"
+	uv lock --exclude-newer "$(COOLDOWN_CUTOFF)"
+	@echo "✅ Done! Created uv.lock (CPU) and uv-gpu.lock (GPU) [cooldown=$(COOLDOWN_DAYS)d]"
 
 generate-requirements: ## Generate pinned requirements-*.txt from uv.lock (no -e ., safe without clone)
 	@echo "Generating requirements.txt (runtime only, no optional extras)..."
