@@ -1,6 +1,7 @@
 # pylint: disable=too-many-public-methods,protected-access
 
 """Tests for GEval metrics handler."""
+
 import logging
 from typing import Any
 
