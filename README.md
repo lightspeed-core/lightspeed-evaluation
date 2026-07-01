@@ -1,17 +1,19 @@
 # Lightspeed Evaluation Framework
 
-A comprehensive framework for evaluating GenAI applications.
+[![License](https://img.shields.io/badge/license-Apache-blue)](https://github.com/lightspeed-core/lightspeed-evaluation/blob/main/LICENSE)
+[![Required Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Flightspeed-core%2Flightspeed-evaluation%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](https://www.python.org/)
+[![Tag](https://img.shields.io/github/v/tag/lightspeed-core/lightspeed-evaluation)](https://github.com/lightspeed-core/lightspeed-evaluation/releases)
 
-**This is a WIP. We’re actively adding features, fixing issues, and expanding examples. Please give it a try, share feedback, and report bugs.**
+An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes in both live and offline modes. Supports multiple evaluation metrics (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, multi-judge scoring, statistical analysis, and environment setup/cleanup scripts. Works with API-based and Agentic Lightspeed workflows out of the box, with extensible integrations. Available as a CLI tool and as a Python library.
 
 ## 🎯 Key Features
 
-- **Multi-Framework Support**: Seamlessly use metrics from Ragas, DeepEval, and custom implementations
+- **Multi-Framework Support**: Metrics from Ragas, DeepEval, NLP, script-based evaluation, and user-defined criteria — with extensible custom metric support
 - **Turn & Conversation-Level Evaluation**: Support for both individual queries and multi-turn conversations
-- **Evaluation types**: Response, Context, Tool Call, Overall Conversation evaluation & Script-based evaluation
+- **Evaluation types**: Response, Context, Tool Call, Overall Conversation, Agentic Workflow & Script-based evaluation
 - **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
 - **Panel of Judges**: Use multiple LLMs as judges to reduce bias and improve evaluation accuracy with configurable aggregation strategies
-- **API Integration**: Direct integration with external API for real-time data generation (if enabled)
+- **API Integration**: Direct integration with external API for live data generation (if enabled)
 - **Agentic Lightspeed Evaluation**: Support for Agentic Lightspeed evaluation via Proposal CRD workflow
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations (per-judge tracking for panel mode)
@@ -25,7 +27,7 @@ A comprehensive framework for evaluating GenAI applications.
 - **Concurrent Evaluation**: Multi-threaded evaluation with configurable thread count
 - **Caching**: LLM, embedding, and API response caching for faster re-runs
 - **Skip on Failure**: Optionally skip remaining evaluations in a conversation when a turn evaluation fails (configurable globally or per conversation). When there is an error in API call/Setup script execution metrics are marked as ERROR always.
-- **Usage Modes**: CLI for batch evaluation and programmatic API for real-time integration with Python applications
+- **Usage Modes**: CLI for batch evaluation and programmatic API for integration with Python applications
 
 ## 🚀 Quick Start
 
@@ -35,11 +37,11 @@ A comprehensive framework for evaluating GenAI applications.
 
 #### From Git
 
-Replace `TAG` below with a [release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) like `v0.6.0`, or use `main` for latest (not recommended).
+Replace `TAG` below with a [release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) like `v0.7.0`, or use `main` for latest (not recommended).
 
 ```bash
 # Set your desired tag
-TAG=v0.6.0
+TAG=v0.7.0
 
 # Install package (no dependencies)
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -59,7 +61,7 @@ pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-eval
 
 **CPU torch + local embeddings:**
 ```bash
-TAG=v0.6.0
+TAG=v0.7.0
 
 # 1. Install package
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -73,7 +75,7 @@ pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-eval
 
 **GPU torch + local embeddings:**
 ```bash
-TAG=v0.6.0
+TAG=v0.7.0
 
 # 1. Install package
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -115,6 +117,8 @@ cp uv-gpu.lock uv.lock && uv sync --extra local-embeddings --frozen
 After changing `pyproject.toml`:
 ```bash
 make sync-lock-and-requirements  # Regenerate uv.lock, uv-gpu.lock, requirements-*.txt
+# A 7-day cooldown is applied by default (skips packages published < 7 days ago).
+# Override: make sync-lock-and-requirements COOLDOWN_DAYS=0
 ```
 
 ### Basic Usage
@@ -239,9 +243,9 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <PROPOSA
   - [`conversation_relevancy`](https://deepeval.com/docs/metrics-turn-relevancy)
   - [`knowledge_retention`](https://deepeval.com/docs/metrics-knowledge-retention)
 
-### Custom Metrics with GEval (from DeepEval)
+### User-Defined Evaluation Criteria
 
-Define custom evaluation metrics in `system.yaml` under `metrics_metadata`. **Criteria** is required; **evaluation_steps** and **rubrics** are optional. Score is 0–1.
+Define custom evaluation metrics in `system.yaml` under `metrics_metadata`. No code changes needed, internally uses GEval from DeepEval. **Criteria** is required; **evaluation_steps** and **rubrics** are optional. Score is 0–1.
 
 ```yaml
 metrics_metadata:
@@ -432,7 +436,7 @@ Examples
 > - `expected_outcome`: Required for `custom:proposal_evaluation_correctness`
 > - `expected_analysis_outcome`, `expected_execution_outcome`, `expected_verification_outcome`: Optional per-phase outcomes for `custom:proposal_evaluation_correctness` (refine scoring precision)
 
-**Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. GEval), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
+**Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. user-defined criteria), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
 
 #### Metrics override behavior
 

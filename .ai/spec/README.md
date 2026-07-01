@@ -1,6 +1,6 @@
-# LightSpeed Evaluation Framework — Specifications
+# Lightspeed Evaluation Framework — Specifications
 
-A comprehensive evaluation framework for GenAI applications that supports multiple evaluation backends (Ragas, DeepEval, GEval, NLP, custom, script), multi-turn conversation assessment, panel-of-judges scoring, and pluggable agent drivers for real-time inference.
+An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes in both live and offline modes. Supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, pluggable agent drivers, and multi-turn conversation assessment. Available as CLI and programmatic API.
 
 ## Structure
 

@@ -1,6 +1,6 @@
 # Metrics
 
-Metrics are the scoring functions that evaluate GenAI responses. The framework supports six metric backends, each with different capabilities, LLM requirements, and data prerequisites.
+Metrics are the scoring functions that evaluate LLM-powered application outputs (responses, context quality, tool calls, conversation flows, agentic workflow/proposal outcomes outcomes). The framework supports six metric backends, each with different capabilities, LLM requirements, and data prerequisites.
 
 ## Behavioral Rules
 
@@ -8,10 +8,10 @@ Metrics are the scoring functions that evaluate GenAI responses. The framework s
 
 - **Ragas metrics** (`ragas:*`): Industry-standard RAG evaluation — faithfulness, answer relevancy, context precision/recall. Require LLM judge and often embedding model.
 - **DeepEval metrics** (`deepeval:*`): Conversation-level analysis — conversation_completeness, conversation_relevancy, knowledge_retention. Require LLM judge.
-- **GEval metrics** (`geval:*`): LLM-as-judge with custom evaluation criteria defined in metric metadata. Require LLM judge.
+- **User-defined criteria** (`geval:*`): LLM-as-judge with custom evaluation criteria defined in metric metadata (powered by DeepEval's GEval). Require LLM judge.
 - **Custom metrics** (`custom:*`): Domain-specific evaluation registered under the custom framework. Some use LLM judges (answer_correctness, intent_eval, proposal_evaluation_correctness), others use pure comparison logic without LLM (keywords_eval, tool_eval, proposal_status).
 - **NLP metrics** (`nlp:*`): No-LLM statistical metrics — BLEU, ROUGE, semantic similarity distance. No judge required.
-- **Script metrics** (`script:*`): External Python scripts that perform real-world validation (e.g., Kubernetes state checks). No judge required.
+- **Script metrics** (`script:*`): External Python scripts that perform real-world validation (e.g., OpenShift state checks). No judge required.
 
 ### Metric Resolution
 

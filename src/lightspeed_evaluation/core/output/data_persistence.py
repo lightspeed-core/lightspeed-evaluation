@@ -1,5 +1,6 @@
 """Simple data persistence utilities for evaluation framework."""
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -9,6 +10,8 @@ import yaml
 from lightspeed_evaluation.core.constants import DEFAULT_OUTPUT_DIR
 from lightspeed_evaluation.core.models import EvaluationData
 from lightspeed_evaluation.core.models.data import DatasetMetadata
+
+logger = logging.getLogger(__name__)
 
 
 def save_evaluation_data(
@@ -62,9 +65,9 @@ def save_evaluation_data(
                 indent=2,
             )
 
-        print(f"💾 Amended evaluation data saved to: {amended_data_path}")
+        logger.info("Amended evaluation data saved to: %s", amended_data_path)
         return str(amended_data_path)
 
     except (OSError, yaml.YAMLError) as e:
-        print(f"❌ Failed to save amended evaluation data: {e}")
+        logger.error("Failed to save amended evaluation data: %s", e)
         return None

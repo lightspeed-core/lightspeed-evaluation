@@ -62,7 +62,7 @@ class DeepEvalLLMManager:
             **self.llm_params.get("parameters", {}),
         )
 
-        print(f"✅ DeepEval LLM Manager: {self.model_name}")
+        logger.info("DeepEval LLM Manager: %s", self.model_name)
 
     def _patch_deepeval_retries(self, max_retries: int) -> None:
         """Monkey-patch DeepEval's retry decorators to use configured max_retries.

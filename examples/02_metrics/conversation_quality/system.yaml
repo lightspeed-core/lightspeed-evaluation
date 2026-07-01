@@ -1,8 +1,9 @@
 core:
   max_threads: 1
+  cache_enabled: false
+
 llm_pool:
   defaults:
-    cache_enabled: false
     timeout: 120
     num_retries: 1
     parameters:
@@ -12,12 +13,14 @@ llm_pool:
     judge_gpt_4o_mini:
       provider: openai
       model: gpt-4o-mini
+
 judge_panel:
   judges:
   - judge_gpt_4o_mini
-api:
+
+agents:
   enabled: false
-  cache_enabled: false
+
 metrics_metadata:
   conversation_level:
     deepeval:conversation_completeness:
@@ -32,6 +35,7 @@ metrics_metadata:
       threshold: 0.7
       description: Checks if AI retains and uses information from earlier turns
       default: true
+
 storage:
 - type: file
   output_dir: examples/02_metrics/conversation_quality/eval_output
@@ -47,6 +51,7 @@ storage:
   - threshold
   - result
   - reason
+
 visualization:
   figsize:
   - 12
@@ -56,10 +61,12 @@ visualization:
   - pass_rates
   - score_distribution
   - status_breakdown
+
 environment:
   DEEPEVAL_TELEMETRY_OPT_OUT: 'YES'
   DEEPEVAL_DISABLE_PROGRESS_BAR: 'YES'
   LITELLM_LOG: ERROR
+
 logging:
   source_level: INFO
   package_level: WARNING

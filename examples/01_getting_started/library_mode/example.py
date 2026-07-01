@@ -1,6 +1,6 @@
 """Library Mode Example - Programmatic API Usage.
 
-Demonstrates how to use LightSpeed Evaluation as a Python library
+Demonstrates how to use Lightspeed Evaluation as a Python library
 for real-time integration with your applications.
 """
 

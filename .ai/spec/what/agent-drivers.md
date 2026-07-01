@@ -1,6 +1,6 @@
 # Agent Drivers
 
-Agent drivers are pluggable abstractions for invoking external GenAI services during evaluation. When configured, they enrich turn data with real-time responses, token counts, and latency measurements before metrics are evaluated. Two driver types are supported: HTTP API-based and Kubernetes Proposal CRD-based.
+Agent drivers are pluggable abstractions for invoking external LLM-powered services during evaluation. When configured, they enrich turn data with live data, token counts, and latency measurements before metrics are evaluated. Two driver types are supported: HTTP API-based and OpenShift Proposal CRD-based.
 
 ## Behavioral Rules
 
@@ -21,7 +21,7 @@ Agent drivers are pluggable abstractions for invoking external GenAI services du
 
 ### ProposalDriver
 
-- ProposalDriver manages a Kubernetes Proposal CRD lifecycle per turn: build CR → apply → auto-approve → poll status → amend turn data → cleanup.
+- ProposalDriver manages a OpenShift Proposal CRD lifecycle per turn: build CR → apply → auto-approve → poll status → amend turn data → cleanup.
 - Terminal outcomes are: Completed, Failed, Denied, Escalated. The driver polls until a terminal condition is reached or timeout expires.
 - When `auto_approve` is enabled, the driver polls until the Proposal CR exists on the cluster, then pre-approves all stages (Analysis, Execution, Verification) by creating a ProposalApproval CR. The controller then proceeds through each stage without human intervention.
 - ProposalAmender fetches child Result CRs (analysis, execution, verification, escalation) and builds a structured Markdown summary as the turn response.
@@ -60,7 +60,7 @@ Agent drivers are pluggable abstractions for invoking external GenAI services du
 | Field/Flag | Type | Default | Description |
 |---|---|---|---|
 | `agents.<id>.type` | string | proposal | Agent type identifier |
-| `agents.<id>.namespace` | string | (required) | Kubernetes namespace for Proposal CRs |
+| `agents.<id>.namespace` | string | (required) | OpenShift namespace for Proposal CRs |
 | `agents.<id>.auto_approve` | bool | true | Auto-create ProposalApproval CR when Analyzed |
 | `agents.<id>.cleanup_proposals` | bool | true | Delete Proposal CR after terminal state |
 | `agents.<id>.timeout` | int | 900 | Max wait (seconds) for terminal condition |

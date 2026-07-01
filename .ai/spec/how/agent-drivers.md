@@ -8,7 +8,7 @@
 | `pipeline/evaluation/registry.py` | `AgentDriverRegistry`, `AGENT_DRIVERS` | Driver type registry and factory |
 | `pipeline/evaluation/amender.py` | `APIDataAmender` | Mutates turn data with HTTP agent response, tokens, latency, streaming metrics |
 | `pipeline/evaluation/proposal_amender.py` | `ProposalAmender` | Fetches child Result CRs, builds Markdown summary, amends proposal turn data |
-| `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI interface and Kubernetes (oc/kubectl) implementation |
+| `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI interface and OpenShift (oc/kubectl) implementation |
 | `core/api/client.py` | `APIClient` | HTTP client with caching, retries; supports query/streaming/infer/responses endpoints |
 | `core/api/streaming_parser.py` | `parse_streaming_response()`, `StreamingContext` | SSE parsing with TTFT/throughput tracking |
 | `core/proposal/phase.py` | `derive_phase()` | Proposal phase derivation from CRD conditions |

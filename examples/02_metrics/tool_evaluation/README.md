@@ -13,11 +13,11 @@ uv run lightspeed-eval \
 
 ## Metrics & Required Data
 
-**Current Config:** API Disabled (`api.enabled: false`) - all data in eval_data.yaml
+**Current Config:** Offline mode (`agents.enabled: false`) - all data in eval_data.yaml
 
-| Metric             | Name            | Description                                                     | Required Data (API Disabled)           | Required Data (API Enabled) |
+| Metric             | Name            | Description                                                     | Required Data (Offline)           | Required Data (Live) |
 |--------------------|-----------------|-----------------------------------------------------------------|----------------------------------------|-----------------------------|
-| `custom:tool_eval` | Tool Call Match | Binary (0/1) comparing tool name, arguments, and optional result | query, tool_calls, expected_tool_calls | query, expected_tool_calls  |
+| `custom:tool_eval` | Tool Call Match | Binary (0/1) comparing tool name, arguments, and optional result | tool_calls, expected_tool_calls | query, expected_tool_calls  |
 
 ## Configuration Options
 
@@ -45,6 +45,6 @@ expected_tool_calls:
       result: '.*Running.*'  # Regex pattern
 ```
 
-**Note:** With API enabled, `tool_calls` (including `result`) are fetched from live API; only `query` and `expected_tool_calls` go in YAML.
+**Note:** In live mode, `tool_calls` (including `result`) are fetched from live API; only `query` and `expected_tool_calls` go in YAML. `query` is not used for evaluation.
 
 Results written to: `examples/02_metrics/tool_evaluation/eval_output/`

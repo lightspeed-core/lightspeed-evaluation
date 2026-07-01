@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Multi-Provider Evaluation Runner automates evaluations across multiple LLM providers and models in a single execution. It systematically tests your GenAI application against different provider/model combinations, organizing results in a structured hierarchy.
+The Multi-Provider Evaluation Runner automates evaluations across multiple LLM providers and models in a single execution. It systematically tests your LLM-powered application against different provider/model combinations, organizing results in a structured hierarchy.
 
 **Key Features:**
 - Evaluate multiple providers (OpenAI, Watsonx, Gemini, vLLM) and models automatically
@@ -532,7 +532,5 @@ jobs:
 
 ## Related Documentation
 
-- [Quick Start: Multi-Provider Setup](../QUICK_START_MULTI_PROVIDER.md)
-- [Multi-Provider Setup Guide](../MULTI_PROVIDER_SETUP.md)
 - [Evaluation Comparison](./evaluation_comparison.md)
 - [Main README](../README.md)

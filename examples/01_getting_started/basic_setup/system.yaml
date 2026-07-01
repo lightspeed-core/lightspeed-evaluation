@@ -1,8 +1,9 @@
 core:
   max_threads: 1
+  cache_enabled: false
+
 llm_pool:
   defaults:
-    cache_enabled: false
     timeout: 60
     num_retries: 1
     parameters:
@@ -12,18 +13,21 @@ llm_pool:
     judge_gpt_4o_mini:
       provider: openai
       model: gpt-4o-mini
+
 judge_panel:
   judges:
   - judge_gpt_4o_mini
-api:
+
+agents:
   enabled: false
-  cache_enabled: false
+
 metrics_metadata:
   turn_level:
     custom:answer_correctness:
       threshold: 0.75
       description: Compares response accuracy against expected answer
       default: true
+
 storage:
 - type: file
   output_dir: examples/01_getting_started/basic_setup/eval_output
@@ -42,6 +46,7 @@ storage:
   - reason
   - query
   - response
+
 visualization:
   figsize:
   - 10
@@ -49,8 +54,10 @@ visualization:
   dpi: 150
   enabled_graphs:
   - status_breakdown
+
 environment:
   LITELLM_LOG: ERROR
+
 logging:
   source_level: INFO
   package_level: WARNING
