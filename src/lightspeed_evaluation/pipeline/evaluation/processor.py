@@ -283,6 +283,7 @@ class ConversationProcessor:
                         conv_data.conversation_group_id,
                         metric_identifier,
                         error_reason,
+                        tag=conv_data.tag,
                         turn_id=turn_data.turn_id,
                         query=turn_data.query or "",
                     )
@@ -311,7 +312,10 @@ class ConversationProcessor:
                 logger.error(error_reason)
                 results.append(
                     self.components.error_handler.create_error_result(
-                        conv_data.conversation_group_id, metric_identifier, error_reason
+                        conv_data.conversation_group_id,
+                        metric_identifier,
+                        error_reason,
+                        tag=conv_data.tag,
                     )
                 )
                 continue

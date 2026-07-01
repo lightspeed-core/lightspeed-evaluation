@@ -436,12 +436,12 @@ class TestEvaluationData:
             conversation_group_id="conv1",
             turns=turns,
             description="Test conversation",
-            tag="test_tag",
+            tag={"test_tag"},
             conversation_metrics=["deepeval:conversation_completeness"],
         )
 
         assert eval_data.conversation_group_id == "conv1"
-        assert eval_data.tag == "test_tag"
+        assert eval_data.tag == {"test_tag"}
         assert len(eval_data.turns) == 2
         assert eval_data.description == "Test conversation"
         assert eval_data.conversation_metrics is not None
@@ -452,14 +452,58 @@ class TestEvaluationData:
         turn = TurnData(turn_id="turn1", query="Query")
         eval_data = EvaluationData(conversation_group_id="conv1", turns=[turn])
 
-        assert eval_data.tag == "eval"
+        assert eval_data.tag == {"eval"}
 
-    def test_empty_tag_rejected(self) -> None:
-        """Test that empty tag is rejected."""
+    def test_single_string_tag_normalized_to_set(self) -> None:
+        """Test that a single string tag is normalized to a set."""
+        turn = TurnData(turn_id="turn1", query="Query")
+        eval_data = EvaluationData(
+            conversation_group_id="conv1", turns=[turn], tag="basic"  # type: ignore[arg-type]
+        )
+
+        assert eval_data.tag == {"basic"}
+
+    def test_list_tag_accepted(self) -> None:
+        """Test that a list of tags is accepted."""
+        turn = TurnData(turn_id="turn1", query="Query")
+        eval_data = EvaluationData(
+            conversation_group_id="conv1", turns=[turn], tag={"basic", "advanced"}
+        )
+
+        assert eval_data.tag == {"basic", "advanced"}
+
+    def test_empty_tag_list_rejected(self) -> None:
+        """Test that empty list tag is rejected."""
         turn = TurnData(turn_id="turn1", query="Query")
 
         with pytest.raises(ValidationError):
-            EvaluationData(conversation_group_id="conv1", turns=[turn], tag="")
+            EvaluationData(
+                conversation_group_id="conv1",
+                turns=[turn],
+                tag=[],  # type: ignore[arg-type]
+            )
+
+    def test_whitespace_only_tag_rejected(self) -> None:
+        """Test that a list of only whitespace strings is rejected."""
+        turn = TurnData(turn_id="turn1", query="Query")
+
+        with pytest.raises(ValidationError):
+            EvaluationData(
+                conversation_group_id="conv1",
+                turns=[turn],
+                tag=["  "],  # type: ignore[arg-type]
+            )
+
+    def test_non_string_tag_items_rejected(self) -> None:
+        """Test that non-string items in tag list are rejected."""
+        turn = TurnData(turn_id="turn1", query="Query")
+
+        with pytest.raises(ValidationError):
+            EvaluationData(
+                conversation_group_id="conv1",
+                turns=[turn],
+                tag=[1, "prod"],  # type: ignore[list-item]
+            )
 
     def test_empty_conversation_id_rejected(self) -> None:
         """Test that empty conversation_group_id is rejected."""
@@ -500,7 +544,7 @@ class TestEvaluationResult:
         )
 
         # Test meaningful defaults
-        assert result.tag == "eval"
+        assert result.tag == {"eval"}
         assert result.score is None
         assert result.reason == ""
         assert result.evaluation_latency == 0
@@ -509,21 +553,45 @@ class TestEvaluationResult:
         """Test EvaluationResult with explicit tag value."""
         result = EvaluationResult(
             conversation_group_id="conv1",
-            tag="custom_tag",
+            tag={"custom_tag"},
             turn_id="turn1",
             metric_identifier="metric1",
             result="PASS",
             threshold=0.7,
         )
 
-        assert result.tag == "custom_tag"
+        assert result.tag == {"custom_tag"}
 
-    def test_empty_tag_rejected(self) -> None:
-        """Test that empty tag is rejected."""
+    def test_empty_tag_list_rejected(self) -> None:
+        """Test that empty tag list is rejected."""
         with pytest.raises(ValidationError):
             EvaluationResult(
                 conversation_group_id="conv1",
-                tag="",
+                tag=[],  # type: ignore[arg-type]
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="PASS",
+                threshold=0.7,
+            )
+
+    def test_whitespace_only_tag_rejected(self) -> None:
+        """Test that a list of only whitespace strings is rejected."""
+        with pytest.raises(ValidationError):
+            EvaluationResult(
+                conversation_group_id="conv1",
+                tag=["  "],  # type: ignore[arg-type]
+                turn_id="turn1",
+                metric_identifier="metric1",
+                result="PASS",
+                threshold=0.7,
+            )
+
+    def test_non_string_tag_items_rejected(self) -> None:
+        """Test that non-string items in tag list are rejected."""
+        with pytest.raises(ValidationError):
+            EvaluationResult(
+                conversation_group_id="conv1",
+                tag=[1, "prod"],  # type: ignore[list-item]
                 turn_id="turn1",
                 metric_identifier="metric1",
                 result="PASS",

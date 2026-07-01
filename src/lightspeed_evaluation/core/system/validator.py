@@ -408,7 +408,7 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         filtered = [
             conv_data
             for conv_data in evaluation_data
-            if conv_data.tag in tag_set
+            if any(t in tag_set for t in conv_data.tag)
             or conv_data.conversation_group_id in conv_id_set
         ]
 

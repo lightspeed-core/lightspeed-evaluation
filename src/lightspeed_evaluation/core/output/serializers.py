@@ -27,7 +27,7 @@ def result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
     """
     return {
         "conversation_group_id": r.conversation_group_id,
-        "tag": r.tag,
+        "tag": sorted(r.tag),
         "turn_id": r.turn_id,
         "metric_identifier": r.metric_identifier,
         "result": r.result,

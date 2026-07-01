@@ -532,23 +532,23 @@ class TestFilterByScope:
         data = [
             EvaluationData(
                 conversation_group_id="conv_1",
-                tag="basic",
+                tag={"basic"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
             EvaluationData(
                 conversation_group_id="conv_2",
-                tag="advanced",
+                tag={"advanced"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
             EvaluationData(
                 conversation_group_id="conv_3",
-                tag="basic",
+                tag={"basic"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
         result = validator._filter_by_scope(data, tags=["basic"])
         assert len(result) == 2
-        assert all(c.tag == "basic" for c in result)
+        assert all("basic" in c.tag for c in result)
 
     def test_filter_by_scope_conv_ids_only(self) -> None:
         """Test filtering by conversation IDs only."""
@@ -577,17 +577,17 @@ class TestFilterByScope:
         data = [
             EvaluationData(
                 conversation_group_id="conv_1",
-                tag="basic",
+                tag={"basic"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
             EvaluationData(
                 conversation_group_id="conv_2",
-                tag="advanced",
+                tag={"advanced"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
             EvaluationData(
                 conversation_group_id="conv_3",
-                tag="tools",
+                tag={"tools"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
@@ -600,12 +600,31 @@ class TestFilterByScope:
         data = [
             EvaluationData(
                 conversation_group_id="conv_1",
-                tag="basic",
+                tag={"basic"},
                 turns=[TurnData(turn_id="t1", query="Q", response="A")],
             ),
         ]
         result = validator._filter_by_scope(data, tags=["nonexistent"])
         assert len(result) == 0
+
+    def test_filter_by_scope_multi_tag_matches_any(self) -> None:
+        """Test that a conversation with multiple tags is matched by any of them."""
+        validator = DataValidator()
+        data = [
+            EvaluationData(
+                conversation_group_id="conv_1",
+                tag={"basic", "advanced"},
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+            EvaluationData(
+                conversation_group_id="conv_2",
+                tag={"tools"},
+                turns=[TurnData(turn_id="t1", query="Q", response="A")],
+            ),
+        ]
+        result = validator._filter_by_scope(data, tags=["advanced"])
+        assert len(result) == 1
+        assert result[0].conversation_group_id == "conv_1"
 
 
 class TestMetricsFilter:

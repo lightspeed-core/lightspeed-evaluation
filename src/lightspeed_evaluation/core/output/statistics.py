@@ -222,7 +222,8 @@ def compute_tag_stats(
 
     grouped: dict[str, list[EvaluationResult]] = {}
     for r in results:
-        grouped.setdefault(r.tag, []).append(r)
+        for t in r.tag:
+            grouped.setdefault(t, []).append(r)
 
     tag_stats: dict[str, TagStats] = {}
     for tag in sorted(grouped):

@@ -40,7 +40,7 @@ def sample_result() -> EvaluationResult:
     """Create a sample evaluation result for testing."""
     return EvaluationResult(
         conversation_group_id="conv_001",
-        tag="test",
+        tag={"test"},
         turn_id="turn_1",
         metric_identifier="ragas:faithfulness",
         metric_metadata='{"threshold": 0.8}',
@@ -270,7 +270,7 @@ class TestSQLStorageBackendDataIntegrity:
         """Test all EvaluationResult fields are stored."""
         result = EvaluationResult(
             conversation_group_id="conv_full",
-            tag="integration",
+            tag={"integration"},
             turn_id="turn_5",
             metric_identifier="custom:metric",
             metric_metadata='{"key": "value"}',
@@ -311,6 +311,7 @@ class TestSQLStorageBackendDataIntegrity:
         assert row.score == 0.92
         assert row.evaluation_latency == 2.5
         assert row.tool_calls == '[{"name": "search"}]'
+        assert row.tag == '["integration"]'
 
     def test_null_fields_handled(self, temp_db_url: str) -> None:
         """Test null/optional fields are handled correctly."""

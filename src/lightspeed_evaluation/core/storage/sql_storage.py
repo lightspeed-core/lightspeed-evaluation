@@ -47,7 +47,7 @@ class EvaluationResultDB(Base):  # pylint: disable=too-few-public-methods
     timestamp = Column(DateTime, nullable=False, index=True)
 
     conversation_group_id = Column(String(255), nullable=False, index=True)
-    tag = Column(String(100), nullable=True)
+    tag = Column(Text, nullable=True)
     turn_id = Column(String(100), nullable=True)
     metric_identifier = Column(String(255), nullable=False, index=True)
     metric_metadata = Column(Text, nullable=True)
@@ -309,7 +309,7 @@ class SQLStorageBackend(BaseStorageBackend):
             run_id=self._run_info.run_id,
             timestamp=datetime.now(UTC),
             conversation_group_id=result.conversation_group_id,
-            tag=result.tag,
+            tag=json.dumps(sorted(result.tag)),
             turn_id=result.turn_id,
             metric_identifier=result.metric_identifier,
             metric_metadata=result.metric_metadata,
