@@ -9,6 +9,7 @@ license = {file = "LICENSE"}
 
 dependencies = [
     "ragas>=0.4.0,<=0.4.3",
+    "instructor<1.15.0", # 1.15.x has a race condition bug in ModeRegistry.get_handlers(), downgrading until it is resolved upstream
     "deepeval>=3.9.0,<=3.9.1",
     "litellm>=1.84.0,<=1.89.3",
     "pydantic>=2.10.0,<=2.12.5",
