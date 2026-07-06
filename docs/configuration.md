@@ -459,7 +459,7 @@ storage:
 | CSV column name | Description |
 |-----------------|-------------|
 | conversation_group_id | Conversation group id |
-| tag | Tag for grouping eval conversations |
+| tag | Tag(s) for grouping and filtering conversations (string or list of strings; stored as JSON array) |
 | turn_id | Turn id |
 | metric_identifier | Metric name |
 | result | Result -- PASS/FAIL/ERROR/SKIPPED |

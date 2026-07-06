@@ -22,7 +22,7 @@ class EvaluationErrorHandler:
         reason: str,
         result_status: str,
         *,
-        tag: str = "eval",
+        tag: set[str],
         turn_id: Optional[str] = None,
         query: str = "",
     ) -> EvaluationResult:
@@ -33,7 +33,7 @@ class EvaluationErrorHandler:
             metric_id: Metric identifier
             reason: Reason for the result
             result_status: Result status (ERROR, SKIPPED, etc.)
-            tag: Tag for grouping and filtering results
+            tag: Tag(s) for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """
@@ -53,7 +53,7 @@ class EvaluationErrorHandler:
         metric_id: str,
         reason: str,
         *,
-        tag: str = "eval",
+        tag: set[str],
         turn_id: Optional[str] = None,
         query: str = "",
     ) -> EvaluationResult:
@@ -63,7 +63,7 @@ class EvaluationErrorHandler:
             conv_id: Conversation group ID
             metric_id: Metric identifier
             reason: Error reason
-            tag: Tag for grouping and filtering results
+            tag: Tag(s) for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """
@@ -77,7 +77,7 @@ class EvaluationErrorHandler:
         metric_id: str,
         reason: str,
         *,
-        tag: str = "eval",
+        tag: set[str],
         turn_id: Optional[str] = None,
         query: str = "",
     ) -> EvaluationResult:
@@ -87,7 +87,7 @@ class EvaluationErrorHandler:
             conv_id: Conversation group ID
             metric_id: Metric identifier
             reason: Skip reason
-            tag: Tag for grouping and filtering results
+            tag: Tag(s) for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
         """

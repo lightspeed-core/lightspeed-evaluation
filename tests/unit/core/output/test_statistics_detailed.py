@@ -319,7 +319,7 @@ class TestCalculateDetailedStats:
         results = [
             EvaluationResult(
                 conversation_group_id="conv1",
-                tag="production",
+                tag={"production"},
                 turn_id="turn1",
                 metric_identifier="metric1",
                 result="PASS",
@@ -329,7 +329,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv2",
-                tag="production",
+                tag={"production"},
                 turn_id="turn1",
                 metric_identifier="metric1",
                 result="PASS",
@@ -339,7 +339,7 @@ class TestCalculateDetailedStats:
             ),
             EvaluationResult(
                 conversation_group_id="conv3",
-                tag="staging",
+                tag={"staging"},
                 turn_id="turn1",
                 metric_identifier="metric1",
                 result="FAIL",
@@ -371,6 +371,29 @@ class TestCalculateDetailedStats:
         assert staging_stats["failed"] == 1
         assert staging_stats["fail_rate"] == 100.0
         assert "score_statistics" in staging_stats
+
+    def test_compute_detailed_stats_multi_tag_result_counted_in_each_bucket(
+        self,
+    ) -> None:
+        """Test a single result with multiple tags appears in each tag's bucket."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            tag={"production", "staging"},
+            turn_id="turn1",
+            metric_identifier="metric1",
+            result="PASS",
+            score=0.9,
+            threshold=0.7,
+        )
+
+        stats = compute_detailed_stats([result]).model_dump()
+
+        assert "production" in stats["by_tag"]
+        assert "staging" in stats["by_tag"]
+        assert stats["by_tag"]["production"]["passed"] == 1
+        assert stats["by_tag"]["production"]["failed"] == 0
+        assert stats["by_tag"]["staging"]["passed"] == 1
+        assert stats["by_tag"]["staging"]["failed"] == 0
 
     def test_compute_detailed_stats_default_tag(self) -> None:
         """Test compute_detailed_stats with default 'eval' tag."""

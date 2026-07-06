@@ -12,6 +12,21 @@ from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
 logger = logging.getLogger(__name__)
 
 
+def _normalize_tag(v: str | list) -> set[str]:
+    """Normalize tag to set[str] for backward compatibility with single string."""
+    if isinstance(v, str):
+        items: list = [v]
+    else:
+        items = list(v)
+    invalid = [item for item in items if not isinstance(item, str)]
+    if invalid:
+        raise ValueError(f"tag items must be strings, got: {invalid}")
+    result = {item.strip() for item in items if item.strip()}
+    if not result:
+        raise ValueError("tag must contain at least one non-empty string")
+    return result
+
+
 class ConversationMetadata(BaseModel):
     """Optional user-defined metadata for a conversation group."""
 
@@ -520,10 +535,10 @@ class EvaluationData(BaseModel):
         min_length=1,
         description="Optional description of the conversation group",
     )
-    tag: str = Field(
-        default="eval",
+    tag: set[str] = Field(
+        default={"eval"},
         min_length=1,
-        description="Tag for grouping and filtering conversations",
+        description="Tag(s) for grouping and filtering conversations",
     )
     skip: bool = Field(
         default=False,
@@ -585,6 +600,12 @@ class EvaluationData(BaseModel):
     def is_metric_invalid(self, metric: str) -> bool:
         """Returns True if the metric didn't pass the validation."""
         return metric in self._invalid_metrics
+
+    @field_validator("tag", mode="before")
+    @classmethod
+    def _validate_tag(cls, v: str | list) -> set[str]:
+        """Normalize tag to set[str] for backward compatibility with single string."""
+        return _normalize_tag(v)
 
     @field_validator("conversation_metrics")
     @classmethod
@@ -659,10 +680,10 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
     conversation_group_id: str = Field(
         ..., min_length=1, description="Conversation group identifier"
     )
-    tag: str = Field(
-        default="eval",
+    tag: set[str] = Field(
+        default={"eval"},
         min_length=1,
-        description="Tag for grouping and filtering results",
+        description="Tag(s) for grouping and filtering results",
     )
     turn_id: Optional[str] = Field(
         default=None, description="Turn ID if turn-level evaluation"
@@ -713,6 +734,12 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
     expected_tool_calls: Optional[str] = Field(
         default=None, description="Expected tool calls formatted as string"
     )
+
+    @field_validator("tag", mode="before")
+    @classmethod
+    def _validate_tag(cls, v: str | list) -> set[str]:
+        """Normalize tag to set[str] for backward compatibility with single string."""
+        return _normalize_tag(v)
 
 
 class EvaluationScope(BaseModel):

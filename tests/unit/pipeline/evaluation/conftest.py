@@ -1,4 +1,4 @@
-# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-outer-name,too-many-arguments
 
 """Pytest configuration and fixtures for evaluation tests."""
 
@@ -212,11 +212,13 @@ def mock_error_handler(mocker: MockerFixture) -> EvaluationErrorHandler:
         metric_id: str,
         reason: str,
         *,
+        tag: set[str],
         turn_id: str | None = None,
         query: str = "",
     ) -> EvaluationResult:
         return EvaluationResult(
             conversation_group_id=conv_id,
+            tag=tag,
             turn_id=turn_id,
             metric_identifier=metric_id,
             result="ERROR",
