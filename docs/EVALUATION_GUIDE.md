@@ -687,8 +687,8 @@ What are you evaluating?
 │  ├─ Context / Retrieval Quality?
 │  │  ├─ Found everything needed? → context_recall
 │  │  ├─ Is retrieved context relevant? → context_relevance
-│  │  ├─ Precision (have expected answer)? → context_precision_with_reference
-│  │  └─ Precision (no expected answer)? → context_precision_without_reference
+│  │  ├─ Precision (have expected answer)? → context_precision
+│  │  └─ Precision (no expected answer)? → context_utilization
 │  │
 │  ├─ Tool Calls & AI Behavior?
 │  │  ├─ Right intent? → intent_eval
@@ -1401,7 +1401,7 @@ The Quality Score aggregates selected sub-metrics into a single number that repr
 quality_score:
   metrics:
     - "ragas:faithfulness"
-    - "ragas:context_precision_with_reference"
+    - "ragas:context_precision"
     - "custom:tool_eval"
   default: true
 ```
@@ -1985,8 +1985,10 @@ lightspeed-eval --eval-data config/eval_batch2.yaml
 | **ragas:faithfulness** | 0-1 | No made-up information | 0.8 | response, contexts |
 | **ragas:context_recall** | 0-1 | Found all needed info | 0.8 | contexts, expected_response |
 | **ragas:context_relevance** | 0-1 | Retrieved info is relevant | 0.7 | query, contexts |
-| **ragas:context_precision_without_reference** | 0-1 | Retrieved info is useful | 0.7 | query, contexts, response |
-| **ragas:context_precision_with_reference** | 0-1 | Retrieved info is useful (vs reference) | 0.7 | query, contexts, response, expected_response |
+| **ragas:context_utilization** | 0-1 | Retrieved info is useful | 0.7 | query, contexts, response |
+| **ragas:context_precision** | 0-1 | Retrieved info is useful (vs reference) | 0.7 | query, contexts, response, expected_response |
+| ~~ragas:context_precision_without_reference~~ | | **Deprecated** — use `ragas:context_utilization` | | |
+| ~~ragas:context_precision_with_reference~~ | | **Deprecated** — use `ragas:context_precision` | | |
 | **custom:answer_correctness** | 0-1 | Matches expected answer | 0.75 | query, response, expected_response |
 | **custom:intent_eval** | 0/1 | Has right intent | 1 | query, response, expected_intent |
 | **custom:tool_eval** | 0/1 | Called correct tools with expected results | 1 | expected_tool_calls, tool_calls |

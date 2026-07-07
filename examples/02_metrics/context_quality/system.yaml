@@ -31,11 +31,11 @@ metrics_metadata:
       threshold: 0.7
       description: Measures relevance of retrieved context to the query
       default: true
-    ragas:context_precision_without_reference:  # ContextUtilization
+    ragas:context_utilization:  # ContextUtilization
       threshold: 0.7
       description: Evaluates precision of context ranking (no reference needed)
       default: true
-    ragas:context_precision_with_reference:  # ContextPrecision
+    ragas:context_precision:  # ContextPrecision
       threshold: 0.7
       description: Evaluates precision of context using expected answer
       default: true

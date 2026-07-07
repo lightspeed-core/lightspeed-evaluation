@@ -137,3 +137,10 @@ DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 DEFAULT_LOG_SHOW_TIMESTAMPS = True
 
 SUPPORTED_RESULT_STATUSES = ["PASS", "FAIL", "ERROR", "SKIPPED"]
+
+# Deprecated metric names that still work but should be migrated.
+# Maps old (deprecated) full identifier -> new canonical identifier.
+DEPRECATED_METRIC_NAMES: dict[str, str] = {
+    "ragas:context_precision_with_reference": "ragas:context_precision",
+    "ragas:context_precision_without_reference": "ragas:context_utilization",
+}
