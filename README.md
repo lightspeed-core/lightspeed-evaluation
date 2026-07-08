@@ -217,8 +217,10 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <PROPOSA
   - Context Evaluation
     - [`context_recall`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/)
     - [`context_relevance`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/nvidia_metrics/#context-relevance)
-    - [`context_precision_without_reference`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-without-reference)
-    - [`context_precision_with_reference`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-with-reference)
+    - [`context_utilization`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-without-reference) (context precision without reference)
+    - [`context_precision`](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#context-precision-with-reference) (context precision with reference)
+    - `context_precision_without_reference` — **Deprecated**, use `context_utilization`
+    - `context_precision_with_reference` — **Deprecated**, use `context_precision`
 - **Custom**
   - Response Evaluation
     - [`answer_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py)

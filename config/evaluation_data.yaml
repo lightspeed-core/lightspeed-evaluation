@@ -20,7 +20,7 @@
       turn_metrics:
       - ragas:faithfulness
       - ragas:response_relevancy
-      - ragas:context_precision_without_reference
+      - ragas:context_utilization
       turn_metrics_metadata:
         ragas:faithfulness:
           threshold: 0.99
@@ -42,7 +42,7 @@
       turn_metrics:
         - ragas:context_recall
         - ragas:context_relevance
-        - ragas:context_precision_with_reference
+        - ragas:context_precision
 
 - conversation_group_id: conv_group_3
   description: conversation group description

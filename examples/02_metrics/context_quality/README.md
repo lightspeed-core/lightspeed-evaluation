@@ -20,8 +20,10 @@ uv run lightspeed-eval \
 |-----------------------------------------------|---------------------|---------------------------------------------------------------------------------------|--------------------------------------------|-----------------------------|
 | `ragas:context_recall`                        | Context Recall      | Measures how well retrieved context covers the expected answer                        | query, response, contexts, expected_response | query, expected_response  |
 | `ragas:context_relevance`                     | Context Relevance   | Evaluates relevance of retrieved context to the query                                 | query, response, contexts                  | query                       |
-| `ragas:context_precision_without_reference`   | Context Utilization | Assesses context ranking quality without using reference answer                       | query, response, contexts                  | query                       |
-| `ragas:context_precision_with_reference`      | Context Precision   | Assesses context ranking quality using expected answer                                | query, response, contexts, expected_response | query, expected_response  |
+| `ragas:context_utilization`                   | Context Utilization | Assesses context ranking quality without using reference answer                       | query, response, contexts                  | query                       |
+| `ragas:context_precision`                     | Context Precision   | Assesses context ranking quality using expected answer                                | query, response, contexts, expected_response | query, expected_response  |
+| ~~`ragas:context_precision_without_reference`~~ | | **Deprecated** — use `ragas:context_utilization` | | |
+| ~~`ragas:context_precision_with_reference`~~ | | **Deprecated** — use `ragas:context_precision` | | |
 
 **Note:** In live mode, `response` and `contexts` are fetched from live API; only `query` and expected fields go in YAML.
 

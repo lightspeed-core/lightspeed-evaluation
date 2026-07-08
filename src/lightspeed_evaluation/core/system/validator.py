@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 import yaml
 from pydantic import ValidationError
 
+from lightspeed_evaluation.core.constants import DEPRECATED_METRIC_NAMES
 from lightspeed_evaluation.core.models import EvaluationData, TurnData
 from lightspeed_evaluation.core.models.data import DatasetMetadata
 from lightspeed_evaluation.core.system.exceptions import DataValidationError
@@ -32,6 +33,15 @@ METRIC_REQUIREMENTS = {
         "required_fields": ["response", "contexts"],
         "description": "requires 'response' and 'contexts' fields",
     },
+    "ragas:context_precision": {
+        "required_fields": ["response", "contexts", "expected_response"],
+        "description": "requires 'response', 'contexts', and 'expected_response' fields",
+    },
+    "ragas:context_utilization": {
+        "required_fields": ["response", "contexts"],
+        "description": "requires 'response' and 'contexts' fields",
+    },
+    # Deprecated aliases (backward compatibility)
     "ragas:context_precision_with_reference": {
         "required_fields": ["response", "contexts", "expected_response"],
         "description": "requires 'response', 'contexts', and 'expected_response' fields",
@@ -455,7 +465,11 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         for turn_data in data.turns:
             if turn_data.turn_metrics:
                 for metric in turn_data.turn_metrics:
-                    if metric not in self._turn_level_metrics:
+                    canonical = DEPRECATED_METRIC_NAMES.get(metric, metric)
+                    if (
+                        metric not in self._turn_level_metrics
+                        and canonical not in self._turn_level_metrics
+                    ):
                         turn_data.add_invalid_metric(metric)
                         self.validation_errors.append(
                             f"Conversation {conversation_id}, Turn {turn_data.turn_id}: "
@@ -465,7 +479,11 @@ class DataValidator:  # pylint: disable=too-few-public-methods
         # Validate conversation metrics
         if data.conversation_metrics:
             for metric in data.conversation_metrics:
-                if metric not in self._conversation_level_metrics:
+                canonical = DEPRECATED_METRIC_NAMES.get(metric, metric)
+                if (
+                    metric not in self._conversation_level_metrics
+                    and canonical not in self._conversation_level_metrics
+                ):
                     data.add_invalid_metric(metric)
                     self.validation_errors.append(
                         f"Conversation {conversation_id}: Unknown conversation metric '{metric}'"

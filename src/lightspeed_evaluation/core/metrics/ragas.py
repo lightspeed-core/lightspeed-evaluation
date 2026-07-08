@@ -1,6 +1,7 @@
 """Ragas metrics evaluation using LLM Manager with Ragas 0.4+ API."""
 
 import errno
+import logging
 import math
 import threading
 from typing import Any, Optional
@@ -27,6 +28,13 @@ from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.llm.ragas import RagasLLMManager
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import EvaluationError
+
+logger = logging.getLogger(__name__)
+
+_DEPRECATED_RAGAS_METRICS: dict[str, str] = {
+    "context_precision_with_reference": "context_precision",
+    "context_precision_without_reference": "context_utilization",
+}
 
 
 def _clamp_score(score: float) -> float:
@@ -88,10 +96,11 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
             # Context/Retrieval evaluation metrics
             "context_recall": self._evaluate_context_recall,
             "context_relevance": self._evaluate_context_relevance,
-            "context_precision_with_reference": self._evaluate_context_precision_with_reference,
-            "context_precision_without_reference": (
-                self._evaluate_context_precision_without_reference
-            ),
+            "context_precision": self._evaluate_context_precision,
+            "context_utilization": self._evaluate_context_utilization,
+            # Deprecated aliases (backward compatibility)
+            "context_precision_with_reference": self._evaluate_context_precision,
+            "context_precision_without_reference": self._evaluate_context_utilization,
         }
 
     @property
@@ -133,6 +142,14 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         scope: EvaluationScope,
     ) -> tuple[Optional[float], str]:
         """Evaluate a Ragas metric."""
+        if metric_name in _DEPRECATED_RAGAS_METRICS:
+            new_name = _DEPRECATED_RAGAS_METRICS[metric_name]
+            logger.warning(
+                "Metric 'ragas:%s' is deprecated, use 'ragas:%s' instead.",
+                metric_name,
+                new_name,
+            )
+
         if metric_name not in self.supported_metrics:
             return None, f"Unsupported Ragas metric: {metric_name}"
 
@@ -220,16 +237,16 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         score = _clamp_score(float(result.value))
         return score, f"Ragas faithfulness: {score:.2f}"
 
-    def _evaluate_context_precision_without_reference(
+    def _evaluate_context_utilization(
         self,
         _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
     ) -> tuple[Optional[float], str]:
-        """Evaluate context precision without reference using Ragas 0.4+ score()."""
+        """Evaluate context utilization using Ragas 0.4+ ContextUtilization."""
         if is_conversation:
-            return None, "Context precision without reference is a turn-level metric"
+            return None, "Context utilization is a turn-level metric"
 
         query, response, contexts = self._extract_turn_data(turn_data)
 
@@ -242,21 +259,21 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         )
 
         score = _clamp_score(float(result.value))
-        return score, f"Ragas context precision without reference: {score:.2f}"
+        return score, f"Ragas context utilization: {score:.2f}"
 
-    def _evaluate_context_precision_with_reference(
+    def _evaluate_context_precision(
         self,
         _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
     ) -> tuple[Optional[float], str]:
-        """Evaluate context precision with reference using Ragas 0.4+ score()."""
+        """Evaluate context precision using Ragas 0.4+ ContextPrecision."""
         if is_conversation:
-            return None, "Context precision with reference is a turn-level metric"
+            return None, "Context precision is a turn-level metric"
 
         if turn_data is None:
-            return None, "TurnData is required for context precision with reference"
+            return None, "TurnData is required for context precision"
 
         query, _, contexts = self._extract_turn_data(turn_data)
 
@@ -269,7 +286,7 @@ class RagasMetrics:  # pylint: disable=too-few-public-methods
         )
 
         score = _clamp_score(float(result.value))
-        return score, f"Ragas context precision with reference: {score:.2f}"
+        return score, f"Ragas context precision: {score:.2f}"
 
     def _evaluate_context_recall(
         self,
