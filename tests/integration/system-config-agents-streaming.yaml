@@ -31,7 +31,8 @@ embedding:
 # Agent Configuration (native agents: format)
 agents:
   default:
-    agent: http_api
+    agent:
+      - http_api
   http_api:
     type: http_api
     api_base: http://localhost:8080

@@ -9,7 +9,8 @@ core:
 agents:
   enabled: true
   default:
-    agent: proposal_agent
+    agent:
+      - proposal_agent
   proposal_agent:
     type: proposal
     namespace: lightspeed-evaluation-test

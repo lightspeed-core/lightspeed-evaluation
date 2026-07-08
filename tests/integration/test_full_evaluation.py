@@ -48,7 +48,7 @@ def get_agent_info(system_config: SystemConfig) -> tuple[bool, str]:
     api: is present.
     """
     if system_config.agents and system_config.agents.default.agent:
-        name = system_config.agents.default.agent
+        name = system_config.agents.default.agent[0]
         agent_def = system_config.agents.agents[name]
         return system_config.agents.enabled, agent_def.endpoint_type
     return False, "query"

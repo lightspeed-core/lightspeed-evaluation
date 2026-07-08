@@ -1,5 +1,6 @@
 """Agent configuration models for the evaluation framework."""
 
+import logging
 import os
 from typing import Any, Literal, Optional
 
@@ -15,6 +16,8 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_ENDPOINT_TYPES,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 class MCPServerConfig(BaseModel):
@@ -170,12 +173,29 @@ class AgentDefaultConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    agent: Optional[str] = Field(
+    agent: Optional[list[str]] = Field(
         default=None,
         min_length=1,
-        pattern=r"\S",
-        description="Name of the default agent when eval_data doesn't specify one",
+        description="List of agent names to evaluate against",
     )
+
+    @field_validator("agent", mode="before")
+    @classmethod
+    def normalize_and_validate_agent(cls, v: Any) -> Any:
+        """Normalize string to list and validate each agent name."""
+        if isinstance(v, str):
+            v = [v]
+        if isinstance(v, list):
+            stripped = []
+            for name in v:
+                if not isinstance(name, str) or not name.strip():
+                    raise ValueError(
+                        f"Agent names must be non-empty strings, got: {name!r}"
+                    )
+                stripped.append(name.strip())
+            return stripped
+        return v
+
     agent_config: Optional[dict[str, Any]] = Field(
         default=None,
         description="Shared default agent config overrides applied to all agents",
@@ -251,7 +271,8 @@ class AgentsConfig(BaseModel):
         are applied on top.
 
         Args:
-            agent_name: Explicit agent name. Falls back to default.agent.
+            agent_name: Explicit agent name. Falls back to first agent in
+                default.agent list.
             agent_config_override: Per-evaluation config overrides (highest priority).
 
         Returns:
@@ -260,7 +281,19 @@ class AgentsConfig(BaseModel):
         Raises:
             ConfigurationError: If no agent can be resolved or agent not found.
         """
-        name = agent_name or self.default.agent
+        default_agents: list[str] = self.default.agent or []
+        if agent_name:
+            name = agent_name
+        elif default_agents:
+            if len(default_agents) > 1:
+                logger.warning(
+                    "Multi-agent evaluation not yet implemented. "
+                    "Using first agent: %s",
+                    default_agents[0],
+                )
+            name = default_agents[0]
+        else:
+            name = None
         if name is None:
             raise ConfigurationError(
                 "No agent specified and no default agent configured"
