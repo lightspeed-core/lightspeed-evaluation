@@ -83,7 +83,7 @@ DIAGNOSIS_STATUS: dict[str, Any] = {
                 "confidence": "High",
                 "rootCause": "Memory limit 256Mi too low",
             },
-            "proposal": {
+            "remediationPlan": {
                 "description": "Patch deployment memory",
                 "actions": [
                     {"type": "patch", "description": "Set memory limit to 512Mi"},
@@ -100,7 +100,7 @@ DIAGNOSIS_STATUS: dict[str, Any] = {
                 "confidence": "Medium",
                 "rootCause": "Single replica under load",
             },
-            "proposal": {
+            "remediationPlan": {
                 "description": "Add replicas",
                 "actions": [
                     {"type": "scale", "description": "Scale to 3 replicas"},

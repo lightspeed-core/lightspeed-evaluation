@@ -278,7 +278,7 @@ class TestAnalysisCheck:
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
             proposal_results={
-                "analysis": [{"options": [{"diagnosis": {}, "proposal": {}}]}],
+                "analysis": [{"options": [{"diagnosis": {}, "remediationPlan": {}}]}],
             },
         )
         score, reason = evaluate_proposal_status(None, 0, turn, False)
@@ -324,7 +324,11 @@ class TestAnalysisCheck:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"proposal": {"risk": "Low"}, "diagnosis": {}}]},
+                    {
+                        "options": [
+                            {"remediationPlan": {"risk": "Low"}, "diagnosis": {}}
+                        ]
+                    },
                 ],
             },
         )
@@ -344,7 +348,11 @@ class TestAnalysisCheck:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"proposal": {"risk": "High"}, "diagnosis": {}}]},
+                    {
+                        "options": [
+                            {"remediationPlan": {"risk": "High"}, "diagnosis": {}}
+                        ]
+                    },
                 ],
             },
         )
@@ -368,7 +376,7 @@ class TestAnalysisCheck:
                 "analysis": [
                     {
                         "options": [
-                            {"diagnosis": {"confidence": "High"}, "proposal": {}}
+                            {"diagnosis": {"confidence": "High"}, "remediationPlan": {}}
                         ]
                     },
                 ],
@@ -390,7 +398,11 @@ class TestAnalysisCheck:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"diagnosis": {"confidence": "Low"}, "proposal": {}}]},
+                    {
+                        "options": [
+                            {"diagnosis": {"confidence": "Low"}, "remediationPlan": {}}
+                        ]
+                    },
                 ],
             },
         )
@@ -417,7 +429,7 @@ class TestAnalysisCheck:
                                 "diagnosis": {
                                     "summary": "Pod crash due to bad image pull",
                                 },
-                                "proposal": {},
+                                "remediationPlan": {},
                             },
                         ],
                     },
@@ -442,7 +454,10 @@ class TestAnalysisCheck:
                 "analysis": [
                     {
                         "options": [
-                            {"diagnosis": {"summary": "Pod crash"}, "proposal": {}},
+                            {
+                                "diagnosis": {"summary": "Pod crash"},
+                                "remediationPlan": {},
+                            },
                         ],
                     },
                 ],
@@ -595,8 +610,16 @@ class TestAnalysisCheck:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"proposal": {"risk": "High"}, "diagnosis": {}}]},
-                    {"options": [{"proposal": {"risk": "Low"}, "diagnosis": {}}]},
+                    {
+                        "options": [
+                            {"remediationPlan": {"risk": "High"}, "diagnosis": {}}
+                        ]
+                    },
+                    {
+                        "options": [
+                            {"remediationPlan": {"risk": "Low"}, "diagnosis": {}}
+                        ]
+                    },
                 ],
             },
         )
@@ -619,7 +642,11 @@ class TestAnalysisCheck:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"proposal": {"risk": "Low"}, "diagnosis": {}}]},
+                    {
+                        "options": [
+                            {"remediationPlan": {"risk": "Low"}, "diagnosis": {}}
+                        ]
+                    },
                 ],
             },
         )
@@ -905,7 +932,7 @@ class TestCheckOrdering:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"diagnosis": {}, "proposal": {}}]},
+                    {"options": [{"diagnosis": {}, "remediationPlan": {}}]},
                 ],
                 "execution": [
                     {

@@ -128,8 +128,8 @@ class TerminalOutcome(StrEnum):
 
 CRD_GROUP = "agentic.openshift.io"
 CRD_VERSION = "v1alpha1"
-CRD_KIND = "Proposal"
-CRD_PLURAL = "proposals"
+CRD_KIND = "AgenticRun"
+CRD_PLURAL = "agenticruns"
 CRD_API_VERSION = f"{CRD_GROUP}/{CRD_VERSION}"
 
 
@@ -179,7 +179,7 @@ class ProposalDriver(AgentDriver):
         result = self._apply(manifest)
         if result.returncode != 0:
             return (
-                f"Failed to apply Proposal CR: {result.stderr.strip()}",
+                f"Failed to apply AgenticRun CR: {result.stderr.strip()}",
                 None,
             )
 
@@ -319,7 +319,7 @@ class ProposalDriver(AgentDriver):
             )
         return {
             "apiVersion": CRD_API_VERSION,
-            "kind": "ProposalApproval",
+            "kind": "AgenticRunApproval",
             "metadata": {
                 "name": cr_name,
                 "namespace": self._config.namespace,
