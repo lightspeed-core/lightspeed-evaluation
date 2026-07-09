@@ -40,7 +40,6 @@ agents:
     timeout: 300
     provider: "openai"
     model: "gpt-4o-mini"
-    no_tools: null
     system_prompt: null
     cache_dir: ".caches/api_cache"
     cache_enabled: false

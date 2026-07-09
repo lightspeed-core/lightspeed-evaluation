@@ -2,6 +2,7 @@
 
 """Unit tests for core API client module."""
 
+import logging
 from pathlib import Path
 
 import httpx
@@ -681,6 +682,31 @@ class TestExtraRequestParams:
         assert payload["query"] == "Original query"
         # Non-reserved field should be added
         assert payload["mode"] == "troubleshooting"
+
+    def test_top_level_no_tools_still_works_with_deprecation_warning(
+        self,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test backward compat: top-level no_tools is still applied with a warning."""
+        config = APIConfig(
+            enabled=True,
+            api_base="http://localhost:8080",
+            endpoint_type="query",
+            timeout=30,
+            cache_enabled=False,
+            no_tools=True,
+        )
+        mocker.patch("lightspeed_evaluation.core.api.client.httpx.Client")
+
+        client = APIClient(config)
+        with caplog.at_level(
+            logging.WARNING, logger="lightspeed_evaluation.core.models.agents"
+        ):
+            request = client._prepare_request("Test query")
+
+        assert request.extra_request_params == {"no_tools": True}
+        assert any("deprecated" in r.message.lower() for r in caplog.records)
 
 
 class TestRetryLogic:

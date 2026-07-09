@@ -43,7 +43,6 @@ agents:
     provider: "openai"
     model: "gpt-4o-mini"
     system_prompt: null
-    no_tools: null
     extra_request_params: {
       tool_choice: {
         type: "allowed_tools",

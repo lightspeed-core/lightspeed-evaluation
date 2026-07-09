@@ -1,5 +1,6 @@
 """Agent configuration models for the evaluation framework."""
 
+import logging
 import os
 from typing import Any, Literal, Optional
 
@@ -15,6 +16,8 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_ENDPOINT_TYPES,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 class MCPServerConfig(BaseModel):
@@ -94,7 +97,11 @@ class HttpApiBaseFields(BaseModel):
     provider: Optional[str] = Field(default=None, description="LLM provider for API")
     model: Optional[str] = Field(default=None, description="LLM model for API")
     no_tools: Optional[bool] = Field(
-        default=None, description="Disable tool usage in API calls"
+        default=None,
+        description=(
+            "Deprecated: use extra_request_params.no_tools instead. "
+            "Disable tool usage in API calls."
+        ),
     )
     system_prompt: Optional[str] = Field(
         default=None, description="System prompt for API calls"
@@ -120,6 +127,25 @@ class HttpApiBaseFields(BaseModel):
         if v not in SUPPORTED_ENDPOINT_TYPES:
             raise ValueError(f"Endpoint type must be one of {SUPPORTED_ENDPOINT_TYPES}")
         return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def _warn_deprecated_no_tools(cls, data: Any) -> Any:
+        """Emit a deprecation warning when no_tools is set at the top level."""
+        if not isinstance(data, dict):
+            return data
+        no_tools = data.get("no_tools")
+        if no_tools is not None:
+            logger.warning(
+                "no_tools is deprecated as a top-level field. "
+                "Set it inside extra_request_params instead: "
+                "extra_request_params: {no_tools: %s}",
+                no_tools,
+            )
+            extra = dict(data.get("extra_request_params") or {})
+            extra["no_tools"] = no_tools
+            data = {**data, "extra_request_params": extra}
+        return data
 
 
 class HttpApiAgentConfig(HttpApiBaseFields):

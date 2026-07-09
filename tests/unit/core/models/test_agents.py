@@ -1,5 +1,7 @@
 """Tests for agent configuration models."""
 
+import logging
+
 import pytest
 from pydantic import ValidationError
 
@@ -89,6 +91,29 @@ class TestHttpApiAgentConfig:
         """Test unknown fields are rejected."""
         with pytest.raises(ValidationError):
             HttpApiAgentConfig.model_validate({"unknown_field": "value"})
+
+    def test_no_tools_top_level_emits_deprecation_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that setting no_tools at the top level emits a deprecation warning."""
+        with caplog.at_level(
+            logging.WARNING, logger="lightspeed_evaluation.core.models.agents"
+        ):
+            config = HttpApiAgentConfig(no_tools=True)
+
+        assert config.no_tools is True
+        assert any("deprecated" in r.message.lower() for r in caplog.records)
+
+    def test_no_tools_none_does_not_warn(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that no_tools=None (default) does not emit a warning."""
+        with caplog.at_level(
+            logging.WARNING, logger="lightspeed_evaluation.core.models.agents"
+        ):
+            HttpApiAgentConfig()
+
+        assert not any("no_tools" in r.message for r in caplog.records)
 
 
 class TestAgentDefaultConfig:
