@@ -157,8 +157,42 @@ class LangfuseBackendConfig(BaseModel):
     )
 
 
+class MLflowBackendConfig(BaseModel):
+    """Configuration for MLflow experiment tracking storage backend.
+
+    Exports evaluation scores, token usage, and latency to MLflow as metrics
+    and params within an experiment run.
+    Requires the ``mlflow`` optional extra: ``pip install 'lightspeed-evaluation[mlflow]'``
+
+    The tracking URI is resolved from the config field first, then from the
+    ``MLFLOW_TRACKING_URI`` environment variable as fallback (standard MLflow behavior).
+
+    Example:
+        - type: "mlflow"
+          tracking_uri: "http://localhost:5000"
+          experiment_name: "lightspeed_evaluation"
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["mlflow"] = "mlflow"
+    tracking_uri: Optional[str] = Field(
+        default=None,
+        description=(
+            "MLflow tracking server URI " "(falls back to MLFLOW_TRACKING_URI env var)"
+        ),
+    )
+    experiment_name: str = Field(
+        default="lightspeed_evaluation",
+        description="MLflow experiment name to log runs under",
+    )
+
+
 # Discriminated union for polymorphic storage configuration
 StorageBackendConfig = Annotated[
-    FileBackendConfig | DatabaseBackendConfig | LangfuseBackendConfig,
+    FileBackendConfig
+    | DatabaseBackendConfig
+    | LangfuseBackendConfig
+    | MLflowBackendConfig,
     Field(discriminator="type"),
 ]

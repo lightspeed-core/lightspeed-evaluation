@@ -24,6 +24,7 @@ from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
     LangfuseBackendConfig,
+    MLflowBackendConfig,
     StorageBackendConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
@@ -41,6 +42,7 @@ SUPPORTED_STORAGE_TYPES: tuple[str, ...] = (
     "postgres",
     "mysql",
     "langfuse",
+    "mlflow",
 )
 DATABASE_STORAGE_TYPES: tuple[str, ...] = ("sqlite", "postgres", "mysql")
 
@@ -270,6 +272,8 @@ class ConfigLoader:  # pylint: disable=too-few-public-methods
                 backends.append(DatabaseBackendConfig(**item))
             elif backend_type == "langfuse":
                 backends.append(LangfuseBackendConfig(**item))
+            elif backend_type == "mlflow":
+                backends.append(MLflowBackendConfig(**item))
             else:
                 raise ConfigurationError(
                     f"Unknown storage backend type {backend_type!r}. "

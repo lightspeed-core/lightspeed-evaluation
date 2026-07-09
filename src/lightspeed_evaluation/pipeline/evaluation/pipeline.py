@@ -189,13 +189,17 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
         run_name = original_data_path or "evaluation"
         self.storage_backend.initialize(RunInfo(name=run_name))
 
+        eval_succeeded = False
         try:
             # Process each conversation
             logger.info("Processing conversations")
             results = self._process_eval_data(evaluation_data)
+            eval_succeeded = True
         finally:
             self.storage_backend.set_evaluation_context(evaluation_data)
-            self.storage_backend.finalize()
+            # Pass success so backends (e.g. MLflow) can mark complete vs failed
+            # while still writing final aggregation / reports from incremental data.
+            self.storage_backend.finalize(success=eval_succeeded)
             self.storage_backend.close()
 
         if self.system_config.agents is not None and self.system_config.agents.enabled:

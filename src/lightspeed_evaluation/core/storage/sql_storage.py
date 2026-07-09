@@ -260,12 +260,16 @@ class SQLStorageBackend(BaseStorageBackend):
                 backend_name=self.backend_name,
             ) from e
 
-    def finalize(self) -> None:
+    def finalize(self, success: bool = True) -> None:
         """Finalize the storage backend.
+
+        Args:
+            success: Unused; accepted for :class:`BaseStorageBackend` compatibility.
 
         Raises:
             StorageError: If finalization fails.
         """
+        _ = success
         if self._run_info is None:
             return
 

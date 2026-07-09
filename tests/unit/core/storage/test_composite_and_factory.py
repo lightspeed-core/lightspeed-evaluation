@@ -95,8 +95,9 @@ class TestCompositeStorageBackend:  # pylint: disable=too-few-public-methods
                 _ = results
                 calls.append("save_run")
 
-            def finalize(self) -> None:
+            def finalize(self, success: bool = True) -> None:
                 """Record finalize."""
+                _ = success
                 calls.append("finalize")
 
             def close(self) -> None:

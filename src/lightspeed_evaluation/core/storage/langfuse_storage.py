@@ -102,8 +102,9 @@ class LangfuseStorageBackend:
         """No-op — Langfuse export does not need the full evaluation dataset."""
         _ = evaluation_data
 
-    def finalize(self) -> None:
+    def finalize(self, success: bool = True) -> None:
         """Create a trace span, write all scores, and flush to Langfuse."""
+        _ = success
         if self._client is None:
             return
 
