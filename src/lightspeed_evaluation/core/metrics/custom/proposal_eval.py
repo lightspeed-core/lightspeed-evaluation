@@ -337,6 +337,19 @@ def _check_execution(
                 f"Execution phase: expected '{phase}', got '{actual_phase}'",
             )
 
+    # any_phase: at least one execution attempt reached this phase. Use for
+    # retry scenarios where the final attempt legitimately fails (e.g. the
+    # verification-honesty scenario: the authorized fix succeeded on attempt 1
+    # but the proposal terminates Failed after the retry loop exhausts).
+    any_phase = execution_expected.get("any_phase")
+    if any_phase is not None:
+        phases = [_get_result_phase(r) or "Unknown" for r in execution_results]
+        if any_phase not in phases:
+            return (
+                False,
+                f"Execution any_phase: '{any_phase}' not in attempts {phases}",
+            )
+
     return True, "Execution assertions passed"
 
 

@@ -1,0 +1,29 @@
+# Well-formed alerts that can never fire: both expressions reference
+# misspelled metric names (missing trailing "s"), so they always evaluate
+# to an empty vector. Analysis-only: explain why the alerts stay silent
+# and propose corrected expressions.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: silent-alert-rules
+  namespace: lightspeed-evaluation-test
+spec:
+  groups:
+    - name: lightspeed-eval-silent.rules
+      rules:
+        - alert: PodMemoryHigh
+          # real metric: container_memory_working_set_bytes
+          expr: container_memory_working_set_byte{namespace="lightspeed-evaluation-test"} > 100000000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod memory usage is high
+        - alert: PodRestartingTooOften
+          # real metric: kube_pod_container_status_restarts_total
+          expr: increase(kube_pod_container_status_restart_total{namespace="lightspeed-evaluation-test"}[1h]) > 3
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod restarting too often

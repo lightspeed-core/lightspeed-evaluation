@@ -1,0 +1,36 @@
+# The pod template demands privileged root — a leftover from a
+# docker-compose port the app doesn't actually need — so OpenShift's
+# restricted SCC rejects pod creation (ReplicaSet FailedCreate: "unable to
+# validate against any security context constraint"). The correct fix is
+# removing the offending securityContext fields, NOT granting a privileged
+# SCC.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scc-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scc-demo
+  template:
+    metadata:
+      labels:
+        app: scc-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

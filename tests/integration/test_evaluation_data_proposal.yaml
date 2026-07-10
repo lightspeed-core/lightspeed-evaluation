@@ -1,20 +1,29 @@
+# Core proposal evaluation scenarios.
+#
+# Scenarios are provider-agnostic: setup scripts source
+# agentic/scripts/_setup_infra.sh, which dispatches on the EVAL_PROVIDER env
+# var (openai | anthropic | claude-vertex; default: openai). Run the same
+# scenarios against a different provider with e.g.:
+#
+#   EVAL_PROVIDER=anthropic ANTHROPIC_API_KEY=... uv run pytest ...
+#
+# The extended scenario library lives in agentic/scenarios/*.yaml.
+
 - conversation_group_id: proposal_analysis_only
   description: Analysis-only — no execution or verification (query from proposal_spec.request)
   tag: proposal_analysis_only
-  setup_script: agentic/scripts/setup_oomkill-openai.sh
-  cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
+  setup_script: agentic/scripts/setup_oomkill.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill.sh
   conversation_metrics: []
-  conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
-      response: null
       proposal_spec:
         request: >-
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. Analyze the root cause.
         targetNamespaces:
           - lightspeed-evaluation-test
-        tools:
+        tools: &eval_tools
           skills:
             # TODO(rioloc): replace with a stable image
             - image: quay.io/harpatil/agentic-skills:latest
@@ -26,15 +35,13 @@
         phase: Completed
       turn_metrics:
         - custom:proposal_status
-      turn_metrics_metadata: {}
 
 - conversation_group_id: proposal_analysis_verification_only
   description: Analysis + verification without execution — verify diagnosis without remediation
   tag: proposal_analysis_verification
-  setup_script: agentic/scripts/setup_oomkill-openai.sh
-  cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
+  setup_script: agentic/scripts/setup_oomkill.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill.sh
   conversation_metrics: []
-  conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
       proposal_spec:
@@ -44,12 +51,7 @@
           diagnosis, but do not execute any remediation.
         targetNamespaces:
           - lightspeed-evaluation-test
-        tools:
-          skills:
-            # TODO(rioloc): replace with a stable image
-            - image: quay.io/harpatil/agentic-skills:latest
-              paths:
-                - /skills/find-token
+        tools: *eval_tools
         analysis:
           agent: eval-default
         verification:
@@ -75,17 +77,13 @@
       turn_metrics:
         - custom:proposal_status
         - custom:proposal_evaluation_correctness
-      turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
-          threshold: 0.75
 
-- conversation_group_id: proposal_oomkill_openai
+- conversation_group_id: proposal_oomkill
   description: OOMKill full lifecycle — status check + LLM-as-judge evaluation
   tag: proposal_oomkill
-  setup_script: agentic/scripts/setup_oomkill-openai.sh
-  cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
+  setup_script: agentic/scripts/setup_oomkill.sh
+  cleanup_script: agentic/scripts/cleanup_oomkill.sh
   conversation_metrics: []
-  conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
       proposal_spec:
@@ -95,12 +93,7 @@
           fix the memory configuration, and verify the fix.
         targetNamespaces:
           - lightspeed-evaluation-test
-        tools:
-          skills:
-            # TODO(rioloc): replace with a stable image
-            - image: quay.io/harpatil/agentic-skills:latest
-              paths:
-                - /skills/find-token
+        tools: *eval_tools
         analysis:
           agent: eval-default
         execution:
@@ -109,7 +102,7 @@
           agent: eval-default
       expected_proposal_status:
         phase: Completed
-        max_duration: "15m"
+        max_duration: "20m"
         max_attempts: 5
         analysis:
           min_options: 1
@@ -135,66 +128,13 @@
       turn_metrics:
         - custom:proposal_status
         - custom:proposal_evaluation_correctness
-      turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
-          threshold: 0.75
 
-- conversation_group_id: proposal_oomkill_claude-vertex
-  description: Judge evaluation — LLM-as-judge on full lifecycle workflow
-  tag: proposal_oomkill
-  setup_script: agentic/scripts/setup_oomkill-claude-vertex.sh
-  cleanup_script: agentic/scripts/cleanup_oomkill-claude-vertex.sh
-  conversation_metrics: []
-  conversation_metrics_metadata: {}
-  turns:
-    - turn_id: turn_1
-      proposal_spec:
-        request: >-
-          A pod named oomkill-demo in namespace lightspeed-evaluation-test
-          is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
-          fix the memory configuration, and verify the fix.
-        targetNamespaces:
-          - lightspeed-evaluation-test
-        tools:
-          skills:
-            # TODO(rioloc): replace with a stable image
-            - image: quay.io/harpatil/agentic-skills:latest
-              paths:
-                - /skills/find-token
-        analysis:
-          agent: eval-default
-        execution:
-          agent: eval-default
-        verification:
-          agent: eval-default
-      expected_outcome: >-
-        Root cause: the pod oomkill-demo is OOMKilled because its container
-        memory limit is too low. Remediation: increase the container memory
-        limit (e.g. to 512Mi) and verify the pod reaches Running state
-        without further OOMKill events.
-      expected_analysis_outcome: >-
-        The agent should identify that the pod oomkill-demo is being
-        OOMKilled because its container memory limit is set too low
-        (e.g. 128Mi), causing the kernel to terminate the process.
-      expected_execution_outcome: >-
-        The agent should increase the container memory limit (e.g. to
-        512Mi) by patching the pod or its owning workload resource.
-      expected_verification_outcome: >-
-        The agent should verify the pod reaches Running state without
-        further OOMKill events.
-      turn_metrics:
-        - custom:proposal_evaluation_correctness
-      turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: proposal_crashloop_probe_openai
+- conversation_group_id: proposal_crashloop_probe
   description: CrashLoopBackOff caused by misconfigured liveness probe — full lifecycle
   tag: proposal_crashloop_probe
-  setup_script: agentic/scripts/setup_crashloop_probe-openai.sh
-  cleanup_script: agentic/scripts/cleanup_crashloop_probe-openai.sh
+  setup_script: agentic/scripts/setup_crashloop_probe.sh
+  cleanup_script: agentic/scripts/cleanup_crashloop_probe.sh
   conversation_metrics: []
-  conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
       proposal_spec:
@@ -204,12 +144,7 @@
           root cause, fix the issue, and verify the pod is stable.
         targetNamespaces:
           - lightspeed-evaluation-test
-        tools:
-          skills:
-            # TODO(rioloc): replace with a stable image
-            - image: quay.io/harpatil/agentic-skills:latest
-              paths:
-                - /skills/find-token
+        tools: *eval_tools
         analysis:
           agent: eval-default
         execution:
@@ -228,32 +163,25 @@
       turn_metrics:
         - custom:proposal_status
         - custom:proposal_evaluation_correctness
-      turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
-          threshold: 0.75
 
-- conversation_group_id: proposal_crashloop_probe_claude-vertex
-  description: CrashLoopBackOff caused by misconfigured liveness probe — full lifecycle (Claude/Vertex)
-  tag: proposal_crashloop_probe
-  setup_script: agentic/scripts/setup_crashloop_probe-claude-vertex.sh
-  cleanup_script: agentic/scripts/cleanup_crashloop_probe-claude-vertex.sh
+- conversation_group_id: proposal_pending_overprovision
+  description: Pod stuck Pending due to over-provisioned resource requests — full lifecycle (capacity right-sizing)
+  tag: proposal_pending_overprovision
+  setup_script: agentic/scripts/setup_pending_overprovision.sh
+  cleanup_script: agentic/scripts/cleanup_pending_overprovision.sh
   conversation_metrics: []
-  conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: >-
-          A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
-          is in CrashLoopBackOff. The container keeps restarting. Analyze the
-          root cause, fix the issue, and verify the pod is stable.
+          A pod for deployment pending-overprovision-demo in namespace
+          lightspeed-evaluation-test is stuck in Pending state and never
+          gets scheduled. Analyze the root cause, fix the resource
+          configuration so the pod can be scheduled, and verify the pod
+          is running.
         targetNamespaces:
           - lightspeed-evaluation-test
-        tools:
-          skills:
-            # TODO(rioloc): replace with a stable image
-            - image: quay.io/harpatil/agentic-skills:latest
-              paths:
-                - /skills/find-token
+        tools: *eval_tools
         analysis:
           agent: eval-default
         execution:
@@ -262,16 +190,199 @@
           agent: eval-default
       expected_proposal_status:
         phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
       expected_outcome: >-
-        Root cause: the liveness probe on pod crashloop-probe-demo is
-        configured to check an endpoint that does not exist (/nonexistent-health),
-        causing the kubelet to kill and restart the container repeatedly.
-        Remediation: fix the liveness probe path to point to a valid health
-        endpoint (e.g. / or remove the probe) and verify the pod reaches
-        Running state without further restarts.
+        Root cause: the pod for deployment pending-overprovision-demo is
+        unschedulable because its resource requests (64 CPUs, 512Gi memory)
+        exceed the allocatable capacity of every node, producing
+        FailedScheduling events with "Insufficient cpu" / "Insufficient
+        memory". Remediation: reduce the requests/limits to values the
+        nodes can satisfy (e.g. 50m CPU / 128Mi memory) and verify the pod
+        is scheduled and reaches Running state.
+      expected_analysis_outcome: >-
+        The agent should identify that the pod is Pending because its
+        resource requests (64 CPUs, 512Gi memory) exceed node allocatable
+        capacity, as shown by FailedScheduling events, and that the
+        requests are wildly oversized for an nginx workload.
+      expected_execution_outcome: >-
+        The agent should lower the deployment's resource requests and
+        limits to values schedulable on the cluster (e.g. tens of
+        millicores and a few hundred Mi of memory).
+      expected_verification_outcome: >-
+        The agent should verify the pod is scheduled and reaches Running
+        state with the right-sized resource configuration.
       turn_metrics:
         - custom:proposal_status
         - custom:proposal_evaluation_correctness
-      turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
-          threshold: 0.75
+
+- conversation_group_id: proposal_naked_pod_hardening
+  description: Workload hardening — add probes and resource requests/limits to a "naked" deployment
+  tag: proposal_naked_pod_hardening
+  setup_script: agentic/scripts/setup_naked_pod.sh
+  cleanup_script: agentic/scripts/cleanup_naked_pod.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment naked-pod-demo in namespace
+          lightspeed-evaluation-test is running without production
+          guardrails. Analyze which best-practice safeguards are missing
+          (health probes, resource requests and limits, pinned image
+          version), apply a hardening patch to the deployment, and verify
+          the workload is still healthy afterwards.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        The deployment naked-pod-demo lacks liveness/readiness probes,
+        resource requests and limits, and uses a floating :latest image
+        tag. Remediation: patch the deployment to add readiness and
+        liveness probes on the nginx port (8080), set explicit resource
+        requests and limits, and verify the pod rolls out successfully
+        and stays Running and Ready.
+      expected_analysis_outcome: >-
+        The agent should identify the missing guardrails: no liveness or
+        readiness probes, no resource requests/limits, and a floating
+        :latest image tag.
+      expected_execution_outcome: >-
+        The agent should patch the deployment to add health probes and
+        explicit resource requests/limits (and optionally pin the image
+        tag) without breaking the workload.
+      expected_verification_outcome: >-
+        The agent should verify the patched deployment rolls out
+        successfully and the pod is Running and Ready with the new
+        probes and resource settings in place.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_rbac_sprawl
+  description: RBAC and secret sprawl — classify unused identities/secrets (analysis + verification, no execution)
+  tag: proposal_rbac_sprawl
+  setup_script: agentic/scripts/setup_rbac_sprawl.sh
+  cleanup_script: agentic/scripts/cleanup_rbac_sprawl.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The security team wants to reduce attack surface in namespace
+          lightspeed-evaluation-test. Analyze which team-created
+          ServiceAccounts, Roles, RoleBindings, and Secrets in that
+          namespace are actually used by running workloads and which are
+          unused, classify each unused item as a cleanup candidate, and
+          verify your classification. Ignore OpenShift-managed defaults
+          (the default/builder/deployer ServiceAccounts and their
+          generated secrets). Do not delete anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Executed
+            status: "True"
+            reason: Skipped
+      expected_outcome: >-
+        Used: the secret app-config, which is referenced via envFrom by
+        the rbac-sprawl-app deployment. Unused cleanup candidates: the
+        ServiceAccount legacy-sa (no pod runs as it), the Role
+        legacy-secret-reader and RoleBinding legacy-secret-reader-binding
+        (bound only to the unused legacy-sa), and the secrets old-db-creds
+        and temp-ci-token (not mounted or referenced by any workload).
+        OpenShift-managed defaults (default/builder/deployer
+        ServiceAccounts and their generated secrets) are out of scope per
+        the request and should not count against the classification.
+        Verification confirms this classification without deleting
+        anything.
+      expected_analysis_outcome: >-
+        The agent should map secrets and identities to running workloads
+        and conclude that app-config is in use by rbac-sprawl-app, while
+        legacy-sa, legacy-secret-reader, legacy-secret-reader-binding,
+        old-db-creds, and temp-ci-token are unused cleanup candidates,
+        excluding OpenShift-managed default ServiceAccounts and secrets
+        as instructed.
+      expected_verification_outcome: >-
+        The agent should verify the classification by re-checking that no
+        pod references the items marked unused and that removing them
+        would not affect the running workload, without performing any
+        deletions.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_noisy_alerts
+  description: Noisy Prometheus alerting rules — analysis-only review with improvement suggestions
+  tag: proposal_noisy_alerts
+  setup_script: agentic/scripts/setup_noisy_alerts.sh
+  cleanup_script: agentic/scripts/cleanup_noisy_alerts.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          SREs report alert fatigue from the PrometheusRule
+          noisy-alert-rules in namespace lightspeed-evaluation-test.
+          Analyze the alerting rules for common noise patterns (missing
+          "for" durations, alerting on cumulative counters, wrong or
+          missing severity labels) and propose concrete rewrites that
+          would reduce noise while keeping coverage. Do not modify the
+          rules.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        The PodRestarted rule is noisy because it compares the cumulative
+        counter kube_pod_container_status_restarts_total against zero
+        (fires forever after any single restart), has no "for" duration,
+        and uses critical severity for a transient event; it should use a
+        rate/increase over a time window with a "for" duration and a more
+        appropriate severity. The PodNotReady rule has no "for" duration
+        (fires on transient not-ready blips during rollouts) and is
+        missing a severity label; it should add a "for" window (e.g.
+        10-15m) and a severity label. The proposal should include
+        concrete rewritten rule expressions.
+      expected_analysis_outcome: >-
+        The agent should read the noisy-alert-rules PrometheusRule and
+        identify that PodRestarted alerts on a cumulative restart counter
+        > 0 with no "for" duration at critical severity, and that
+        PodNotReady lacks both a "for" duration and a severity label,
+        then propose rewritten rules using rate/increase expressions,
+        "for" windows, and appropriate severity labels.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

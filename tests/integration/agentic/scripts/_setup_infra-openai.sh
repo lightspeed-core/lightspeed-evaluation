@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-export OPERATOR_NS="openshift-lightspeed"
-export TEST_NS="lightspeed-evaluation-test"
+export OPERATOR_NS="${OPERATOR_NS:-openshift-lightspeed}"
+export TEST_NS="${TEST_NS:-lightspeed-evaluation-test}"
 AGENT_MODEL="${AGENT_MODEL:-gpt-5.2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

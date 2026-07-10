@@ -1,0 +1,252 @@
+# Category H: compound faults — root-cause discrimination under noise.
+#
+# Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file.
+# Judge thresholds come from metrics_metadata.turn_level in the system
+# config.
+
+- conversation_group_id: proposal_double_fault
+  description: Two independent faults in one pod — missing ConfigMap, then a wrong-port liveness probe, full lifecycle
+  tag: proposal_double_fault
+  setup_script: ../scripts/setup_double_fault.sh
+  cleanup_script: ../scripts/cleanup_double_fault.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment double-fault-demo in namespace
+          lightspeed-evaluation-test will not stay up. The app expects a
+          ConfigMap named df-settings whose only needed key is LOG_LEVEL
+          (default "info"). There may be more than one problem — restore
+          the pod to a stable Running state and verify it stays healthy.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Two independent faults: (1) the container's envFrom references
+        the missing ConfigMap df-settings (CreateContainerConfigError),
+        and (2) the liveness probe targets port 8081 while nginx listens
+        on 8080, which kills the container as soon as fault 1 is fixed.
+        Remediation must address both: create df-settings (LOG_LEVEL:
+        info) AND correct the probe port to 8080, then verify the pod is
+        Running with no restart growth. Fixing only the ConfigMap leaves
+        a crash loop.
+      expected_analysis_outcome: >-
+        The agent should identify the missing ConfigMap as the immediate
+        blocker and ALSO spot the wrong-port liveness probe (or discover
+        it after the first fix), recognizing the scenario has two
+        independent faults.
+      expected_execution_outcome: >-
+        The agent should create the df-settings ConfigMap and fix the
+        liveness probe port to 8080 — both changes, not just the first.
+      expected_verification_outcome: >-
+        The agent should verify the pod stays Running and Ready without
+        restarts accumulating (which would indicate the probe fault was
+        missed).
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_cascading_failure
+  description: Frontend not Ready because the backend cannot pull its image — fix upstream, not the symptom, full lifecycle
+  tag: proposal_cascading_failure
+  setup_script: ../scripts/setup_cascading_failure.sh
+  cleanup_script: ../scripts/cleanup_cascading_failure.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Users report the cascade-frontend service in namespace
+          lightspeed-evaluation-test is down — its pod is Running but
+          never Ready. The backend it depends on should run the
+          nginx-unprivileged image at version 1.27. Analyze the root
+          cause, restore end-to-end service, and verify both tiers are
+          healthy.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: cascade-frontend's readiness tracks reachability of
+        cascade-backend, and the backend's pod is in ImagePullBackOff on
+        the nonexistent tag 7.77-does-not-exist — the frontend itself is
+        fine. Remediation: fix the BACKEND image to a valid tag (1.27);
+        weakening or removing the frontend's readiness probe would mask
+        the outage instead of fixing it. Verify the backend reaches
+        Running and the frontend becomes Ready with its logs reporting
+        the backend reachable.
+      expected_analysis_outcome: >-
+        The agent should trace the frontend's not-Ready state through its
+        readiness dependency and the "backend unreachable" logs to the
+        backend's ImagePullBackOff, identifying the upstream image tag as
+        the root cause rather than the frontend probe.
+      expected_execution_outcome: >-
+        The agent should correct the backend deployment's image tag to
+        1.27 and leave the frontend's readiness probe intact.
+      expected_verification_outcome: >-
+        The agent should verify the backend pod is Running, the frontend
+        becomes Ready, and the frontend's logs report the backend
+        reachable.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_red_herring
+  description: Real crashloop plus an intentionally-not-Ready canary decoy — fix only the real issue, full lifecycle
+  tag: proposal_red_herring
+  setup_script: ../scripts/setup_red_herring.sh
+  cleanup_script: ../scripts/cleanup_red_herring.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Users report the herring-app service in namespace
+          lightspeed-evaluation-test is down. If it needs missing
+          configuration, the staging database URL
+          postgres://staging-db.example.internal:5432/app is approved.
+          Note: the maintenance-canary deployment in the same namespace
+          is intentionally never Ready (see its annotation) — that is
+          expected behavior and must be left alone. Fix the
+          user-impacting issue and verify recovery.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      verify_script: ../scripts/verify_red_herring.sh
+      expected_outcome: >-
+        The real fault: herring-app crash-loops because its required
+        DATABASE_URL env var is unset (fatal message in its logs) — fixed
+        by adding the approved staging URL. The maintenance-canary's
+        not-Ready state is a decoy: its annotation marks it as
+        intentional, and it must NOT be modified. A correct run fixes
+        only herring-app and leaves maintenance-canary untouched;
+        verification confirms herring-app is Running while the canary
+        remains in its expected not-Ready state.
+      expected_analysis_outcome: >-
+        The agent should diagnose herring-app's missing DATABASE_URL from
+        its logs, recognize from the annotation that maintenance-canary's
+        not-Ready state is intentional, and scope the remediation to
+        herring-app only.
+      expected_execution_outcome: >-
+        The agent should add DATABASE_URL to herring-app and make no
+        changes whatsoever to maintenance-canary.
+      expected_verification_outcome: >-
+        The agent should verify herring-app is Running and stable, and
+        that maintenance-canary was not modified (still present, still
+        intentionally not Ready).
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+        - script:action_eval
+
+- conversation_group_id: proposal_wrong_fix_trap
+  description: Crashloop from a wrong config mount path with a decoy low memory limit — pick the right root cause, full lifecycle
+  tag: proposal_wrong_fix_trap
+  setup_script: ../scripts/setup_wrong_fix_trap.sh
+  cleanup_script: ../scripts/cleanup_wrong_fix_trap.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment trap-demo in namespace
+          lightspeed-evaluation-test keeps crashing. Analyze the root
+          cause carefully, apply the correct fix, and verify the pod is
+          stable.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the app requires /etc/app/config.yaml, but the
+        trap-config ConfigMap is mounted at /etc/config — a mount-path
+        mismatch, plainly stated in the container's fatal log line. The
+        tight-looking 32Mi memory limit is a decoy: the container exits
+        with a clear config error, not an OOMKill. Remediation: mount the
+        ConfigMap at /etc/app (or otherwise make the file appear at
+        /etc/app/config.yaml); merely raising the memory limit does not
+        fix the crash. Verify the pod reads its config and stays Running.
+      expected_analysis_outcome: >-
+        The agent should read the fatal log ("required config file
+        /etc/app/config.yaml not found"), compare it with the volumeMount
+        path /etc/config, identify the path mismatch as the root cause,
+        and explicitly rule out memory (no OOMKilled state) despite the
+        low limit.
+      expected_execution_outcome: >-
+        The agent should fix the volume mount so the config file appears
+        at /etc/app/config.yaml — not just bump the memory limit.
+      expected_verification_outcome: >-
+        The agent should verify the pod logs "config loaded" and remains
+        Running without restarts.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

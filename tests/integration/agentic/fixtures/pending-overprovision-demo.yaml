@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pending-overprovision-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pending-overprovision-demo
+  template:
+    metadata:
+      labels:
+        app: pending-overprovision-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "512Gi"
+              cpu: "64"
+            limits:
+              memory: "512Gi"
+              cpu: "64"

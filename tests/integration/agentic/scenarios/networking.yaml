@@ -1,0 +1,304 @@
+# Category C: services & networking faults.
+#
+# Deterministic scenarios on a vanilla OpenShift cluster (OVN NetworkPolicy
+# enforcement and the Route API are OpenShift defaults). Provider-agnostic —
+# select the provider via EVAL_PROVIDER (see ../scripts/_setup_infra.sh).
+# Script paths are relative to this file. The judge threshold comes from
+# metrics_metadata.turn_level in the system config.
+
+- conversation_group_id: proposal_svc_selector
+  description: Service has zero endpoints — selector/label mismatch, full lifecycle
+  tag: proposal_svc_selector
+  setup_script: ../scripts/setup_svc_selector.sh
+  cleanup_script: ../scripts/cleanup_svc_selector.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The service svc-selector-svc in namespace
+          lightspeed-evaluation-test serves no traffic even though its
+          backing application is running and healthy. Analyze the root
+          cause, fix it, and verify the service has healthy endpoints.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the service svc-selector-svc selects pods labelled
+        app=svc-selector-app, but the deployment's pods are labelled
+        app=svc-selector-demo, so the service has zero endpoints while
+        the pods are Running and Ready. Remediation: fix the service
+        selector (or the pod labels) so they match, and verify the
+        service's endpoints are populated with the ready pod.
+      expected_analysis_outcome: >-
+        The agent should notice the empty Endpoints object for
+        svc-selector-svc, compare the service selector against the pod
+        labels, and identify the mismatch — not a pod readiness or
+        NetworkPolicy problem.
+      expected_execution_outcome: >-
+        The agent should align the service selector with the pod label
+        app=svc-selector-demo (the minimal, least disruptive fix).
+      expected_verification_outcome: >-
+        The agent should verify the service now has at least one ready
+        endpoint backing it.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_svc_port
+  description: Service targetPort mismatch — endpoints exist but connections are refused, full lifecycle
+  tag: proposal_svc_port
+  setup_script: ../scripts/setup_svc_port.sh
+  cleanup_script: ../scripts/cleanup_svc_port.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Requests to the service svc-port-svc in namespace
+          lightspeed-evaluation-test are refused, although the service
+          has endpoints and the backing pod is Ready. Analyze the root
+          cause, fix it, and verify traffic can reach the application
+          through the service.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the service svc-port-svc forwards to targetPort 8081
+        but the nginx container listens on 8080 (its declared
+        containerPort), so connections through the service are refused
+        even though endpoints exist. Remediation: correct the service's
+        targetPort to 8080 and verify connectivity through the service.
+      expected_analysis_outcome: >-
+        The agent should compare the service's targetPort (8081) with the
+        container's listening port (8080) and identify the port mismatch,
+        distinguishing this from a selector mismatch since endpoints are
+        present.
+      expected_execution_outcome: >-
+        The agent should patch the service's targetPort to 8080 (fixing
+        the service, not the healthy application).
+      expected_verification_outcome: >-
+        The agent should verify a request through the service reaches
+        nginx (or at minimum that the endpoint port now matches the
+        container's listening port).
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_netpol_ingress
+  description: NetworkPolicy blocks in-namespace client traffic to a backend, full lifecycle
+  tag: proposal_netpol_ingress
+  setup_script: ../scripts/setup_netpol_ingress.sh
+  cleanup_script: ../scripts/cleanup_netpol_ingress.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The netpol-client application in namespace
+          lightspeed-evaluation-test logs that it cannot reach
+          netpol-backend, though both apps are running. The backend is
+          intentionally protected by a NetworkPolicy and must stay locked
+          down to authorized clients only — netpol-client is an
+          authorized client. Analyze the root cause, fix it without
+          removing the backend's protection, and verify the client can
+          reach the backend.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the NetworkPolicy backend-ingress-lockdown only
+        allows ingress to netpol-backend from pods labelled
+        access=allowed, and the netpol-client pods do not carry that
+        label, so their requests time out. Remediation: label the
+        netpol-client pod template with access=allowed (or extend the
+        policy to select the client) while keeping the lockdown policy in
+        place, then verify the client logs show the backend is reachable.
+      expected_analysis_outcome: >-
+        The agent should correlate the client's timeouts with the
+        backend's NetworkPolicy, identify the missing access=allowed
+        label as the reason traffic is denied, and not blame DNS, the
+        service, or pod health.
+      expected_execution_outcome: >-
+        The agent should add the access=allowed label to the
+        netpol-client deployment's pod template (or equivalently extend
+        the policy's ingress rule), without deleting the NetworkPolicy.
+      expected_verification_outcome: >-
+        The agent should verify the client's recent logs report the
+        backend as reachable and that the lockdown policy still exists.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_netpol_dns
+  description: Default-deny egress NetworkPolicy without a DNS exception — app cannot resolve hostnames, full lifecycle
+  tag: proposal_netpol_dns
+  setup_script: ../scripts/setup_netpol_dns.sh
+  cleanup_script: ../scripts/cleanup_netpol_dns.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          After a security hardening change, the app netpol-dns-demo in
+          namespace lightspeed-evaluation-test logs DNS resolution
+          failures for every lookup. The default-deny egress posture is
+          required by the security team and must stay. Analyze the root
+          cause, restore name resolution without dropping the deny-by-
+          default posture, and verify lookups succeed.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the NetworkPolicy default-deny-egress blocks ALL
+        egress from netpol-dns-demo pods, including DNS queries to the
+        cluster DNS service, so every hostname lookup fails. Remediation:
+        add an egress rule permitting DNS queries to the cluster DNS pods
+        in the openshift-dns namespace on UDP/TCP port 5353 (on
+        OVN-Kubernetes a rule for port 53 alone is NOT sufficient — the
+        CoreDNS pods listen on 5353 and policy applies after service
+        DNAT; port 53 may be allowed in addition) while keeping the
+        default-deny policy, then verify the app's logs show successful
+        resolution.
+      expected_analysis_outcome: >-
+        The agent should connect the DNS failures to the egress
+        NetworkPolicy with an empty egress rule set, and recognize that
+        the fix is a DNS exception, not deleting the policy.
+      expected_execution_outcome: >-
+        The agent should add a DNS egress rule targeting the cluster DNS
+        in the openshift-dns namespace on port 5353 (UDP/TCP; port 53
+        alone does not restore resolution on OVN-Kubernetes) to the
+        existing policy or as an additional policy, preserving
+        deny-by-default for all other egress.
+      expected_verification_outcome: >-
+        The agent should verify the app's recent logs report successful
+        DNS resolution and that a default-deny egress policy is still in
+        effect.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_route_port
+  description: OpenShift Route targets a port the service doesn't expose — router returns 503, full lifecycle
+  tag: proposal_route_port
+  setup_script: ../scripts/setup_route_port.sh
+  cleanup_script: ../scripts/cleanup_route_port.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The externally exposed route route-port-demo in namespace
+          lightspeed-evaluation-test returns 503 for every request, but
+          the application pod and its service look healthy. Analyze the
+          root cause, fix it, and verify the route is wired to a valid
+          service port.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the route route-port-demo targets port 9090, but its
+        service route-port-svc only exposes port 8080 (named "web"), so
+        the router has no valid backend mapping and answers 503.
+        Remediation: point the route's targetPort at 8080 (or the port
+        name "web") and verify the route resolves to the service's real
+        port.
+      expected_analysis_outcome: >-
+        The agent should compare the route's spec.port.targetPort (9090)
+        against the service's declared ports (only 8080/"web") and
+        identify the dangling port reference as the cause of the 503s.
+      expected_execution_outcome: >-
+        The agent should patch the route's targetPort to 8080 or "web",
+        leaving the healthy service and deployment untouched.
+      expected_verification_outcome: >-
+        The agent should verify the route's targetPort now matches an
+        existing service port (and, if it can reach the router, that
+        requests no longer return 503).
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

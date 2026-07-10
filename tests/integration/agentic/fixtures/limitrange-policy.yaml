@@ -1,0 +1,13 @@
+# Namespace policy: every container must use at least 256Mi of memory.
+# Applied before limitrange-app.yaml, whose 64Mi request violates it.
+# The policy is authoritative — the app must be brought into compliance.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: eval-container-limits
+  namespace: lightspeed-evaluation-test
+spec:
+  limits:
+    - type: Container
+      min:
+        memory: 256Mi

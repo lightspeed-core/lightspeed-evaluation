@@ -1,0 +1,35 @@
+# The image lives in a private (nonexistent) quay.io org, so the pull fails
+# with an authorization error — indistinguishable from a private image with
+# a missing imagePullSecret, which is the condition the agent must diagnose.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagepull-auth-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imagepull-auth-demo
+  template:
+    metadata:
+      labels:
+        app: imagepull-auth-demo
+    spec:
+      containers:
+        - name: internal-app
+          image: quay.io/lightspeed-eval-private/internal-app:1.0
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

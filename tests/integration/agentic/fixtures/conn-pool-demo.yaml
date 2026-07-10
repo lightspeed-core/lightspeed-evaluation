@@ -1,0 +1,218 @@
+# Cross-namespace connection-pool exhaustion (ported from
+# rhobs/troubleshooting-scenarios `failing_api`, reimplemented on stock
+# images). The symptom lives in lightspeed-evaluation-test (payments-api
+# returns 503, pod Running and Ready), the root cause in
+# lightspeed-evaluation-shared: reporting-service v1.0.2 opens DB
+# connections against shared-db without releasing them, exhausting the
+# 20-slot pool. reconciliation-service crash-loops for a genuinely
+# unrelated reason (missing RECON_MODE) — a real fault, but a decoy.
+# Setup rolls reporting-service from v1.0.1 (healthy) to v1.0.2 (leaky)
+# so `oc rollout history` shows the offending release.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lightspeed-evaluation-shared
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shared-db
+  namespace: lightspeed-evaluation-shared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shared-db
+  template:
+    metadata:
+      labels:
+        app: shared-db
+    spec:
+      containers:
+        - name: db
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "$(date -u +%FT%TZ) INFO shared-db starting: PostgreSQL-compatible pool, max_connections=20"
+              held=0
+              while true; do
+                if [ "$held" -lt 20 ]; then
+                  held=$((held + 1))
+                  echo "$(date -u +%FT%TZ) INFO connection slot allocated to client reporting-service (in use: ${held}/20)"
+                else
+                  echo "$(date -u +%FT%TZ) WARNING connection pool exhausted (in use: 20/20, all held by reporting-service)"
+                  echo "$(date -u +%FT%TZ) FATAL too many connections — rejecting new connection from client payments-api"
+                fi
+                sleep 5
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shared-db
+  namespace: lightspeed-evaluation-shared
+spec:
+  selector:
+    app: shared-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reporting-service
+  namespace: lightspeed-evaluation-shared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reporting-service
+  template:
+    metadata:
+      labels:
+        app: reporting-service
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          env:
+            - name: RELEASE
+              value: v1.0.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "$(date -u +%FT%TZ) INFO reporting-service ${RELEASE} starting; database: shared-db:5432"
+              n=0
+              while true; do
+                n=$((n + 1))
+                if [ "$RELEASE" = "v1.0.1" ]; then
+                  echo "$(date -u +%FT%TZ) INFO opened DB connection conn-${n} to shared-db:5432"
+                  echo "$(date -u +%FT%TZ) INFO released DB connection conn-${n} (held: 0)"
+                else
+                  echo "$(date -u +%FT%TZ) INFO opened DB connection conn-${n} to shared-db:5432 (held: ${n}, released: 0)"
+                  if [ $((n % 10)) -eq 0 ]; then
+                    echo "$(date -u +%FT%TZ) WARNING connection watchdog: ${n} connections held open, none released since startup"
+                  fi
+                fi
+                sleep 3
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+---
+# Decoy: genuinely broken (missing required env var) but unrelated to the
+# payments outage. A correct analysis must not blame this workload for the
+# 503s.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reconciliation-service
+  namespace: lightspeed-evaluation-shared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reconciliation-service
+  template:
+    metadata:
+      labels:
+        app: reconciliation-service
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              if [ -z "${RECON_MODE:-}" ]; then
+              echo "FATAL: required environment variable RECON_MODE is not set" >&2;
+              exit 1;
+              fi;
+              echo "reconciliation-service started in ${RECON_MODE} mode";
+              sleep infinity
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+---
+# The symptom: Running and Ready by every Kubernetes signal, but every
+# request fails with 503 because no DB connection can be acquired.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-api
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-api
+  template:
+    metadata:
+      labels:
+        app: payments-api
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "$(date -u +%FT%TZ) INFO payments-api starting; upstream database: shared-db.lightspeed-evaluation-shared.svc:5432"
+              while true; do
+                echo "$(date -u +%FT%TZ) ERROR could not acquire DB connection from shared-db.lightspeed-evaluation-shared.svc:5432: FATAL too many connections (pool exhausted) — returning HTTP 503 to client"
+                sleep 4
+              done
+          readinessProbe:
+            exec:
+              command: ["/bin/true"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"

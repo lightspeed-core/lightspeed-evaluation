@@ -1,0 +1,66 @@
+# The Route targets port 9090, which the service doesn't expose (it has
+# only 8080), so the router returns 503 for every request even though the
+# app and service are healthy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-port-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: route-port-demo
+  template:
+    metadata:
+      labels:
+        app: route-port-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: route-port-svc
+  namespace: lightspeed-evaluation-test
+spec:
+  selector:
+    app: route-port-demo
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: route-port-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  to:
+    kind: Service
+    name: route-port-svc
+  port:
+    targetPort: 9090

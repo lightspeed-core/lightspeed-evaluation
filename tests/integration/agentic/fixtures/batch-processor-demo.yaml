@@ -1,0 +1,73 @@
+# Recurring time-bounded failure (ported from rhobs/troubleshooting-scenarios
+# `recurring_batch_failure`). On startup the container replays two full days
+# of synthetic history: successful batch submissions every 10 minutes, except
+# a 03:00–03:05 UTC window each day where every submission times out against
+# the upstream intake endpoint. It then keeps logging live, honoring the same
+# window. The fault is external and time-bounded — there is nothing to fix in
+# the workload itself; a correct analysis identifies the recurring window and
+# attributes it to upstream maintenance, not an application bug.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-processor
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-processor
+  template:
+    metadata:
+      labels:
+        app: batch-processor
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              emit() { # epoch_seconds
+                ts=$(date -u -d "@$1" +%Y-%m-%dT%H:%M:%SZ)
+                h=$(date -u -d "@$1" +%H)
+                m=$(date -u -d "@$1" +%M)
+                if [ "$h" = "03" ] && [ "$m" -lt 5 ]; then
+                  echo "$ts ERROR Batch submission failed: connection timed out to https://pipeline-intake.corp.net/submit after 30s (batch b$(($1 / 60)))"
+                  return 60
+                else
+                  echo "$ts INFO batch b$(($1 / 60)) completed: 500 records submitted to https://pipeline-intake.corp.net/submit"
+                  return 0
+                fi
+              }
+              echo "batch-processor starting: replaying processing history (last 2 days)"
+              now=$(date -u +%s)
+              midnight=$((now - now % 86400))
+              for offset in 172800 86400; do
+                base=$((midnight - offset))
+                t=$base
+                while [ "$t" -lt $((base + 86400)) ]; do
+                  if emit "$t"; then
+                    t=$((t + 600))
+                  else
+                    t=$((t + 60))
+                  fi
+                done
+              done
+              echo "$(date -u +%FT%TZ) INFO batch-processor resumed live processing"
+              while true; do
+                emit "$(date -u +%s)" || true
+                sleep 60
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"

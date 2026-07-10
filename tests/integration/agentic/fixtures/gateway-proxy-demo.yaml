@@ -1,0 +1,88 @@
+# Config-content drift (ported from rhobs/troubleshooting-scenarios
+# `refused_connections`). The mounted config claims environment: production
+# but points at staging upstream hosts — the result of a bad config change
+# that the app hot-reloaded. The pod stays Running and Ready; the only
+# evidence is the log timeline (prod upstreams healthy → change detected →
+# staging hosts loaded → every upstream connect refused) plus the mounted
+# ConfigMap content itself. The app reads the hosts it logs from
+# /config/app.yaml so the logs and the ConfigMap always agree.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-proxy-config
+  namespace: lightspeed-evaluation-test
+data:
+  app.yaml: |
+    # gateway-proxy upstream configuration
+    environment: production
+    db_host: db-staging.internal
+    db_port: 5432
+    cache_host: redis-staging.internal
+    cache_port: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-proxy
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-proxy
+  template:
+    metadata:
+      labels:
+        app: gateway-proxy
+    spec:
+      volumes:
+        - name: config
+          configMap:
+            name: gateway-proxy-config
+      containers:
+        - name: proxy
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          volumeMounts:
+            - name: config
+              mountPath: /config
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while read -r key value; do
+                case "$key" in
+                  db_host:) DB_HOST="$value" ;;
+                  db_port:) DB_PORT="$value" ;;
+                  cache_host:) CACHE_HOST="$value" ;;
+                  cache_port:) CACHE_PORT="$value" ;;
+                esac
+              done < /config/app.yaml
+              echo "$(date -u +%FT%TZ) INFO gateway-proxy starting (environment: production)"
+              echo "$(date -u +%FT%TZ) INFO loaded config /config/app.yaml: db_host=db-prod.internal:5432 cache_host=redis-prod.internal:6379"
+              echo "$(date -u +%FT%TZ) INFO upstream health: db-prod.internal:5432 OK, redis-prod.internal:6379 OK — proxying traffic"
+              sleep 20
+              echo "$(date -u +%FT%TZ) INFO config change detected in /config/app.yaml — hot-reloading"
+              echo "$(date -u +%FT%TZ) INFO loaded config /config/app.yaml: db_host=${DB_HOST}:${DB_PORT} cache_host=${CACHE_HOST}:${CACHE_PORT}"
+              while true; do
+                echo "$(date -u +%FT%TZ) ERROR connect to ${DB_HOST}:${DB_PORT} failed: ECONNREFUSED (host not reachable from the production VPC)"
+                echo "$(date -u +%FT%TZ) ERROR connect to ${CACHE_HOST}:${CACHE_PORT} failed: ECONNREFUSED (host not reachable from the production VPC)"
+                echo "$(date -u +%FT%TZ) ERROR all upstreams unavailable — returning 502 connection refused to clients"
+                sleep 5
+              done
+          readinessProbe:
+            exec:
+              command: ["/bin/true"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"

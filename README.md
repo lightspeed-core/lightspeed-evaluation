@@ -613,7 +613,16 @@ export API_KEY="your-api-endpoint-key"
 ```bash
 # Kubernetes cluster access
 export KUBECONFIG="/path/to/your/kubeconfig"
+
+# Provider for the integration-test scenario library (default: openai)
+export EVAL_PROVIDER="openai"        # or: anthropic | claude-vertex
+export OPENAI_API_KEY="sk-..."       # for EVAL_PROVIDER=openai
+export ANTHROPIC_API_KEY="sk-..."    # for EVAL_PROVIDER=anthropic
+export ANTHROPIC_VERTEX_PROJECT_ID="my-project"  # for EVAL_PROVIDER=claude-vertex
+# Optional: AGENT_MODEL, GCP_CREDENTIALS_FILE, CLOUD_ML_REGION, EVAL_DELETE_NAMESPACE=1
 ```
+
+See `docs/agentic_lightspeed_evaluation.md` (Scenario Library) for details.
 
 > **Note:** The Agentic Lightspeed operator must be installed on the cluster and the user must have RBAC permissions for Proposal CRD operations in the target namespace. `oc` or `kubectl` must be available in PATH.
 

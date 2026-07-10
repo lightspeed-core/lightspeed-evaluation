@@ -1,0 +1,43 @@
+# Deployed healthy first; the setup script then rolls out a broken image tag.
+# maxUnavailable: 0 keeps the old ReplicaSet serving while the new one is
+# stuck in ImagePullBackOff, and the 60s progress deadline marks the rollout
+# failed (ProgressDeadlineExceeded). The fix is rolling back / restoring a
+# working image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stuck-rollout-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 60
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: stuck-rollout-demo
+  template:
+    metadata:
+      labels:
+        app: stuck-rollout-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

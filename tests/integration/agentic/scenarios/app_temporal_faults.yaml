@@ -1,0 +1,258 @@
+# Category J: app-level & temporal faults.
+#
+# Ported from rhobs/troubleshooting-scenarios (agentic suite), adapted to
+# this library's provider-agnostic infrastructure and reimplemented on stock
+# images. Each port was validated against the existing categories for
+# duplication on three axes — fault mechanism, diagnostic signal, graded
+# behavior — and each scenario below differs from its nearest existing
+# neighbor on at least one (provenance noted per scenario). Two source
+# scenarios were deliberately NOT ported: sporadic_api_timeout (same
+# mechanism/signal/graded behavior as recurring_batch_failure, ported here
+# as proposal_maintenance_window) and unbalanced_replicas (no fault; its
+# sweep shape is covered by proposal_haystack and proposal_hygiene_score).
+# Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file.
+
+# Source: failing_api (Hard). Nearest neighbors: proposal_cascading_failure
+# (upstream fault, but manifest-level, status-visible, single-namespace) and
+# proposal_red_herring (decoy, but annotated as intentional). New axes:
+# cross-namespace root cause, app-level runtime fault invisible in workload
+# status, and a decoy that is a REAL unrelated fault rather than a marked one.
+- conversation_group_id: proposal_conn_pool_exhaustion
+  description: Cross-namespace connection-pool exhaustion — payments-api 503s, root cause is a leaking reporting-service in another namespace (analysis-only)
+  tag: proposal_conn_pool_exhaustion
+  setup_script: ../scripts/setup_conn_pool.sh
+  cleanup_script: ../scripts/cleanup_conn_pool.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Alert: PaymentErrorRateHigh (critical). The payments-api service
+          in namespace lightspeed-evaluation-test is returning HTTP 503 for
+          every request, yet its pod reports Running and Ready. The payments
+          team says their code has not changed. payments-api depends on the
+          shared database service shared-db in namespace
+          lightspeed-evaluation-shared, which other teams also deploy
+          services against. Analyze the root cause across both namespaces
+          and recommend a fix. Do not make any changes.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+          - lightspeed-evaluation-shared
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        Root cause: reporting-service in lightspeed-evaluation-shared —
+        rolled to release v1.0.2 (deployment revision 2) — opens DB
+        connections against shared-db without releasing them (its logs count
+        connections held with zero released), exhausting shared-db's 20-slot
+        pool. shared-db logs show the pool at 20/20 held by
+        reporting-service and "FATAL too many connections" rejections of
+        payments-api, which therefore returns HTTP 503 despite being Running
+        and Ready. Remediation: roll back reporting-service to v1.0.1 (or
+        restart/scale it down) to release the pool. The crash-looping
+        reconciliation-service is a separate, unrelated fault (missing
+        RECON_MODE env var) and is NOT the cause of the payment errors.
+      expected_analysis_outcome: >-
+        The agent should trace the failure across namespaces — from
+        payments-api's pool-exhaustion 503 logs to shared-db's
+        too-many-connections rejections to reporting-service's
+        held-not-released connection logs and its recent v1.0.2 rollout —
+        and recommend rolling back or restarting reporting-service. It must
+        not blame the crash-looping reconciliation-service for the payment
+        errors, and must not propose changes to payments-api itself, which
+        is healthy.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+# Source: recurring_batch_failure. No existing neighbor: no scenario in
+# categories A-I involves time-correlated evidence. New axes: temporal log
+# forensics (recurring failure window) and an "external, time-bounded, not
+# an app bug" graded conclusion. proposal_nothing_wrong is distinct — there
+# NO fault exists; here real errors exist but the app needs no fix.
+- conversation_group_id: proposal_maintenance_window
+  description: Recurring 03:00-03:05 UTC failures — upstream maintenance window, not an application bug (analysis-only)
+  tag: proposal_maintenance_window
+  setup_script: ../scripts/setup_maintenance_window.sh
+  cleanup_script: ../scripts/cleanup_maintenance_window.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The batch-processor deployment in namespace
+          lightspeed-evaluation-test processes historical records
+          continuously. The team noticed ERROR entries in its pod logs but
+          cannot see a pattern. Analyze the full log history, identify when
+          the errors occur and what causes them, and recommend what — if
+          anything — should be changed. Do not make any changes.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        Root cause: the batch-processor fails only during a recurring
+        03:00-03:05 UTC window each day — every "Batch submission failed"
+        error is a connection timeout to
+        https://pipeline-intake.corp.net/submit inside that five-minute
+        window, across multiple days, while all batches outside the window
+        complete successfully. This time-bounded recurring pattern is
+        consistent with a scheduled maintenance window on the upstream
+        intake service, not a bug in the batch-processor. Remediation is
+        operational, not a code/manifest fix: confirm the upstream
+        maintenance schedule and, if desired, pause or retry submissions
+        around the window; the workload itself needs no change.
+      expected_analysis_outcome: >-
+        The agent should read the full log history (not just recent lines),
+        correlate error timestamps to discover the recurring 03:00-03:05 UTC
+        window, note that processing is healthy outside it, and attribute
+        the failures to upstream unavailability (maintenance) rather than
+        proposing changes to the healthy workload.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+# Source: refused_connections. Nearest neighbors: proposal_wrong_fix_trap
+# and proposal_missing_env — both crashloops whose answer sits in a fatal
+# log line plus a Kubernetes status signal. New axes: the pod stays Running
+# and Ready (no status signal at all), and the root cause is semantic drift
+# in config CONTENT (staging hosts under environment: production) that must
+# be correlated with a hot-reload event in the log timeline.
+- conversation_group_id: proposal_config_drift
+  description: Config-content drift — hot-reload loaded staging upstream hosts into production, pod stays Running/Ready (analysis-only)
+  tag: proposal_config_drift
+  setup_script: ../scripts/setup_config_drift.sh
+  cleanup_script: ../scripts/cleanup_config_drift.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The gateway-proxy deployment in namespace
+          lightspeed-evaluation-test is returning connection errors to
+          clients since some point today, although its pod is Running and
+          Ready and no deployment rollout happened. Analyze what is causing
+          the refused connections and recommend a fix. Do not make any
+          changes.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        Root cause: a configuration change, not a workload fault. The log
+        timeline shows gateway-proxy healthy against db-prod.internal and
+        redis-prod.internal, then "config change detected in
+        /config/app.yaml — hot-reloading", after which it loaded
+        db-staging.internal and redis-staging.internal and every upstream
+        connect fails with ECONNREFUSED (staging hosts are not reachable
+        from production). The mounted ConfigMap gateway-proxy-config
+        confirms the drift: it declares environment: production but points
+        db_host/cache_host at staging. Remediation: revert the ConfigMap's
+        upstream hosts to the production endpoints (db-prod.internal,
+        redis-prod.internal); no pod restart, image, or probe change fixes
+        this.
+      expected_analysis_outcome: >-
+        The agent should notice the absence of any Kubernetes-level fault
+        signal, reconstruct the hot-reload timeline from the logs, inspect
+        the mounted ConfigMap, flag the production/staging contradiction in
+        its content, and recommend reverting the config values — not
+        restarting or patching the healthy workload.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+# Source: failed_job, upgraded from analysis-only to full lifecycle. New
+# axis: the batch/v1 Job workload — no other scenario exercises Job
+# semantics (backoffLimit exhaustion, terminal Failed pods, no self-healing,
+# immutable pod template forcing recreate-style remediation). Distinct from
+# proposal_svc_port, which shares only the symptom vocabulary (connection
+# refused): there the Service is broken and patched in place; here the
+# Service's healthy consumers prove the fault is on the Job side.
+- conversation_group_id: proposal_failed_job
+  description: Failed batch Job — pinned to a decommissioned database port, must fix and re-run the Job, full lifecycle
+  tag: proposal_failed_job
+  setup_script: ../scripts/setup_failed_job.sh
+  cleanup_script: ../scripts/cleanup_failed_job.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The Job inventory-sync-validator in namespace
+          lightspeed-evaluation-test has failed — it validates inventory
+          data against the shared database service prod-db before the
+          nightly sync. The database team confirms prod-db is healthy and
+          serves on port 8080; the legacy port 3333 was decommissioned some
+          time ago. Analyze why the Job failed, fix it, and verify the
+          validation completes successfully. Do not modify the prod-db
+          deployment or service — they are owned by the database team.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the Job's pods log "connect to prod-db:3333 failed:
+        errno 111 (connection refused)" on every attempt until the Job
+        exhausts its backoffLimit and reports a Failed condition — it is
+        pinned via DB_PORT=3333 to the decommissioned legacy port, which the
+        prod-db Service still advertises but nothing listens on; the
+        database itself is healthy on 8080. Remediation: point the Job at
+        port 8080 — and because a Job's pod template is immutable, delete
+        and recreate it (or create a corrected copy) rather than patching in
+        place, leaving prod-db untouched. Verification: the re-run Job
+        connects to prod-db:8080, logs successful validation, and reports a
+        Complete condition.
+      expected_analysis_outcome: >-
+        The agent should read the failed Job pods' connection-refused logs,
+        distinguish "database down" from "wrong port" (prod-db is Ready with
+        healthy endpoints and serves on 8080), identify the decommissioned
+        port 3333 still referenced by the Job's DB_PORT, and plan a fix on
+        the Job side only.
+      expected_execution_outcome: >-
+        The agent should recreate the Job (or run a corrected copy) with
+        DB_PORT=8080 — recognizing the immutable pod template — without
+        modifying the prod-db deployment or service.
+      expected_verification_outcome: >-
+        The agent should verify the corrected Job run reaches the Complete
+        condition with logs showing a successful connection to prod-db:8080
+        and completed validation, and honestly report failure if the Job
+        does not complete.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

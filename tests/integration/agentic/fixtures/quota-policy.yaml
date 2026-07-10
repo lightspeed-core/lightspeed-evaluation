@@ -1,0 +1,44 @@
+# A pod-count quota sized for yesterday's workload, plus a blocker app that
+# consumes all of it. Applied (and the blocker made Available) before
+# quota-victim.yaml so the victim deterministically fails pod creation.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: eval-pod-quota
+  namespace: lightspeed-evaluation-test
+spec:
+  hard:
+    pods: "2"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quota-blocker
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: quota-blocker
+  template:
+    metadata:
+      labels:
+        app: quota-blocker
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

@@ -1,0 +1,43 @@
+# nginx listens on 8080 but the liveness probe targets 8081 — every probe
+# is refused, the kubelet restarts the container, and the pod crash-loops.
+# Distinct from crashloop-probe-demo (wrong path, HTTP 404): this one is a
+# wrong port (connection refused).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probe-port-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probe-port-demo
+  template:
+    metadata:
+      labels:
+        app: probe-port-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            failureThreshold: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

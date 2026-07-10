@@ -1,0 +1,57 @@
+# The init container's pre-flight check targets a decommissioned database
+# host and always fails, so the main container never starts
+# (Init:CrashLoopBackOff).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: init-container-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: init-container-demo
+  template:
+    metadata:
+      labels:
+        app: init-container-demo
+    spec:
+      initContainers:
+        - name: preflight
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              echo "ERROR: preflight check failed: cannot reach migration
+              database at db-legacy.internal.invalid:5432" >&2;
+              exit 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

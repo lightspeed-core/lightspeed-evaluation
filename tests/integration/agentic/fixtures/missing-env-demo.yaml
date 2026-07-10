@@ -1,0 +1,42 @@
+# The app exits immediately when DATABASE_URL is unset, logging a clear
+# fatal message — the agent must read the logs and add the env var.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: missing-env-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: missing-env-demo
+  template:
+    metadata:
+      labels:
+        app: missing-env-demo
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              if [ -z "${DATABASE_URL:-}" ]; then
+              echo "FATAL: required environment variable DATABASE_URL is not set" >&2;
+              exit 1;
+              fi;
+              echo "app started, connected to ${DATABASE_URL}";
+              sleep infinity
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
