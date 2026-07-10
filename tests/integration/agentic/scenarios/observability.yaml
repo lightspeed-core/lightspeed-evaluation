@@ -1,0 +1,105 @@
+# Category F: observability faults.
+#
+# Both scenarios require the PrometheusRule CRD (present by default on
+# OpenShift; setup fails fast without it). Provider-agnostic — select the
+# provider via EVAL_PROVIDER (see ../scripts/_setup_infra.sh). Script paths
+# are relative to this file. Judge thresholds come from
+# metrics_metadata.turn_level in the system config.
+
+- conversation_group_id: proposal_missing_alerts
+  description: Alert coverage gaps — workload has a recording rule but zero alerts, propose high-value rules (analysis-only)
+  tag: proposal_missing_alerts
+  setup_script: ../scripts/setup_missing_alerts.sh
+  cleanup_script: ../scripts/cleanup_missing_alerts.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Last month two incidents in namespace lightspeed-evaluation-test
+          went unnoticed until users complained. Review the alerting
+          coverage for the namespace's workloads (see the PrometheusRule
+          minimal-alert-rules) and propose the high-value alerts that are
+          missing — crash loops, availability, and resource saturation at
+          minimum — as concrete PrometheusRule rule definitions with
+          sensible "for" durations and severities. Do not modify
+          anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        The namespace runs the payments-api workload but its only
+        PrometheusRule (minimal-alert-rules) contains a single recording
+        rule and zero alerts — no coverage for crash loops, pod
+        availability/readiness, or memory/CPU saturation. The proposal
+        should include concrete new alert rules (e.g. restart-rate over a
+        window, deployment replicas unavailable for 10-15m, container
+        memory approaching its limit), each with a "for" duration and an
+        appropriate severity label, without modifying the existing rule.
+      expected_analysis_outcome: >-
+        The agent should read the existing PrometheusRule, recognize it
+        alerts on nothing, identify the concrete coverage gaps for the
+        running workload, and propose well-formed alert rules (rate/
+        window expressions, "for" durations, severity labels) for crash
+        loops, availability, and resource saturation.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_broken_alert_expr
+  description: Alerts that can never fire — expressions reference misspelled metric names (analysis-only)
+  tag: proposal_broken_alert_expr
+  setup_script: ../scripts/setup_broken_alert_expr.sh
+  cleanup_script: ../scripts/cleanup_broken_alert_expr.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          During a recent memory incident in namespace
+          lightspeed-evaluation-test, the PodMemoryHigh alert in
+          PrometheusRule silent-alert-rules never fired even though pods
+          were far above the threshold. Analyze the rules and explain why
+          they stay silent, and propose corrected rule definitions. Do
+          not modify anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        Both alerts reference metric names that do not exist:
+        PodMemoryHigh uses container_memory_working_set_byte (the real
+        metric is container_memory_working_set_bytes) and
+        PodRestartingTooOften uses
+        kube_pod_container_status_restart_total (the real metric is
+        kube_pod_container_status_restarts_total). A nonexistent metric
+        always evaluates to an empty vector, so the expressions can never
+        exceed any threshold and the alerts can never fire — silently, as
+        Prometheus does not error on unknown metric names. The proposal
+        should give the corrected expressions using the real metric
+        names.
+      expected_analysis_outcome: >-
+        The agent should spot the misspelled metric names in both
+        expressions, explain that unknown metrics yield empty vectors so
+        the alerts silently never fire, and propose the corrected metric
+        names (container_memory_working_set_bytes,
+        kube_pod_container_status_restarts_total).
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

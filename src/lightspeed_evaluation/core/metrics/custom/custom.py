@@ -304,6 +304,17 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         except LLMError as e:
             return None, f"Intent evaluation failed: {str(e)}"
 
+    @staticmethod
+    def _strip_code_fence(response: str) -> str:
+        """Strip a surrounding markdown code fence (``` or ```json) if present."""
+        stripped = response.strip()
+        if not stripped.startswith("```"):
+            return stripped
+        lines = stripped.splitlines()
+        if lines and lines[-1].strip() == "```":
+            return "\n".join(lines[1:-1])
+        return "\n".join(lines[1:])
+
     def _parse_proposal_eval_response(
         self, response: str
     ) -> tuple[Optional[float], str]:
@@ -320,7 +331,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             }
         """
         try:
-            data = json.loads(response)
+            data = json.loads(self._strip_code_fence(response))
         except json.JSONDecodeError:
             return None, f"Invalid JSON from LLM: {response[:120]}"
 

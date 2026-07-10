@@ -1,0 +1,71 @@
+# ConfigMap sprawl: one map actively consumed by a running workload, three
+# orphans referenced by nothing. Analysis-only classification (platform
+# maps like kube-root-ca.crt are out of scope per the request).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-live
+  namespace: lightspeed-evaluation-test
+data:
+  LOG_LEVEL: info
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cm-user-app
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cm-user-app
+  template:
+    metadata:
+      labels:
+        app: cm-user-app
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: app-config-live
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+# Orphaned: referenced by no workload.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-old-v1
+  namespace: lightspeed-evaluation-test
+data:
+  LOG_LEVEL: debug
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-flags-2023
+  namespace: lightspeed-evaluation-test
+data:
+  ENABLE_BETA: "false"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: debug-settings
+  namespace: lightspeed-evaluation-test
+data:
+  TRACE: "true"

@@ -1,0 +1,42 @@
+# The deployment mounts a PersistentVolumeClaim that was never created —
+# the pod is unschedulable with "persistentvolumeclaim app-data not found".
+# The fix is creating the missing claim (1Gi, default StorageClass).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: missing-pvc-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: missing-pvc-demo
+  template:
+    metadata:
+      labels:
+        app: missing-pvc-demo
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: app-data
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

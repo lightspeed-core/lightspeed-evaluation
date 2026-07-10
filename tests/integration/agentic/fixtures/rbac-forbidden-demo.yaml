@@ -1,0 +1,59 @@
+# The app lists pods in its own namespace via the Kubernetes API, but its
+# ServiceAccount has no Role/RoleBinding — every call returns HTTP 403 and
+# the app logs it. The fix is a least-privilege Role (get/list pods) bound
+# to app-inspector-sa.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-inspector-sa
+  namespace: lightspeed-evaluation-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rbac-forbidden-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rbac-forbidden-demo
+  template:
+    metadata:
+      labels:
+        app: rbac-forbidden-demo
+    spec:
+      serviceAccountName: app-inspector-sa
+      containers:
+        - name: inspector
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              NS=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+              CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
+              while true; do
+                CODE=$(curl -s -o /dev/null -w '%{http_code}' --cacert "$CA" \
+                  -H "Authorization: Bearer $(cat $TOKEN_FILE)" \
+                  "https://kubernetes.default.svc/api/v1/namespaces/${NS}/pods")
+                if [ "$CODE" = "200" ]; then
+                  echo "pod list OK: HTTP $CODE"
+                else
+                  echo "ERROR: cannot list pods in ${NS}: HTTP $CODE"
+                fi
+                sleep 5
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"

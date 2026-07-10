@@ -1,0 +1,52 @@
+# The app writes a ~64Mi cache into an emptyDir capped at 10Mi, so the
+# kubelet evicts the pod ("Usage of EmptyDir volume ... exceeds the limit")
+# and the deployment recreates it in a loop. The fix is raising the
+# emptyDir sizeLimit to fit the cache.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ephemeral-eviction-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ephemeral-eviction-demo
+  template:
+    metadata:
+      labels:
+        app: ephemeral-eviction-demo
+    spec:
+      volumes:
+        - name: scratch
+          emptyDir:
+            sizeLimit: 10Mi
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              echo "warming local cache (64Mi)...";
+              dd if=/dev/zero of=/scratch/cache.dat bs=1M count=64;
+              echo "cache ready";
+              sleep infinity
+          volumeMounts:
+            - name: scratch
+              mountPath: /scratch
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              # Comfortably above the 64Mi write so dirty page cache
+              # (charged to the memory cgroup) cannot OOMKill the container
+              # before the kubelet's ephemeral-storage sweep evicts the pod.
+              memory: "256Mi"
+              cpu: "50m"

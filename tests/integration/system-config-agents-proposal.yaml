@@ -1,6 +1,14 @@
 logging:
   source_level: DEBUG
 
+# Judge LLM — Claude Opus via Vertex AI. Install with `uv sync --extra vertex`;
+# requires GOOGLE_APPLICATION_CREDENTIALS, VERTEXAI_PROJECT, VERTEXAI_LOCATION
+# in the environment. Swap provider/model to judge with a different backend
+# (e.g. provider: openai, model: gpt-4o-mini).
+llm:
+  provider: vertex
+  model: vertex_ai/claude-opus-4-6
+
 core:
   max_threads: 1
   fail_on_invalid_data: true
@@ -15,9 +23,24 @@ agents:
     type: proposal
     namespace: lightspeed-evaluation-test
     auto_approve: true
-    cleanup_proposals: false
-    timeout: 1200
+    cleanup_proposals: true
+    timeout: 2400
     poll_interval: 5
+
+# NOTE: once metrics_metadata is present, its turn_level keys become the
+# set of KNOWN turn metrics for data validation — every metric used by the
+# eval data files must be declared here.
+metrics_metadata:
+  turn_level:
+    "custom:proposal_status":
+      threshold: 1.0
+      description: "Deterministic proposal status assertions (binary pass/fail)"
+    "custom:proposal_evaluation_correctness":
+      threshold: 0.75
+      description: "LLM judge of agentic remediation workflow quality"
+    "script:action_eval":
+      threshold: 1.0
+      description: "Deterministic post-run cluster check via verify_script"
 
 storage:
   - type: file

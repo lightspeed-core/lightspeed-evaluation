@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: naked-pod-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: naked-pod-demo
+  template:
+    metadata:
+      labels:
+        app: naked-pod-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:latest
+          # The floating :latest tag is the fault under test; IfNotPresent
+          # avoids re-pulling it every restart (Docker Hub rate limits).
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080

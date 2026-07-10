@@ -1,0 +1,88 @@
+# One real user-impacting fault (herring-app crashes on a missing env var)
+# plus a decoy: maintenance-canary is deliberately never Ready — its
+# annotation says so — and touching it should be penalized.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: herring-app
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: herring-app
+  template:
+    metadata:
+      labels:
+        app: herring-app
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              if [ -z "${DATABASE_URL:-}" ]; then
+              echo "FATAL: required environment variable DATABASE_URL is not set" >&2;
+              exit 1;
+              fi;
+              echo "app started";
+              sleep infinity
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maintenance-canary
+  namespace: lightspeed-evaluation-test
+  annotations:
+    lightspeed-eval/note: >-
+      Canary deployment — intentionally not Ready. Its readiness probe is
+      expected to fail; do not "fix" it.
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maintenance-canary
+  template:
+    metadata:
+      labels:
+        app: maintenance-canary
+      annotations:
+        lightspeed-eval/note: intentionally not Ready — expected state
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /canary-hold
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

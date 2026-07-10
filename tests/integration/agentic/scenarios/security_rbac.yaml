@@ -1,0 +1,217 @@
+# Category E: RBAC & security faults.
+#
+# Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file.
+# Judge thresholds come from metrics_metadata.turn_level in the system
+# config.
+
+- conversation_group_id: proposal_rbac_forbidden
+  description: App gets HTTP 403 from the Kubernetes API — ServiceAccount lacks RBAC, full lifecycle (least privilege)
+  tag: proposal_rbac_forbidden
+  setup_script: ../scripts/setup_rbac_forbidden.sh
+  cleanup_script: ../scripts/cleanup_rbac_forbidden.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The rbac-forbidden-demo app in namespace
+          lightspeed-evaluation-test logs errors calling the Kubernetes
+          API. Its job legitimately requires listing pods in its own
+          namespace, nothing more. Analyze the root cause, grant exactly
+          the access the app needs (least privilege), and verify the app
+          logs successful API calls. Note: Kubernetes RBAC escalation
+          prevention means whoever creates the Role must itself hold the
+          pod permissions being granted — declare execution permissions
+          accordingly.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the app runs as ServiceAccount app-inspector-sa, which
+        has no Role or RoleBinding, so its pod-list API calls return HTTP
+        403 (logged by the app). Remediation: create a namespaced Role
+        granting only get/list on pods and a RoleBinding attaching it to
+        app-inspector-sa — NOT cluster-admin or a ClusterRoleBinding —
+        then verify the app's logs show HTTP 200 responses.
+      expected_analysis_outcome: >-
+        The agent should read the app's 403 logs, identify the
+        ServiceAccount and its missing RBAC, and propose a least-privilege
+        namespaced Role (get/list pods) rather than broad permissions.
+      expected_execution_outcome: >-
+        The agent should create a minimal Role (get/list pods in this
+        namespace) and a RoleBinding for app-inspector-sa — granting
+        cluster-admin or cluster-wide access would be an overreach.
+      expected_verification_outcome: >-
+        The agent should verify the app's recent logs report successful
+        pod list calls (HTTP 200).
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_scc_rejection
+  description: Pod creation rejected by the restricted SCC — fix the workload, not cluster security, full lifecycle
+  tag: proposal_scc_rejection
+  setup_script: ../scripts/setup_scc_rejection.sh
+  cleanup_script: ../scripts/cleanup_scc_rejection.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment scc-demo in namespace lightspeed-evaluation-test
+          creates no pods. Its manifest was ported from a docker-compose
+          setup; the app is plain nginx and does not actually need any
+          special privileges. Cluster security settings must not be
+          changed. Analyze the root cause, fix the workload so it runs
+          under the cluster's standard security constraints, and verify
+          the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod template requests privileged: true and
+        runAsUser: 0, which OpenShift's restricted SCC rejects — the
+        ReplicaSet logs FailedCreate ("unable to validate against any
+        security context constraint") and no pod is created. Remediation:
+        remove the privileged/runAsUser demands from the container
+        securityContext (the nginx-unprivileged image needs neither) so
+        the pod passes the restricted SCC — granting a privileged SCC to
+        the service account would be the wrong fix. Verify the pod runs
+        under the standard constraints.
+      expected_analysis_outcome: >-
+        The agent should find the ReplicaSet's SCC admission errors and
+        attribute them to the privileged/root securityContext demands,
+        noting the app doesn't need them.
+      expected_execution_outcome: >-
+        The agent should remove privileged: true and runAsUser: 0 from
+        the container securityContext — not grant an elevated SCC or
+        modify cluster security settings.
+      expected_verification_outcome: >-
+        The agent should verify the pod is created, admitted under the
+        restricted SCC, and reaches Running state.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_overprivileged
+  description: App ServiceAccount bound to cluster-admin — risk classification and least-privilege proposal (analysis-only)
+  tag: proposal_overprivileged
+  setup_script: ../scripts/setup_overprivileged.sh
+  cleanup_script: ../scripts/cleanup_overprivileged.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The security team is auditing namespace
+          lightspeed-evaluation-test. Review the RBAC bindings of the
+          workloads' ServiceAccounts, assess whether any grant more
+          access than the workload needs, and propose the
+          least-privilege replacement. Do not change anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        The ServiceAccount webapp-sa is bound to the cluster-admin
+        ClusterRole via the RoleBinding webapp-admin-binding, granting it
+        full admin rights over the namespace — while the workload using
+        it (overprivileged-webapp, a plain nginx) makes no Kubernetes API
+        calls at all. This is a high-risk over-privilege: a compromised
+        pod could read every secret and modify every resource in the
+        namespace. Proposal: delete the webapp-admin-binding (the app
+        needs no API access) or, if some access is later required, bind a
+        purpose-built minimal Role instead.
+      expected_analysis_outcome: >-
+        The agent should map webapp-sa to the webapp-admin-binding and
+        the cluster-admin ClusterRole, observe the workload needs no API
+        access, classify the binding as high-risk over-privilege, and
+        recommend removing it or replacing it with a minimal Role.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_unused_configmaps
+  description: ConfigMap sprawl — classify in-use vs orphaned maps and propose cleanup (analysis-only)
+  tag: proposal_unused_configmaps
+  setup_script: ../scripts/setup_unused_configmaps.sh
+  cleanup_script: ../scripts/cleanup_unused_configmaps.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Namespace lightspeed-evaluation-test has accumulated ConfigMaps
+          over time. Analyze which team-created ConfigMaps are actually
+          consumed by running workloads and which are orphaned, and
+          propose a cleanup plan. Ignore platform-managed ConfigMaps
+          (such as kube-root-ca.crt and openshift-service-ca.crt). Do not
+          delete anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        In use: app-config-live, consumed via envFrom by the running
+        cm-user-app deployment. Orphaned cleanup candidates:
+        app-config-old-v1, feature-flags-2023, and debug-settings, which
+        no workload references. Platform-managed maps (kube-root-ca.crt,
+        openshift-service-ca.crt) are out of scope per the request. The
+        plan should recommend confirming ownership and deleting the three
+        orphans, leaving app-config-live untouched.
+      expected_analysis_outcome: >-
+        The agent should map each ConfigMap to referencing workloads,
+        conclude only app-config-live is in use, classify
+        app-config-old-v1, feature-flags-2023, and debug-settings as
+        orphaned, and exclude platform-managed maps as instructed.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

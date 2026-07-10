@@ -1,0 +1,667 @@
+# Category A: workload crash & configuration faults.
+#
+# Deterministic single-fault scenarios on a vanilla OpenShift cluster.
+# Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file.
+
+- conversation_group_id: proposal_imagepull_tag
+  description: ImagePullBackOff — nonexistent image tag, full lifecycle
+  tag: proposal_imagepull_tag
+  setup_script: ../scripts/setup_imagepull_tag.sh
+  cleanup_script: ../scripts/cleanup_imagepull_tag.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment imagepull-tag-demo in namespace
+          lightspeed-evaluation-test has no running pods after a recent
+          change. The team says the app should run the standard
+          nginxinc/nginx-unprivileged image at version 1.27. Analyze the
+          root cause, fix the deployment, and verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod is in ImagePullBackOff because the image tag
+        docker.io/nginxinc/nginx-unprivileged:9.99-does-not-exist
+        does not exist in the registry (manifest unknown). Remediation:
+        correct the image reference to a valid tag (e.g.
+        nginx-unprivileged:1.27) and verify the pod pulls the image and
+        reaches Running state.
+      expected_analysis_outcome: >-
+        The agent should identify from pod events (ErrImagePull /
+        ImagePullBackOff, "manifest unknown" or "not found") that the
+        image tag 9.99-does-not-exist is invalid, not an authentication
+        or network problem.
+      expected_execution_outcome: >-
+        The agent should patch the deployment's container image to a
+        valid nginx-unprivileged tag such as 1.27.
+      expected_verification_outcome: >-
+        The agent should verify the new pod pulls its image successfully
+        and reaches Running state.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_imagepull_auth
+  description: ImagePullBackOff — private registry without pull secret, analysis-only diagnosis
+  tag: proposal_imagepull_auth
+  setup_script: ../scripts/setup_imagepull_auth.sh
+  cleanup_script: ../scripts/cleanup_imagepull_auth.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment imagepull-auth-demo in namespace
+          lightspeed-evaluation-test cannot start its pod. The image
+          quay.io/lightspeed-eval-private/internal-app:1.0 is published
+          in a private registry organization. Analyze why the pod is not
+          starting and explain what the team needs to do to fix it. Do
+          not make any changes.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        The pod is in ImagePullBackOff because pulling
+        quay.io/lightspeed-eval-private/internal-app:1.0 fails with an
+        authorization error ("unauthorized" / "access to the requested
+        resource is not authorized") — the image is private and neither
+        the pod nor its service account references an imagePullSecret
+        with registry credentials. The fix is to create a docker-registry
+        pull secret with valid quay.io credentials and reference it via
+        imagePullSecrets (on the pod spec or linked to the service
+        account).
+      expected_analysis_outcome: >-
+        The agent should distinguish an authorization failure from a
+        missing-tag failure using the pull error message, conclude that
+        registry credentials (an imagePullSecret) are missing, and
+        recommend creating and linking a pull secret rather than changing
+        the image reference.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_missing_configmap
+  description: CreateContainerConfigError — envFrom references a ConfigMap that was never created, full lifecycle
+  tag: proposal_missing_configmap
+  setup_script: ../scripts/setup_missing_configmap.sh
+  cleanup_script: ../scripts/cleanup_missing_configmap.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment missing-configmap-demo in namespace
+          lightspeed-evaluation-test is failing to start its container.
+          The app loads its settings from a ConfigMap named app-settings
+          that the team forgot to create; the only setting it needs is
+          LOG_LEVEL, which should default to "info". Analyze the root
+          cause, fix it, and verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod is in CreateContainerConfigError because the
+        container's envFrom references ConfigMap app-settings, which does
+        not exist in the namespace. Remediation: create the app-settings
+        ConfigMap (with LOG_LEVEL: info) so the container can start, and
+        verify the pod reaches Running state.
+      expected_analysis_outcome: >-
+        The agent should identify from pod status/events
+        (CreateContainerConfigError, "configmap app-settings not found")
+        that the referenced ConfigMap is missing.
+      expected_execution_outcome: >-
+        The agent should create the app-settings ConfigMap containing
+        LOG_LEVEL=info rather than removing the envFrom reference.
+      expected_verification_outcome: >-
+        The agent should verify the pod starts and reaches Running state
+        once the ConfigMap exists.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_missing_secret_key
+  description: CreateContainerConfigError — Secret exists but lacks the referenced key, full lifecycle
+  tag: proposal_missing_secret_key
+  setup_script: ../scripts/setup_missing_secret_key.sh
+  cleanup_script: ../scripts/cleanup_missing_secret_key.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment missing-secret-key-demo in namespace
+          lightspeed-evaluation-test cannot start its container. It reads
+          database credentials from the Secret db-creds. Analyze the root
+          cause and fix it — if a credential value is missing, use the
+          placeholder value "changeme" so the team can rotate it later.
+          Verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the container is in CreateContainerConfigError
+        because its DB_PASSWORD env var references key "password" in
+        Secret db-creds, but the secret only contains the "username" key.
+        Remediation: add the missing password key to the db-creds Secret
+        (placeholder value) and verify the pod reaches Running state.
+      expected_analysis_outcome: >-
+        The agent should identify from pod events ("couldn't find key
+        password in Secret") that the secret exists but is missing the
+        referenced key — not that the secret itself is absent.
+      expected_execution_outcome: >-
+        The agent should add the password key to the existing db-creds
+        Secret (with the placeholder value) rather than deleting the env
+        var reference.
+      expected_verification_outcome: >-
+        The agent should verify the container starts and the pod reaches
+        Running state after the key is added.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_bad_command
+  description: CrashLoopBackOff — command override points at a nonexistent binary, full lifecycle
+  tag: proposal_bad_command
+  setup_script: ../scripts/setup_bad_command.sh
+  cleanup_script: ../scripts/cleanup_bad_command.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment bad-command-demo in namespace
+          lightspeed-evaluation-test stopped working after someone edited
+          its manifest. The container is a stock nginx-unprivileged image
+          that worked fine with its default entrypoint. Analyze the root
+          cause, restore the deployment to a working state, and verify
+          the pod is stable.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the container has a command override
+        (/usr/bin/run-app) pointing at a binary that does not exist in
+        the image, so it fails with StartError ("executable file not
+        found") and crash-loops. Remediation: remove the bad command
+        override so the image's default entrypoint runs, and verify the
+        pod reaches Running state without restarts.
+      expected_analysis_outcome: >-
+        The agent should identify from container status ("StartError",
+        "executable file not found in $PATH: /usr/bin/run-app") that the
+        command override is broken, not the image or its configuration.
+      expected_execution_outcome: >-
+        The agent should remove (or correct) the container command
+        override so the image default entrypoint starts nginx.
+      expected_verification_outcome: >-
+        The agent should verify the pod runs stably with no further
+        restarts after the override is removed.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_missing_env
+  description: CrashLoopBackOff — app exits on missing required env var, log-driven diagnosis, full lifecycle
+  tag: proposal_missing_env
+  setup_script: ../scripts/setup_missing_env.sh
+  cleanup_script: ../scripts/cleanup_missing_env.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment missing-env-demo in namespace
+          lightspeed-evaluation-test is crash-looping. Check the
+          container logs to find out why it exits. If it needs
+          configuration that is missing, use the staging database URL
+          postgres://staging-db.example.internal:5432/app. Fix the issue
+          and verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the container logs show "FATAL: required environment
+        variable DATABASE_URL is not set" and the app exits with code 1,
+        producing CrashLoopBackOff. Remediation: add the DATABASE_URL env
+        var (staging database URL) to the container and verify the pod
+        reaches Running state.
+      expected_analysis_outcome: >-
+        The agent should read the container logs, find the fatal message
+        about DATABASE_URL, and conclude the crash is caused by missing
+        configuration rather than a code or image problem.
+      expected_execution_outcome: >-
+        The agent should add the DATABASE_URL environment variable with
+        the provided staging value to the deployment's container.
+      expected_verification_outcome: >-
+        The agent should verify the pod starts, logs indicate the app
+        started, and no further restarts occur.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_readiness_probe
+  description: Pod Running but never Ready — broken readiness probe leaves service without endpoints, full lifecycle
+  tag: proposal_readiness_probe
+  setup_script: ../scripts/setup_readiness_probe.sh
+  cleanup_script: ../scripts/cleanup_readiness_probe.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The service readiness-demo-svc in namespace
+          lightspeed-evaluation-test is not serving any traffic even
+          though its backing pod appears to be running. Analyze the root
+          cause, fix it, and verify the service has healthy endpoints.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod for readiness-probe-demo is Running but never
+        becomes Ready because its readiness probe checks
+        /nonexistent-ready, which returns 404 — so the service
+        readiness-demo-svc has no endpoints. The container is never
+        restarted (no liveness probe), which distinguishes this from a
+        crash loop. Remediation: fix the readiness probe path to a valid
+        endpoint (e.g. /) and verify the pod becomes Ready and the
+        service gains endpoints.
+      expected_analysis_outcome: >-
+        The agent should identify that the pod is Running but not Ready
+        due to failing readiness probes against /nonexistent-ready, and
+        that this is why the service has no endpoints — not a crash, not
+        a selector mismatch.
+      expected_execution_outcome: >-
+        The agent should correct the readiness probe path (e.g. to /) on
+        the deployment.
+      expected_verification_outcome: >-
+        The agent should verify the pod reports Ready and
+        readiness-demo-svc has at least one endpoint.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_init_container
+  description: Init:CrashLoopBackOff — obsolete failing init container blocks app start, full lifecycle
+  tag: proposal_init_container
+  setup_script: ../scripts/setup_init_container.sh
+  cleanup_script: ../scripts/cleanup_init_container.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment init-container-demo in namespace
+          lightspeed-evaluation-test never starts its application
+          container. Its init container runs a pre-flight check against a
+          migration database that has since been decommissioned — the
+          check is obsolete and safe to remove. Analyze the root cause,
+          fix the deployment, and verify the app is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod is stuck in Init:CrashLoopBackOff because the
+        "preflight" init container always fails ("cannot reach migration
+        database at db-legacy.internal.invalid:5432"), so the nginx
+        container never starts. Remediation: remove the obsolete init
+        container from the deployment and verify the pod reaches Running
+        state.
+      expected_analysis_outcome: >-
+        The agent should identify from pod status and init container logs
+        that the preflight init container is the blocker, targeting a
+        decommissioned database host.
+      expected_execution_outcome: >-
+        The agent should remove the obsolete preflight init container
+        (per the request) so the main container can start.
+      expected_verification_outcome: >-
+        The agent should verify the pod reaches Running state and the
+        nginx container is up.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_stuck_rollout
+  description: Stuck rollout — bad image over healthy deployment, ProgressDeadlineExceeded, rollback expected
+  tag: proposal_stuck_rollout
+  setup_script: ../scripts/setup_stuck_rollout.sh
+  cleanup_script: ../scripts/cleanup_stuck_rollout.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A recent release of stuck-rollout-demo in namespace
+          lightspeed-evaluation-test is not completing — the rollout has
+          been stuck for a while and the deployment reports it failed to
+          progress. The previous version was healthy. Analyze what went
+          wrong, restore the service to a good state, and verify the
+          rollout is complete and stable.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the new ReplicaSet's pod is in ImagePullBackOff
+        because the rolled-out image tag
+        nginx-unprivileged:9.99-broken does not exist, so the rollout hit
+        ProgressDeadlineExceeded while the old ReplicaSet keeps serving
+        (maxUnavailable: 0). Remediation: roll back to the previous
+        working revision (or restore a valid image tag) and verify the
+        rollout completes with the pod Running.
+      expected_analysis_outcome: >-
+        The agent should identify the failed rollout (Progressing=False,
+        ProgressDeadlineExceeded), attribute it to the new ReplicaSet's
+        ImagePullBackOff on the 9.99-broken tag, and note the old
+        ReplicaSet is still serving traffic.
+      expected_execution_outcome: >-
+        The agent should roll the deployment back to the previous working
+        image (rollout undo or setting the image back to a valid tag).
+      expected_verification_outcome: >-
+        The agent should verify the rollout completes, only the healthy
+        ReplicaSet remains active, and the pod is Running.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_scaled_to_zero
+  description: Outage — healthy deployment accidentally scaled to zero replicas, full lifecycle
+  tag: proposal_scaled_to_zero
+  setup_script: ../scripts/setup_scaled_to_zero.sh
+  cleanup_script: ../scripts/cleanup_scaled_to_zero.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Users report that the web application scaled-to-zero-demo in
+          namespace lightspeed-evaluation-test is completely down — no
+          traffic is being served. Investigate why, restore service, and
+          verify the application is serving again.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the deployment scaled-to-zero-demo has replicas set
+        to 0, so no pods exist — the workload itself is healthy and there
+        are no error events. Remediation: scale the deployment back up
+        (e.g. to 1 replica) and verify the pod reaches Running and Ready.
+      expected_analysis_outcome: >-
+        The agent should notice the deployment has 0 desired replicas and
+        no pods, conclude it was scaled down (not crashed), and not
+        invent a different fault.
+      expected_execution_outcome: >-
+        The agent should scale the deployment to at least 1 replica
+        without other changes.
+      expected_verification_outcome: >-
+        The agent should verify a pod is Running and Ready after scaling
+        up.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_probe_port
+  description: CrashLoopBackOff — liveness probe targets the wrong port (connection refused), full lifecycle
+  tag: proposal_probe_port
+  setup_script: ../scripts/setup_probe_port.sh
+  cleanup_script: ../scripts/cleanup_probe_port.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          A pod for deployment probe-port-demo in namespace
+          lightspeed-evaluation-test keeps restarting even though the
+          application inside starts fine. Analyze the root cause, fix the
+          issue, and verify the pod is stable.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the liveness probe targets port 8081 but nginx
+        listens on 8080, so every probe is refused ("connection refused")
+        and the kubelet kills and restarts the container. Remediation:
+        point the liveness probe at port 8080 and verify the pod runs
+        without further restarts.
+      expected_analysis_outcome: >-
+        The agent should identify the port mismatch between the liveness
+        probe (8081) and the container's actual listening port (8080),
+        noting the probe failures are connection refused rather than HTTP
+        errors.
+      expected_execution_outcome: >-
+        The agent should fix the liveness probe to target port 8080
+        (keeping the probe rather than deleting it, since the request is
+        about stability).
+      expected_verification_outcome: >-
+        The agent should verify the pod stays Running with no restart
+        growth after the fix.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_ephemeral_eviction
+  description: Repeated pod eviction — emptyDir usage exceeds sizeLimit, full lifecycle
+  tag: proposal_ephemeral_eviction
+  setup_script: ../scripts/setup_ephemeral_eviction.sh
+  cleanup_script: ../scripts/cleanup_ephemeral_eviction.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Pods for deployment ephemeral-eviction-demo in namespace
+          lightspeed-evaluation-test keep getting killed and recreated.
+          The app legitimately needs to build a local cache of roughly
+          64Mi at startup. Analyze the root cause, fix the configuration
+          so the cache fits, and verify the pod stays running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod writes a ~64Mi cache into an emptyDir volume
+        capped at sizeLimit 10Mi, so the kubelet evicts the pod ("Usage
+        of EmptyDir volume ... exceeds the limit") and the deployment
+        recreates it in a loop. Remediation: raise the emptyDir sizeLimit
+        (e.g. to 128Mi) so the cache fits, and verify the pod stays
+        Running without further evictions.
+      expected_analysis_outcome: >-
+        The agent should find the eviction events citing emptyDir usage
+        over the 10Mi sizeLimit and connect them to the app's ~64Mi cache
+        — distinguishing eviction from OOMKill or crash.
+      expected_execution_outcome: >-
+        The agent should increase the scratch emptyDir sizeLimit to
+        comfortably fit the 64Mi cache (per the request, the cache size
+        is legitimate).
+      expected_verification_outcome: >-
+        The agent should verify the pod finishes warming its cache and
+        stays Running without eviction.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

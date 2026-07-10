@@ -1,0 +1,48 @@
+# The deployment sets no resource requests, so the HPA's CPU utilization
+# target can never be computed — targets show <unknown> and ScalingActive
+# is False with FailedGetResourceMetric ("missing request for cpu").
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hpa-underspecified-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hpa-underspecified-demo
+  template:
+    metadata:
+      labels:
+        app: hpa-underspecified-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-underspecified-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hpa-underspecified-demo
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50

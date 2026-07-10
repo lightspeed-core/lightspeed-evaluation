@@ -16,8 +16,8 @@
 
 set -euo pipefail
 
-export OPERATOR_NS="openshift-lightspeed"
-export TEST_NS="lightspeed-evaluation-test"
+export OPERATOR_NS="${OPERATOR_NS:-openshift-lightspeed}"
+export TEST_NS="${TEST_NS:-lightspeed-evaluation-test}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GCP_CREDENTIALS_FILE="${GCP_CREDENTIALS_FILE:-$HOME/.config/gcloud/application_default_credentials.json}"
 CLOUD_ML_REGION="${CLOUD_ML_REGION:-global}"
@@ -70,9 +70,9 @@ spec:
     name: eval-vertex-ai
   model: $AGENT_MODEL
   timeouts:
-    analysisSeconds: 300
+    analysisSeconds: 600
     executionSeconds: 600
-    verificationSeconds: 300
+    verificationSeconds: 600
   maxTurns: 200
 EOF
 

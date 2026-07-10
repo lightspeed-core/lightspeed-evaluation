@@ -1,0 +1,54 @@
+# A production-style workload whose PrometheusRule contains only a
+# recording rule — zero alerting coverage for restarts, availability, or
+# resource saturation. Analysis-only: propose the missing high-value
+# alerts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-api
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-api
+  template:
+    metadata:
+      labels:
+        app: payments-api
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: minimal-alert-rules
+  namespace: lightspeed-evaluation-test
+spec:
+  groups:
+    - name: lightspeed-eval-minimal.rules
+      rules:
+        - record: namespace:container_cpu_usage:sum
+          expr: sum(rate(container_cpu_usage_seconds_total{namespace="lightspeed-evaluation-test"}[5m]))

@@ -1,0 +1,59 @@
+# A default-deny egress NetworkPolicy was applied to the app without a DNS
+# exception, so the pod cannot resolve any hostname and logs the failures
+# continuously. The fix is adding a DNS egress rule (cluster DNS on port
+# 5353/53), NOT removing the default-deny posture.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netpol-dns-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netpol-dns-demo
+  template:
+    metadata:
+      labels:
+        app: netpol-dns-demo
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              while true; do
+              if getent hosts kubernetes.default.svc.cluster.local >/dev/null 2>&1; then
+              echo "DNS resolution OK";
+              else
+              echo "ERROR: DNS resolution failed for kubernetes.default.svc.cluster.local";
+              fi;
+              sleep 5;
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: lightspeed-evaluation-test
+spec:
+  podSelector:
+    matchLabels:
+      app: netpol-dns-demo
+  policyTypes:
+    - Egress
+  egress: []

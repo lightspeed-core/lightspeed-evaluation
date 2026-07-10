@@ -1,0 +1,53 @@
+# The service's selector (app: svc-selector-app) doesn't match the pods'
+# label (app: svc-selector-demo), so the service has zero endpoints even
+# though the workload is healthy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-selector-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: svc-selector-demo
+  template:
+    metadata:
+      labels:
+        app: svc-selector-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-selector-svc
+  namespace: lightspeed-evaluation-test
+spec:
+  selector:
+    app: svc-selector-app
+  ports:
+    - port: 8080
+      targetPort: 8080
