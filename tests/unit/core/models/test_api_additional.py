@@ -78,7 +78,6 @@ class TestAPIRequest:
             query="Test query",
             provider="openai",
             model="gpt-4",
-            no_tools=True,
             conversation_id="conv123",
             system_prompt="Custom prompt",
         )
@@ -86,7 +85,6 @@ class TestAPIRequest:
         assert request.query == "Test query"
         assert request.provider == "openai"
         assert request.model == "gpt-4"
-        assert request.no_tools is True
         assert request.conversation_id == "conv123"
         assert request.system_prompt == "Custom prompt"
 

@@ -236,7 +236,6 @@ class APIClient:
             query=query,
             provider=self.config.provider,
             model=self.config.model,
-            no_tools=self.config.no_tools,
             conversation_id=conversation_id,
             system_prompt=self.config.system_prompt,
             attachments=attachments,
@@ -725,7 +724,6 @@ class APIClient:
             "query",
             "provider",
             "model",
-            "no_tools",
             "system_prompt",
             "attachments",
         ]

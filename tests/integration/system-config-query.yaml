@@ -40,7 +40,6 @@ api:
   # API input configuration
   provider: "openai"                   # LLM provider for queries
   model: "gpt-4o-mini"                 # Model to use for queries
-  no_tools: null                       # Whether to bypass tools and MCP servers (optional)
   system_prompt: null                  # System prompt (default None)
 
   cache_dir: ".caches/api_cache"  # Directory with lightspeed-stack cache

@@ -37,7 +37,6 @@ class APIRequest(BaseModel):
     query: str = Field(..., min_length=1, description="User query")
     provider: Optional[str] = Field(default=None, description="LLM provider")
     model: Optional[str] = Field(default=None, description="LLM model")
-    no_tools: Optional[bool] = Field(default=None, description="Disable tool usage")
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation ID for context"
     )
@@ -61,7 +60,6 @@ class APIRequest(BaseModel):
         # Extract parameters with defaults
         provider = kwargs.get("provider")
         model = kwargs.get("model")
-        no_tools = kwargs.get("no_tools")
         conversation_id = kwargs.get("conversation_id")
         system_prompt = kwargs.get("system_prompt")
         attachments = kwargs.get("attachments")
@@ -76,7 +74,6 @@ class APIRequest(BaseModel):
             query=query,
             provider=provider,
             model=model,
-            no_tools=no_tools,
             conversation_id=conversation_id,
             system_prompt=system_prompt,
             attachments=attachment_data,
