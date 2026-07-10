@@ -252,21 +252,22 @@ class SystemConfig(BaseModel):
         agent_fields["type"] = "http_api"
         data["agents"] = {
             "enabled": api_enabled,
-            "default": {"agent": "http_api" if api_enabled else None},
+            "default": {"agent": ["http_api"] if api_enabled else None},
             "http_api": agent_fields,
         }
         return data
 
     @model_validator(mode="after")
     def validate_agents_config(self) -> "SystemConfig":
-        """Validate that default.agent references a defined agent."""
-        if self.agents is not None:
-            default_agent = self.agents.default.agent
-            if default_agent is not None and default_agent not in self.agents.agents:
-                raise ConfigurationError(
-                    f"Default agent '{default_agent}' not found in agents "
-                    f"definitions. Available: {list(self.agents.agents.keys())}"
-                )
+        """Validate that all agents in default.agent list are defined."""
+        if self.agents is not None and self.agents.default.agent is not None:
+            available = list(self.agents.agents.keys())
+            for agent_name in self.agents.default.agent:
+                if agent_name not in self.agents.agents:
+                    raise ConfigurationError(
+                        f"Default agent '{agent_name}' not found in agents "
+                        f"definitions. Available: {available}"
+                    )
         return self
 
     @field_validator(

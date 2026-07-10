@@ -101,23 +101,48 @@ class TestAgentDefaultConfig:
         assert config.agent_config is None
 
     def test_with_agent_config(self) -> None:
-        """Test setting agent and agent_config."""
+        """Test setting agent list and agent_config."""
         config = AgentDefaultConfig(
-            agent="my_agent",
+            agent=["my_agent"],
             agent_config={"timeout": 600, "num_retries": 5},
         )
-        assert config.agent == "my_agent"
+        assert config.agent == ["my_agent"]
         assert config.agent_config == {"timeout": 600, "num_retries": 5}
 
-    def test_empty_agent_name_rejected(self) -> None:
+    def test_multi_agent_list(self) -> None:
+        """Test setting multiple agents in list."""
+        config = AgentDefaultConfig(agent=["agent_a", "agent_b"])
+        assert config.agent == ["agent_a", "agent_b"]
+
+    def test_string_agent_normalized_to_list(self) -> None:
+        """Test string agent is auto-converted to single-element list."""
+        config = AgentDefaultConfig.model_validate({"agent": "ols_api"})
+        assert config.agent == ["ols_api"]
+
+    def test_empty_agent_list_rejected(self) -> None:
+        """Test empty agent list is rejected."""
+        with pytest.raises(ValidationError):
+            AgentDefaultConfig(agent=[])
+
+    def test_empty_string_agent_rejected(self) -> None:
         """Test empty string agent name is rejected."""
         with pytest.raises(ValidationError):
-            AgentDefaultConfig(agent="")
+            AgentDefaultConfig.model_validate({"agent": ""})
 
-    def test_whitespace_agent_name_rejected(self) -> None:
+    def test_whitespace_agent_rejected(self) -> None:
         """Test whitespace-only agent name is rejected."""
         with pytest.raises(ValidationError):
-            AgentDefaultConfig(agent="   ")
+            AgentDefaultConfig.model_validate({"agent": "   "})
+
+    def test_padded_agent_name_stripped(self) -> None:
+        """Test whitespace-padded agent name is stripped."""
+        config = AgentDefaultConfig.model_validate({"agent": " ols_api "})
+        assert config.agent == ["ols_api"]
+
+    def test_list_with_empty_string_rejected(self) -> None:
+        """Test list containing empty string is rejected."""
+        with pytest.raises(ValidationError):
+            AgentDefaultConfig(agent=["ols_api", ""])
 
 
 class TestAgentsConfig:
@@ -127,14 +152,14 @@ class TestAgentsConfig:
         """Test YAML-style flat namespace is parsed correctly."""
         config = AgentsConfig.model_validate(
             {
-                "default": {"agent": "ols_api"},
+                "default": {"agent": ["ols_api"]},
                 "ols_api": {
                     "type": "http_api",
                     "api_base": "http://localhost:8080",
                 },
             }
         )
-        assert config.default.agent == "ols_api"
+        assert config.default.agent == ["ols_api"]
         assert "ols_api" in config.agents
         assert config.agents["ols_api"].type == "http_api"
         assert config.agents["ols_api"].api_base == "http://localhost:8080"
@@ -143,7 +168,7 @@ class TestAgentsConfig:
         """Test parsing multiple named agents."""
         config = AgentsConfig.model_validate(
             {
-                "default": {"agent": "primary"},
+                "default": {"agent": ["primary"]},
                 "primary": {
                     "type": "http_api",
                     "api_base": "http://primary:8080",
@@ -177,7 +202,7 @@ class TestAgentsConfig:
         with pytest.raises(ValidationError):
             AgentsConfig.model_validate(
                 {
-                    "default": {"agent": "ols_api"},
+                    "default": {"agent": ["ols_api"]},
                     "ols_api": {"type": "http_api"},
                     "not_a_dict": "invalid_value",
                 }
@@ -186,7 +211,7 @@ class TestAgentsConfig:
     def test_input_dict_not_mutated(self) -> None:
         """Test that the input dict is not mutated by the model validator."""
         input_data = {
-            "default": {"agent": "ols_api"},
+            "default": {"agent": ["ols_api"]},
             "ols_api": {"type": "http_api"},
         }
         original_keys = set(input_data.keys())
@@ -202,7 +227,7 @@ class TestAgentsConfigResolve:
         """Create a basic AgentsConfig for testing."""
         return AgentsConfig.model_validate(
             {
-                "default": {"agent": "ols_api"},
+                "default": {"agent": ["ols_api"]},
                 "ols_api": {"type": "http_api", "api_base": "http://localhost:8080"},
             }
         )
@@ -219,7 +244,7 @@ class TestAgentsConfigResolve:
         """Test resolving with explicit agent name."""
         config = AgentsConfig.model_validate(
             {
-                "default": {"agent": "primary"},
+                "default": {"agent": ["primary"]},
                 "primary": {"type": "http_api"},
                 "secondary": {
                     "type": "http_api",
@@ -262,7 +287,7 @@ class TestAgentsConfigResolve:
         config = AgentsConfig.model_validate(
             {
                 "default": {
-                    "agent": "ols_api",
+                    "agent": ["ols_api"],
                     "agent_config": {"timeout": 900, "num_retries": 5},
                 },
                 "ols_api": {"type": "http_api"},
@@ -277,7 +302,7 @@ class TestAgentsConfigResolve:
         config = AgentsConfig.model_validate(
             {
                 "default": {
-                    "agent": "ols_api",
+                    "agent": ["ols_api"],
                     "agent_config": {"timeout": 900, "provider": "aws"},
                 },
                 "ols_api": {"type": "http_api"},
@@ -294,7 +319,7 @@ class TestAgentsConfigResolve:
         config = AgentsConfig.model_validate(
             {
                 "default": {
-                    "agent": "ols_api",
+                    "agent": ["ols_api"],
                     "agent_config": {
                         "timeout": 900,
                         "provider": "aws",

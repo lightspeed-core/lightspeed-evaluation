@@ -992,7 +992,7 @@ class TestAgentsMigration:
         config = SystemConfig(api=APIConfig(enabled=True))
         assert config.agents is not None
         assert config.agents.enabled is True
-        assert config.agents.default.agent == "http_api"
+        assert config.agents.default.agent == ["http_api"]
 
     def test_api_enabled_false_sets_no_default_agent(self) -> None:
         """When api.enabled=False, agents.enabled=False and default.agent is None."""
@@ -1005,7 +1005,7 @@ class TestAgentsMigration:
         """When agents: is explicitly provided, no migration happens."""
         agents = AgentsConfig.model_validate(
             {
-                "default": {"agent": "custom"},
+                "default": {"agent": ["custom"]},
                 "custom": {"type": "http_api", "api_base": "http://custom:9090"},
             }
         )
@@ -1039,7 +1039,7 @@ class TestAgentsMigration:
         """Programmatic construction with explicit api= kwarg triggers migration."""
         config = SystemConfig(api=APIConfig(enabled=True))
         assert config.agents is not None
-        assert config.agents.default.agent == "http_api"
+        assert config.agents.default.agent == ["http_api"]
         assert "http_api" in config.agents.agents
 
     def test_invalid_default_agent_reference_raises(self) -> None:
@@ -1047,7 +1047,7 @@ class TestAgentsMigration:
         with pytest.raises(ConfigurationError, match="not found"):
             SystemConfig(
                 agents=AgentsConfig(
-                    default=AgentDefaultConfig(agent="nonexistent"),
+                    default=AgentDefaultConfig(agent=["nonexistent"]),
                     agents={"ols_api": HttpApiAgentConfig()},
                 )
             )
