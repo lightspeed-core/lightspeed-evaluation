@@ -158,7 +158,11 @@ class TestLatestTerminalResult:
             },
             proposal_results={
                 "analysis": [
-                    {"options": [{"proposal": {"risk": "Low"}, "diagnosis": {}}]},
+                    {
+                        "options": [
+                            {"remediationPlan": {"risk": "Low"}, "diagnosis": {}}
+                        ]
+                    },
                     {"conditions": [{"type": "Started", "reason": "StepStarted"}]},
                 ],
             },

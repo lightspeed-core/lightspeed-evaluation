@@ -50,7 +50,7 @@ def check_crd_installed() -> bool:
     """Check if the Proposal CRD is installed on the cluster."""
     try:
         result = subprocess.run(
-            ["oc", "get", "crd", "proposals.agentic.openshift.io"],
+            ["oc", "get", "crd", "agenticruns.agentic.openshift.io"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -88,7 +88,7 @@ class TestProposalPrerequisites:
         """Verify that Proposal CRD is installed on the cluster."""
         assert (
             check_crd_installed()
-        ), "proposals.agentic.openshift.io CRD must be installed"
+        ), "agenticruns.agentic.openshift.io CRD must be installed"
 
     def test_env_vars_configured(self) -> None:
         """Verify that required environment variables are set."""
@@ -265,7 +265,7 @@ class TestProposalDriverEvaluation:
             [
                 "oc",
                 "get",
-                "proposals",
+                "agenticruns",
                 "-n",
                 "lightspeed-evaluation-test",
                 "-o",
@@ -277,7 +277,7 @@ class TestProposalDriverEvaluation:
             check=False,
         )
         assert result.returncode == 0, (
-            "Failed to list proposals during timeout cleanup validation: "
+            "Failed to list agenticruns during timeout cleanup validation: "
             f"{result.stderr.strip()}"
         )
         lines = [

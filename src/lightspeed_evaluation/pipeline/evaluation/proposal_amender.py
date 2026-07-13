@@ -132,7 +132,7 @@ def _build_analysis_section(analysis_results: list[dict[str, Any]]) -> str:
             title = option.get("title", "Untitled")
             lines.append(f"\n### Option {idx} {label}: {title}".rstrip())
             _append_diagnosis(lines, option.get("diagnosis", {}))
-            _append_proposal(lines, option.get("proposal", {}))
+            _append_proposal(lines, option.get("remediationPlan", {}))
 
     return "\n".join(lines)
 

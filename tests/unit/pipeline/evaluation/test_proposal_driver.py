@@ -262,7 +262,7 @@ class TestBuildCR:
         cr = driver._build_proposal_cr(turn, "eval-abc123")
 
         assert cr["apiVersion"] == "agentic.openshift.io/v1alpha1"
-        assert cr["kind"] == "Proposal"
+        assert cr["kind"] == "AgenticRun"
         assert cr["metadata"]["name"] == "eval-abc123"
         assert cr["metadata"]["namespace"] == "openshift-lightspeed"
         assert cr["spec"]["request"] == "Pod is crash looping"
@@ -304,7 +304,7 @@ class TestBuildCR:
         driver = self._make_driver(mocker)
         cr = driver._build_approval_cr("eval-abc", SPEC_ANALYSIS_ONLY)
 
-        assert cr["kind"] == "ProposalApproval"
+        assert cr["kind"] == "AgenticRunApproval"
         assert len(cr["spec"]["stages"]) == 1
         assert cr["spec"]["stages"][0]["type"] == "Analysis"
         assert cr["spec"]["stages"][0]["decision"] == "Approved"
@@ -503,7 +503,7 @@ class TestExecuteTurn:
         turn = TurnData(turn_id="t1", query="Q")
         error, conv_id = driver.execute_turn(turn)
 
-        assert error == "Failed to apply Proposal CR: connection refused"
+        assert error == "Failed to apply AgenticRun CR: connection refused"
         assert conv_id is None
 
     def test_timeout(self, mocker: MockerFixture, driver: ProposalDriver) -> None:

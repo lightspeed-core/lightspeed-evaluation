@@ -221,7 +221,7 @@ def _check_analysis_option(
     """Check assertions on a single analysis option by index."""
     risk_in = expected_opt.get("risk_in")
     if risk_in is not None:
-        actual_risk = actual_opt.get("proposal", {}).get("risk", "")
+        actual_risk = actual_opt.get("remediationPlan", {}).get("risk", "")
         if actual_risk.lower() not in [r.lower() for r in risk_in]:
             return False, f"Option[{idx}] risk '{actual_risk}' not in {risk_in}"
 
