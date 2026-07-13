@@ -129,6 +129,13 @@ def check_metric_required_data(
     if metric_identifier not in METRIC_REQUIREMENTS:
         return True, ""
 
+    # Negative assertion mode: no required fields needed
+    if metric_identifier == "custom:tool_eval":
+        turn_metadata = turn_data.turn_metrics_metadata or {}
+        tool_eval_meta = turn_metadata.get("custom:tool_eval", {})
+        if tool_eval_meta.get("expect_no_tools", False):
+            return True, ""
+
     requirements = METRIC_REQUIREMENTS[metric_identifier]
     required_fields = requirements["required_fields"]
     description = requirements["description"]
@@ -506,6 +513,13 @@ class DataValidator:  # pylint: disable=too-few-public-methods
                 # Skip script metric validation if API is disabled
                 if metric.startswith("script:") and not self.api_enabled:
                     continue
+
+                # Skip expected_tool_calls validation for negative assertion mode
+                if metric == "custom:tool_eval":
+                    turn_metadata = turn_data.turn_metrics_metadata or {}
+                    tool_eval_meta = turn_metadata.get("custom:tool_eval", {})
+                    if tool_eval_meta.get("expect_no_tools", False):
+                        continue
 
                 requirements = METRIC_REQUIREMENTS[metric]
                 required_fields = requirements["required_fields"]

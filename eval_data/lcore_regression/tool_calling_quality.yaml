@@ -1,0 +1,233 @@
+# Tool Calling Quality Regression Benchmarks — LCORE
+#
+# These scenarios validate tool calling quality against the Paul Graham
+# "How to Do Great Work" essay vector store (the FAISS BYOK store used
+# in lightspeed-stack e2e tests).
+#
+# When api.enabled is true, the evaluation framework auto-populates:
+#   - response   (the LLM's answer from the stack)
+#   - contexts   (the RAG chunks the stack retrieved)
+#   - tool_calls (any tools the LLM invoked)
+#
+# We provide:
+#   - query                → sent to the stack
+#   - expected_tool_calls  → used by custom:tool_eval (tool name + argument matching)
+#   - expected_response    → used by custom:answer_correctness (where applicable)
+#   - expected_keywords    → used by custom:keywords_eval (where applicable)
+#   - turn_metrics         → which metrics to run on each turn
+#
+# Metric: custom:tool_eval
+#   - Compares expected vs actual tool calls (tool name, arguments via regex)
+#   - Supports expect_no_tools mode for negative assertions
+#   - Arguments use regex patterns since exact LLM-generated queries are unpredictable
+#
+# NOTE: The file_search tool argument structure (e.g. {queries: [...]} vs
+# {query: "..."}) should be validated against actual stack output when
+# establishing the baseline. Initial scenarios match on tool_name only;
+# refine argument patterns after the first baseline run.
+
+# ---------------------------------------------------------------------------
+# 1. TOOL SELECTION — Does the LLM call the right tool?
+# ---------------------------------------------------------------------------
+
+- conversation_group_id: tool_selection_essay_title
+  description: >
+    Query directly asks about the essay. The LLM should use file_search
+    to retrieve context from the vector store before answering.
+  tag: tool_selection
+  turns:
+    - turn_id: essay_title
+      query: What is the title of the Paul Graham essay in the knowledge base?
+      expected_tool_calls:
+        - - - tool_name: file_search
+              arguments: {}
+      expected_response: >
+        The essay is titled "How to Do Great Work" by Paul Graham.
+      expected_keywords:
+        - - great work
+      turn_metrics:
+        - custom:tool_eval
+        - custom:answer_correctness
+        - custom:keywords_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          full_match: false
+
+- conversation_group_id: tool_selection_curiosity
+  description: >
+    Query asks about a specific topic from the essay. The LLM should
+    invoke file_search to ground its answer in the vector store.
+  tag: tool_selection
+  turns:
+    - turn_id: curiosity_topic
+      query: What does the essay say about curiosity and its role in great work?
+      expected_tool_calls:
+        - - - tool_name: file_search
+              arguments: {}
+      turn_metrics:
+        - custom:tool_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          full_match: false
+
+- conversation_group_id: tool_selection_four_steps
+  description: >
+    Query asks about a specific framework from the essay (four steps).
+    Tests that the LLM reaches for the RAG tool rather than relying
+    on parametric knowledge alone.
+  tag: tool_selection
+  turns:
+    - turn_id: four_steps
+      query: >
+        According to Paul Graham, what are the four steps to doing great work?
+      expected_tool_calls:
+        - - - tool_name: file_search
+              arguments: {}
+      expected_response: >
+        The four steps are: choose a field, get to the frontier of knowledge
+        in that field, notice gaps or opportunities that others have missed,
+        and explore the most promising ones.
+      expected_keywords:
+        - - field
+          - frontier
+        - - choose
+          - gaps
+      turn_metrics:
+        - custom:tool_eval
+        - custom:answer_correctness
+        - custom:keywords_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          full_match: false
+
+- conversation_group_id: tool_selection_practical_advice
+  description: >
+    Broad query asking for practical advice from the essay. Tests tool
+    selection on a query that synthesizes across multiple essay sections.
+  tag: tool_selection
+  turns:
+    - turn_id: practical_advice
+      query: >
+        What practical advice does Paul Graham give for someone who wants
+        to do great work?
+      expected_tool_calls:
+        - - - tool_name: file_search
+              arguments: {}
+      turn_metrics:
+        - custom:tool_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          full_match: false
+
+# ---------------------------------------------------------------------------
+# 2. NO TOOL EXPECTED — Does the LLM avoid calling tools unnecessarily?
+# ---------------------------------------------------------------------------
+
+- conversation_group_id: no_tool_greeting
+  description: >
+    Simple greeting. No knowledge base lookup should be needed.
+    Tests that the LLM does not invoke file_search for casual conversation.
+  tag: no_tool_expected
+  turns:
+    - turn_id: greeting
+      query: Hello, how are you today?
+      turn_metrics:
+        - custom:tool_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          expect_no_tools: true
+
+- conversation_group_id: no_tool_general_knowledge
+  description: >
+    General knowledge question unrelated to the essay content.
+    The LLM should answer from parametric knowledge without tool calls.
+  tag: no_tool_expected
+  turns:
+    - turn_id: capital_france
+      query: What is the capital of France?
+      turn_metrics:
+        - custom:tool_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          expect_no_tools: true
+
+- conversation_group_id: no_tool_math
+  description: >
+    Simple arithmetic question. No RAG lookup needed.
+  tag: no_tool_expected
+  turns:
+    - turn_id: simple_math
+      query: What is 2 + 2?
+      turn_metrics:
+        - custom:tool_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          expect_no_tools: true
+
+# ---------------------------------------------------------------------------
+# 3. COMBINED QUALITY — Tool selection + response quality
+# ---------------------------------------------------------------------------
+
+- conversation_group_id: combined_essay_overview
+  description: >
+    Broad question about the essay's thesis. Tests that the LLM calls
+    file_search AND produces a high-quality response grounded in context.
+  tag: combined_quality
+  turns:
+    - turn_id: main_argument
+      query: >
+        What is the main argument or thesis of Paul Graham's essay about
+        doing great work?
+      expected_tool_calls:
+        - - - tool_name: file_search
+              arguments: {}
+      expected_response: >
+        The essay's main argument is that great work comes from the
+        intersection of genuine interest, curiosity, and persistent effort.
+        Graham outlines four key steps: choose a field that deeply
+        interests you, get to the frontier of knowledge, notice gaps
+        others have missed, and explore the most promising ones.
+      expected_keywords:
+        - - great work
+          - interest
+        - - great work
+          - curiosity
+      turn_metrics:
+        - custom:tool_eval
+        - ragas:faithfulness
+        - ragas:response_relevancy
+        - custom:answer_correctness
+        - custom:keywords_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          full_match: false
+        "custom:answer_correctness":
+          threshold: 0.7
+
+- conversation_group_id: combined_ambition
+  description: >
+    Topic-specific question combining tool selection validation with
+    response quality checks.
+  tag: combined_quality
+  turns:
+    - turn_id: ambition_topic
+      query: >
+        What does Paul Graham's essay say about ambition and doing great work?
+      expected_tool_calls:
+        - - - tool_name: file_search
+              arguments: {}
+      expected_response: >
+        The essay argues that great work requires ambition, but that
+        ambition should be directed at the work itself rather than at
+        external rewards.
+      expected_keywords:
+        - - ambition
+          - work
+      turn_metrics:
+        - custom:tool_eval
+        - ragas:faithfulness
+        - custom:answer_correctness
+        - custom:keywords_eval
+      turn_metrics_metadata:
+        "custom:tool_eval":
+          full_match: false

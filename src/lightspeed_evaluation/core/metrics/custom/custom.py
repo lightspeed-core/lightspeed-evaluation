@@ -201,12 +201,25 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         turn_data: Optional[TurnData],
         is_conversation: bool,
     ) -> tuple[Optional[float], str]:
-        """Evaluate tool calls using the custom:tool_eval metric."""
+        """Evaluate tool calls using the custom:tool_eval metric.
+
+        Supports two modes:
+        - Standard: compare expected_tool_calls against actual tool_calls
+        - Negative assertion: when expect_no_tools=true in metadata,
+          asserts that no tool calls were made
+        """
         if is_conversation:
             return None, "Tool evaluation is a turn-level metric"
 
         if turn_data is None:
             return None, "TurnData is required for tool evaluation"
+
+        # Get tool_eval configuration with proper priority hierarchy
+        metadata = self._get_tool_eval_metadata(turn_data, _conv_data)
+
+        # Negative assertion mode: verify no tools were called
+        if metadata.get("expect_no_tools", False):
+            return self._evaluate_no_tools(turn_data)
 
         if not turn_data.expected_tool_calls:
             return None, "No expected tool calls provided for tool evaluation"
@@ -214,8 +227,6 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         # Get actual tool calls from turn data (will be populated by API)
         actual_tool_calls = getattr(turn_data, "tool_calls", []) or []
 
-        # Get tool_eval configuration with proper priority hierarchy
-        metadata = self._get_tool_eval_metadata(turn_data, _conv_data)
         ordered = metadata.get("ordered", True)
         full_match = metadata.get("full_match", True)
 
@@ -229,6 +240,27 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         score = 1.0 if success else 0.0
 
         return score, details
+
+    @staticmethod
+    def _evaluate_no_tools(
+        turn_data: TurnData,
+    ) -> tuple[float, str]:
+        """Evaluate that no tool calls were made.
+
+        Args:
+            turn_data: Turn data with actual tool_calls from API.
+
+        Returns:
+            Tuple of (score, details) where score is 1.0 if no tools called.
+        """
+        actual = getattr(turn_data, "tool_calls", []) or []
+        tool_names = [tc.get("tool_name", "unknown") for seq in actual for tc in seq]
+        if tool_names:
+            return 0.0, (
+                f"Expected no tool calls, but {len(tool_names)} "
+                f"tool(s) were called: {', '.join(tool_names)}"
+            )
+        return 1.0, "No tool calls made (as expected)"
 
     def _get_tool_eval_metadata(
         self,

@@ -182,6 +182,99 @@ class TestCustomMetricsToolEval:
         assert "unordered" in reason
 
 
+class TestExpectNoTools:
+    """Test custom:tool_eval expect_no_tools negative assertion mode."""
+
+    def test_no_tools_called_passes(self, mocker: MockerFixture) -> None:
+        """Test expect_no_tools=true passes when no tools were called."""
+        mock_llm_manager = mocker.Mock()
+        mock_llm_manager.get_model_name.return_value = "test-model"
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
+
+        custom_metrics = CustomMetrics(mock_llm_manager)
+
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Hello, how are you?",
+            tool_calls=[],
+            turn_metrics_metadata={"custom:tool_eval": {"expect_no_tools": True}},
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = custom_metrics.evaluate("tool_eval", None, scope)
+
+        assert score == 1.0
+        assert "No tool calls made" in reason
+
+    def test_no_tools_called_none_passes(self, mocker: MockerFixture) -> None:
+        """Test expect_no_tools=true passes when tool_calls is None."""
+        mock_llm_manager = mocker.Mock()
+        mock_llm_manager.get_model_name.return_value = "test-model"
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
+
+        custom_metrics = CustomMetrics(mock_llm_manager)
+
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="What is 2+2?",
+            tool_calls=None,
+            turn_metrics_metadata={"custom:tool_eval": {"expect_no_tools": True}},
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = custom_metrics.evaluate("tool_eval", None, scope)
+
+        assert score == 1.0
+        assert "No tool calls made" in reason
+
+    def test_tools_called_fails(self, mocker: MockerFixture) -> None:
+        """Test expect_no_tools=true fails when tools were called."""
+        mock_llm_manager = mocker.Mock()
+        mock_llm_manager.get_model_name.return_value = "test-model"
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
+
+        custom_metrics = CustomMetrics(mock_llm_manager)
+
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="Hello",
+            tool_calls=[
+                [{"tool_name": "file_search", "arguments": {"query": "hello"}}],
+            ],
+            turn_metrics_metadata={"custom:tool_eval": {"expect_no_tools": True}},
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = custom_metrics.evaluate("tool_eval", None, scope)
+
+        assert score == 0.0
+        assert "Expected no tool calls" in reason
+        assert "file_search" in reason
+
+    def test_flag_not_set_uses_standard_eval(self, mocker: MockerFixture) -> None:
+        """Test that without expect_no_tools, standard evaluation is used."""
+        mock_llm_manager = mocker.Mock()
+        mock_llm_manager.get_model_name.return_value = "test-model"
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
+
+        custom_metrics = CustomMetrics(mock_llm_manager)
+
+        turn_data = TurnData(
+            turn_id="test_turn",
+            query="hello",
+            tool_calls=[
+                [{"tool_name": "tool1", "arguments": {}}],
+            ],
+            expected_tool_calls=[[[{"tool_name": "tool1", "arguments": {}}]]],
+        )
+        scope = EvaluationScope(turn_idx=0, turn_data=turn_data, is_conversation=False)
+
+        score, reason = custom_metrics.evaluate("tool_eval", None, scope)
+
+        assert score == 1.0
+        assert "matched" in reason.lower()
+
+
 def _make_custom_metrics(mocker: MockerFixture) -> CustomMetrics:
     """Create a CustomMetrics instance with mocked LLM manager."""
     mock_llm_manager = mocker.Mock()

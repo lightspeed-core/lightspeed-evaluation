@@ -65,6 +65,32 @@ metrics_metadata:
       description: Is what we retrieved actually relevant to user query?
       default: false
 
+    ragas:response_relevancy:
+      threshold: 0.8
+      description: How relevant the response is to the question
+      default: false
+
+    ragas:faithfulness:
+      threshold: 0.8
+      description: How faithful the response is to the provided context
+      default: false
+
+    custom:keywords_eval:
+      description: Keywords (ALL) matching evaluation with alternative sets
+      default: false
+
+    custom:answer_correctness:
+      threshold: 0.75
+      description: Correctness vs expected answer using custom LLM evaluation
+      default: false
+
+    custom:tool_eval:
+      threshold: 1.0
+      description: Did the LLM select the right tools with correct arguments?
+      default: false
+      ordered: true
+      full_match: true
+
 storage:
   - type: file
     output_dir: ./eval_output/lcore_regression
