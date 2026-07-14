@@ -37,11 +37,11 @@ certifi==2026.6.17
     #   httpx
     #   requests
     #   sentry-sdk
-cffi==2.0.0 ; platform_python_implementation != 'PyPy'
+cffi==2.1.0 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.2.1
+click==8.3.3
     # via
     #   deepeval
     #   lightspeed-evaluation
@@ -88,7 +88,7 @@ execnet==2.1.2
     # via pytest-xdist
 fastuuid==0.14.0
     # via litellm
-filelock==3.29.5
+filelock==3.29.6
     # via
     #   datasets
     #   huggingface-hub
@@ -213,7 +213,7 @@ langchain-protocol==0.0.18
     # via
     #   langchain-core
     #   langgraph-sdk
-langgraph==1.2.7
+langgraph==1.2.8
     # via langchain
 langgraph-checkpoint==4.1.1
     # via
@@ -223,7 +223,7 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.9.7
+langsmith==0.9.8
     # via
     #   langchain-community
     #   langchain-core
@@ -462,7 +462,7 @@ seaborn==0.13.2
     # via lightspeed-evaluation
 sentry-sdk==2.64.0
     # via deepeval
-setuptools==82.0.1
+setuptools==83.0.0
     # via deepeval
 shellingham==1.5.4
     # via typer
@@ -557,7 +557,7 @@ websockets==15.0.1
     #   langsmith
 wheel==0.47.0
     # via deepeval
-xxhash==3.8.0
+xxhash==3.8.1
     # via
     #   datasets
     #   langgraph
