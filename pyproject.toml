@@ -1,6 +1,6 @@
 [project]
 name = "lightspeed-evaluation"
-version = "0.7.0"
+version = "0.7.1"
 description = "Evaluate LLM-powered applications (e2e) — responses, context, tool calls, and agentic workflows"
 authors = []
 requires-python = ">=3.11,<3.14"

@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     )
     from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 _LAZY_IMPORTS = {
     # Programmatic API

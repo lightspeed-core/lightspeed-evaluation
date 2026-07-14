@@ -10,6 +10,9 @@ resolution-markers = [
     "python_full_version < '3.12' and sys_platform == 'darwin'",
 ]
 
+[options]
+exclude-newer = "2026-07-07T10:37:11Z"
+
 [[package]]
 name = "absl-py"
 version = "2.5.0"
@@ -1569,7 +1572,7 @@ wheels = [
 
 [[package]]
 name = "lightspeed-evaluation"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
