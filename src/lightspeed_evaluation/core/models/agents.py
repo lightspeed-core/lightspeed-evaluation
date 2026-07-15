@@ -2,9 +2,16 @@
 
 import logging
 import os
-from typing import Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_API_BASE,
@@ -15,6 +22,7 @@ from lightspeed_evaluation.core.constants import (
     SUPPORTED_AGENT_TYPES,
     SUPPORTED_ENDPOINT_TYPES,
 )
+from lightspeed_evaluation.core.models.utils import normalize_string_list
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -196,28 +204,16 @@ class AgentDefaultConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    agent: Optional[list[str]] = Field(
+    agent: Optional[
+        Annotated[
+            list[str],
+            BeforeValidator(lambda v: normalize_string_list(v, "Agent names")),
+        ]
+    ] = Field(
         default=None,
         min_length=1,
-        description="List of agent names to evaluate against",
+        description="Agent name(s) to evaluate against",
     )
-
-    @field_validator("agent", mode="before")
-    @classmethod
-    def normalize_and_validate_agent(cls, v: Any) -> Any:
-        """Normalize string to list and validate each agent name."""
-        if isinstance(v, str):
-            v = [v]
-        if isinstance(v, list):
-            stripped = []
-            for name in v:
-                if not isinstance(name, str) or not name.strip():
-                    raise ValueError(
-                        f"Agent names must be non-empty strings, got: {name!r}"
-                    )
-                stripped.append(name.strip())
-            return stripped
-        return v
 
     agent_config: Optional[dict[str, Any]] = Field(
         default=None,
@@ -304,7 +300,7 @@ class AgentsConfig(BaseModel):
         Raises:
             ConfigurationError: If no agent can be resolved or agent not found.
         """
-        default_agents: list[str] = self.default.agent or []
+        default_agents = self.default.agent or []
         if agent_name:
             name = agent_name
         elif default_agents:

@@ -762,33 +762,94 @@ class TestEvaluationDataAgentFields:
         assert data.agent is None
         assert data.agent_config is None
 
-    def test_agent_field_accepted(self) -> None:
-        """Agent name is accepted."""
+    def test_agent_list_accepted(self) -> None:
+        """Agent list is accepted."""
         data = EvaluationData(
             conversation_group_id="cg1",
-            agent="openshift_agentic_lightspeed",
+            agent=["openshift_agentic_lightspeed"],
             turns=[TurnData(turn_id="t1", query="Q")],
         )
-        assert data.agent == "openshift_agentic_lightspeed"
+        assert data.agent == ["openshift_agentic_lightspeed"]
 
-    def test_agent_config_accepted(self) -> None:
-        """Agent config dict is accepted."""
+    def test_agent_string_normalized_to_list(self) -> None:
+        """String agent is auto-converted to single-element list."""
+        data = EvaluationData.model_validate(
+            {
+                "conversation_group_id": "cg1",
+                "agent": "ols_api",
+                "turns": [{"turn_id": "t1", "query": "Q"}],
+            }
+        )
+        assert data.agent == ["ols_api"]
+
+    def test_duplicate_agents_deduplicated(self) -> None:
+        """Duplicate agent names are silently removed."""
         data = EvaluationData(
             conversation_group_id="cg1",
-            agent="ols_api",
+            agent=["model_a", "model_b", "model_a"],
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.agent == ["model_a", "model_b"]
+
+    def test_agent_multi_list_accepted(self) -> None:
+        """Multiple agents in list accepted."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            agent=["model_a", "model_b"],
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.agent == ["model_a", "model_b"]
+
+    def test_agent_config_keyed_by_agent(self) -> None:
+        """Agent config keyed by agent name is accepted."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            agent=["model_a"],
+            agent_config={"model_a": {"timeout": 1200}},
+            turns=[TurnData(turn_id="t1", query="Q")],
+        )
+        assert data.agent_config == {"model_a": {"timeout": 1200}}
+
+    def test_agent_config_flat_accepted(self) -> None:
+        """Flat agent config (applies to all agents) is accepted."""
+        data = EvaluationData(
+            conversation_group_id="cg1",
+            agent=["model_a"],
             agent_config={"timeout": 1200, "namespace": "custom"},
             turns=[TurnData(turn_id="t1", query="Q")],
         )
         assert data.agent_config == {"timeout": 1200, "namespace": "custom"}
 
-    def test_empty_agent_name_rejected(self) -> None:
-        """Empty string agent name is rejected."""
+    def test_empty_agent_list_rejected(self) -> None:
+        """Empty agent list is rejected."""
         with pytest.raises(ValidationError):
             EvaluationData(
                 conversation_group_id="cg1",
-                agent="",
+                agent=[],
                 turns=[TurnData(turn_id="t1", query="Q")],
             )
+
+    def test_empty_string_agent_rejected(self) -> None:
+        """Empty string agent is rejected."""
+        with pytest.raises(ValidationError):
+            EvaluationData.model_validate(
+                {
+                    "conversation_group_id": "cg1",
+                    "agent": "",
+                    "turns": [{"turn_id": "t1", "query": "Q"}],
+                }
+            )
+
+    def test_padded_agent_name_stripped(self) -> None:
+        """Whitespace-padded agent name is stripped."""
+        data = EvaluationData.model_validate(
+            {
+                "conversation_group_id": "cg1",
+                "agent": " ols_api ",
+                "turns": [{"turn_id": "t1", "query": "Q"}],
+            }
+        )
+        assert data.agent == ["ols_api"]
 
 
 class TestConversationMetadata:

@@ -44,6 +44,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _resolve_eval_data_agent_config(
+    agent_config: Optional[dict[str, Any]],
+    agent_name: Optional[str],
+) -> Optional[dict[str, Any]]:
+    """Extract agent-specific config from flat or keyed format.
+
+    Flat format (applies to all agents): {"timeout": 1200}
+    Keyed format (per-agent): {"model_a": {"timeout": 300}}
+
+    Detection: if any value is a dict, the format is keyed.
+    """
+    if not agent_config:
+        return None
+    is_keyed = any(isinstance(v, dict) for v in agent_config.values())
+    if is_keyed:
+        if agent_name and agent_name in agent_config:
+            return agent_config[agent_name]  # type: ignore[return-value]
+        return None
+    return agent_config
+
+
 class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
     """Evaluation pipeline - orchestrates the evaluation process through different stages.
 
@@ -155,9 +176,14 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
         if not self.system_config.agents.enabled:
             return self._default_driver, False
 
+        agent_name = conv_data.agent[0] if conv_data.agent else None
+        agent_config_override = _resolve_eval_data_agent_config(
+            conv_data.agent_config, agent_name
+        )
+
         _name, agent_config = self.system_config.agents.resolve_agent_config(
-            agent_name=conv_data.agent,
-            agent_config_override=conv_data.agent_config,
+            agent_name=agent_name,
+            agent_config_override=agent_config_override,
         )
         return (
             self._registry.create_driver(
