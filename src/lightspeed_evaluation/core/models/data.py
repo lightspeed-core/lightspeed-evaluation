@@ -2,12 +2,20 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from lightspeed_evaluation.core.constants import SUPPORTED_RESULT_STATUSES
 from lightspeed_evaluation.core.models.mixins import StreamingMetricsMixin
+from lightspeed_evaluation.core.models.utils import normalize_string_list
 
 logger = logging.getLogger(__name__)
 
@@ -580,14 +588,20 @@ class EvaluationData(BaseModel):
     )
 
     # Agent selection and config override
-    agent: Optional[str] = Field(
+    agent: Optional[
+        Annotated[
+            list[str],
+            BeforeValidator(lambda v: normalize_string_list(v, "Agent names")),
+        ]
+    ] = Field(
         default=None,
         min_length=1,
-        description="Agent name for this conversation group (overrides agents.default.agent)",
+        description="Agent name(s) for this conversation group (overrides agents.default.agent)",
     )
+
     agent_config: Optional[dict[str, Any]] = Field(
         default=None,
-        description="Per-conversation agent config overrides (highest priority)",
+        description="Agent config overrides — flat dict (applies to all) or keyed by agent name",
     )
 
     # Set of conversation metrics that don't pass the validation to ignore them later

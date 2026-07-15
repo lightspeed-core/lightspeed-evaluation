@@ -139,6 +139,11 @@ class TestAgentDefaultConfig:
         config = AgentDefaultConfig(agent=["agent_a", "agent_b"])
         assert config.agent == ["agent_a", "agent_b"]
 
+    def test_duplicate_agents_deduplicated(self) -> None:
+        """Test duplicate agent names are silently removed."""
+        config = AgentDefaultConfig(agent=["model_a", "model_b", "model_a"])
+        assert config.agent == ["model_a", "model_b"]
+
     def test_string_agent_normalized_to_list(self) -> None:
         """Test string agent is auto-converted to single-element list."""
         config = AgentDefaultConfig.model_validate({"agent": "ols_api"})
@@ -168,6 +173,11 @@ class TestAgentDefaultConfig:
         """Test list containing empty string is rejected."""
         with pytest.raises(ValidationError):
             AgentDefaultConfig(agent=["ols_api", ""])
+
+    def test_invalid_type_rejected(self) -> None:
+        """Test non-str/non-list type is rejected."""
+        with pytest.raises(ValidationError):
+            AgentDefaultConfig.model_validate({"agent": 42})
 
 
 class TestAgentsConfig:
