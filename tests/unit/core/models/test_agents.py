@@ -120,10 +120,28 @@ class TestAgentDefaultConfig:
     """Tests for AgentDefaultConfig model."""
 
     def test_defaults(self) -> None:
-        """Test all fields default to None."""
+        """Test all fields default to expected values."""
         config = AgentDefaultConfig()
         assert config.agent is None
+        assert config.repeat == 1
+        assert config.parallel is False
         assert config.agent_config is None
+
+    def test_repeat_and_parallel(self) -> None:
+        """Test setting repeat and parallel."""
+        config = AgentDefaultConfig(agent=["ols_api"], repeat=3, parallel=True)
+        assert config.repeat == 3
+        assert config.parallel is True
+
+    def test_repeat_zero_rejected(self) -> None:
+        """Test repeat must be positive."""
+        with pytest.raises(ValidationError):
+            AgentDefaultConfig(repeat=0)
+
+    def test_repeat_negative_rejected(self) -> None:
+        """Test negative repeat is rejected."""
+        with pytest.raises(ValidationError):
+            AgentDefaultConfig(repeat=-1)
 
     def test_with_agent_config(self) -> None:
         """Test setting agent list and agent_config."""

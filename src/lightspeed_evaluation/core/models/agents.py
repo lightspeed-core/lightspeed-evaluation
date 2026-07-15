@@ -220,6 +220,16 @@ class AgentDefaultConfig(BaseModel):
         description="Shared default agent config overrides applied to all agents",
     )
 
+    repeat: int = Field(
+        default=1,
+        gt=0,
+        description="Number of times to run each agent evaluation",
+    )
+    parallel: bool = Field(
+        default=False,
+        description="Run agent evaluations in parallel",
+    )
+
 
 class AgentsConfig(BaseModel):
     """Top-level agents configuration container.
