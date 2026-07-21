@@ -33,6 +33,7 @@ from lightspeed_evaluation.core.storage.config import (
     DatabaseBackendConfig,
     FileBackendConfig,
     LangfuseBackendConfig,
+    MLflowBackendConfig,
     StorageBackendConfig,
 )
 from lightspeed_evaluation.core.storage.factory import (
@@ -42,6 +43,7 @@ from lightspeed_evaluation.core.storage.factory import (
     get_file_config,
 )
 from lightspeed_evaluation.core.storage.file_storage import FileStorageBackend
+from lightspeed_evaluation.core.storage.mlflow_storage import MLflowStorageBackend
 from lightspeed_evaluation.core.storage.protocol import BaseStorageBackend, RunInfo
 from lightspeed_evaluation.core.storage.sql_storage import (
     EvaluationResultDB,
@@ -58,10 +60,12 @@ __all__ = [
     "FileBackendConfig",
     "DatabaseBackendConfig",
     "LangfuseBackendConfig",
+    "MLflowBackendConfig",
     "StorageBackendConfig",
     "CompositeStorageBackend",
     "NoOpStorageBackend",
     "FileStorageBackend",
+    "MLflowStorageBackend",
     "create_database_backend",
     "create_pipeline_storage_backend",
     "get_database_config",

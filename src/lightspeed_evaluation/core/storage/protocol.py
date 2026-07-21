@@ -70,12 +70,20 @@ class BaseStorageBackend(Protocol):
             StorageError: If saving fails.
         """
 
-    def finalize(self) -> None:
-        """Finalize the backend after evaluation completes.
+    def finalize(self, success: bool = True) -> None:
+        """Finalize the backend after evaluation completes or fails.
+
+        Args:
+            success: ``True`` when the evaluation finished normally;
+                ``False`` when it aborted with an error. Backends that
+                support run status (e.g. MLflow) use this to distinguish
+                a complete eval from a failed one. Incremental results
+                already saved are left intact either way.
 
         Raises:
             StorageError: If finalization fails.
         """
+        _ = success
 
     def close(self) -> None:
         """Close the backend and release resources."""

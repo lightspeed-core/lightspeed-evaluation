@@ -68,10 +68,10 @@ class CompositeStorageBackend(BaseStorageBackend):
         for backend in self._backends:
             backend.save_run(results)
 
-    def finalize(self) -> None:
+    def finalize(self, success: bool = True) -> None:
         """Call ``finalize`` on every child backend."""
         for backend in self._backends:
-            backend.finalize()
+            backend.finalize(success=success)
 
     def close(self) -> None:
         """Call ``close`` on every child backend."""

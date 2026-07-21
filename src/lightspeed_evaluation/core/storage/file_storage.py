@@ -58,8 +58,9 @@ class FileStorageBackend(BaseStorageBackend):
         """Accumulate batch results; reports are written in :meth:`finalize`."""
         self._accumulated.extend(results)
 
-    def finalize(self) -> None:
+    def finalize(self, success: bool = True) -> None:
         """Generate reports from accumulated results."""
+        _ = success
         if not self._accumulated:
             logger.info(
                 "File storage backend: no results to persist (run_id=%s)",
