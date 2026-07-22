@@ -54,6 +54,16 @@ nlp-metrics = [
     "rapidfuzz>=3.0.0,<=3.14.3",     # Required for semantic_similarity_distance
 ]
 
+# MLflow experiment tracking - export metrics, traces, and results to MLflow
+# Install with:
+#   pip install 'lightspeed-evaluation[mlflow]'
+# or
+#   uv sync --extra mlflow
+mlflow = [
+    "mlflow>=2.14.0,<3.0.0",
+    "protobuf>=5.0.0,<6.0.0",
+]
+
 # Langfuse observability - export evaluation scores to Langfuse
 # Install with:
 #   pip install 'lightspeed-evaluation[langfuse]'
