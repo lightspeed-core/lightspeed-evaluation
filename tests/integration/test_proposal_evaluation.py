@@ -8,8 +8,9 @@ Prerequisites:
     - OPENAI_API_KEY env var set
     - Network connectivity to the cluster API
 
-Each scenario has its own setup/cleanup scripts that source a shared
-infrastructure script per provider (e.g. _setup_infra-openai.sh).
+Each scenario has provider-agnostic setup/cleanup scripts that source
+_setup_infra.sh, which dispatches on the EVAL_PROVIDER env var
+(openai | anthropic | claude-vertex; default: openai).
 
 Run with: pytest tests/integration/test_proposal_evaluation.py -v -m agentic
 """
@@ -122,9 +123,9 @@ class TestProposalDriverEvaluation:
         )
         all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "proposal_oomkill_openai"
+            d for d in all_data if d.conversation_group_id == "proposal_oomkill"
         ]
-        assert len(eval_data) == 1, "Should find proposal_oomkill_openai data"
+        assert len(eval_data) == 1, "Should find proposal_oomkill data"
 
         evaluate(system_config, eval_data)
 
@@ -198,14 +199,20 @@ class TestProposalDriverEvaluation:
             )
 
     @pytest.mark.timeout(1200)
-    def test_oomkill_claude_vertex(self, tmp_path: Path) -> None:
+    def test_oomkill_claude_vertex(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test OOMKill full lifecycle with Claude/Vertex AI provider.
+
+        Uses the same provider-agnostic scenario as test_oomkill_full_lifecycle
+        but selects the Claude/Vertex infrastructure via EVAL_PROVIDER.
 
         Verifies:
         - ProposalDriver populates response with workflow summary
         - custom:proposal_evaluation_correctness metric runs against response
         - Pipeline completes without errors
         """
+        monkeypatch.setenv("EVAL_PROVIDER", "claude-vertex")
         loader = ConfigLoader()
         system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
         system_config.storage = [
@@ -218,11 +225,9 @@ class TestProposalDriverEvaluation:
         )
         all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
         eval_data = [
-            d
-            for d in all_data
-            if d.conversation_group_id == "proposal_oomkill_claude-vertex"
+            d for d in all_data if d.conversation_group_id == "proposal_oomkill"
         ]
-        assert len(eval_data) == 1, "Should find proposal_oomkill_claude-vertex data"
+        assert len(eval_data) == 1, "Should find proposal_oomkill data"
 
         evaluate(system_config, eval_data)
 

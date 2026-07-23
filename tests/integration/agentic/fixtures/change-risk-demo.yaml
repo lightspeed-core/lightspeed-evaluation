@@ -1,0 +1,70 @@
+# Change-risk pre-flight: a healthy running deployment plus a ConfigMap
+# carrying the manifest a team proposes to roll out. The proposed manifest
+# silently drops the readiness probe, switches to a floating :latest tag,
+# and removes resource limits. Analysis-only: diff and flag before rollout.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-api
+  template:
+    metadata:
+      labels:
+        app: orders-api
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orders-api-proposed-change
+  namespace: lightspeed-evaluation-test
+data:
+  manifest.yaml: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: orders-api
+      namespace: lightspeed-evaluation-test
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: orders-api
+      template:
+        metadata:
+          labels:
+            app: orders-api
+        spec:
+          containers:
+            - name: nginx
+              image: docker.io/nginxinc/nginx-unprivileged:latest
+              ports:
+                - containerPort: 8080

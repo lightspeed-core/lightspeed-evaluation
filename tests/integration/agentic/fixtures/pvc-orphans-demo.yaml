@@ -1,0 +1,80 @@
+# Orphaned-PVC scenario: one claim is actively mounted by a running
+# workload; two others are attached to nothing (their binding state depends
+# on the default StorageClass's volumeBindingMode and doesn't matter for
+# the classification).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: active-data-pvc
+  namespace: lightspeed-evaluation-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvc-user-app
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pvc-user-app
+  template:
+    metadata:
+      labels:
+        app: pvc-user-app
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: active-data-pvc
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+# Orphaned: not mounted by any workload.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: old-backup-pvc
+  namespace: lightspeed-evaluation-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tmp-scratch-pvc
+  namespace: lightspeed-evaluation-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

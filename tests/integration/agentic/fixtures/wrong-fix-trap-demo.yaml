@@ -1,0 +1,60 @@
+# Wrong-fix trap: the app crashes because its config is mounted at
+# /etc/config while it expects /etc/app/config.yaml — but the container
+# also carries a tight-looking 32Mi memory limit as a decoy. Bumping
+# memory does nothing; the correct fix is the mount path.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trap-config
+  namespace: lightspeed-evaluation-test
+data:
+  config.yaml: |
+    mode: production
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trap-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trap-demo
+  template:
+    metadata:
+      labels:
+        app: trap-demo
+    spec:
+      volumes:
+        - name: config
+          configMap:
+            name: trap-config
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              if [ ! -f /etc/app/config.yaml ]; then
+              echo "FATAL: required config file /etc/app/config.yaml not found" >&2;
+              exit 1;
+              fi;
+              echo "config loaded";
+              sleep infinity
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "25m"
+            limits:
+              memory: "32Mi"
+              cpu: "50m"

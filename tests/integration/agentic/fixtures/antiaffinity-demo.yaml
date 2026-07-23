@@ -1,0 +1,42 @@
+# 10 replicas with REQUIRED anti-affinity on hostname — at most one pod per
+# node, so on any cluster with fewer than 10 schedulable nodes the surplus
+# pods stay Pending. Only ~3 replicas are actually needed for HA.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: antiaffinity-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: antiaffinity-demo
+  template:
+    metadata:
+      labels:
+        app: antiaffinity-demo
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: antiaffinity-demo
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

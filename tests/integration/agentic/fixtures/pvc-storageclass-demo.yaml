@@ -1,0 +1,56 @@
+# The PVC references a StorageClass that doesn't exist, so it stays Pending
+# forever and the pod is unschedulable ("unbound immediate
+# PersistentVolumeClaims"). storageClassName is immutable, so the fix is
+# recreating the claim with the cluster's default StorageClass.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  storageClassName: fast-ssd-nonexistent
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvc-app-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pvc-app-demo
+  template:
+    metadata:
+      labels:
+        app: pvc-app-demo
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc-demo
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

@@ -1,0 +1,98 @@
+# RBAC and secret sprawl scenario: one healthy workload that actually uses
+# a single secret, surrounded by unused identities and secrets the agent
+# should classify as cleanup candidates.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-config
+  namespace: lightspeed-evaluation-test
+type: Opaque
+stringData:
+  APP_MODE: production
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rbac-sprawl-app
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rbac-sprawl-app
+  template:
+    metadata:
+      labels:
+        app: rbac-sprawl-app
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: app-config
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+# Unused identity: no pod runs as this ServiceAccount.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: legacy-sa
+  namespace: lightspeed-evaluation-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: legacy-secret-reader
+  namespace: lightspeed-evaluation-test
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: legacy-secret-reader-binding
+  namespace: lightspeed-evaluation-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: legacy-secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: legacy-sa
+    namespace: lightspeed-evaluation-test
+---
+# Unused secrets: not mounted or referenced by any workload.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: old-db-creds
+  namespace: lightspeed-evaluation-test
+type: Opaque
+stringData:
+  username: legacy-user
+  password: not-a-real-password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: temp-ci-token
+  namespace: lightspeed-evaluation-test
+type: Opaque
+stringData:
+  token: not-a-real-token

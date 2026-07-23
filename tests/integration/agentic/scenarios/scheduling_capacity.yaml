@@ -1,0 +1,357 @@
+# Category B: scheduling & capacity faults.
+#
+# Deterministic scenarios on a vanilla OpenShift cluster.
+# Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file.
+
+- conversation_group_id: proposal_nodeselector
+  description: Pending pod — nodeSelector requires a label no node has, full lifecycle
+  tag: proposal_nodeselector
+  setup_script: ../scripts/setup_nodeselector.sh
+  cleanup_script: ../scripts/cleanup_nodeselector.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment nodeselector-demo in namespace
+          lightspeed-evaluation-test has its pod stuck in Pending. The
+          manifest was copied from another cluster; this cluster's nodes
+          do not carry any special storage labels and the app has no real
+          placement requirements. Analyze the root cause, fix the
+          scheduling constraint, and verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod is unschedulable because its nodeSelector
+        (eval-disktype: ssd-nvme) matches no node in the cluster —
+        FailedScheduling events show "didn't match Pod's node
+        affinity/selector". Remediation: remove the stale nodeSelector
+        from the deployment (the app has no placement requirement) and
+        verify the pod schedules and reaches Running state.
+      expected_analysis_outcome: >-
+        The agent should identify the unsatisfiable nodeSelector as the
+        cause of Pending — checking node labels to confirm no node
+        carries eval-disktype=ssd-nvme — rather than blaming capacity.
+      expected_execution_outcome: >-
+        The agent should remove the stale nodeSelector (not label a node,
+        since the request says the constraint is bogus).
+      expected_verification_outcome: >-
+        The agent should verify the pod schedules onto a node and reaches
+        Running state.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_antiaffinity
+  description: Pending pods — required anti-affinity demands more nodes than exist, full lifecycle
+  tag: proposal_antiaffinity
+  setup_script: ../scripts/setup_antiaffinity.sh
+  cleanup_script: ../scripts/cleanup_antiaffinity.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Several pods of deployment antiaffinity-demo in namespace
+          lightspeed-evaluation-test are stuck in Pending. The service
+          only needs 3 replicas spread across different nodes for high
+          availability. Analyze the root cause, fix the deployment so the
+          desired replicas all run, and verify.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the deployment requests more replicas than the
+        cluster has nodes (the fixture scales it to node count + 3) with
+        REQUIRED pod anti-affinity on kubernetes.io/hostname, allowing at
+        most one pod per node — so the surplus pods stay Pending with
+        anti-affinity FailedScheduling events. Remediation: reduce
+        replicas to 3 (the stated HA requirement) — optionally softening
+        the rule to preferred anti-affinity — and verify all replicas are
+        Running and spread across nodes.
+      expected_analysis_outcome: >-
+        The agent should connect the Pending pods to the required
+        anti-affinity rule and the node count, recognizing the
+        replicas-vs-nodes arithmetic rather than blaming resources.
+      expected_execution_outcome: >-
+        The agent should reduce the replica count to the required 3
+        (and/or relax the anti-affinity to preferred), keeping the
+        spread-across-nodes property.
+      expected_verification_outcome: >-
+        The agent should verify all desired replicas are Running with no
+        pods stuck Pending.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_quota
+  description: ResourceQuota exhausted — new deployment cannot create pods, full lifecycle
+  tag: proposal_quota
+  setup_script: ../scripts/setup_quota.sh
+  cleanup_script: ../scripts/cleanup_quota.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The new deployment quota-victim-app in namespace
+          lightspeed-evaluation-test has zero pods and users cannot reach
+          it. The existing quota-blocker workload must keep running. The
+          platform team confirmed the namespace's pod quota is outdated
+          and may be raised to accommodate the new app. Analyze the root
+          cause, remediate, and verify quota-victim-app is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the namespace's ResourceQuota eval-pod-quota caps
+        pods at 2, fully consumed by quota-blocker's 2 replicas — the
+        quota-victim-app ReplicaSet fails pod creation with "exceeded
+        quota" events and no pod is ever created. Remediation: raise the
+        pod quota (e.g. to 3 or more, as authorized by the platform team)
+        without touching quota-blocker, and verify quota-victim-app's pod
+        is created and Running.
+      expected_analysis_outcome: >-
+        The agent should find the "exceeded quota: eval-pod-quota" events
+        on the victim's ReplicaSet and identify quota exhaustion — not a
+        scheduling or image problem — noting the blocker consumes the
+        full quota.
+      expected_execution_outcome: >-
+        The agent should raise the ResourceQuota pod limit (per the
+        platform team's authorization) rather than scaling down or
+        deleting quota-blocker.
+      expected_verification_outcome: >-
+        The agent should verify quota-victim-app has a Running pod and
+        quota-blocker still has its 2 replicas.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_limitrange
+  description: LimitRange conflict — app requests below the namespace minimum, must fix the app, full lifecycle
+  tag: proposal_limitrange
+  setup_script: ../scripts/setup_limitrange.sh
+  cleanup_script: ../scripts/cleanup_limitrange.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment limitrange-demo in namespace
+          lightspeed-evaluation-test is not creating any pods. This
+          namespace has a resource policy set by the platform team that
+          is authoritative and must not be changed — applications must
+          comply with it. Analyze the root cause, bring the app into
+          compliance, and verify its pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the namespace LimitRange eval-container-limits
+        requires every container to use at least 256Mi of memory, but
+        limitrange-demo requests 64Mi (limit 128Mi) — the ReplicaSet gets
+        "forbidden: minimum memory usage per Container is 256Mi" and no
+        pod is created. Remediation: raise the app's memory
+        request/limit to at least 256Mi (the LimitRange must not be
+        modified) and verify the pod is created and Running.
+      expected_analysis_outcome: >-
+        The agent should find the ReplicaSet's forbidden events citing
+        the LimitRange minimum and identify the app's 64Mi request as
+        non-compliant, respecting that the policy is authoritative.
+      expected_execution_outcome: >-
+        The agent should raise the deployment's memory request and limit
+        to at least 256Mi — modifying the app, not the LimitRange.
+      expected_verification_outcome: >-
+        The agent should verify the pod is created, passes admission, and
+        reaches Running state.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_hpa
+  description: HPA shows <unknown> targets — deployment lacks resource requests, full lifecycle
+  tag: proposal_hpa
+  setup_script: ../scripts/setup_hpa.sh
+  cleanup_script: ../scripts/cleanup_hpa.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The HorizontalPodAutoscaler for hpa-underspecified-demo in
+          namespace lightspeed-evaluation-test never scales the app and
+          shows its CPU target as <unknown>. Analyze why the autoscaler
+          cannot read metrics, fix the configuration, and verify the HPA
+          reports a real utilization value.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the HPA targets CPU utilization, which is computed as
+        a percentage of the pod's CPU request — but the
+        hpa-underspecified-demo containers set no resource requests, so
+        the HPA reports FailedGetResourceMetric ("missing request for
+        cpu") and ScalingActive=False. Remediation: add CPU (and memory)
+        requests to the deployment's containers and verify the HPA's
+        ScalingActive condition becomes True with a real utilization
+        value.
+      expected_analysis_outcome: >-
+        The agent should read the HPA status conditions
+        (FailedGetResourceMetric, "missing request for cpu") and identify
+        the missing resource requests on the target deployment as the
+        cause — not a metrics-server outage.
+      expected_execution_outcome: >-
+        The agent should add CPU requests (e.g. 50m-100m) to the
+        deployment's container so utilization can be computed.
+      expected_verification_outcome: >-
+        The agent should verify the HPA reports a concrete CPU
+        utilization value and ScalingActive=True after the pods roll out
+        with requests set.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_priorityclass
+  description: No pods created — deployment references a nonexistent PriorityClass, full lifecycle
+  tag: proposal_priorityclass
+  setup_script: ../scripts/setup_priorityclass.sh
+  cleanup_script: ../scripts/cleanup_priorityclass.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment priorityclass-demo in namespace
+          lightspeed-evaluation-test is not creating any pods. Its
+          manifest came from a different cluster, and the priority class
+          it references is a leftover that does not exist here — the app
+          does not need special scheduling priority. Analyze the root
+          cause, fix the deployment, and verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod template references
+        priorityClassName eval-critical-priority, which does not exist on
+        this cluster — the ReplicaSet gets FailedCreate ("no
+        PriorityClass with name eval-critical-priority was found") and no
+        pod is ever created. Remediation: remove the stale
+        priorityClassName from the pod template (the app needs no special
+        priority) and verify the pod is created and Running.
+      expected_analysis_outcome: >-
+        The agent should find the ReplicaSet FailedCreate events naming
+        the missing PriorityClass and identify the stale reference — not
+        a scheduling or quota issue.
+      expected_execution_outcome: >-
+        The agent should remove the priorityClassName from the deployment
+        (per the request) rather than creating a cluster-scoped
+        PriorityClass.
+      expected_verification_outcome: >-
+        The agent should verify a pod is created and reaches Running
+        state after the reference is removed.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

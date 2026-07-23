@@ -144,9 +144,9 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
       turn_metrics:
         - custom:proposal_status
         - custom:proposal_evaluation_correctness
-      turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
-          threshold: 0.75
+      # turn_metrics_metadata is optional: thresholds default from the
+      # system config's metrics_metadata.turn_level (see Metrics below);
+      # set it per turn only to override.
 ```
 
 ## Proposal Lifecycle
@@ -233,6 +233,101 @@ Evaluates agentic remediation workflow quality using a Judge LLM. Scores 0.0–1
 2. **Execution** — Were the remediation actions carried out? Are they safe, well-scoped, and minimal?
 3. **Verification** — Do the checks confirm the specific issue was resolved?
 
-**Threshold:** 0.75
+**Threshold:** 0.75, defined in the system config's
+`metrics_metadata.turn_level` (per-turn `turn_metrics_metadata` overrides
+it). If neither is set, the framework falls back to its generic default of
+0.5 — always declare the threshold in the system config you run with.
 
 **Required fields:** `response` (populated automatically during execution), `expected_outcome`
+
+## Scenario Library
+
+The repository ships a library of ready-to-run proposal scenarios against a
+live OpenShift cluster. Most scenarios provide a Kubernetes fixture that
+introduces a deliberate fault, plus setup/cleanup scripts; safety scenarios
+may ship a deliberately healthy fixture (or none at all) and add
+deterministic post-run cluster checks via `verify_script` +
+`script:action_eval`.
+
+| File | Contents |
+|------|----------|
+| `tests/integration/test_evaluation_data_proposal.yaml` | Core set (OOMKill, crashloop probe, pending pod, workload hardening, RBAC sprawl, noisy alerts) — used by the pytest integration tests |
+| `tests/integration/agentic/scenarios/workload_failures.yaml` | Workload crash & config faults (image pull, missing ConfigMap/Secret key, bad command, missing env, readiness probe, init container, stuck rollout, scaled to zero, probe port, ephemeral eviction) |
+| `tests/integration/agentic/scenarios/scheduling_capacity.yaml` | Scheduling & capacity faults (nodeSelector, anti-affinity, ResourceQuota, LimitRange, HPA, PriorityClass) |
+| `tests/integration/agentic/scenarios/networking.yaml` | Services & networking faults (service selector/targetPort mismatches, NetworkPolicy ingress lockdown, default-deny egress without DNS, Route port mismatch) |
+| `tests/integration/agentic/scenarios/storage.yaml` | Storage faults (PVC on nonexistent StorageClass, missing PVC reference, orphaned-PVC inventory) — requires a default StorageClass |
+| `tests/integration/agentic/scenarios/security_rbac.yaml` | RBAC & security (API 403 from missing RBAC, SCC rejection, overprivileged binding, ConfigMap sprawl) — SCC rejection requires OpenShift SCC admission |
+| `tests/integration/agentic/scenarios/observability.yaml` | Observability (missing alert coverage, alerts that can never fire) — requires the PrometheusRule CRD |
+| `tests/integration/agentic/scenarios/aiops_sweeps.yaml` | AIOps sweeps, analysis-only (namespace hygiene score, right-sizing vs observed usage, change-risk pre-flight, needle-in-haystack) — right-sizing requires the pod metrics API (metrics-server) |
+| `tests/integration/agentic/scenarios/compound_faults.yaml` | Compound faults (double fault, cascading failure, red-herring decoy, wrong-fix trap) |
+| `tests/integration/agentic/scenarios/safety.yaml` | Safety/negative (false positive, out-of-scope refusal, destructive-suggestion resistance, verification honesty) — destructive-suggestion resistance requires a default StorageClass |
+
+Fixtures live in `tests/integration/agentic/fixtures/`, scripts in
+`tests/integration/agentic/scripts/`.
+
+### Provider Selection (`EVAL_PROVIDER`)
+
+Scenarios are provider-agnostic. Per-scenario setup scripts source
+`_setup_infra.sh`, which dispatches on the `EVAL_PROVIDER` env var to deploy
+the matching `LLMProvider` and `Agent` resources:
+
+| `EVAL_PROVIDER` | Infrastructure | Required env vars |
+|-----------------|----------------|-------------------|
+| `openai` (default) | OpenAI-compatible API | `OPENAI_API_KEY` (optional `AGENT_MODEL`) |
+| `anthropic` | Direct Anthropic API | `ANTHROPIC_API_KEY` (optional `AGENT_MODEL`) |
+| `claude-vertex` | Claude via Google Vertex AI | `ANTHROPIC_VERTEX_PROJECT_ID` (optional `GCP_CREDENTIALS_FILE`, default `~/.config/gcloud/application_default_credentials.json`) |
+
+Example — run the scheduling scenarios against direct Anthropic:
+
+```bash
+EVAL_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... \
+  uv run lightspeed-eval \
+  --system-config tests/integration/system-config-agents-proposal.yaml \
+  --eval-data tests/integration/agentic/scenarios/scheduling_capacity.yaml
+```
+
+For `claude-vertex`, also install the vertex extra (`uv sync --extra vertex`
+— LiteLLM's `vertex_ai/*` judge models need `google-cloud-aiplatform`) and
+export the judge-side variables LiteLLM reads: `GOOGLE_APPLICATION_CREDENTIALS`,
+`VERTEXAI_PROJECT`, `VERTEXAI_LOCATION`. The judge model itself comes from
+the system config's `llm:` block (e.g. `provider: vertex`,
+`model: vertex_ai/claude-opus-4-6`).
+
+### Cluster RBAC prerequisites
+
+Two grants beyond a stock operator install are required for the full library
+(a live run fails without them):
+
+- **Operator ServiceAccount** must be able to grant the per-execution Role
+  permissions it hands to execution sandboxes (Kubernetes escalation
+  prevention: you cannot grant what you do not hold). The quickstart and CI
+  bind `cluster-admin` to the operator SA; a bare `make deploy` install
+  needs an equivalent binding or full-lifecycle scenarios fail at the
+  execution step with `is attempting to grant RBAC permissions not
+  currently held`.
+- **Agent ServiceAccount** (`lightspeed-agent`) needs
+  `monitoring-rules-view` in addition to `cluster-reader` — the
+  observability scenarios require reading `prometheusrules.monitoring.coreos.com`,
+  which `cluster-reader` does not cover. Without it the agent 403s and
+  produces generic advice that the judge (correctly) fails.
+
+Cleanup scripts are provider-agnostic as well: `_cleanup_infra.sh` removes
+the `eval-`-prefixed operator resources for all providers, so a run cleaned
+up with a different `EVAL_PROVIDER` than it was set up with still tears down
+correctly. Set `EVAL_DELETE_NAMESPACE=1` to also delete the test namespace
+during cleanup — useful for a full reset so no namespace-scoped state
+(quotas, LimitRanges, leftover secrets) carries over into the next run.
+`OPERATOR_NS` and `TEST_NS` may be overridden via the environment for
+nonstandard installations.
+
+Setup scripts wait for each fixture's fault to actually be observable
+(container state reasons, Unschedulable conditions, admission rejections —
+see `_wait_helpers.sh`) before the evaluation starts, so proposals are never
+created against a cluster that does not yet exhibit the described symptom.
+Judge thresholds come from the system config (see the
+`custom:proposal_evaluation_correctness` metric section above) — the
+scenario files intentionally carry none. Note the fixtures pull
+`docker.io/nginxinc/nginx-unprivileged`; on clusters behind a shared NAT
+egress IP, Docker Hub's anonymous pull limits can flake large runs —
+mirror the image to an internal registry and adjust the fixtures if that
+applies to you.

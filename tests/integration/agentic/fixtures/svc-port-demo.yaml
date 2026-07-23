@@ -1,0 +1,54 @@
+# The service selector is correct so endpoints exist, but targetPort 8081
+# doesn't match the container's listening port 8080 — every connection
+# through the service is refused. Distinct from svc-selector-demo (zero
+# endpoints): here the endpoints are present but point at the wrong port.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-port-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: svc-port-demo
+  template:
+    metadata:
+      labels:
+        app: svc-port-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-port-svc
+  namespace: lightspeed-evaluation-test
+spec:
+  selector:
+    app: svc-port-demo
+  ports:
+    - port: 8080
+      targetPort: 8081

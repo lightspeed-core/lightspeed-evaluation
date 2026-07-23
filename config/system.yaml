@@ -163,6 +163,11 @@ metrics_metadata:
       ordered: true       # true (default): sequence order matters, false: any order allowed
       full_match: true    # true (default): exact 1:1 match, false: expected tools found in actual (extras allowed)
 
+    "custom:proposal_status":
+      threshold: 1.0
+      description: "Deterministic proposal status assertions (binary pass/fail)"
+      default: false
+
     "custom:proposal_evaluation_correctness":
       threshold: 0.75
       description: "LLM judge of agentic remediation workflow quality (diagnosis, actions, risk, verification)"

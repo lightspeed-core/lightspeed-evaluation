@@ -1,0 +1,169 @@
+# Category D: storage faults.
+#
+# Requires a dynamic default StorageClass (setup scripts fail fast if none
+# exists). Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file. The
+# judge threshold comes from metrics_metadata.turn_level in the system
+# config.
+
+- conversation_group_id: proposal_pvc_storageclass
+  description: PVC Pending on a nonexistent StorageClass — pod unschedulable, full lifecycle (claim must be recreated)
+  tag: proposal_pvc_storageclass
+  setup_script: ../scripts/setup_pvc_storageclass.sh
+  cleanup_script: ../scripts/cleanup_pvc_storageclass.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment pvc-app-demo in namespace
+          lightspeed-evaluation-test has its pod stuck in Pending. Its
+          data volume holds only disposable cache data, so the claim may
+          be recreated if necessary. Analyze the root cause, fix the
+          storage configuration using the cluster's default storage
+          class, and verify the pod is running with its volume mounted.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the PVC data-pvc-demo references StorageClass
+        fast-ssd-nonexistent, which does not exist, so the claim stays
+        Pending and the pod is unschedulable ("unbound immediate
+        PersistentVolumeClaims"). Because storageClassName is immutable,
+        remediation requires deleting and recreating the claim with the
+        cluster's default StorageClass (the data is disposable per the
+        request), then verifying the claim binds and the pod reaches
+        Running with the volume mounted.
+      expected_analysis_outcome: >-
+        The agent should trace the Pending pod to the unbound PVC, find
+        that the referenced StorageClass does not exist on the cluster,
+        and recognize that the claim must be recreated (storageClassName
+        cannot be patched on an existing PVC).
+      expected_execution_outcome: >-
+        The agent should recreate the data-pvc-demo claim without the
+        bogus storageClassName (or with the default StorageClass) and let
+        the deployment's pod bind to it.
+      expected_verification_outcome: >-
+        The agent should verify the PVC is Bound and the pod is Running
+        with the volume mounted at /data.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_missing_pvc
+  description: Deployment mounts a PVC that was never created — pod unschedulable, full lifecycle
+  tag: proposal_missing_pvc
+  setup_script: ../scripts/setup_missing_pvc.sh
+  cleanup_script: ../scripts/cleanup_missing_pvc.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The deployment missing-pvc-demo in namespace
+          lightspeed-evaluation-test never gets a pod scheduled. The team
+          says it needs a 1Gi volume named app-data that they forgot to
+          create; the cluster's default storage class is fine. Analyze
+          the root cause, fix it, and verify the pod is running.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+        execution:
+          agent: eval-default
+        verification:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        max_duration: "20m"
+        max_attempts: 5
+        analysis:
+          min_options: 1
+        execution:
+          phase: Succeeded
+        verification:
+          passed: true
+      expected_outcome: >-
+        Root cause: the pod is unschedulable because its volume
+        references PersistentVolumeClaim app-data, which does not exist
+        in the namespace (FailedScheduling: "persistentvolumeclaim
+        app-data not found"). Remediation: create the app-data PVC (1Gi,
+        default StorageClass) and verify the claim binds and the pod
+        reaches Running with the volume mounted.
+      expected_analysis_outcome: >-
+        The agent should read the FailedScheduling events, identify the
+        missing PVC by name, and conclude the claim was never created —
+        not a StorageClass or capacity problem.
+      expected_execution_outcome: >-
+        The agent should create the app-data PVC (1Gi, default
+        StorageClass) rather than removing the volume from the
+        deployment.
+      expected_verification_outcome: >-
+        The agent should verify the pod schedules and reaches Running
+        with the app-data volume mounted.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_pvc_orphans
+  description: Orphaned PVC inventory — classify in-use vs unattached claims (analysis-only)
+  tag: proposal_pvc_orphans
+  setup_script: ../scripts/setup_pvc_orphans.sh
+  cleanup_script: ../scripts/cleanup_pvc_orphans.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The platform team suspects namespace lightspeed-evaluation-test
+          is paying for storage nobody uses. Analyze which
+          PersistentVolumeClaims in the namespace are mounted by running
+          workloads and which are orphaned, and propose a cleanup plan
+          for the orphaned ones. Do not delete anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        In use: active-data-pvc, mounted at /data by the running
+        pvc-user-app deployment. Orphaned cleanup candidates:
+        old-backup-pvc and tmp-scratch-pvc, which are referenced by no
+        pod or workload template in the namespace. The proposal should
+        recommend confirming with the owning team and then deleting the
+        two orphaned claims to release their storage, without touching
+        active-data-pvc.
+      expected_analysis_outcome: >-
+        The agent should map each PVC to the workloads that reference it,
+        conclude that only active-data-pvc is in use (by pvc-user-app)
+        and that old-backup-pvc and tmp-scratch-pvc are orphaned, and
+        propose deletion of only the orphaned claims as the cleanup plan.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

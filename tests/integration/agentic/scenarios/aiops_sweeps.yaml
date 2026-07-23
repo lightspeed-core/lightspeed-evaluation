@@ -1,0 +1,177 @@
+# Category G: AIOps hygiene sweeps (all analysis-only).
+#
+# Provider-agnostic — select the provider via EVAL_PROVIDER (see
+# ../scripts/_setup_infra.sh). Script paths are relative to this file.
+# Judge thresholds come from metrics_metadata.turn_level in the system
+# config.
+
+- conversation_group_id: proposal_hygiene_score
+  description: Namespace hygiene sweep — inventory guardrail gaps across workloads, one compliant control (analysis-only)
+  tag: proposal_hygiene_score
+  setup_script: ../scripts/setup_hygiene_score.sh
+  cleanup_script: ../scripts/cleanup_hygiene_score.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          The platform team wants a hygiene report for namespace
+          lightspeed-evaluation-test. Review every Deployment for
+          production guardrails — health probes, resource requests and
+          limits, pinned image tags — and produce a prioritized list of
+          issues per workload, distinguishing quick wins from bigger
+          changes. Do not change anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: &eval_tools
+          skills:
+            # TODO(rioloc): replace with a stable image
+            - image: quay.io/harpatil/agentic-skills:latest
+              paths:
+                - /skills/find-token
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        Per-workload findings: web-frontend uses a floating :latest image
+        tag and has no health probes; batch-worker has no resource
+        requests or limits at all; legacy-api has no probes and requests
+        without limits; billing-api is fully compliant (pinned tag,
+        probes, requests and limits) and needs no changes. The report
+        should prioritize the gaps (missing limits and probes as quick
+        wins) and explicitly note billing-api as clean rather than
+        inventing issues for it.
+      expected_analysis_outcome: >-
+        The agent should inspect all four deployments, attribute the
+        correct issues to web-frontend (floating tag, no probes),
+        batch-worker (no requests/limits), and legacy-api (no probes,
+        no limits), and identify billing-api as compliant.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_rightsizing
+  description: Right-sizing analysis — requests wildly above observed usage, propose new values (analysis-only)
+  tag: proposal_rightsizing
+  setup_script: ../scripts/setup_rightsizing.sh
+  cleanup_script: ../scripts/cleanup_rightsizing.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Capacity costs in namespace lightspeed-evaluation-test are under
+          review. Compare the resource requests of the oversized-api
+          deployment against its actual observed usage and propose
+          right-sized requests and limits with an estimate of the
+          capacity that would be freed. Do not change anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        oversized-api requests a full CPU and 1Gi of memory per replica
+        (2 replicas — 2 CPUs / 2Gi reserved), while actual observed usage
+        of the idle nginx is on the order of a few millicores and a few
+        tens of Mi per pod. The proposal should recommend drastically
+        lower requests (e.g. tens of millicores CPU, 64-128Mi memory)
+        with proportionate limits, and quantify the reclaimed capacity
+        (~2 CPUs and ~1.9Gi across the deployment).
+      expected_analysis_outcome: >-
+        The agent should read actual usage (pod metrics) rather than
+        guessing, contrast it with the 1 CPU / 1Gi requests, and propose
+        concrete right-sized values plus the freed-capacity estimate.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_change_risk
+  description: Change-risk pre-flight — diff a proposed manifest against the running deployment and flag regressions (analysis-only)
+  tag: proposal_change_risk
+  setup_script: ../scripts/setup_change_risk.sh
+  cleanup_script: ../scripts/cleanup_change_risk.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Before the next release, review the proposed manifest stored in
+          ConfigMap orders-api-proposed-change (key manifest.yaml) in
+          namespace lightspeed-evaluation-test against the currently
+          running orders-api deployment. Flag every regression the
+          change would introduce and recommend whether the rollout should
+          proceed. Do not apply the manifest or change anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        The proposed manifest would introduce five regressions versus the
+        running orders-api: it drops the readiness probe, switches the
+        pinned nginx-unprivileged:1.27 image to a floating :latest tag,
+        removes all resource requests and limits, cuts replicas from 2
+        to 1 (losing redundancy), and drops the container securityContext
+        hardening (allowPrivilegeEscalation/runAsNonRoot/drop-ALL).
+        Recommendation: block the rollout until the manifest restores the
+        probe, pins the image, reinstates resources and securityContext,
+        and justifies the replica reduction.
+      expected_analysis_outcome: >-
+        The agent should read the proposed manifest from the ConfigMap,
+        diff it against the live deployment, identify the regressions
+        (probe removal, floating tag, resources removed, replicas 2 to 1,
+        securityContext dropped), and recommend blocking the change.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness
+
+- conversation_group_id: proposal_haystack
+  description: Needle-in-haystack sweep — five workloads, find exactly the two broken ones (analysis-only)
+  tag: proposal_haystack
+  setup_script: ../scripts/setup_haystack.sh
+  cleanup_script: ../scripts/cleanup_haystack.sh
+  conversation_metrics: []
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: >-
+          Several teams report intermittent problems in namespace
+          lightspeed-evaluation-test but nobody knows which services are
+          affected. Survey all workloads in the namespace, identify
+          exactly which are unhealthy and diagnose each one's root cause,
+          and confirm which are healthy. Do not fix anything.
+        targetNamespaces:
+          - lightspeed-evaluation-test
+        tools: *eval_tools
+        analysis:
+          agent: eval-default
+      expected_proposal_status:
+        phase: Completed
+        analysis:
+          min_options: 1
+      expected_outcome: >-
+        Unhealthy: svc-charlie is in CreateContainerConfigError because
+        its envFrom references the nonexistent ConfigMap chaos-config,
+        and svc-echo is in ImagePullBackOff because its image tag
+        8.88-does-not-exist is invalid. Healthy: svc-alpha, svc-bravo,
+        and svc-delta are Running with no issues. The report must not
+        invent faults for the healthy services or miss either broken one.
+      expected_analysis_outcome: >-
+        The agent should sweep all five deployments, diagnose exactly
+        svc-charlie (missing ConfigMap) and svc-echo (bad image tag) with
+        the correct root causes, and affirm the other three as healthy.
+      turn_metrics:
+        - custom:proposal_status
+        - custom:proposal_evaluation_correctness

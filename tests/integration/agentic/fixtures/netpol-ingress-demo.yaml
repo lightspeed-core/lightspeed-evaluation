@@ -1,0 +1,113 @@
+# A NetworkPolicy restricts ingress to the backend to pods labelled
+# access=allowed, but the client pod doesn't carry that label — its
+# requests time out and it logs the failures continuously.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netpol-backend
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netpol-backend
+  template:
+    metadata:
+      labels:
+        app: netpol-backend
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netpol-backend
+  namespace: lightspeed-evaluation-test
+spec:
+  selector:
+    app: netpol-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netpol-client
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netpol-client
+  template:
+    metadata:
+      labels:
+        app: netpol-client
+    spec:
+      containers:
+        - name: client
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              while true; do
+              if curl -s -m 3 http://netpol-backend:8080/ >/dev/null; then
+              echo "backend reachable";
+              else
+              echo "ERROR: backend unreachable (request timed out)";
+              fi;
+              sleep 5;
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress-lockdown
+  namespace: lightspeed-evaluation-test
+spec:
+  podSelector:
+    matchLabels:
+      app: netpol-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              access: allowed

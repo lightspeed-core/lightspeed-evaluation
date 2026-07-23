@@ -1,0 +1,42 @@
+# An idle nginx requesting a full CPU and 1Gi per replica — wildly
+# oversized against its actual usage (a few millicores, ~20Mi).
+# Analysis-only: compare requests to observed usage and propose
+# right-sized values.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oversized-api
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: oversized-api
+  template:
+    metadata:
+      labels:
+        app: oversized-api
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1"
+            limits:
+              memory: "1Gi"
+              cpu: "1"

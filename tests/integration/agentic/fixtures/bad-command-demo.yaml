@@ -1,0 +1,36 @@
+# A command override points at a binary that doesn't exist in the image —
+# containers fail with StartError ("executable file not found") and the pod
+# lands in CrashLoopBackOff. The fix is removing/correcting the override.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-command-demo
+  namespace: lightspeed-evaluation-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bad-command-demo
+  template:
+    metadata:
+      labels:
+        app: bad-command-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          command: ["/usr/bin/run-app", "--serve"]
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

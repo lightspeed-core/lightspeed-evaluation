@@ -1,0 +1,25 @@
+# Deliberately noisy Prometheus alerting rules: no `for:` durations,
+# a cumulative restart counter compared against zero (fires forever after
+# a single transient restart), critical severity on transient events, and
+# a rule missing a severity label entirely.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: noisy-alert-rules
+  namespace: lightspeed-evaluation-test
+spec:
+  groups:
+    - name: lightspeed-eval-noisy.rules
+      rules:
+        - alert: PodRestarted
+          expr: kube_pod_container_status_restarts_total{namespace="lightspeed-evaluation-test"} > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: A pod has restarted
+            description: Container restart counter is above zero.
+        - alert: PodNotReady
+          expr: kube_pod_status_ready{condition="false",namespace="lightspeed-evaluation-test"} > 0
+          annotations:
+            summary: A pod is not ready
+            description: Pod readiness condition is false.
