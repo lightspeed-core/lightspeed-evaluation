@@ -15,6 +15,7 @@ from lightspeed_evaluation.pipeline.behavioral.orchestrator import (
     _build_agent_set,
     _clone_config_for_run,
     _filter_conversations,
+    _make_summary,
     _pin_conversations_to_agent,
     run,
 )
@@ -187,25 +188,118 @@ class TestCloneConfigForRun:
 
     def test_sets_single_agent(self) -> None:
         """Cloned config has only the target agent in default."""
-        cloned = _clone_config_for_run(self._base_config(), "model_a", False)
+        cloned = _clone_config_for_run(
+            self._base_config(), "model_a", False, "/tmp/out"
+        )
         assert cloned["agents"]["default"]["agent"] == ["model_a"]
 
     def test_does_not_mutate_original(self) -> None:
         """Original config is not modified."""
         original = self._base_config()
-        _clone_config_for_run(original, "model_a", False)
+        _clone_config_for_run(original, "model_a", False, "/tmp/out")
         assert original["agents"]["default"]["agent"] == ["model_a", "model_b"]
 
     def test_disables_cache(self) -> None:
         """Cache disabled when requested."""
-        cloned = _clone_config_for_run(self._base_config(), "model_a", True)
+        cloned = _clone_config_for_run(self._base_config(), "model_a", True, "/tmp/out")
         assert cloned["agents"]["agents"]["model_a"]["cache_enabled"] is False
         assert cloned["agents"]["agents"]["model_b"]["cache_enabled"] is True
 
     def test_cache_not_disabled_when_not_requested(self) -> None:
         """Cache stays enabled when not disabled."""
-        cloned = _clone_config_for_run(self._base_config(), "model_a", False)
+        cloned = _clone_config_for_run(
+            self._base_config(), "model_a", False, "/tmp/out"
+        )
         assert cloned["agents"]["agents"]["model_a"]["cache_enabled"] is True
+
+    def test_injects_file_backend_when_missing(self) -> None:
+        """File backend injected when no storage configured."""
+        config = self._base_config()
+        config["storage"] = []
+        cloned = _clone_config_for_run(config, "model_a", False, "/tmp/run_out")
+        file_entries = [
+            s
+            for s in cloned["storage"]
+            if isinstance(s, dict) and s.get("type") == "file"
+        ]
+        assert len(file_entries) == 1
+        assert file_entries[0]["output_dir"] == "/tmp/run_out"
+
+    def test_does_not_inject_file_backend_when_present(self) -> None:
+        """File backend not injected when already configured."""
+        config = self._base_config()
+        config["storage"] = [{"type": "file", "output_dir": "/existing"}]
+        cloned = _clone_config_for_run(config, "model_a", False, "/tmp/run_out")
+        file_entries = [
+            s
+            for s in cloned["storage"]
+            if isinstance(s, dict) and s.get("type") == "file"
+        ]
+        assert len(file_entries) == 1
+        assert file_entries[0]["output_dir"] == "/existing"
+
+
+class TestMakeSummary:
+    """Tests for _make_summary token deduplication."""
+
+    def test_api_tokens_deduplicated_per_turn(self) -> None:
+        """API tokens counted once per turn even with multiple metrics."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t1",
+                metric_identifier="ragas:faithfulness",
+                result="PASS",
+                score=0.9,
+                api_input_tokens=100,
+                api_output_tokens=50,
+                judge_llm_input_tokens=200,
+                judge_llm_output_tokens=80,
+                embedding_tokens=10,
+            ),
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t1",
+                metric_identifier="ragas:relevancy",
+                result="PASS",
+                score=0.8,
+                api_input_tokens=100,
+                api_output_tokens=50,
+                judge_llm_input_tokens=150,
+                judge_llm_output_tokens=60,
+                embedding_tokens=5,
+            ),
+        ]
+        summary = _make_summary(results)
+        assert summary["api_input_tokens"] == 100
+        assert summary["api_output_tokens"] == 50
+        assert summary["judge_llm_input_tokens"] == 350
+        assert summary["judge_llm_output_tokens"] == 140
+        assert summary["embedding_tokens"] == 15
+
+    def test_different_turns_counted_separately(self) -> None:
+        """API tokens from different turns are summed."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t1",
+                metric_identifier="ragas:faithfulness",
+                result="PASS",
+                api_input_tokens=100,
+                api_output_tokens=50,
+            ),
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t2",
+                metric_identifier="ragas:faithfulness",
+                result="PASS",
+                api_input_tokens=200,
+                api_output_tokens=80,
+            ),
+        ]
+        summary = _make_summary(results)
+        assert summary["api_input_tokens"] == 300
+        assert summary["api_output_tokens"] == 130
 
 
 class TestRunOrchestrator:
@@ -307,6 +401,7 @@ class TestRunOrchestrator:
         assert len(results) == 1
         assert results[0].agent_name == "model_a"
         assert results[0].run_index == 1
+        assert results[0].output_dir == str(tmp_path)
 
     def test_failed_run_does_not_stop_others(
         self, mocker: MockerFixture, tmp_path: Path
