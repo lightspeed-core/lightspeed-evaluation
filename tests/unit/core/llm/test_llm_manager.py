@@ -17,6 +17,7 @@ from lightspeed_evaluation.core.models.llm import (
     LLMParametersConfig,
     LLMProviderConfig,
 )
+from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
 
 class TestLLMManager:
@@ -387,6 +388,60 @@ class TestLLMManagerJudgePanel:
             "Judge panel" in record.message and "2 judges" in record.message
             for record in caplog.records
         )
+
+    def test_judge_panel_skips_legacy_llm_provider_validation(
+        self, mocker: MockerFixture
+    ) -> None:
+        """llm_pool + judge_panel must not validate unused legacy llm defaults.
+
+        When top-level llm: is omitted, SystemConfig defaults provider to openai.
+        Startup should only require credentials for configured judges.
+        """
+        validate_mock = mocker.patch(
+            "lightspeed_evaluation.core.llm.manager.validate_provider_env"
+        )
+
+        pool, panel = _create_llm_pool_with_judges([("gemini", "gemini-2.5-pro")])
+        # Intentionally leave default llm (openai/gpt-4o-mini) unused
+        system_config = SystemConfig(llm_pool=pool, judge_panel=panel)
+
+        manager = LLMManager.from_system_config(system_config)
+
+        validated_providers = [call.args[0] for call in validate_mock.call_args_list]
+        assert "openai" not in validated_providers
+        assert "gemini" in validated_providers
+        assert manager.has_judge_panel()
+        assert manager.config.provider == "gemini"
+        assert manager.get_primary_judge().config.provider == "gemini"
+        assert manager.get_primary_judge().config.model == "gemini-2.5-pro"
+
+    def test_judge_panel_without_llm_pool_raises(self, mocker: MockerFixture) -> None:
+        """judge_panel without llm_pool must raise, not fall back to legacy llm."""
+        mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
+
+        panel = JudgePanelConfig(judges=["gemini-2.5-pro"])
+        system_config = SystemConfig(judge_panel=panel)
+
+        with pytest.raises(ConfigurationError, match="llm_pool"):
+            LLMManager.from_system_config(system_config)
+
+    def test_from_system_config_resolves_judge_configs_once(
+        self, mocker: MockerFixture
+    ) -> None:
+        """get_judge_configs should be called once when building a panel manager."""
+        mocker.patch("lightspeed_evaluation.core.llm.manager.validate_provider_env")
+
+        pool, panel = _create_llm_pool_with_judges(
+            [("openai", "gpt-4o-mini"), ("gemini", "gemini-2.5-pro")]
+        )
+        system_config = SystemConfig(llm_pool=pool, judge_panel=panel)
+        resolve_spy = mocker.spy(SystemConfig, "get_judge_configs")
+
+        manager = LLMManager.from_system_config(system_config)
+
+        assert resolve_spy.call_count == 1
+        assert len(manager.judge_managers) == 2
+        assert manager.get_primary_judge().config.model == "gpt-4o-mini"
 
 
 class TestLLMManagerBackwardCompatibility:

@@ -26,7 +26,8 @@ class LLMManager:
         config: LLMConfig,
         system_config: Optional[SystemConfig] = None,
         judge_id: Optional[str] = None,
-    ):
+        judge_configs: Optional[list[tuple[str, LLMConfig]]] = None,
+    ) -> None:
         """Initialize with validated environment and constructed model name.
 
         Args:
@@ -34,27 +35,24 @@ class LLMManager:
             system_config: Optional full system config for judge panel support
             judge_id: Optional identifier for this judge (pool key). If not provided,
                 defaults to "primary" for single LLM or the pool key for panel judges.
+            judge_configs: Optional pre-resolved ``(pool_key, LLMConfig)`` pairs for
+                the judge panel. When provided (typically by ``from_system_config``),
+                managers are built from these configs without resolving again.
         """
         self.config = config
         self.system_config = system_config
         self.model_name = self._construct_model_name_and_validate(config)
         self.judge_id = judge_id or "primary"
 
-        # Initialize judge panel if available
+        # Initialize judge panel from pre-resolved configs when available
         self.judge_managers: list["LLMManager"] = []
-        if system_config and system_config.judge_panel and system_config.llm_pool:
-            panel = system_config.judge_panel
-            logger.info("Judge panel configured with %d judges", len(panel.judges))
-            # Create LLM managers for each judge using resolved configs from llms pool
-            try:
-                judge_configs = system_config.get_judge_configs()
-                for pool_key, resolved_config in judge_configs:
-                    # Create child manager without system_config to avoid recursion
-                    judge_manager = LLMManager(resolved_config, judge_id=pool_key)
-                    self.judge_managers.append(judge_manager)
-            except ConfigurationError as e:
-                logger.error("Failed to resolve judge panel: %s", e)
-                raise
+        if judge_configs:
+            logger.info("Judge panel configured with %d judges", len(judge_configs))
+            for pool_key, resolved_config in judge_configs:
+                # Create child manager without system_config to avoid recursion
+                self.judge_managers.append(
+                    LLMManager(resolved_config, judge_id=pool_key)
+                )
         else:
             # No judge panel - log single LLM info
             logger.info(
@@ -231,12 +229,30 @@ class LLMManager:
     def from_system_config(cls, system_config: SystemConfig) -> "LLMManager":
         """Create LLM Manager from system configuration.
 
+        When ``judge_panel`` is configured, the first judge's resolved config is
+        used as the primary/fallback LLM. ``get_judge_configs()`` raises
+        ``ConfigurationError`` if ``llm_pool`` is missing, so invalid panel
+        configs do not silently fall back to the legacy top-level ``llm``
+        (which defaults to OpenAI when ``llm:`` is omitted from YAML).
+
         Args:
             system_config: System configuration with LLM and optional judge panel
 
         Returns:
             LLMManager with judge panel support if configured
         """
+        if system_config.judge_panel:
+            try:
+                judge_configs = system_config.get_judge_configs()
+            except ConfigurationError as e:
+                logger.error("Failed to resolve judge panel: %s", e)
+                raise
+            _, primary_config = judge_configs[0]
+            return cls(
+                primary_config,
+                system_config=system_config,
+                judge_configs=judge_configs,
+            )
         return cls(system_config.llm, system_config=system_config)
 
     @classmethod
