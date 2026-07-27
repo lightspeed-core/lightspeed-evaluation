@@ -131,6 +131,8 @@ def _build_run_contexts(
     eval_data_dicts = [conv.model_dump() for conv in evaluation_data]
     output_base = run_params["output_base"]
     timestamp = run_params["timestamp"]
+    run_matrix = run_params["run_matrix"]
+    is_single_run = len(run_matrix) == 1
 
     return [
         RunContext(
@@ -139,15 +141,17 @@ def _build_run_contexts(
             default_agents=run_params["default_agents"],
             agent_name=agent,
             run_index=idx,
-            run_output_dir=os.path.join(
-                output_base, f"eval_{timestamp}", agent, f"run_{idx}"
+            run_output_dir=(
+                output_base
+                if is_single_run
+                else os.path.join(output_base, f"eval_{timestamp}", agent, f"run_{idx}")
             ),
             extra={
                 "original_data_path": run_params.get("original_data_path"),
                 "dataset_metadata_dict": run_params.get("dataset_metadata_dict"),
             },
         )
-        for agent, idx in run_params["run_matrix"]
+        for agent, idx in run_matrix
     ]
 
 
@@ -166,6 +170,7 @@ def _clone_config_for_run(
     config_dict: dict[str, Any],
     agent_name: str,
     disable_cache: bool,
+    run_output_dir: str,
 ) -> dict[str, Any]:
     """Clone config dict and set the target agent as the sole default."""
     cloned = copy.deepcopy(config_dict)
@@ -176,6 +181,14 @@ def _clone_config_for_run(
         agent_def = agent_defs[agent_name]
         if isinstance(agent_def, dict):
             agent_def["cache_enabled"] = False
+
+    storage = cloned.get("storage", [])
+    has_file_backend = any(
+        isinstance(s, dict) and s.get("type") == "file" for s in storage
+    )
+    if not has_file_backend:
+        storage.append({"type": "file", "output_dir": run_output_dir})
+        cloned["storage"] = storage
 
     return cloned
 
@@ -263,7 +276,10 @@ def _run_single(ctx: RunContext) -> RunResult:
 
     try:
         cloned_dict = _clone_config_for_run(
-            ctx.config_dict, ctx.agent_name, disable_cache=ctx.run_index > 1
+            ctx.config_dict,
+            ctx.agent_name,
+            disable_cache=ctx.run_index > 1,
+            run_output_dir=ctx.run_output_dir,
         )
         config = SystemConfig.model_validate(cloned_dict)
 
@@ -328,20 +344,51 @@ def _run_single(ctx: RunContext) -> RunResult:
         )
 
 
-def _make_summary(results: list) -> dict[str, int]:
-    """Build summary dict from evaluation results."""
+def _make_summary(results: list) -> dict[str, Any]:
+    """Build summary dict from evaluation results.
+
+    Judge/embedding tokens are summed per result (each metric has its own).
+    API tokens are deduplicated per turn to avoid overcounting when a turn
+    has multiple metrics.
+    """
+    seen_turns: set[tuple[str, str]] = set()
+    api_in = 0
+    api_out = 0
+    for r in results:
+        turn_key = (r.conversation_group_id, r.turn_id or "")
+        if turn_key not in seen_turns:
+            seen_turns.add(turn_key)
+            api_in += r.api_input_tokens
+            api_out += r.api_output_tokens
+
     return {
         "TOTAL": len(results),
         "PASS": sum(1 for r in results if r.result == "PASS"),
         "FAIL": sum(1 for r in results if r.result == "FAIL"),
         "ERROR": sum(1 for r in results if r.result == "ERROR"),
         "SKIPPED": sum(1 for r in results if r.result == "SKIPPED"),
+        "judge_llm_input_tokens": sum(r.judge_llm_input_tokens for r in results),
+        "judge_llm_output_tokens": sum(r.judge_llm_output_tokens for r in results),
+        "embedding_tokens": sum(r.embedding_tokens for r in results),
+        "api_input_tokens": api_in,
+        "api_output_tokens": api_out,
     }
 
 
-def _empty_summary() -> dict[str, int]:
+def _empty_summary() -> dict[str, Any]:
     """Return empty summary for runs with no matching conversations."""
-    return {"TOTAL": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "SKIPPED": 0}
+    return {
+        "TOTAL": 0,
+        "PASS": 0,
+        "FAIL": 0,
+        "ERROR": 0,
+        "SKIPPED": 0,
+        "judge_llm_input_tokens": 0,
+        "judge_llm_output_tokens": 0,
+        "embedding_tokens": 0,
+        "api_input_tokens": 0,
+        "api_output_tokens": 0,
+    }
 
 
 def _warn_resource_usage(num_runs: int, config: SystemConfig) -> None:

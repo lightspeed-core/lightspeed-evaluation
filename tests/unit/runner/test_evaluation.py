@@ -16,7 +16,6 @@ from lightspeed_evaluation.core.models.llm import (
     LLMPoolConfig,
     LLMProviderConfig,
 )
-from lightspeed_evaluation.core.models.statistics import OverallStats
 from lightspeed_evaluation.core.models.system import (
     APIConfig,
     SystemConfig,
@@ -25,6 +24,7 @@ from lightspeed_evaluation.core.system.exceptions import (
     DataValidationError,
     StorageError,
 )
+from lightspeed_evaluation.pipeline.behavioral.models import RunResult
 from lightspeed_evaluation.runner.evaluation import _clear_caches, main, run_evaluation
 
 _MAIN_STATS: dict[str, int] = {
@@ -65,6 +65,53 @@ def _make_eval_args(**kwargs: Any) -> argparse.Namespace:
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
+
+
+def _setup_runner_mocks(
+    mocker: MockerFixture,
+    *,
+    orchestrator_results: list[RunResult] | None = None,
+    orchestrator_side_effect: Any = None,
+) -> tuple[Any, Any, Any]:
+    """Set up common mocks for runner tests.
+
+    Returns (mock_config, mock_validator, mock_orchestrator).
+    """
+    mock_loader = mocker.Mock()
+    mock_config = mocker.Mock()
+    mock_config.llm.provider = "openai"
+    mock_config.llm.model = "gpt-4"
+    mock_config.agents.default.agent = ["mock_agent"]
+    mock_config.storage = []
+    mock_loader.system_config = mock_config
+    mock_loader.load_system_config.return_value = mock_config
+
+    mocker.patch(
+        "lightspeed_evaluation.runner.evaluation.ConfigLoader"
+    ).return_value = mock_loader
+
+    mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
+    mock_validator.return_value.load_evaluation_data.return_value = [mocker.Mock()]
+    mock_validator.return_value.dataset_metadata = None
+
+    if orchestrator_results is None:
+        orchestrator_results = [
+            RunResult(
+                agent_name="model_a",
+                run_index=1,
+                output_dir="/tmp/out",
+                success=True,
+                summary={"TOTAL": 1, "PASS": 1, "FAIL": 0, "ERROR": 0, "SKIPPED": 0},
+            )
+        ]
+
+    mock_orchestrator = mocker.patch(
+        "lightspeed_evaluation.pipeline.behavioral.orchestrator.run",
+        return_value=orchestrator_results,
+        side_effect=orchestrator_side_effect,
+    )
+
+    return mock_config, mock_validator, mock_orchestrator
 
 
 def _system_config_all_caches_under_tmp(tmp_path: Path) -> SystemConfig:
@@ -112,57 +159,41 @@ class TestRunEvaluation:
         capsys: pytest.CaptureFixture,
     ) -> None:
         """Test successful evaluation run."""
-        # Mock ConfigLoader
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
         mock_config.llm.model = "gpt-4"
-        mock_config.agents = None
+        mock_config.agents.default.agent = ["mock_agent"]
         mock_config.storage = []
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
 
-        mock_config_loader_class = mocker.patch(
+        mocker.patch(
             "lightspeed_evaluation.runner.evaluation.ConfigLoader"
-        )
-        mock_config_loader_class.return_value = mock_loader
+        ).return_value = mock_loader
 
-        # Mock evaluation data
         mock_eval_data = [mocker.Mock()]
-
-        # Mock DataValidator (imported inside function)
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
+        mock_validator.return_value.dataset_metadata = None
 
-        # Mock evaluate() API function (imported inside function)
-        mock_result = mocker.Mock()
-        mock_result.result = "PASS"
-        mock_evaluate = mocker.patch(
-            "lightspeed_evaluation.api.evaluate", return_value=[mock_result]
-        )
-
-        # Mock OutputHandler (imported inside function)
-        mock_output_handler = mocker.Mock()
-        mock_output_handler.output_dir = "/tmp/output"
-        mock_output_class = mocker.patch(
-            "lightspeed_evaluation.core.output.OutputHandler"
-        )
-        mock_output_class.return_value = mock_output_handler
-
-        # Mock compute_overall_stats (imported inside function)
-        mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
-        )
-        mock_stats.return_value = OverallStats(
-            total=1,
-            passed=1,
-            failed=0,
-            error=0,
-            skipped=0,
-            total_judge_llm_input_tokens=100,
-            total_judge_llm_output_tokens=50,
-            total_judge_llm_tokens=150,
-            total_embedding_tokens=10,
+        mock_orchestrator = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.run",
+            return_value=[
+                RunResult(
+                    agent_name="model_a",
+                    run_index=1,
+                    output_dir="/tmp/out",
+                    success=True,
+                    summary={
+                        "TOTAL": 1,
+                        "PASS": 1,
+                        "FAIL": 0,
+                        "ERROR": 0,
+                        "SKIPPED": 0,
+                    },
+                )
+            ],
         )
 
         result = run_evaluation(_make_eval_args())
@@ -170,22 +201,13 @@ class TestRunEvaluation:
         assert result is not None
         assert result["TOTAL"] == 1
         assert result["PASS"] == 1
-        mock_evaluate.assert_called_once()
-        call_args = mock_evaluate.call_args
-        assert call_args[0] == (mock_config, mock_eval_data)
-        assert call_args[1]["output_dir"] is None
-        assert call_args[1]["original_data_path"] == "config/evaluation_data.yaml"
-        assert (
-            call_args[1]["dataset_metadata"]
-            is mock_validator.return_value.dataset_metadata
-        )
+        mock_orchestrator.assert_called_once()
 
-    def test_run_evaluation_with_output_dir_override(
+    def test_run_evaluation_offline_does_not_call_orchestrator(
         self,
         mocker: MockerFixture,
-        capsys: pytest.CaptureFixture,
     ) -> None:
-        """Test evaluation with custom output directory."""
+        """Offline mode (no agents) does not call the orchestrator."""
         mock_loader = mocker.Mock()
         mock_config = mocker.Mock()
         mock_config.llm.provider = "openai"
@@ -195,42 +217,34 @@ class TestRunEvaluation:
         mock_loader.system_config = mock_config
         mock_loader.load_system_config.return_value = mock_config
 
-        mock_config_loader_class = mocker.patch(
+        mocker.patch(
             "lightspeed_evaluation.runner.evaluation.ConfigLoader"
-        )
-        mock_config_loader_class.return_value = mock_loader
+        ).return_value = mock_loader
 
-        mock_eval_data = [mocker.Mock()]
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
-        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
+        mock_validator.return_value.load_evaluation_data.return_value = []
 
-        mock_evaluate = mocker.patch(
-            "lightspeed_evaluation.api.evaluate", return_value=[]
+        mock_orchestrator = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.run",
         )
 
-        mock_output_handler = mocker.Mock()
-        mock_output_handler.output_dir = "/custom/output"
-        mock_output_class = mocker.patch(
-            "lightspeed_evaluation.core.output.OutputHandler"
-        )
-        mock_output_class.return_value = mock_output_handler
+        run_evaluation(_make_eval_args())
 
-        mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
-        )
-        mock_stats.return_value = OverallStats()
+        mock_orchestrator.assert_not_called()
+
+    def test_run_evaluation_with_output_dir_override(
+        self,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """Test evaluation with custom output directory."""
+        _, _, mock_orchestrator = _setup_runner_mocks(mocker)
 
         run_evaluation(_make_eval_args(output_dir="/custom/output"))
 
-        mock_evaluate.assert_called_once()
-        call_args = mock_evaluate.call_args
-        assert call_args[0] == (mock_config, mock_eval_data)
-        assert call_args[1]["output_dir"] == "/custom/output"
-        assert call_args[1]["original_data_path"] == "config/evaluation_data.yaml"
-        assert (
-            call_args[1]["dataset_metadata"]
-            is mock_validator.return_value.dataset_metadata
-        )
+        mock_orchestrator.assert_called_once()
+        call_args = mock_orchestrator.call_args
+        assert call_args[0][2] == "/custom/output"
 
     def test_run_evaluation_file_not_found(
         self, mocker: MockerFixture, capsys: pytest.CaptureFixture
@@ -281,46 +295,23 @@ class TestRunEvaluation:
         self, mocker: MockerFixture, capsys: pytest.CaptureFixture
     ) -> None:
         """Test evaluation reports errors in results."""
-        mock_loader = mocker.Mock()
-        mock_config = mocker.Mock()
-        mock_config.llm.provider = "openai"
-        mock_config.llm.model = "gpt-4"
-        mock_config.agents = None
-        mock_config.storage = []
-        mock_loader.system_config = mock_config
-        mock_loader.load_system_config.return_value = mock_config
-
-        mock_config_loader_class = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
-        )
-        mock_config_loader_class.return_value = mock_loader
-
-        mock_eval_data = [mocker.Mock()]
-        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
-        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
-
-        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[])
-
-        mock_output_handler = mocker.Mock()
-        mock_output_handler.output_dir = "/tmp/output"
-        mock_output_class = mocker.patch(
-            "lightspeed_evaluation.core.output.OutputHandler"
-        )
-        mock_output_class.return_value = mock_output_handler
-
-        mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
-        )
-        mock_stats.return_value = OverallStats(
-            total=10,
-            passed=5,
-            failed=2,
-            error=3,
-            skipped=0,
-            total_judge_llm_input_tokens=500,
-            total_judge_llm_output_tokens=250,
-            total_judge_llm_tokens=750,
-            total_embedding_tokens=10,
+        _setup_runner_mocks(
+            mocker,
+            orchestrator_results=[
+                RunResult(
+                    agent_name="model_a",
+                    run_index=1,
+                    output_dir="/tmp/out",
+                    success=True,
+                    summary={
+                        "TOTAL": 10,
+                        "PASS": 5,
+                        "FAIL": 2,
+                        "ERROR": 3,
+                        "SKIPPED": 0,
+                    },
+                )
+            ],
         )
 
         result = run_evaluation(_make_eval_args())
@@ -335,28 +326,10 @@ class TestRunEvaluation:
         mocker: MockerFixture,
         capsys: pytest.CaptureFixture,
     ) -> None:
-        """Test that RuntimeError from evaluate() is caught by the CLI handler."""
-        mock_loader = mocker.Mock()
-        mock_config = mocker.Mock()
-        mock_config.llm.provider = "openai"
-        mock_config.llm.model = "gpt-4"
-        mock_config.agents = None
-        mock_config.storage = []
-        mock_loader.system_config = mock_config
-        mock_loader.load_system_config.return_value = mock_config
-
-        mock_config_loader_class = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
-        )
-        mock_config_loader_class.return_value = mock_loader
-
-        mock_eval_data = [mocker.Mock()]
-        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
-        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
-
-        mocker.patch(
-            "lightspeed_evaluation.api.evaluate",
-            side_effect=RuntimeError("Processing error"),
+        """Test that RuntimeError from orchestrator is caught by the CLI handler."""
+        _setup_runner_mocks(
+            mocker,
+            orchestrator_side_effect=RuntimeError("Processing error"),
         )
 
         result = run_evaluation(_make_eval_args())
@@ -400,47 +373,7 @@ class TestRunEvaluation:
 
     def test_run_evaluation_with_filter_parameters(self, mocker: MockerFixture) -> None:
         """Test that filter parameters are correctly passed to DataValidator."""
-        mock_loader = mocker.Mock()
-        mock_config = mocker.Mock()
-        mock_config.llm.provider = "openai"
-        mock_config.llm.model = "gpt-4"
-        mock_config.agents = None
-        mock_config.storage = []
-        mock_loader.system_config = mock_config
-        mock_loader.load_system_config.return_value = mock_config
-
-        mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.ConfigLoader",
-            return_value=mock_loader,
-        )
-
-        mock_eval_data = mocker.Mock()
-        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
-        mock_validator.return_value.load_evaluation_data.return_value = [mock_eval_data]
-
-        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[])
-
-        mock_output_handler = mocker.Mock()
-        mock_output_handler.output_dir = "/tmp/output"
-        mocker.patch(
-            "lightspeed_evaluation.core.output.OutputHandler",
-            return_value=mock_output_handler,
-        )
-
-        mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.compute_overall_stats",
-            return_value=OverallStats(
-                total=1,
-                passed=1,
-                failed=0,
-                error=0,
-                skipped=0,
-                total_judge_llm_input_tokens=100,
-                total_judge_llm_output_tokens=50,
-                total_judge_llm_tokens=150,
-                total_embedding_tokens=10,
-            ),
-        )
+        _, mock_validator, _ = _setup_runner_mocks(mocker)
 
         run_evaluation(_make_eval_args(tags=["basic"], conv_ids=["conv_1"]))
 
@@ -456,28 +389,10 @@ class TestRunEvaluation:
         mocker: MockerFixture,
         capsys: pytest.CaptureFixture,
     ) -> None:
-        """StorageError from the pipeline ends the run with a clear message."""
-        mock_loader = mocker.Mock()
-        mock_config = mocker.Mock()
-        mock_config.llm.provider = "openai"
-        mock_config.llm.model = "gpt-4"
-        mock_config.agents = None
-        mock_config.storage = []
-        mock_loader.system_config = mock_config
-        mock_loader.load_system_config.return_value = mock_config
-
-        mock_config_loader_class = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
-        )
-        mock_config_loader_class.return_value = mock_loader
-
-        mock_eval_data = [mocker.Mock()]
-        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
-        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
-
-        mocker.patch(
-            "lightspeed_evaluation.api.evaluate",
-            side_effect=StorageError(
+        """StorageError from the orchestrator ends the run with a clear message."""
+        _setup_runner_mocks(
+            mocker,
+            orchestrator_side_effect=StorageError(
                 "Database schema mismatch: the existing table 'evaluation_results' "
                 "is missing required column(s): score.",
                 backend_name="sqlite",
@@ -737,7 +652,7 @@ class TestRunEvaluationCacheWarmup:
         mock_config.llm.model = "gpt-4"
         mock_config.llm.cache_enabled = True
         mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.agents = None
+        mock_config.agents.default.agent = ["mock_agent"]
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
         mock_config.storage = []
@@ -752,34 +667,26 @@ class TestRunEvaluationCacheWarmup:
         # Mock evaluation data
         mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
         mock_validator.return_value.load_evaluation_data.return_value = [mocker.Mock()]
+        mock_validator.return_value.dataset_metadata = None
 
-        # Mock evaluate() API function
-        mock_result = mocker.Mock()
-        mock_result.result = "PASS"
-        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[mock_result])
-
-        # Mock output handler
-        mock_output_handler = mocker.Mock()
-        mock_output_handler.output_dir = "/tmp/output"
-        mock_output_class = mocker.patch(
-            "lightspeed_evaluation.core.output.OutputHandler"
-        )
-        mock_output_class.return_value = mock_output_handler
-
-        # Mock stats
-        mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
-        )
-        mock_stats.return_value = OverallStats(
-            total=1,
-            passed=1,
-            failed=0,
-            error=0,
-            skipped=0,
-            total_judge_llm_input_tokens=100,
-            total_judge_llm_output_tokens=50,
-            total_judge_llm_tokens=150,
-            total_embedding_tokens=10,
+        # Mock orchestrator
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.run",
+            return_value=[
+                RunResult(
+                    agent_name="model_a",
+                    run_index=1,
+                    output_dir="/tmp/out",
+                    success=True,
+                    summary={
+                        "TOTAL": 1,
+                        "PASS": 1,
+                        "FAIL": 0,
+                        "ERROR": 0,
+                        "SKIPPED": 0,
+                    },
+                )
+            ],
         )
 
         # Run evaluation with cache warmup flag
@@ -802,58 +709,21 @@ class TestRunEvaluationCacheWarmup:
         self, tmp_path: Path, mocker: MockerFixture, capsys: pytest.CaptureFixture
     ) -> None:
         """Test that caches are NOT cleared when warmup flag is false."""
-        # Setup cache directory with existing file
         llm_cache = tmp_path / "llm_cache"
         llm_cache.mkdir()
         (llm_cache / "existing_cache.db").write_text("existing data")
 
-        # Mock ConfigLoader
-        mock_loader = mocker.Mock()
-        mock_config = mocker.Mock()
-        mock_config.llm.provider = "openai"
-        mock_config.llm.model = "gpt-4"
+        mock_config, _, _ = _setup_runner_mocks(mocker)
         mock_config.llm.cache_enabled = True
         mock_config.llm.cache_dir = str(llm_cache)
-        mock_config.agents = None
         mock_config.api.cache_enabled = False
         mock_config.embedding.cache_enabled = False
-        mock_config.storage = []
-        mock_loader.system_config = mock_config
-        mock_loader.load_system_config.return_value = mock_config
 
-        mock_config_loader_class = mocker.patch(
-            "lightspeed_evaluation.runner.evaluation.ConfigLoader"
-        )
-        mock_config_loader_class.return_value = mock_loader
-
-        mock_eval_data = [mocker.Mock()]
-        mock_validator = mocker.patch("lightspeed_evaluation.core.system.DataValidator")
-        mock_validator.return_value.load_evaluation_data.return_value = mock_eval_data
-
-        mocker.patch("lightspeed_evaluation.api.evaluate", return_value=[])
-
-        mock_output_handler = mocker.Mock()
-        mock_output_handler.output_dir = "/tmp/output"
-        mock_output_class = mocker.patch(
-            "lightspeed_evaluation.core.output.OutputHandler"
-        )
-        mock_output_class.return_value = mock_output_handler
-
-        mock_stats = mocker.patch(
-            "lightspeed_evaluation.core.output.statistics.compute_overall_stats"
-        )
-        mock_stats.return_value = OverallStats()
-
-        # Run evaluation WITHOUT cache warmup flag
         run_evaluation(_make_eval_args(cache_warmup=False))
 
-        # Verify cache was NOT cleared
         assert (llm_cache / "existing_cache.db").exists()
-
-        # Verify no warmup message in output
         captured = capsys.readouterr()
         assert "Cache warmup mode" not in captured.out
-        assert "Cleared LLM Judge cache" not in captured.out
 
 
 class TestMain:

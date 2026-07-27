@@ -1,6 +1,7 @@
 """Lightspeed Evaluation Framework - Main Evaluation Runner."""
 
 import argparse
+import os
 import shutil
 import sys
 import traceback
@@ -8,14 +9,12 @@ from pathlib import Path
 from typing import Optional
 
 from lightspeed_evaluation.core.models import (
-    AgentTokenUsage,
     LLMPoolConfig,
-    OverallStats,
     SystemConfig,
 )
 
 # Import only lightweight modules at top level
-from lightspeed_evaluation.core.storage import FileBackendConfig, get_file_config
+from lightspeed_evaluation.core.storage import get_file_config
 from lightspeed_evaluation.core.system import ConfigLoader
 from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
@@ -70,43 +69,52 @@ def _clear_caches(system_config: SystemConfig) -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
-def _print_summary(
-    summary: OverallStats,
-    api_tokens: Optional[AgentTokenUsage] = None,
+def _print_run_summary(
+    totals: dict[str, int],
+    run_results: list,
 ) -> None:
-    """Print evaluation summary and token usage."""
+    """Print evaluation summary and token usage from orchestrator results."""
+    print(f"📊 {totals['TOTAL']} evaluations completed")
+    if len(run_results) > 1:
+        succeeded = sum(1 for r in run_results if r.success)
+        print(
+            f"📊 {len(run_results)} runs "
+            f"({succeeded} succeeded, {len(run_results) - succeeded} failed)"
+        )
+    output_dirs = {Path(rr.output_dir).resolve() for rr in run_results if rr.output_dir}
+    if len(run_results) > 1 and output_dirs:
+        common = Path(os.path.commonpath(output_dirs))
+        print(f"📁 Reports generated in: {common}")
+    else:
+        for d in output_dirs:
+            print(f"📁 Reports generated in: {d}")
     print(
-        f"✅ Pass: {summary.passed}, ❌ Fail: {summary.failed}, "
-        f"⚠️ Error: {summary.error}, ⏭️ Skipped: {summary.skipped}"
+        f"✅ Pass: {totals['PASS']}, ❌ Fail: {totals['FAIL']}, "
+        f"⚠️ Error: {totals['ERROR']}, ⏭️ Skipped: {totals['SKIPPED']}"
     )
-    if summary.error > 0:
-        print(f"⚠️ {summary.error} evaluations had errors - check detailed report")
+    if totals.get("ERROR", 0) > 0:
+        print(f"⚠️ {totals['ERROR']} evaluations had errors - check detailed report")
+
+    judge_in = totals.get("judge_llm_input_tokens", 0)
+    judge_out = totals.get("judge_llm_output_tokens", 0)
+    embed = totals.get("embedding_tokens", 0)
+    api_in = totals.get("api_input_tokens", 0)
+    api_out = totals.get("api_output_tokens", 0)
 
     print("\n📊 Token Usage Summary:")
     print(
-        f"Judge LLM: {summary.total_judge_llm_tokens:,} tokens "
-        f"(Input: {summary.total_judge_llm_input_tokens:,}, "
-        f"Output: {summary.total_judge_llm_output_tokens:,})"
+        f"Judge LLM: {judge_in + judge_out:,} tokens "
+        f"(Input: {judge_in:,}, Output: {judge_out:,})"
     )
-
-    print(f"Embeddings: {summary.total_embedding_tokens:,} tokens")
-
-    if api_tokens:
+    print(f"Embeddings: {embed:,} tokens")
+    if api_in + api_out > 0:
         print(
-            f"API Calls: {api_tokens.total_api_tokens:,} tokens "
-            f"(Input: {api_tokens.total_api_input_tokens:,}, "
-            f"Output: {api_tokens.total_api_output_tokens:,})"
+            f"API Calls: {api_in + api_out:,} tokens "
+            f"(Input: {api_in:,}, Output: {api_out:,})"
         )
-        total = (
-            summary.total_judge_llm_tokens
-            + summary.total_embedding_tokens
-            + api_tokens.total_api_tokens
-        )
-        print(f"Total: {total:,} tokens")
-    else:
-        total = summary.total_judge_llm_tokens + summary.total_embedding_tokens
-        if total > 0:
-            print(f"Total: {total:,} tokens")
+    total_tokens = judge_in + judge_out + embed + api_in + api_out
+    if total_tokens > 0:
+        print(f"Total: {total_tokens:,} tokens")
 
 
 def run_evaluation(  # pylint: disable=too-many-locals
@@ -138,11 +146,12 @@ def run_evaluation(  # pylint: disable=too-many-locals
         # pylint: disable=import-outside-toplevel
         from lightspeed_evaluation.api import evaluate
         from lightspeed_evaluation.core.output import OutputHandler
-        from lightspeed_evaluation.core.output.statistics import (
-            compute_agent_token_usage,
-            compute_overall_stats,
-        )
+        from lightspeed_evaluation.core.output.statistics import compute_overall_stats
+        from lightspeed_evaluation.core.storage import FileBackendConfig
         from lightspeed_evaluation.core.system import DataValidator
+        from lightspeed_evaluation.pipeline.behavioral.orchestrator import (
+            run as orchestrator_run,
+        )
 
         # pylint: enable=import-outside-toplevel
         print("✅ Configuration loaded & Setup is done !")
@@ -172,61 +181,88 @@ def run_evaluation(  # pylint: disable=too-many-locals
             print("   Nothing to evaluate - returning empty results")
             return {"TOTAL": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "SKIPPED": 0}
 
-        # Run evaluation pipeline
-        print("\n⚙️ Initializing Evaluation Pipeline...")
-
+        # Run evaluation
         print("\n🔄 Running Evaluation...")
-        results = evaluate(
-            system_config,
-            evaluation_data,
-            output_dir=eval_args.output_dir,
-            original_data_path=eval_args.eval_data,
-            dataset_metadata=dataset_metadata,
+        has_agents = (
+            system_config.agents is not None and system_config.agents.default.agent
         )
 
-        file_entries = [
-            c for c in system_config.storage if isinstance(c, FileBackendConfig)
-        ]
-        if not file_entries:
-            # No file storage in config: use legacy default file settings (same as get_file_config).
-            print("\n📊 Generating Reports...")
-            file_config = get_file_config(system_config.storage)
-            output_handler = OutputHandler(
-                output_dir=eval_args.output_dir or file_config.output_dir,
-                base_filename=file_config.base_filename,
-                system_config=system_config,
-                file_config=file_config,
+        if not has_agents:
+            # Offline mode: run pipeline directly (no agents to orchestrate)
+            results = evaluate(
+                system_config,
+                evaluation_data,
+                output_dir=eval_args.output_dir,
+                original_data_path=eval_args.eval_data,
+                dataset_metadata=dataset_metadata,
             )
-            output_handler.generate_reports(results, evaluation_data)
-
-        print("\n🎉 Evaluation Complete!")
-        print(f"📊 {len(results)} evaluations completed")
-        for fc in file_entries:
-            report_dir = Path(eval_args.output_dir or fc.output_dir).resolve()
-            print(f"📁 Reports generated in: {report_dir}")
-        if not file_entries:
-            out_dir = Path(
+            file_entries = [
+                c for c in system_config.storage if isinstance(c, FileBackendConfig)
+            ]
+            if not file_entries:
+                file_config = get_file_config(system_config.storage)
+                handler = OutputHandler(
+                    output_dir=eval_args.output_dir or file_config.output_dir,
+                    base_filename=file_config.base_filename,
+                    system_config=system_config,
+                    file_config=file_config,
+                )
+                handler.generate_reports(results, evaluation_data)
+            summary = compute_overall_stats(results)
+            out_dir = (
                 eval_args.output_dir
                 or get_file_config(system_config.storage).output_dir
-            ).resolve()
-            print(f"📁 Reports generated in: {out_dir}")
+            )
+            print(f"\n🎉 Evaluation Complete!\n📊 {len(results)} evaluations completed")
+            print(f"📁 Reports generated in: {Path(out_dir).resolve()}")
+            print(
+                f"✅ Pass: {summary.passed}, ❌ Fail: {summary.failed}, "
+                f"⚠️ Error: {summary.error}, ⏭️ Skipped: {summary.skipped}"
+            )
+            print(
+                f"\n📊 Token Usage Summary:\n"
+                f"Judge LLM: {summary.total_judge_llm_tokens:,} tokens "
+                f"(Input: {summary.total_judge_llm_input_tokens:,}, "
+                f"Output: {summary.total_judge_llm_output_tokens:,})\n"
+                f"Embeddings: {summary.total_embedding_tokens:,} tokens"
+            )
+            return {
+                "TOTAL": summary.total,
+                "PASS": summary.passed,
+                "FAIL": summary.failed,
+                "ERROR": summary.error,
+                "SKIPPED": summary.skipped,
+            }
 
-        # Final Summary
-        summary = compute_overall_stats(results)
-        api_tokens = (
-            compute_agent_token_usage(evaluation_data)
-            if system_config.agents is not None and system_config.agents.enabled
-            else None
+        # Agent mode: run via orchestrator
+        output_dir = (
+            eval_args.output_dir or get_file_config(system_config.storage).output_dir
         )
-        _print_summary(summary, api_tokens)
-
-        return {
-            "TOTAL": summary.total,
-            "PASS": summary.passed,
-            "FAIL": summary.failed,
-            "ERROR": summary.error,
-            "SKIPPED": summary.skipped,
+        run_results = orchestrator_run(
+            system_config,
+            evaluation_data,
+            output_dir,
+            original_data_path=eval_args.eval_data,
+            dataset_metadata_dict=(
+                dataset_metadata.model_dump() if dataset_metadata else None
+            ),
+        )
+        totals: dict[str, int] = {
+            "TOTAL": 0,
+            "PASS": 0,
+            "FAIL": 0,
+            "ERROR": 0,
+            "SKIPPED": 0,
         }
+        for rr in run_results:
+            if rr.summary:
+                for key, val in rr.summary.items():
+                    totals[key] = totals.get(key, 0) + val
+
+        print("\n🎉 Evaluation Complete!")
+        _print_run_summary(totals, run_results)
+
+        return totals
 
     except (
         FileNotFoundError,
