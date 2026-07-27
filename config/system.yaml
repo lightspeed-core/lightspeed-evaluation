@@ -315,6 +315,14 @@ storage:
   # - type: "langfuse"
   #   host: "https://cloud.langfuse.com"
 
+  # MLflow backend (optional) - export metrics, traces, and results to MLflow
+  # Requires: pip install 'lightspeed-evaluation[mlflow]'
+  # Tracking URI via env var: MLFLOW_TRACKING_URI
+  # Or provide tracking_uri inline below:
+  # - type: "mlflow"
+  #   tracking_uri: "http://localhost:5000"
+  #   experiment_name: "lightspeed_evaluation"
+
 # Visualization settings
 visualization:
   figsize: [12, 8]            # Graph size (width, height)

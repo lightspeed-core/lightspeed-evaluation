@@ -1025,7 +1025,8 @@ The framework supports multiple storage backends for persisting evaluation resul
 | **SQLite** | Local database for querying results |
 | **PostgreSQL** | Remote database for team-wide analysis |
 | **MySQL** | Remote database alternative |
-| **Langfuse** | Observability platform integration |
+| **Langfuse** | Observability platform integration — see [Langfuse Backend](configuration.md#langfuse-backend-optional) |
+| **MLflow** | Experiment tracking (metrics, traces, artifacts, registered models) — see [MLflow Backend](configuration.md#mlflow-backend-optional) |
 
 Storage is optional and configurable in `system.yaml`. See [Configuration Guide — Storage](configuration.md#storage) for setup details.
 

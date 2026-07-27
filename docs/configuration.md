@@ -371,7 +371,7 @@ quality_score:
 ```
 
 ## Storage
-Lightspeed Evaluation can persist results to files and/or databases. The `storage` section configures one or more storage backends.
+Lightspeed Evaluation can persist results to files, databases, and optional observability backends (Langfuse, MLflow). The `storage` section configures one or more storage backends.
 
 ### File Backend
 The file backend generates CSV, JSON, and TXT reports.
@@ -420,7 +420,6 @@ uv sync --extra langfuse
 | secret_key | `null` | Langfuse secret key (falls back to `LANGFUSE_SECRET_KEY` env var) |
 
 > **Credentials:** Configure credentials via environment variables (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`) or inline in the YAML config. Environment variables are the recommended approach — inline config fields take precedence when set.
-
 > **Score handling:** Results with a numeric score (PASS/FAIL) are exported as `NUMERIC` scores. Results without a score (`score=None`, e.g. ERROR/SKIPPED) are skipped. All Langfuse errors are logged but never abort the evaluation.
 
 ### Example: Langfuse via Environment Variables
@@ -445,6 +444,74 @@ storage:
     host: "https://cloud.langfuse.com"
     public_key: "pk-lf-..."
     secret_key: "sk-lf-..."
+```
+
+### MLflow Backend (Optional)
+Export evaluation metrics, traces, and results to [MLflow](https://mlflow.org) for experiment tracking and comparison. Creates one MLflow run per evaluation run, logs metrics incrementally as each result arrives, and writes aggregates plus a results table at finalize.
+
+Requires MLflow (`mlflow>=2.14.0`):
+```bash
+# Using pip
+pip install 'lightspeed-evaluation[mlflow]'
+
+# Using uv
+uv sync --extra mlflow
+```
+
+| Setting (storage[type="mlflow"].) | Default | Description |
+|-----------------------------------|---------|-------------|
+| type | `"mlflow"` | Backend type (required) |
+| tracking_uri | `null` | MLflow tracking server URI (falls back to `MLFLOW_TRACKING_URI` env var) |
+| experiment_name | `"lightspeed_evaluation"` | MLflow experiment name to log runs under |
+
+> **Tracking URI:** Set `tracking_uri` in YAML or via `MLFLOW_TRACKING_URI`. The YAML field takes precedence when set. If neither is set, MLflow uses its default local tracking store.
+> **Error handling:** All MLflow SDK errors are caught and logged. MLflow failures never abort the evaluation pipeline.
+
+#### What is logged
+
+| Logged item | When | Details |
+|-------------|------|---------|
+| **Incremental metrics** | Each result (`save_result` / `save_run`) | Per-metric score, pass/fail, latency, execution time, token usage, judge scores, streaming metrics — logged with an MLflow `step` index |
+| **Per-result traces** | Each result | One span via `start_span()` with inputs (query, response, expected values), outputs (result, score, reason), and attributes (tokens, latency, metadata) |
+| **Results table** | Finalize | Artifact `evaluation_results.json` — one row per evaluation result |
+| **Aggregates** | Finalize | Overall and per-metric `mean_score`, `pass_rate`, `mean_latency`, total token counts |
+| **`eval_status` tag** | Initialize → Finalize | `running` at start; `complete` (FINISHED) or `failed` (FAILED) at end |
+| **Registered models** | Finalize | Judge, embedding, and agent models registered as `provider>model` (`>` replaces `/` because MLflow disallows `/` and `:` in registered model names) |
+
+Results with `score=None` (ERROR/SKIPPED) are skipped from numeric scoring, but pass/fail status is still logged.
+
+> **Sensitive data:** Per-result traces and the results table include queries, responses, expected values, reasons, and related metadata. That content may contain PII, secrets, or other confidential data. Treat your MLflow tracking store as a sensitive system: restrict access, apply retention/deletion policies appropriate for your environment, and redact or sanitize evaluation datasets before export when needed. There is no built-in redaction or per-field opt-out — omit the `mlflow` storage backend if you must not send evaluation content to MLflow.
+
+#### Viewing results in the MLflow UI
+
+Start the UI (local tracking) with:
+
+```bash
+mlflow ui
+# If using a tracking server, open its UI at $MLFLOW_TRACKING_URI
+# (do not pass a remote HTTP tracking URI to --backend-store-uri)
+```
+
+Then open the experiment and run to inspect:
+
+| UI area | What to look for |
+|---------|------------------|
+| **Metrics** | Incremental series (`score/<metric>`, `pass/<metric>`, …) and finalize aggregates (`aggregate/mean_score`, `aggregate/pass_rate`, …) |
+| **Traces** | Per-result spans with query/response inputs and score/reason outputs |
+| **Artifacts** | `evaluation_results.json` table; registered-model artifact paths under `registered_models/` |
+| **Tags** | `eval_status` (`running` / `complete` / `failed`) |
+| **Registered models** | Entries named `provider>model` linked to the eval run |
+
+### Tracking URI examples
+
+Set the tracking server either in YAML or via environment variable (YAML takes precedence):
+
+```yaml
+tracking_uri: "http://localhost:5000"
+```
+
+```bash
+export MLFLOW_TRACKING_URI="http://localhost:5000"
 ```
 
 ### Output types
@@ -530,6 +597,16 @@ storage:
     port: 5432
     user: "admin"
     password: "secret"
+```
+
+### Example: File + MLflow
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "mlflow"
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "lightspeed_evaluation"
 ```
 
 ## Visualization of the results
