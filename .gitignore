@@ -189,8 +189,9 @@ examples/**/eval_output/
 # DeepEval telemetry and configuration
 .deepeval/
 
-# Keeping experimental changes here
+# Work in progress — experimental and draft content
 wip*/
+**/drafts/
 
 .history/
 
@@ -201,3 +202,6 @@ wip*/
 dashboard/node_modules
 dashboard/.vite
 dashboard/results/*
+
+# Claude Code runtime artifacts
+.claude/worktrees/
