@@ -132,7 +132,6 @@ def _build_run_contexts(
     output_base = run_params["output_base"]
     timestamp = run_params["timestamp"]
     run_matrix = run_params["run_matrix"]
-    is_single_run = len(run_matrix) == 1
 
     return [
         RunContext(
@@ -141,10 +140,8 @@ def _build_run_contexts(
             default_agents=run_params["default_agents"],
             agent_name=agent,
             run_index=idx,
-            run_output_dir=(
-                output_base
-                if is_single_run
-                else os.path.join(output_base, f"eval_{timestamp}", agent, f"run_{idx}")
+            run_output_dir=os.path.join(
+                output_base, f"eval_{timestamp}", agent, f"run_{idx}"
             ),
             extra={
                 "original_data_path": run_params.get("original_data_path"),
