@@ -786,6 +786,18 @@ class TestGEvalRubricValidation:
         assert config.rubrics[0].score_range == (0, 3)
         assert config.rubrics[1].score_range == (4, 7)
 
+    def test_geval_config_verbose_enabled(self) -> None:
+        """Verbose field accepted and parsed from metadata."""
+        config = GEvalConfig.from_metadata(
+            {"criteria": "Check correctness.", "verbose": True}
+        )
+        assert config.verbose is True
+
+    def test_geval_config_verbose_defaults_false(self) -> None:
+        """Verbose defaults to False when not specified."""
+        config = GEvalConfig.from_metadata({"criteria": "Check correctness."})
+        assert config.verbose is False
+
     def test_geval_config_rubrics_overlapping_fails(self) -> None:
         """Overlapping rubric ranges fail validation."""
         with pytest.raises(ConfigurationError, match="overlap"):

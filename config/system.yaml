@@ -217,6 +217,7 @@ metrics_metadata:
       #     expected_outcome: "Technically correct and follows best practices."
       threshold: 0.7
       description: "General technical accuracy of provided commands, code, or technical information"
+      # verbose: true  # optional: include verbose logs (criteria, evaluation steps, rubric) in output
 
   # Conversation-level metrics metadata
   conversation_level:

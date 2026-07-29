@@ -109,6 +109,8 @@ SUPPORTED_CSV_COLUMNS = [
     "embedding_tokens",
     # Per-judge scores (JSON array with one entry for single judge)
     "judge_scores",
+    # GEval verbose logs (opt-in via verbose: true in metric config)
+    "verbose_logs",
     # Streaming performance metrics
     "time_to_first_token",
     "streaming_duration",

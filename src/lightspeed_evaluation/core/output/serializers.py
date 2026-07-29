@@ -25,7 +25,7 @@ def result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
     Returns:
         Dictionary matching the existing JSON summary result format.
     """
-    return {
+    d = {
         "conversation_group_id": r.conversation_group_id,
         "tag": sorted(r.tag),
         "turn_id": r.turn_id,
@@ -45,6 +45,9 @@ def result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
         "agent_latency": r.agent_latency,
         "tokens_per_second": r.tokens_per_second,
     }
+    if r.verbose_logs is not None:
+        d["verbose_logs"] = r.verbose_logs
+    return d
 
 
 def overall_to_basic_stats_dict(
