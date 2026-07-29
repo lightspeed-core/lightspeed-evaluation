@@ -2,6 +2,7 @@
 
 from lightspeed_evaluation.core.metrics.custom.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
+from lightspeed_evaluation.core.metrics.custom.mrr_eval import evaluate_mrr
 from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
@@ -14,6 +15,7 @@ from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_ca
 __all__ = [
     "CustomMetrics",
     "evaluate_keywords",
+    "evaluate_mrr",
     "evaluate_proposal_status",
     "evaluate_tool_calls",
     # Prompts

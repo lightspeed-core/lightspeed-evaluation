@@ -80,6 +80,10 @@ METRIC_REQUIREMENTS = {
             "(Markdown workflow summary from ProposalAmender)"
         ),
     },
+    "custom:mrr": {
+        "required_fields": ["contexts", "expected_contexts"],
+        "description": "requires 'contexts' and 'expected_contexts' fields",
+    },
     "script:action_eval": {
         "required_fields": ["verify_script"],
         "description": "requires 'verify_script' field",
