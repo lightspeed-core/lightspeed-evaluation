@@ -206,8 +206,8 @@ class TestResultToJsonDictVerboseLogs:
         assert "verbose_logs" in d
         assert d["verbose_logs"] == "Criteria:\nAccuracy\nSteps:\n1. Verify"
 
-    def test_verbose_logs_omitted_when_none(self) -> None:
-        """Test verbose_logs is NOT in JSON dict when None."""
+    def test_verbose_logs_null_when_none(self) -> None:
+        """Test verbose_logs is None in JSON dict when not set."""
         result = EvaluationResult(
             conversation_group_id="conv1",
             turn_id="t1",
@@ -217,4 +217,5 @@ class TestResultToJsonDictVerboseLogs:
             threshold=0.7,
         )
         d = result_to_json_dict(result)
-        assert "verbose_logs" not in d
+        assert "verbose_logs" in d
+        assert d["verbose_logs"] is None

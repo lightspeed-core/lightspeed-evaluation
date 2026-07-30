@@ -227,14 +227,6 @@ class MetricsEvaluator:
             # Evaluate metric
             metric_result = self._evaluate_wrapper(request, evaluation_scope, threshold)
 
-            # Capture verbose_logs from GEval handler if enabled
-            if framework in ("geval", "deepeval"):
-                handler = self.handlers.get(framework)
-                if handler is not None:
-                    verbose_logs = getattr(handler, "last_verbose_logs", None)
-                    if isinstance(verbose_logs, str):
-                        metric_result.verbose_logs = verbose_logs
-
             evaluation_latency = _measure_latency(start_time)
 
             turn_data = request.turn_data

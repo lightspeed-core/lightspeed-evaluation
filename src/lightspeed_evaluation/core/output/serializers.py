@@ -44,9 +44,8 @@ def result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
         "streaming_duration": r.streaming_duration,
         "agent_latency": r.agent_latency,
         "tokens_per_second": r.tokens_per_second,
+        "verbose_logs": r.verbose_logs,
     }
-    if r.verbose_logs is not None:
-        d["verbose_logs"] = r.verbose_logs
     return d
 
 

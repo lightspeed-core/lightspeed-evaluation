@@ -649,6 +649,10 @@ class JudgeScore(BaseModel):
     judge_input_tokens: int = Field(default=0, ge=0, description="Input tokens used")
     judge_output_tokens: int = Field(default=0, ge=0, description="Output tokens used")
     embedding_tokens: int = Field(default=0, ge=0, description="Embedding tokens used")
+    verbose_logs: Optional[str] = Field(
+        default=None,
+        description="Verbose logs from DeepEval/GEval judge when enabled",
+    )
 
 
 class MetricResult(BaseModel):
