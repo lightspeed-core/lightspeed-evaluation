@@ -375,7 +375,7 @@ class TestRunOrchestrator:
     def test_1x1_produces_one_result(
         self, mocker: MockerFixture, tmp_path: Path
     ) -> None:
-        """1x1 produces one run result."""
+        """1x1 produces one run result with nested output path."""
         mock_pipeline = self._mock_pipeline(mocker)
         mock_pipeline.run_evaluation.return_value = []
 
@@ -401,7 +401,10 @@ class TestRunOrchestrator:
         assert len(results) == 1
         assert results[0].agent_name == "model_a"
         assert results[0].run_index == 1
-        assert results[0].output_dir == str(tmp_path)
+        output_path = Path(results[0].output_dir)
+        assert output_path.name == "run_1"
+        assert output_path.parent.name == "model_a"
+        assert output_path.parent.parent.name.startswith("eval_")
 
     def test_failed_run_does_not_stop_others(
         self, mocker: MockerFixture, tmp_path: Path
@@ -470,6 +473,8 @@ class TestRunOrchestrator:
 
         assert len(results) == 2
         for r in results:
-            assert f"model_a/run_{r.run_index}" in r.output_dir
-            assert "eval_" in r.output_dir
-            assert Path(r.output_dir).is_dir()
+            output_path = Path(r.output_dir)
+            assert output_path.name == f"run_{r.run_index}"
+            assert output_path.parent.name == "model_a"
+            assert output_path.parent.parent.name.startswith("eval_")
+            assert output_path.is_dir()

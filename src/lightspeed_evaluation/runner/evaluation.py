@@ -1,6 +1,7 @@
 """Lightspeed Evaluation Framework - Main Evaluation Runner."""
 
 import argparse
+import logging
 import os
 import shutil
 import sys
@@ -21,6 +22,8 @@ from lightspeed_evaluation.core.system.exceptions import (
     DataValidationError,
     StorageError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _clear_caches(system_config: SystemConfig) -> None:
@@ -71,23 +74,36 @@ def _clear_caches(system_config: SystemConfig) -> None:
 
 def _print_run_summary(
     totals: dict[str, int],
-    run_results: list,
+    run_results: Optional[list] = None,
+    output_dir: Optional[str] = None,
 ) -> None:
-    """Print evaluation summary and token usage from orchestrator results."""
+    """Print evaluation summary and token usage.
+
+    Args:
+        totals: Aggregated summary dict with TOTAL/PASS/FAIL/ERROR/SKIPPED
+            and token fields.
+        run_results: Run results from orchestrator (agent mode).
+        output_dir: Explicit output directory (offline mode).
+    """
     print(f"📊 {totals['TOTAL']} evaluations completed")
-    if len(run_results) > 1:
+    if run_results and len(run_results) > 1:
         succeeded = sum(1 for r in run_results if r.success)
         print(
             f"📊 {len(run_results)} runs "
             f"({succeeded} succeeded, {len(run_results) - succeeded} failed)"
         )
-    output_dirs = {Path(rr.output_dir).resolve() for rr in run_results if rr.output_dir}
-    if len(run_results) > 1 and output_dirs:
-        common = Path(os.path.commonpath(output_dirs))
-        print(f"📁 Reports generated in: {common}")
-    else:
-        for d in output_dirs:
-            print(f"📁 Reports generated in: {d}")
+    if run_results:
+        output_dirs = {
+            Path(rr.output_dir).resolve() for rr in run_results if rr.output_dir
+        }
+        if len(run_results) > 1 and output_dirs:
+            common = Path(os.path.commonpath(output_dirs))
+            print(f"📁 Reports generated in: {common}")
+        else:
+            for d in output_dirs:
+                print(f"📁 Reports generated in: {d}")
+    elif output_dir:
+        print(f"📁 Reports generated in: {Path(output_dir).resolve()}")
     print(
         f"✅ Pass: {totals['PASS']}, ❌ Fail: {totals['FAIL']}, "
         f"⚠️ Error: {totals['ERROR']}, ⏭️ Skipped: {totals['SKIPPED']}"
@@ -117,6 +133,46 @@ def _print_run_summary(
         print(f"Total: {total_tokens:,} tokens")
 
 
+def _aggregate_totals(run_results: list) -> dict[str, int]:
+    """Aggregate summary totals from multiple run results."""
+    totals: dict[str, int] = {
+        "TOTAL": 0,
+        "PASS": 0,
+        "FAIL": 0,
+        "ERROR": 0,
+        "SKIPPED": 0,
+        "judge_llm_input_tokens": 0,
+        "judge_llm_output_tokens": 0,
+        "embedding_tokens": 0,
+        "api_input_tokens": 0,
+        "api_output_tokens": 0,
+    }
+    for rr in run_results:
+        if rr.summary:
+            for key, val in rr.summary.items():
+                totals[key] = totals.get(key, 0) + val
+    return totals
+
+
+def _copy_flat_output(run_results: list, output_dir: str) -> None:
+    """Copy nested output to flat dir for 1x1 backward compatibility.
+
+    Temporary bridge: will be removed once all consumers migrate to
+    the nested eval_<timestamp>/agent/run_N/ structure.
+    """
+    if len(run_results) != 1 or run_results[0].output_dir == output_dir:
+        return
+    nested = Path(run_results[0].output_dir)
+    if not nested.is_dir():
+        return
+    try:
+        flat = Path(output_dir)
+        flat.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(nested, flat, dirs_exist_ok=True)
+    except OSError:
+        logger.warning("Failed to copy flat output from %s to %s", nested, output_dir)
+
+
 def run_evaluation(  # pylint: disable=too-many-locals
     eval_args: argparse.Namespace,
 ) -> Optional[dict[str, int]]:
@@ -127,6 +183,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
 
     Returns:
         dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR, SKIPPED
+            and token usage fields (judge_llm, embedding, api).
     """
     print("🚀 Lightspeed Evaluation Framework")
     print("=" * 50)
@@ -179,12 +236,25 @@ def run_evaluation(  # pylint: disable=too-many-locals
         if len(evaluation_data) == 0:
             print("\n⚠️ No conversation groups matched the filter criteria")
             print("   Nothing to evaluate - returning empty results")
-            return {"TOTAL": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "SKIPPED": 0}
+            return {
+                "TOTAL": 0,
+                "PASS": 0,
+                "FAIL": 0,
+                "ERROR": 0,
+                "SKIPPED": 0,
+                "judge_llm_input_tokens": 0,
+                "judge_llm_output_tokens": 0,
+                "embedding_tokens": 0,
+                "api_input_tokens": 0,
+                "api_output_tokens": 0,
+            }
 
         # Run evaluation
         print("\n🔄 Running Evaluation...")
         has_agents = (
-            system_config.agents is not None and system_config.agents.default.agent
+            system_config.agents is not None
+            and system_config.agents.enabled
+            and system_config.agents.default.agent
         )
 
         if not has_agents:
@@ -213,26 +283,21 @@ def run_evaluation(  # pylint: disable=too-many-locals
                 eval_args.output_dir
                 or get_file_config(system_config.storage).output_dir
             )
-            print(f"\n🎉 Evaluation Complete!\n📊 {len(results)} evaluations completed")
-            print(f"📁 Reports generated in: {Path(out_dir).resolve()}")
-            print(
-                f"✅ Pass: {summary.passed}, ❌ Fail: {summary.failed}, "
-                f"⚠️ Error: {summary.error}, ⏭️ Skipped: {summary.skipped}"
-            )
-            print(
-                f"\n📊 Token Usage Summary:\n"
-                f"Judge LLM: {summary.total_judge_llm_tokens:,} tokens "
-                f"(Input: {summary.total_judge_llm_input_tokens:,}, "
-                f"Output: {summary.total_judge_llm_output_tokens:,})\n"
-                f"Embeddings: {summary.total_embedding_tokens:,} tokens"
-            )
-            return {
+            totals: dict[str, int] = {
                 "TOTAL": summary.total,
                 "PASS": summary.passed,
                 "FAIL": summary.failed,
                 "ERROR": summary.error,
                 "SKIPPED": summary.skipped,
+                "judge_llm_input_tokens": summary.total_judge_llm_input_tokens,
+                "judge_llm_output_tokens": summary.total_judge_llm_output_tokens,
+                "embedding_tokens": summary.total_embedding_tokens,
+                "api_input_tokens": 0,
+                "api_output_tokens": 0,
             }
+            print("\n🎉 Evaluation Complete!")
+            _print_run_summary(totals, output_dir=out_dir)
+            return totals
 
         # Agent mode: run via orchestrator
         output_dir = (
@@ -247,20 +312,11 @@ def run_evaluation(  # pylint: disable=too-many-locals
                 dataset_metadata.model_dump() if dataset_metadata else None
             ),
         )
-        totals: dict[str, int] = {
-            "TOTAL": 0,
-            "PASS": 0,
-            "FAIL": 0,
-            "ERROR": 0,
-            "SKIPPED": 0,
-        }
-        for rr in run_results:
-            if rr.summary:
-                for key, val in rr.summary.items():
-                    totals[key] = totals.get(key, 0) + val
+        totals = _aggregate_totals(run_results)
+        _copy_flat_output(run_results, output_dir)
 
         print("\n🎉 Evaluation Complete!")
-        _print_run_summary(totals, run_results)
+        _print_run_summary(totals, run_results=run_results)
 
         return totals
 

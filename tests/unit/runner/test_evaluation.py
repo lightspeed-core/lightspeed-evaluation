@@ -25,7 +25,13 @@ from lightspeed_evaluation.core.system.exceptions import (
     StorageError,
 )
 from lightspeed_evaluation.pipeline.behavioral.models import RunResult
-from lightspeed_evaluation.runner.evaluation import _clear_caches, main, run_evaluation
+from lightspeed_evaluation.runner.evaluation import (
+    _aggregate_totals,
+    _clear_caches,
+    _copy_flat_output,
+    main,
+    run_evaluation,
+)
 
 _MAIN_STATS: dict[str, int] = {
     "TOTAL": 1,
@@ -830,3 +836,171 @@ class TestMain:
         assert ev.cache_warmup is expected["cache_warmup"]
         assert ev.tags == expected["tags"]
         assert ev.conv_ids == expected["conv_ids"]
+
+
+class TestAggregateTotals:
+    """Tests for _aggregate_totals helper."""
+
+    def test_aggregates_all_fields(self) -> None:
+        """All token and status fields are summed across runs."""
+        results = [
+            RunResult(
+                agent_name="a",
+                run_index=1,
+                output_dir="/out",
+                success=True,
+                summary={
+                    "TOTAL": 3,
+                    "PASS": 2,
+                    "FAIL": 1,
+                    "ERROR": 0,
+                    "SKIPPED": 0,
+                    "judge_llm_input_tokens": 100,
+                    "judge_llm_output_tokens": 50,
+                    "embedding_tokens": 10,
+                    "api_input_tokens": 200,
+                    "api_output_tokens": 80,
+                },
+            ),
+            RunResult(
+                agent_name="b",
+                run_index=1,
+                output_dir="/out2",
+                success=True,
+                summary={
+                    "TOTAL": 2,
+                    "PASS": 1,
+                    "FAIL": 0,
+                    "ERROR": 1,
+                    "SKIPPED": 0,
+                    "judge_llm_input_tokens": 50,
+                    "judge_llm_output_tokens": 20,
+                    "embedding_tokens": 5,
+                    "api_input_tokens": 100,
+                    "api_output_tokens": 40,
+                },
+            ),
+        ]
+        totals = _aggregate_totals(results)
+        assert totals["TOTAL"] == 5
+        assert totals["PASS"] == 3
+        assert totals["FAIL"] == 1
+        assert totals["ERROR"] == 1
+        assert totals["judge_llm_input_tokens"] == 150
+        assert totals["api_input_tokens"] == 300
+        assert totals["embedding_tokens"] == 15
+
+    def test_skips_none_summary(self) -> None:
+        """Runs with no summary are skipped."""
+        results = [
+            RunResult(
+                agent_name="a",
+                run_index=1,
+                output_dir="/out",
+                success=False,
+                summary=None,
+            ),
+        ]
+        totals = _aggregate_totals(results)
+        assert totals["TOTAL"] == 0
+        assert totals["judge_llm_input_tokens"] == 0
+
+    def test_empty_results(self) -> None:
+        """Empty results list returns zeroed totals."""
+        totals = _aggregate_totals([])
+        assert totals["TOTAL"] == 0
+        assert all(v == 0 for v in totals.values())
+
+
+class TestCopyFlatOutput:
+    """Tests for _copy_flat_output helper."""
+
+    def test_copies_files_for_1x1(self, tmp_path: Path) -> None:
+        """1x1 run copies nested files to flat dir."""
+        nested = tmp_path / "eval_20260729" / "agent" / "run_1"
+        nested.mkdir(parents=True)
+        (nested / "results.csv").write_text("data")
+        (nested / "summary.json").write_text("{}")
+
+        flat = tmp_path / "flat_out"
+        results = [
+            RunResult(
+                agent_name="agent",
+                run_index=1,
+                output_dir=str(nested),
+                success=True,
+            ),
+        ]
+        _copy_flat_output(results, str(flat))
+        assert (flat / "results.csv").exists()
+        assert (flat / "summary.json").exists()
+
+    def test_copies_subdirs_for_1x1(self, tmp_path: Path) -> None:
+        """1x1 run copies subdirectories (e.g. graphs/) to flat dir."""
+        nested = tmp_path / "eval_20260729" / "agent" / "run_1"
+        graphs = nested / "graphs"
+        graphs.mkdir(parents=True)
+        (graphs / "chart.png").write_text("img")
+
+        flat = tmp_path / "flat_out"
+        results = [
+            RunResult(
+                agent_name="agent",
+                run_index=1,
+                output_dir=str(nested),
+                success=True,
+            ),
+        ]
+        _copy_flat_output(results, str(flat))
+        assert (flat / "graphs" / "chart.png").exists()
+
+    def test_no_copy_for_multi_run(self, tmp_path: Path) -> None:
+        """Multi-run results do not trigger flat copy."""
+        nested1 = tmp_path / "run_1"
+        nested1.mkdir()
+        (nested1 / "results.csv").write_text("data")
+        nested2 = tmp_path / "run_2"
+        nested2.mkdir()
+
+        flat = tmp_path / "flat_out"
+        results = [
+            RunResult(
+                agent_name="a",
+                run_index=1,
+                output_dir=str(nested1),
+                success=True,
+            ),
+            RunResult(
+                agent_name="a",
+                run_index=2,
+                output_dir=str(nested2),
+                success=True,
+            ),
+        ]
+        _copy_flat_output(results, str(flat))
+        assert not flat.exists()
+
+    def test_no_copy_when_same_dir(self, tmp_path: Path) -> None:
+        """No copy when nested dir equals flat dir."""
+        (tmp_path / "results.csv").write_text("data")
+        results = [
+            RunResult(
+                agent_name="a",
+                run_index=1,
+                output_dir=str(tmp_path),
+                success=True,
+            ),
+        ]
+        _copy_flat_output(results, str(tmp_path))
+
+    def test_tolerates_missing_nested_dir(self, tmp_path: Path) -> None:
+        """No error when nested dir doesn't exist."""
+        results = [
+            RunResult(
+                agent_name="a",
+                run_index=1,
+                output_dir=str(tmp_path / "nonexistent"),
+                success=True,
+            ),
+        ]
+        _copy_flat_output(results, str(tmp_path / "flat"))
