@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     inspect,
+    text,
 )
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -148,6 +149,8 @@ class SQLStorageBackend(BaseStorageBackend):
             table_name = EvaluationResultDB.__tablename__
             db_inspector = inspect(self._engine)
             if db_inspector.has_table(table_name):
+                self._migrate_missing_columns(db_inspector, table_name)
+                db_inspector = inspect(self._engine)
                 self._validate_evaluation_results_schema(db_inspector, table_name)
             Base.metadata.create_all(self._engine)
             self._session_factory = sessionmaker(bind=self._engine)
@@ -166,6 +169,28 @@ class SQLStorageBackend(BaseStorageBackend):
                 f"Failed to initialize database: {e}",
                 backend_name=self.backend_name,
             ) from e
+
+    def _migrate_missing_columns(self, db_inspector: Any, table_name: str) -> None:
+        """Add missing nullable columns to an existing table.
+
+        Databases created before new columns were added would fail strict
+        validation.  This method applies safe additive migrations (nullable
+        columns only) so that older databases keep working.
+        """
+        reflected = {col["name"] for col in db_inspector.get_columns(table_name)}
+        orm_columns = EvaluationResultDB.__table__.columns
+        for col in orm_columns:
+            if col.name not in reflected and col.nullable:
+                col_type = col.type.compile(dialect=self._engine.dialect)
+                with self._engine.connect() as conn:
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE {table_name} "
+                            f"ADD COLUMN {col.name} {col_type}"
+                        )
+                    )
+                    conn.commit()
+                logger.info("Migrated: added column '%s' to %s", col.name, table_name)
 
     def _validate_evaluation_results_schema(
         self, db_inspector: Any, table_name: str
