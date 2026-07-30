@@ -23,6 +23,7 @@ from lightspeed_evaluation.core.constants import (
     SIMILARITY_LEVENSHTEIN,
     SUPPORTED_SIMILARITY_MEASURES,
 )
+from lightspeed_evaluation.core.metrics.custom.mrr_eval import evaluate_mrr
 from lightspeed_evaluation.core.models import EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import MetricError
 
@@ -43,6 +44,7 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
         """
         self.supported_metrics = {
             "bleu": self._evaluate_bleu,
+            "mrr": evaluate_mrr,
             "rouge": self._evaluate_rouge,
             "semantic_similarity_distance": self._evaluate_semantic_similarity_distance,
         }

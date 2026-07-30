@@ -1,6 +1,7 @@
 """Tests for MRR (Mean Reciprocal Rank) evaluation metric."""
 
 import pytest
+from pydantic import ValidationError
 
 from lightspeed_evaluation.core.metrics.custom.mrr_eval import (
     _is_context_match,
@@ -270,19 +271,15 @@ class TestEvaluateMrr:
                 expected_contexts=["RHEL is a Linux distribution"],
             )
 
-    def test_empty_expected_contexts_returns_none(self) -> None:
-        """Test that empty expected contexts list returns None."""
-        turn_data = TurnData(
-            turn_id="t1",
-            query="What is RHEL?",
-            contexts=["RHEL is a Linux distribution"],
-            expected_contexts=[],
-        )
-
-        score, reason = evaluate_mrr(None, 0, turn_data, False)
-
-        assert score is None
-        assert "Expected contexts are required" in reason
+    def test_empty_expected_contexts_rejected_by_model(self) -> None:
+        """Test that empty expected contexts list is rejected by Pydantic validation."""
+        with pytest.raises(ValidationError):
+            TurnData(
+                turn_id="t1",
+                query="What is RHEL?",
+                contexts=["RHEL is a Linux distribution"],
+                expected_contexts=[],
+            )
 
     def test_first_expected_context_matches_first(self) -> None:
         """Test that earliest rank wins when multiple expected match different ranks."""

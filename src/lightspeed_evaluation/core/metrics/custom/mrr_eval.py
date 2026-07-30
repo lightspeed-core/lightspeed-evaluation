@@ -20,6 +20,8 @@ def _is_context_match(retrieved: str, expected: str) -> bool:
     """
     norm_retrieved = _normalize_text(retrieved)
     norm_expected = _normalize_text(expected)
+    if not norm_retrieved or not norm_expected:
+        return False
     return norm_expected in norm_retrieved or norm_retrieved in norm_expected
 
 

@@ -80,7 +80,7 @@ METRIC_REQUIREMENTS = {
             "(Markdown workflow summary from ProposalAmender)"
         ),
     },
-    "custom:mrr": {
+    "nlp:mrr": {
         "required_fields": ["contexts", "expected_contexts"],
         "description": "requires 'contexts' and 'expected_contexts' fields",
     },

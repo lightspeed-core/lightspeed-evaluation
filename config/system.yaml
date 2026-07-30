@@ -168,7 +168,7 @@ metrics_metadata:
       description: "LLM judge of agentic remediation workflow quality (diagnosis, actions, risk, verification)"
       default: false
 
-    "custom:mrr":
+    "nlp:mrr":
       threshold: 0.5
       description: "Mean Reciprocal Rank — position of first relevant context in retrieved list"
 

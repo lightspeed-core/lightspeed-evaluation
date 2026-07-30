@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Optional
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
-from lightspeed_evaluation.core.metrics.custom.mrr_eval import evaluate_mrr
 from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
@@ -49,7 +48,6 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
 
         self.supported_metrics = {
             "keywords_eval": evaluate_keywords,
-            "mrr": evaluate_mrr,
             "answer_correctness": self._evaluate_answer_correctness,
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
