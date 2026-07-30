@@ -119,6 +119,7 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
             turn_data,
             is_conversation,
             embedding_model=model,
+            embedding_model_name=self._embedding_model_name,
             mrr_config=mrr_config,
         )
 

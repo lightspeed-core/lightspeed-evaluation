@@ -1,23 +1,30 @@
 """Mean Reciprocal Rank (MRR) evaluation for RAG retrieval quality.
 
 Uses semantic similarity (sentence-transformers embeddings + cosine similarity)
-for context matching with a configurable similarity threshold.
+for context matching, with optional Conformal Risk Control threshold calibration
+(Angelopoulos et al., ICLR 2024).
 
 Falls back to normalized substring containment when sentence-transformers is not
 installed.
 """
 
+import hashlib
+import json
 import logging
 import re
 from typing import Any, Optional
 
 import numpy as np
 
+from lightspeed_evaluation.core.metrics.custom.conformal import compute_mrr_threshold
 from lightspeed_evaluation.core.models import TurnData
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SIMILARITY_THRESHOLD = 0.65
+DEFAULT_ALPHA = 0.1
+
+_cached_threshold: dict[str, tuple[float, bool]] = {}
 
 
 def _normalize_text(text: str) -> str:
@@ -59,20 +66,58 @@ def _compute_similarity_matrix(
 
 def _resolve_threshold(
     mrr_config: Optional[dict[str, Any]],
-) -> float:
-    """Determine the similarity threshold from config.
+    model: Any,
+    model_name: str = "",
+) -> tuple[float, bool]:
+    """Determine the similarity threshold, optionally via conformal calibration.
 
     Args:
-        mrr_config: Metric metadata dict (may contain
-            ``default_similarity_threshold``).
+        mrr_config: Metric metadata dict (may contain ``calibration_pairs``,
+            ``alpha``, ``default_similarity_threshold``).
+        model: A SentenceTransformer model for encoding calibration pairs.
+        model_name: Embedding model identifier (included in cache key).
 
     Returns:
-        The similarity threshold.
+        ``(threshold, is_calibrated)`` where *is_calibrated* is ``True`` when
+        the threshold was computed via Conformal Risk Control.
     """
     config = mrr_config or {}
-    return float(
+    default_threshold = float(
         config.get("default_similarity_threshold", DEFAULT_SIMILARITY_THRESHOLD)
     )
+    calibration_pairs = config.get("calibration_pairs")
+
+    if not calibration_pairs or model is None:
+        return default_threshold, False
+
+    if not all(isinstance(p, (list, tuple)) and len(p) >= 2 for p in calibration_pairs):
+        logger.warning("calibration_pairs must be a list of [text_a, text_b] pairs")
+        return default_threshold, False
+
+    alpha = float(config.get("alpha", DEFAULT_ALPHA))
+    pairs_digest = hashlib.sha256(
+        json.dumps(calibration_pairs, sort_keys=True).encode()
+    ).hexdigest()[:16]
+    cache_key = f"{model_name}:{alpha}:{pairs_digest}"
+    if cache_key in _cached_threshold:
+        return _cached_threshold[cache_key]
+
+    emb_a = model.encode([p[0] for p in calibration_pairs], normalize_embeddings=True)
+    emb_b = model.encode([p[1] for p in calibration_pairs], normalize_embeddings=True)
+    sims = [float(np.dot(emb_a[i], emb_b[i])) for i in range(len(calibration_pairs))]
+
+    threshold = compute_mrr_threshold(sims, alpha=alpha)
+    if threshold is None:
+        return default_threshold, False
+
+    logger.info(
+        "CRC calibrated similarity threshold: %.4f (alpha=%.2f, n=%d)",
+        threshold,
+        alpha,
+        len(calibration_pairs),
+    )
+    _cached_threshold[cache_key] = (threshold, True)
+    return threshold, True
 
 
 def _validate_inputs(
@@ -101,14 +146,15 @@ def evaluate_mrr(
     is_conversation: bool,
     *,
     embedding_model: Any = None,
-    _embedding_model_name: str = "",
+    embedding_model_name: str = "",
     mrr_config: Optional[dict[str, Any]] = None,
 ) -> tuple[Optional[float], str]:
     """Evaluate Mean Reciprocal Rank of retrieved contexts.
 
     When *embedding_model* is provided (a ``SentenceTransformer`` instance),
-    matching uses cosine similarity with a configurable threshold.
-    Otherwise falls back to substring containment.
+    matching uses cosine similarity with a threshold calibrated via Conformal
+    Risk Control (if ``calibration_pairs`` are given in *mrr_config*) or a
+    sensible default.  Otherwise falls back to substring containment.
 
     Args:
         _conv_data: Conversation data (unused).
@@ -117,9 +163,8 @@ def evaluate_mrr(
         is_conversation: Whether this is conversation-level evaluation.
         embedding_model: Optional SentenceTransformer model for semantic
             matching.
-        embedding_model_name: Model identifier (unused in base, used by CRC).
         mrr_config: Optional metric metadata with keys such as
-            ``default_similarity_threshold``.
+            ``calibration_pairs``, ``alpha``, ``default_similarity_threshold``.
 
     Returns:
         Tuple of (score, reason).
@@ -141,6 +186,7 @@ def evaluate_mrr(
             turn_data.expected_contexts,
             embedding_model,
             mrr_config,
+            model_name=embedding_model_name,
         )
 
     return _evaluate_mrr_substring(turn_data.contexts, turn_data.expected_contexts)
@@ -173,25 +219,28 @@ def _evaluate_mrr_semantic(
     expected_contexts: list[str],
     model: Any,
     mrr_config: Optional[dict[str, Any]],
+    model_name: str = "",
 ) -> tuple[Optional[float], str]:
-    """MRR via semantic similarity with configurable threshold."""
-    threshold = _resolve_threshold(mrr_config)
+    """MRR via semantic similarity with conformal threshold."""
+    threshold, is_calibrated = _resolve_threshold(mrr_config, model, model_name)
     sim_matrix = _compute_similarity_matrix(contexts, expected_contexts, model)
 
     for rank in range(len(contexts)):
         row_max = float(np.max(sim_matrix[rank]))
         if row_max >= threshold:
             score = 1.0 / (rank + 1)
+            method = "CRC-calibrated" if is_calibrated else "default"
             return (
                 score,
                 f"MRR: {score:.4f} — first relevant context at rank {rank + 1} "
-                f"(similarity={row_max:.4f}, threshold={threshold:.4f})",
+                f"(similarity={row_max:.4f}, threshold={threshold:.4f}, {method})",
             )
 
     best_sim = float(np.max(sim_matrix))
+    method = "CRC-calibrated" if is_calibrated else "default"
     return (
         0.0,
         f"MRR: 0.0 — no context above threshold in "
         f"{len(contexts)} retrieved (best_similarity={best_sim:.4f}, "
-        f"threshold={threshold:.4f})",
+        f"threshold={threshold:.4f}, {method})",
     )

@@ -396,6 +396,42 @@ class TestEvaluateMrrSemantic:
         assert score == 0.0
         assert "no context above threshold" in reason
 
+    def test_semantic_with_calibration(self, mock_model: Any) -> None:
+        """Test semantic matching with conformal calibration pairs."""
+        turn_data = TurnData(
+            turn_id="t1",
+            query="What is RHEL?",
+            contexts=[
+                "Red Hat Enterprise Linux is an operating system",
+                "Kubernetes runs containers",
+            ],
+            expected_contexts=["RHEL is a Linux distribution"],
+        )
+
+        score, reason = evaluate_mrr(
+            None,
+            0,
+            turn_data,
+            False,
+            embedding_model=mock_model,
+            mrr_config={
+                "alpha": 0.1,
+                "calibration_pairs": [
+                    [
+                        "RHEL is a Linux distribution",
+                        "Red Hat Enterprise Linux is an operating system",
+                    ],
+                    [
+                        "Ubuntu is a distribution",
+                        "Ubuntu is a distribution",
+                    ],
+                ],
+            },
+        )
+
+        assert score == 1.0
+        assert "CRC-calibrated" in reason
+
     def test_semantic_high_threshold_rejects(self, mock_model: Any) -> None:
         """Test that a very high threshold rejects moderate similarity."""
         turn_data = TurnData(
