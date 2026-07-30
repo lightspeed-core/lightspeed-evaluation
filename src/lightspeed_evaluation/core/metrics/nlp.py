@@ -3,6 +3,7 @@
 This module provides text comparison metrics that don't require LLM calls:
 - BLEU Score: Measures n-gram overlap between response and reference
 - ROUGE Score: Measures recall-oriented n-gram overlap
+- MRR: Mean Reciprocal Rank with semantic similarity (sentence-transformers)
 - Semantic Similarity: Measures string similarity using distance measures
 """
 
@@ -29,27 +30,97 @@ from lightspeed_evaluation.core.system.exceptions import MetricError
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+_LOAD_FAILED = object()
+
 
 class NLPMetrics:  # pylint: disable=too-few-public-methods
     """Handles NLP-based metrics evaluation using Ragas non-LLM metrics.
 
     These metrics compare the generated response with the expected_response
     using traditional NLP techniques without requiring LLM calls.
+    MRR uses sentence-transformers embeddings when available.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, embedding_model_name: Optional[str] = None) -> None:
         """Initialize NLP Metrics.
 
-        No LLM or embedding manager required for these metrics.
+        Args:
+            embedding_model_name: Name of the sentence-transformers model
+                used for MRR semantic matching.  Falls back to substring
+                matching when sentence-transformers is not installed.
         """
+        self._default_embedding_model_name = (
+            embedding_model_name or _DEFAULT_EMBEDDING_MODEL
+        )
+        self._embedding_model_name = self._default_embedding_model_name
+        self._embedding_model: Any = None
+
         self.supported_metrics = {
             "bleu": self._evaluate_bleu,
-            "mrr": evaluate_mrr,
+            "mrr": self._evaluate_mrr,
             "rouge": self._evaluate_rouge,
             "semantic_similarity_distance": self._evaluate_semantic_similarity_distance,
         }
 
         logger.info("NLP Metrics initialized")
+
+    def _get_embedding_model(self) -> Any:
+        """Lazy-load and cache the sentence-transformers model."""
+        if self._embedding_model is None:
+            try:
+                import sentence_transformers  # type: ignore[import-not-found] # pylint: disable=import-outside-toplevel
+
+                self._embedding_model = sentence_transformers.SentenceTransformer(
+                    self._embedding_model_name
+                )
+                logger.info(
+                    "Loaded embedding model: %s",
+                    self._embedding_model_name,
+                )
+            except ImportError:
+                logger.warning(
+                    "sentence-transformers not installed — MRR will use "
+                    "substring fallback.  Install with: "
+                    "pip install 'lightspeed-evaluation[local-embeddings]'"
+                )
+                self._embedding_model = _LOAD_FAILED
+            except (OSError, RuntimeError) as exc:
+                logger.warning(
+                    "Failed to load embedding model '%s': %s — "
+                    "MRR will use substring fallback",
+                    self._embedding_model_name,
+                    exc,
+                )
+                self._embedding_model = _LOAD_FAILED
+        if self._embedding_model is _LOAD_FAILED:
+            return None
+        return self._embedding_model
+
+    def _evaluate_mrr(
+        self,
+        conv_data: Any,
+        turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Evaluate MRR with semantic similarity when embeddings are available."""
+        mrr_config = self._get_metric_metadata(turn_data, "nlp:mrr")
+        effective = (
+            mrr_config.get("embedding_model") or self._default_embedding_model_name
+        )
+        if effective != self._embedding_model_name:
+            self._embedding_model_name = effective
+            self._embedding_model = None
+        model = self._get_embedding_model()
+        return evaluate_mrr(
+            conv_data,
+            turn_idx,
+            turn_data,
+            is_conversation,
+            embedding_model=model,
+            mrr_config=mrr_config,
+        )
 
     def _extract_turn_data(self, turn_data: Optional[TurnData]) -> tuple[str, str]:
         """Extract response and expected_response from turn data.

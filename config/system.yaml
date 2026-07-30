@@ -170,7 +170,8 @@ metrics_metadata:
 
     "nlp:mrr":
       threshold: 0.5
-      description: "Mean Reciprocal Rank — position of first relevant context in retrieved list"
+      description: "Mean Reciprocal Rank — position of first relevant context in retrieved list (semantic similarity matching)"
+      default_similarity_threshold: 0.65
 
     # Script-based metrics
     "script:action_eval":

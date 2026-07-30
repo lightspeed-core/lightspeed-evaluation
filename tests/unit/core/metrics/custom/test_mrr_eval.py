@@ -1,10 +1,15 @@
 """Tests for MRR (Mean Reciprocal Rank) evaluation metric."""
 
+from typing import Any
+
+import numpy as np
 import pytest
 from pydantic import ValidationError
+from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.metrics.custom.mrr_eval import (
-    _is_context_match,
+    _compute_similarity_matrix,
+    _is_context_match_substring,
     _normalize_text,
     evaluate_mrr,
 )
@@ -31,16 +36,16 @@ class TestNormalizeText:
         assert _normalize_text("hello\t\n  world") == "hello world"
 
 
-class TestIsContextMatch:
-    """Test context matching logic."""
+class TestIsContextMatchSubstring:
+    """Test substring fallback matching logic."""
 
     def test_exact_match(self) -> None:
         """Test that identical strings match."""
-        assert _is_context_match("hello world", "hello world") is True
+        assert _is_context_match_substring("hello world", "hello world") is True
 
     def test_case_insensitive(self) -> None:
         """Test that matching is case-insensitive."""
-        assert _is_context_match("Hello World", "hello world") is True
+        assert _is_context_match_substring("Hello World", "hello world") is True
 
     def test_retrieved_contains_expected(self) -> None:
         """Test match when retrieved context is a superset of expected."""
@@ -48,25 +53,33 @@ class TestIsContextMatch:
             "Introduction: RHEL is a Linux distribution. It is enterprise-grade."
         )
         expected = "RHEL is a Linux distribution"
-        assert _is_context_match(retrieved, expected) is True
+        assert _is_context_match_substring(retrieved, expected) is True
 
     def test_expected_contains_retrieved(self) -> None:
         """Test match when expected context is a superset of retrieved."""
         retrieved = "RHEL is a Linux distribution"
         expected = "Introduction: RHEL is a Linux distribution. It is enterprise-grade."
-        assert _is_context_match(retrieved, expected) is True
+        assert _is_context_match_substring(retrieved, expected) is True
 
     def test_no_match(self) -> None:
         """Test that unrelated strings do not match."""
-        assert _is_context_match("hello world", "goodbye moon") is False
+        assert _is_context_match_substring("hello world", "goodbye moon") is False
 
     def test_whitespace_normalization(self) -> None:
         """Test match with different whitespace."""
-        assert _is_context_match("hello   world", "hello world") is True
+        assert _is_context_match_substring("hello   world", "hello world") is True
+
+    def test_empty_retrieved(self) -> None:
+        """Test that empty retrieved text returns False."""
+        assert _is_context_match_substring("   ", "hello") is False
+
+    def test_empty_expected(self) -> None:
+        """Test that empty expected text returns False."""
+        assert _is_context_match_substring("hello", "   ") is False
 
 
-class TestEvaluateMrr:
-    """Test the main evaluate_mrr function."""
+class TestEvaluateMrrSubstring:
+    """Test evaluate_mrr with substring fallback (no embedding model)."""
 
     def test_first_context_matches(self) -> None:
         """Test score is 1.0 when first retrieved context is relevant."""
@@ -84,6 +97,7 @@ class TestEvaluateMrr:
 
         assert score == 1.0
         assert "rank 1" in reason
+        assert "substring fallback" in reason
 
     def test_second_context_matches(self) -> None:
         """Test score is 0.5 when second retrieved context is relevant."""
@@ -214,6 +228,10 @@ class TestEvaluateMrr:
         assert score == 0.5
         assert "rank 2" in reason
 
+
+class TestEvaluateMrrValidation:
+    """Test input validation shared by both matching paths."""
+
     def test_conversation_level_returns_none(self) -> None:
         """Test that conversation-level evaluation returns None."""
         turn_data = TurnData(
@@ -301,3 +319,124 @@ class TestEvaluateMrr:
 
         assert score == 1.0
         assert "rank 1" in reason
+
+
+class TestEvaluateMrrSemantic:
+    """Test evaluate_mrr with a mock embedding model."""
+
+    @pytest.fixture()
+    def mock_model(self, mocker: MockerFixture) -> Any:
+        """Create a mock SentenceTransformer model."""
+        model = mocker.MagicMock()
+
+        def fake_encode(
+            texts: list[str], normalize_embeddings: bool = False
+        ) -> np.ndarray:
+            vectors = {
+                "RHEL is a Linux distribution": [0.9, 0.1, 0.0],
+                "Red Hat Enterprise Linux is an operating system": [0.85, 0.15, 0.05],
+                "Ubuntu is a distribution": [0.1, 0.9, 0.0],
+                "Fedora is upstream": [0.3, 0.6, 0.1],
+                "Kubernetes runs containers": [0.0, 0.0, 1.0],
+            }
+            result = []
+            for text in texts:
+                vec = np.array(vectors.get(text, [0.33, 0.33, 0.33]), dtype=float)
+                if normalize_embeddings:
+                    vec = vec / (np.linalg.norm(vec) + 1e-10)
+                result.append(vec)
+            return np.array(result)
+
+        model.encode = fake_encode
+        return model
+
+    def test_semantic_match_at_rank_1(self, mock_model: Any) -> None:
+        """Test semantic matching finds relevant context at rank 1."""
+        turn_data = TurnData(
+            turn_id="t1",
+            query="What is RHEL?",
+            contexts=[
+                "Red Hat Enterprise Linux is an operating system",
+                "Kubernetes runs containers",
+            ],
+            expected_contexts=["RHEL is a Linux distribution"],
+        )
+
+        score, reason = evaluate_mrr(
+            None,
+            0,
+            turn_data,
+            False,
+            embedding_model=mock_model,
+            mrr_config={"default_similarity_threshold": 0.5},
+        )
+
+        assert score == 1.0
+        assert "rank 1" in reason
+        assert "similarity=" in reason
+
+    def test_semantic_no_match(self, mock_model: Any) -> None:
+        """Test semantic matching returns 0.0 for unrelated contexts."""
+        turn_data = TurnData(
+            turn_id="t1",
+            query="What is RHEL?",
+            contexts=["Kubernetes runs containers"],
+            expected_contexts=["RHEL is a Linux distribution"],
+        )
+
+        score, reason = evaluate_mrr(
+            None,
+            0,
+            turn_data,
+            False,
+            embedding_model=mock_model,
+            mrr_config={"default_similarity_threshold": 0.5},
+        )
+
+        assert score == 0.0
+        assert "no context above threshold" in reason
+
+    def test_semantic_high_threshold_rejects(self, mock_model: Any) -> None:
+        """Test that a very high threshold rejects moderate similarity."""
+        turn_data = TurnData(
+            turn_id="t1",
+            query="What is RHEL?",
+            contexts=["Fedora is upstream"],
+            expected_contexts=["RHEL is a Linux distribution"],
+        )
+
+        score, _reason = evaluate_mrr(
+            None,
+            0,
+            turn_data,
+            False,
+            embedding_model=mock_model,
+            mrr_config={"default_similarity_threshold": 0.99},
+        )
+
+        assert score == 0.0
+
+
+class TestComputeSimilarityMatrix:
+    """Test the similarity matrix computation."""
+
+    def test_identity(self, mocker: MockerFixture) -> None:
+        """Test that same texts produce high similarity."""
+        model = mocker.MagicMock()
+        model.encode = lambda texts, normalize_embeddings=False: np.eye(3)[: len(texts)]
+
+        matrix = _compute_similarity_matrix(["a"], ["a"], model)
+
+        assert matrix.shape == (1, 1)
+        assert matrix[0, 0] == pytest.approx(1.0)
+
+    def test_matrix_shape(self, mocker: MockerFixture) -> None:
+        """Test output shape matches input counts."""
+        model = mocker.MagicMock()
+        model.encode = lambda texts, normalize_embeddings=False: np.random.default_rng(
+            0
+        ).random((len(texts), 4))
+
+        matrix = _compute_similarity_matrix(["a", "b", "c"], ["x", "y"], model)
+
+        assert matrix.shape == (3, 2)
