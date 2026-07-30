@@ -31,7 +31,6 @@ from lightspeed_evaluation.core.system.exceptions import MetricError
 logger = logging.getLogger(__name__)
 
 _DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-_LOAD_FAILED = object()
 
 
 class NLPMetrics:  # pylint: disable=too-few-public-methods
@@ -50,11 +49,9 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
                 used for MRR semantic matching.  Falls back to substring
                 matching when sentence-transformers is not installed.
         """
-        self._default_embedding_model_name = (
-            embedding_model_name or _DEFAULT_EMBEDDING_MODEL
-        )
-        self._embedding_model_name = self._default_embedding_model_name
-        self._embedding_model: Any = None
+        self._default_model_name = embedding_model_name or _DEFAULT_EMBEDDING_MODEL
+        self._models: dict[str, Any] = {}
+        self._load_failed: set[str] = set()
 
         self.supported_metrics = {
             "bleu": self._evaluate_bleu,
@@ -65,37 +62,35 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
 
         logger.info("NLP Metrics initialized")
 
-    def _get_embedding_model(self) -> Any:
-        """Lazy-load and cache the sentence-transformers model."""
-        if self._embedding_model is None:
-            try:
-                import sentence_transformers  # type: ignore[import-not-found] # pylint: disable=import-outside-toplevel
-
-                self._embedding_model = sentence_transformers.SentenceTransformer(
-                    self._embedding_model_name
-                )
-                logger.info(
-                    "Loaded embedding model: %s",
-                    self._embedding_model_name,
-                )
-            except ImportError:
-                logger.warning(
-                    "sentence-transformers not installed — MRR will use "
-                    "substring fallback.  Install with: "
-                    "pip install 'lightspeed-evaluation[local-embeddings]'"
-                )
-                self._embedding_model = _LOAD_FAILED
-            except (OSError, RuntimeError) as exc:
-                logger.warning(
-                    "Failed to load embedding model '%s': %s — "
-                    "MRR will use substring fallback",
-                    self._embedding_model_name,
-                    exc,
-                )
-                self._embedding_model = _LOAD_FAILED
-        if self._embedding_model is _LOAD_FAILED:
+    def _get_embedding_model(self, model_name: str) -> Any:
+        """Lazy-load and cache the sentence-transformers model by name."""
+        if model_name in self._load_failed:
             return None
-        return self._embedding_model
+        if model_name in self._models:
+            return self._models[model_name]
+        try:
+            import sentence_transformers  # type: ignore[import-not-found] # pylint: disable=import-outside-toplevel
+
+            model = sentence_transformers.SentenceTransformer(model_name)
+            self._models[model_name] = model
+            logger.info("Loaded embedding model: %s", model_name)
+            return model
+        except ImportError:
+            logger.warning(
+                "sentence-transformers not installed — MRR will use "
+                "substring fallback.  Install with: "
+                "pip install 'lightspeed-evaluation[local-embeddings]'"
+            )
+            self._load_failed.add(model_name)
+        except (OSError, RuntimeError) as exc:
+            logger.warning(
+                "Failed to load embedding model '%s': %s — "
+                "MRR will use substring fallback",
+                model_name,
+                exc,
+            )
+            self._load_failed.add(model_name)
+        return None
 
     def _evaluate_mrr(
         self,
@@ -106,20 +101,15 @@ class NLPMetrics:  # pylint: disable=too-few-public-methods
     ) -> tuple[Optional[float], str]:
         """Evaluate MRR with semantic similarity when embeddings are available."""
         mrr_config = self._get_metric_metadata(turn_data, "nlp:mrr")
-        effective = (
-            mrr_config.get("embedding_model") or self._default_embedding_model_name
-        )
-        if effective != self._embedding_model_name:
-            self._embedding_model_name = effective
-            self._embedding_model = None
-        model = self._get_embedding_model()
+        model_name = mrr_config.get("embedding_model") or self._default_model_name
+        model = self._get_embedding_model(model_name)
         return evaluate_mrr(
             conv_data,
             turn_idx,
             turn_data,
             is_conversation,
             embedding_model=model,
-            embedding_model_name=self._embedding_model_name,
+            embedding_model_name=model_name,
             mrr_config=mrr_config,
         )
 
