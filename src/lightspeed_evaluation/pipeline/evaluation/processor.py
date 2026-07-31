@@ -295,7 +295,7 @@ class ConversationProcessor:
             )
             try:
                 result = self.components.metrics_evaluator.evaluate_metric(request)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 error_reason = f"{type(e).__name__}: {e}"
                 logger.error(
                     "%s evaluation failed for conversation %s turn %d: %s",
@@ -341,7 +341,7 @@ class ConversationProcessor:
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
             try:
                 result = self.components.metrics_evaluator.evaluate_metric(request)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 error_reason = f"{type(e).__name__}: {e}"
                 logger.error(
                     "%s evaluation failed for conversation %s: %s",
