@@ -96,7 +96,6 @@ jobs:
         run: |
           echo "Installing e2e tests dependencies"
           pip install --break-system-packages uv
-          uv sync
       
       # Run the tests
       - name: Run the tests
