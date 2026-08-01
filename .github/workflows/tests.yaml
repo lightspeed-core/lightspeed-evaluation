@@ -24,8 +24,6 @@ jobs:
       - name: Install uv
         run: pip install --user uv
       - name: Install dependencies
-        run: uv sync
-      - name: Install devel dependencies
         run: uv sync --group dev
       - name: Run tests
         run: uv run python -m pytest tests --cov=src --cov-report term-missing
