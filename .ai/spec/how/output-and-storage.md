@@ -13,8 +13,9 @@
 | `core/storage/file_storage.py` | `FileStorageBackend` | File output + report generation |
 | `core/storage/sql_storage.py` | `SQLStorageBackend` | Database persistence |
 | `core/storage/langfuse_storage.py` | `LangfuseStorageBackend` | Stores evaluation scores to Langfuse |
+| `core/storage/mlflow_storage.py` | `MLflowStorageBackend` | Logs metrics to MLflow tracking |
 | `core/storage/composite_storage.py` | `CompositeStorageBackend` | Multi-backend chaining |
-| `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig` | Storage configuration models |
+| `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig`, `MLflowBackendConfig` | Storage configuration models |
 
 ## Data Flow
 
@@ -27,11 +28,11 @@
 
 ## Key Abstractions
 
-**Storage lifecycle** is protocol-driven: `initialize()` → `save_run()` (repeated per conversation) → `set_evaluation_context()` → `finalize()` → `close()`. Each backend implements this differently: file defers writes, SQL commits incrementally, Langfuse accumulates then flushes.
+**Storage lifecycle** is protocol-driven: `initialize()` → `save_run()` (repeated per conversation) → `set_evaluation_context()` → `finalize()` → `close()`. Each backend implements this differently: file defers writes, SQL and MLflow commit incrementally (MLflow still requires `finalize()` to end the tracking run as FINISHED), Langfuse accumulates then flushes.
 
-**The factory pattern** in `create_pipeline_storage_backend()` reads the config's storage list and instantiates the appropriate backends (file, sql, langfuse). If multiple backends are configured, they're wrapped in a `CompositeStorageBackend`. When no storage is configured, a `NoOpStorageBackend` is returned.
+**The factory pattern** in `create_pipeline_storage_backend()` reads the config's storage list and instantiates the appropriate backends (file, sql, langfuse, mlflow). If multiple backends are configured, they're wrapped in a `CompositeStorageBackend`. When no storage is configured, a `NoOpStorageBackend` is returned.
 
-**FileStorageBackend** accumulates results in memory during `save_run()` and needs `SystemConfig` plus the full evaluation dataset (`set_evaluation_context()`) to generate reports in `finalize()`. **SQLStorageBackend** commits to the database immediately per conversation and its `finalize()` is a no-op. **LangfuseStorageBackend** accumulates results and writes scores to Langfuse on `finalize()`.
+**FileStorageBackend** accumulates results in memory during `save_run()` and needs `SystemConfig` plus the full evaluation dataset (`set_evaluation_context()`) to generate reports in `finalize()`. **SQLStorageBackend** commits to the database immediately per conversation and its `finalize()` is a no-op. **LangfuseStorageBackend** accumulates results and writes scores to Langfuse on `finalize()`. **MLflowStorageBackend** creates an MLflow run and logs metrics incrementally per conversation.
 
 ## Integration Points
 
@@ -42,6 +43,7 @@
 | `OutputHandler` | `EvaluationSummary` | Computes statistics for reports |
 | `SQLStorageBackend` | SQLAlchemy | Database operations |
 | `LangfuseStorageBackend` | Langfuse SDK | Trace and score creation |
+| `MLflowStorageBackend` | MLflow SDK | Metric logging per run |
 
 ## Implementation Notes
 

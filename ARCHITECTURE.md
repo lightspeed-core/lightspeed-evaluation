@@ -24,7 +24,7 @@ graph TD
     subgraph External
         LLM[LLM Providers<br/>OpenAI, Azure, Anthropic,<br/>Gemini, WatsonX, etc.]
         Agent[Agent APIs<br/>HTTP endpoints]
-        K8s[OpenShift<br/>Proposal CRDs]
+        K8s[OpenShift<br/>AgenticRun CRDs]
     end
 
     subgraph Output
@@ -32,6 +32,7 @@ graph TD
         Graphs[Visualizations]
         DB[(Database<br/>SQLite / PostgreSQL / MySQL)]
         LF[Langfuse<br/>Scores]
+        ML[MLflow<br/>Metrics]
     end
 
     SC --> CLI
@@ -47,6 +48,7 @@ graph TD
     Pipeline --> Graphs
     Pipeline --> DB
     Pipeline --> LF
+    Pipeline --> ML
 ```
 
 ## Evaluation Flow
@@ -216,7 +218,7 @@ graph TD
 
 ## Storage Lifecycle
 
-Three storage backends share the same lifecycle but implement it differently:
+Four storage backends share the same lifecycle but implement it differently:
 
 ```mermaid
 stateDiagram-v2
@@ -241,6 +243,11 @@ graph LR
         SQL_F[finalize] -->|no-op| Log[Log count]
     end
 
+    subgraph "MLflow Storage (incremental)"
+        ML_SR[save_run] -->|log metrics| MLT[MLflow Tracking]
+        ML_F[finalize] -->|end run| MLT
+    end
+
     subgraph "Langfuse Storage (deferred — will be made incremental)"
         LF_SR[save_run] -->|accumulate| LF_F[finalize]
         LF_F -->|write scores| LFP[Langfuse]
@@ -253,8 +260,10 @@ graph LR
 
 **Metric resolution hierarchy.** Turn-level overrides > conversation-level overrides > system defaults. This lets users tune thresholds or criteria for specific test cases without duplicating the full config.
 
-**Pluggable agent drivers.** The framework operates in two modes: live (agent drivers collect responses then evaluate) and offline (evaluate pre-populated data). Two driver types exist — `http_api` for HTTP API calls and `proposal` for OpenShift CRD-based proposal workflows. The driver registry pattern makes it straightforward to add new driver types.
+**Pluggable agent drivers.** The framework operates in two modes: live (agent drivers collect responses then evaluate) and offline (evaluate pre-populated data). Two driver types exist — `http_api` for HTTP API calls and `proposal` for OpenShift AgenticRun CRD-based workflows. The driver registry pattern makes it straightforward to add new driver types.
 
 **Concurrent conversations, sequential turns.** Conversations are independent and can be evaluated in parallel. Turns within a conversation are sequential because they may depend on prior context (multi-turn conversations).
+
+**NxM orchestration layer.** The behavioral orchestrator sits above the evaluation pipeline. When multiple agents or repeats are configured, it invokes the pipeline once per agent x repeat combination with a cloned config. Each run is independent — separate output directory, cache disabled on repeats > 1. Cross-run comparison and consolidation are not yet implemented.
 
 **Storage lifecycle pattern.** Initialize → save per conversation → finalize → close. This enables incremental persistence (each conversation saves immediately) while deferring expensive report generation to the end when all results are available.

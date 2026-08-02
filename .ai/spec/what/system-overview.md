@@ -26,6 +26,7 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 ### Execution Model
 
 - Conversations are evaluated concurrently using a configurable thread pool (`core.max_threads`).
+- NxM mode: when multiple agents or `repeat > 1` is configured, the behavioral orchestrator sits above the evaluation pipeline and invokes it once per agent x repeat combination. Each run gets a cloned config targeting one agent, with cache disabled on repeats > 1. Results are saved to separate output directories per run (`eval_{timestamp}/{agent}/run_{n}/`). Optional parallel execution via `agents.default.parallel`. Cross-run comparison and consolidation are not yet implemented — each run produces independent results.
 - Within a conversation, turns are evaluated sequentially in order.
 - If `skip_on_failure` is enabled, remaining turns and conversation-level metrics in a conversation are skipped after the first FAIL or ERROR.
 - Agent API errors cascade ERROR to the current turn, all remaining turns, and conversation-level metrics — regardless of `skip_on_failure`. Setup script failures also cascade ERROR to all turns and conversation-level metrics (setup runs before any turns, so the entire conversation is marked).
@@ -42,6 +43,7 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 - Each conversation can carry a `ConversationMetadata` object with standard fields (scenario_category, use_case, interaction_type, topic, complexity, data_source, persona, etc.) plus an `additional_metadata` dict for custom key-value pairs.
 - The evaluation data can carry a `DatasetMetadata` object with dataset-level fields (description, team_product, dataset_version, generation_tools, llms_used, etc.) plus an `additional_metadata` dict.
 - Metadata stays at the conversation/dataset level for traceability and quality grading — it is not carried into individual EvaluationResult rows.
+- Each conversation supports multiple tags (`tag` field accepts string or list, normalized to `set[str]`). Statistics are computed per-tag.
 
 ## Configuration Surface
 
@@ -56,7 +58,7 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 | `judge_panel` | object | — | Multi-judge panel with aggregation strategy |
 | `embedding` | object | — | Embedding provider config for semantic metrics |
 | `agents` | object | — | Agent driver configurations (replaces legacy `api` block) |
-| `storage` | list | — | Storage backend configurations (file, sql, langfuse) |
+| `storage` | list | — | Storage backend configurations (file, sqlite, postgres, mysql, langfuse, mlflow) |
 | `visualization` | object | — | Graph generation settings |
 | `logging` | object | — | Logging configuration (source_level, package_level, log_format, show_timestamps) |
 | `quality_score` | object | — | Metrics subset for composite quality scoring |

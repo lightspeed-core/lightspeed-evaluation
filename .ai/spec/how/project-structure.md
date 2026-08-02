@@ -6,6 +6,8 @@
 |---|---|---|
 | `src/lightspeed_evaluation/` | — | Package root |
 | `api.py` | `evaluate()`, `evaluate_with_summary()`, `evaluate_conversation()`, `evaluate_turn()` | Programmatic API — clean entry points for Python callers |
+| `pipeline/behavioral/orchestrator.py` | — | NxM behavioral orchestrator (M agents x N repeats) |
+| `pipeline/behavioral/models.py` | — | Behavioral orchestration data models |
 | `runner/evaluation.py` | `main()` | CLI entry point (`lightspeed-eval` command) |
 | `pipeline/evaluation/pipeline.py` | `EvaluationPipeline` | Top-level orchestrator — creates components, dispatches conversations |
 | `pipeline/evaluation/processor.py` | `ConversationProcessor`, `ProcessorComponents` | Per-conversation processing — turn iteration, agent invocation, metric dispatch |
@@ -55,8 +57,9 @@
 | `core/storage/sql_storage.py` | `SQLStorageBackend` | Database persistence |
 | `core/storage/file_storage.py` | `FileStorageBackend` | File-based persistence + reports |
 | `core/storage/langfuse_storage.py` | `LangfuseStorageBackend` | Stores evaluation scores to Langfuse |
+| `core/storage/mlflow_storage.py` | `MLflowStorageBackend` | Logs metrics to MLflow tracking |
 | `core/storage/composite_storage.py` | `CompositeStorageBackend` | Multi-backend chaining |
-| `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig` | Storage configuration models |
+| `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig`, `MLflowBackendConfig` | Storage configuration models |
 | `core/api/client.py` | `APIClient` | HTTP client with caching, retries; supports query/streaming/infer/responses |
 | `core/api/streaming_parser.py` | `parse_streaming_response()`, `StreamingContext` | SSE parsing with TTFT/throughput tracking |
 | `core/proposal/phase.py` | `derive_phase()` | Proposal phase derivation from CRD conditions |
@@ -67,6 +70,7 @@
 | `core/system/setup.py` | — | Environment setup utilities |
 | `core/system/ssl_certifi.py` | — | SSL certificate handling |
 | `core/system/lazy_import.py` | — | Deferred imports for optional deps |
+| `core/models/utils.py` | — | Shared model utilities |
 | `core/script/manager.py` | `ScriptExecutionManager` | Setup/cleanup script execution |
 | `core/constants.py` | — | Framework-wide constants (thresholds, supported types, graph types) |
 
