@@ -38,6 +38,7 @@ uv-lock-regenerate: ## Regenerate both CPU and GPU lock files from pyproject.tom
 	@echo "Regenerating CPU lock file (uv.lock)..."
 	@echo "Cooldown: excluding packages newer than $(COOLDOWN_CUTOFF) ($(COOLDOWN_DAYS) days)"
 	uv lock --exclude-newer "$(COOLDOWN_CUTOFF)"
+	@sed -i.bak 's/^exclude-newer/# exclude-newer/' uv.lock && rm -f uv.lock.bak
 	@echo "Regenerating GPU lock file (uv-gpu.lock)..."
 	@# Use mktemp for safe temporary files
 	@( \
@@ -49,12 +50,14 @@ uv-lock-regenerate: ## Regenerate both CPU and GPU lock files from pyproject.tom
 		sed '/^\[tool\.uv\.sources\]/,/^torch = /d' pyproject.toml > $$TEMP_FILE; \
 		mv $$TEMP_FILE pyproject.toml; \
 		uv lock --locked 2>/dev/null || uv lock --exclude-newer "$(COOLDOWN_CUTOFF)"; \
+		sed -i.bak 's/^exclude-newer/# exclude-newer/' uv.lock && rm -f uv.lock.bak; \
 		mv uv.lock uv-gpu.lock; \
 		mv $$BACKUP_FILE pyproject.toml; \
 		trap - EXIT; \
 	)
 	@echo "Restoring CPU lock file (uv.lock)..."
 	uv lock --exclude-newer "$(COOLDOWN_CUTOFF)"
+	@sed -i.bak 's/^exclude-newer/# exclude-newer/' uv.lock && rm -f uv.lock.bak
 	@echo "✅ Done! Created uv.lock (CPU) and uv-gpu.lock (GPU) [cooldown=$(COOLDOWN_DAYS)d]"
 
 generate-requirements: ## Generate pinned requirements-*.txt from uv.lock (no -e ., safe without clone)
