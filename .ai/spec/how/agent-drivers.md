@@ -28,14 +28,14 @@
 
 ### ProposalDriver Flow
 
-- `ProposalDriver.execute_turn()` builds a Proposal CR manifest from `turn_data.proposal_spec`.
-- `KubeCLI.apply()` creates the Proposal CR in the configured namespace.
-- If `auto_approve` is enabled, the driver polls until Analyzed=True, then creates a ProposalApproval CR.
-- The driver polls `KubeCLI.get_resource()` for the Proposal's status conditions until a terminal outcome is reached (Completed, Failed, Denied, Escalated) or timeout.
+- `ProposalDriver.execute_turn()` builds a AgenticRun CR manifest from `turn_data.proposal_spec`.
+- `KubeCLI.apply()` creates the AgenticRun CR in the configured namespace.
+- If `auto_approve` is enabled, the driver polls until Analyzed=True, then creates a AgenticRunApproval CR.
+- The driver polls `KubeCLI.get_resource()` for the AgenticRun's status conditions until a terminal outcome is reached (Completed, Failed, Denied, Escalated) or timeout.
 - `derive_phase()` evaluates conditions to determine the current phase, handling retry logic (RetryingExecution reason).
 - `ProposalAmender.amend()` fetches child Result CRs (analysisresults, executionresults, verificationresults, escalationresults) and builds a Markdown summary.
 - Turn data is amended in-place: response (Markdown), proposal_status, proposal_results, proposal_phases.
-- If `cleanup_proposals` is enabled, the Proposal CR is deleted after processing.
+- If `cleanup_proposals` is enabled, the AgenticRun CR is deleted after processing.
 
 ## Key Abstractions
 
@@ -66,6 +66,6 @@
 - **Disk caching** in `APIClient` uses `diskcache` with SHA256 keys. Cache can be disabled per-agent or globally via `core.cache_enabled`.
 - **Streaming metrics** (TTFT, duration, tokens/second) are populated for streaming and responses endpoint types.
 - **The amender mutates TurnData in-place** — the original response is overwritten.
-- **Proposal CR naming** uses `eval-{safe_conv_id}-{uuid8}` to avoid namespace collisions.
+- **AgenticRun CR naming** uses `eval-{safe_conv_id}-{uuid8}` to avoid namespace collisions.
 - **KubeCLI timeout** is per-command (`cli_timeout`), while ProposalDriver `timeout` is the overall lifecycle timeout for reaching a terminal state.
 - **Responses endpoint** uses OpenAI Responses API schema — maps query→input, system_prompt→instructions, extracts file_search_call for RAG contexts and mcp_call for tool calls.

@@ -35,7 +35,8 @@ The framework produces structured evaluation reports in multiple formats with st
 - FileStorageBackend accumulates results in memory during evaluation and defers all disk writes (CSV/JSON/TXT/graphs) to `finalize()`. It requires the full evaluation dataset via `set_evaluation_context()` for cross-conversation report generation.
 - SQLStorageBackend commits results to a database (SQLite, PostgreSQL, or MySQL) immediately per conversation in `save_run()`. Its `finalize()` is a no-op (just logs a count).
 - LangfuseStorageBackend accumulates results and writes scores to Langfuse on `finalize()`. Config supports inline `host`/`public_key`/`secret_key` or falls back to `LANGFUSE_HOST`/`LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` environment variables.
-- CompositeStorageBackend chains multiple backends — a run can write to file, database, and Langfuse simultaneously.
+- MLflowStorageBackend creates one MLflow run per evaluation and logs metrics per result. Uses standard MLflow tracking API.
+- CompositeStorageBackend chains multiple backends — a run can write to file, database, Langfuse, and MLflow simultaneously.
 - Storage backends follow a lifecycle: initialize → save_run (per conversation) → set_evaluation_context → finalize → close.
 
 ### Token Usage Reporting
@@ -49,7 +50,7 @@ The framework produces structured evaluation reports in multiple formats with st
 | Field/Flag | Type | Default | Description |
 |---|---|---|---|
 | `storage` | list | [file] | List of storage backend configs |
-| `storage[].type` | string | — | Backend type: file, sqlite, postgres, mysql, langfuse |
+| `storage[].type` | string | — | Backend type: file, sqlite, postgres, mysql, langfuse, mlflow |
 | `storage[].database` | string | — | Database name (for sql backends) |
 | `storage[].host` | string | — | Database host for remote SQL backends (postgres, mysql) or Langfuse host URL; SQLite uses `database` for file path |
 | `visualization.enabled_graphs` | list | — | Which graph types to generate |
@@ -61,4 +62,4 @@ The framework produces structured evaluation reports in multiple formats with st
 - File backend requires SystemConfig access and the full evaluation dataset (`set_evaluation_context()`) for report generation.
 - Database backend uses SQLAlchemy with URL encoding for special characters in connection strings.
 - Langfuse backend requires the `langfuse` optional dependency.
-- `finalize()` is called once after all conversations in the entire evaluation run complete. This matters for file storage (which defers all writes) and Langfuse (which writes scores), but not for SQL storage (which persists incrementally).
+- `finalize()` is called once after all conversations in the entire evaluation run complete. This matters for file storage (which defers all writes), Langfuse (which writes scores), and MLflow (which ends the tracking run as FINISHED). SQL storage persists incrementally and its `finalize()` is a no-op.

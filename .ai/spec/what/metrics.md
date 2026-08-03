@@ -6,7 +6,7 @@ Metrics are the scoring functions that evaluate LLM-powered application outputs 
 
 ### Metric Categories
 
-- **Ragas metrics** (`ragas:*`): Industry-standard RAG evaluation — faithfulness, answer relevancy, context precision/recall. Require LLM judge and often embedding model.
+- **Ragas metrics** (`ragas:*`): RAG evaluation — faithfulness, response_relevancy, context_relevance, context_precision, context_recall, context_utilization. Require LLM judge and often embedding model.
 - **DeepEval metrics** (`deepeval:*`): Conversation-level analysis — conversation_completeness, conversation_relevancy, knowledge_retention. Require LLM judge.
 - **User-defined criteria** (`geval:*`): LLM-as-judge with custom evaluation criteria defined in metric metadata (powered by DeepEval's GEval). Require LLM judge.
 - **Custom metrics** (`custom:*`): Domain-specific evaluation registered under the custom framework. Some use LLM judges (answer_correctness, intent_eval, proposal_evaluation_correctness), others use pure comparison logic without LLM (keywords_eval, tool_eval, proposal_status).
