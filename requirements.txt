@@ -2,7 +2,7 @@
 #    uv export --frozen --no-hashes --no-dev --no-emit-project -o requirements.txt
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.2
+aiohttp==3.14.3
     # via
     #   deepeval
     #   fsspec
@@ -13,7 +13,7 @@ aiosignal==1.4.0
     # via aiohttp
 annotated-doc==0.0.4
     # via typer
-annotated-types==0.7.0
+annotated-types==0.8.0
     # via pydantic
 anyio==4.14.2
     # via
@@ -102,7 +102,7 @@ fsspec==2025.3.0
     #   huggingface-hub
 google-ai-generativelanguage==0.12.0
     # via langchain-google-genai
-google-api-core==2.32.0
+google-api-core==2.33.0
     # via google-ai-generativelanguage
 google-auth==2.56.2
     # via
@@ -112,9 +112,9 @@ googleapis-common-protos==1.75.0
     # via
     #   google-api-core
     #   grpcio-status
-greenlet==3.5.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+greenlet==3.5.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
-grpcio==1.82.1
+grpcio==1.83.0
     # via
     #   deepeval
     #   google-ai-generativelanguage
@@ -185,7 +185,7 @@ langchain-community==0.3.31
     # via
     #   lightspeed-evaluation
     #   ragas
-langchain-core==1.5.0
+langchain-core==1.5.1
     # via
     #   langchain
     #   langchain-community
@@ -201,7 +201,7 @@ langchain-google-genai==2.1.12
     # via lightspeed-evaluation
 langchain-huggingface==1.2.2
     # via langchain
-langchain-openai==1.4.0
+langchain-openai==1.4.1
     # via ragas
 langchain-protocol==0.0.18
     # via
@@ -217,7 +217,7 @@ langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
     # via langgraph
-langsmith==0.10.9
+langsmith==0.10.10
     # via
     #   langchain-community
     #   langchain-core
@@ -261,7 +261,7 @@ numpy==2.3.2
     #   scikit-network
     #   scipy
     #   seaborn
-openai==2.46.0
+openai==2.48.0
     # via
     #   deepeval
     #   instructor
@@ -313,7 +313,7 @@ propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
-proto-plus==1.28.1
+proto-plus==1.28.2
     # via
     #   google-ai-generativelanguage
     #   google-api-core
@@ -387,7 +387,7 @@ python-dotenv==1.2.2
     #   deepeval
     #   litellm
     #   pydantic-settings
-pytz==2026.2
+pytz==2026.3.post1
     # via pandas
 pywin32==312 ; sys_platform == 'win32'
     # via portalocker
@@ -437,7 +437,7 @@ scipy==1.16.2
     #   scikit-network
 seaborn==0.13.2
     # via lightspeed-evaluation
-sentry-sdk==2.66.0
+sentry-sdk==2.66.1
     # via deepeval
 setuptools==83.0.0
     # via deepeval
