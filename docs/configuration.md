@@ -1,6 +1,6 @@
 # Lightspeed Evaluation Configuration
 
-The system configuration is driven by YAML file. The default config file is [config/system.yaml](config/system.yaml).
+The system configuration is driven by YAML file. The default config file is [config/system.yaml](../config/system.yaml).
 
 ## General evaluation settings
 | Setting (core.) | Default | Description |
@@ -172,7 +172,7 @@ embedding:
   cache_enabled: true
 ```
 
-### Example of non Gemini + Hugging Face setup
+### Example of Gemini + Hugging Face setup
 ```yaml
 llm:
   provider: "gemini"      # Judge-LLM Google Gemini
@@ -234,14 +234,14 @@ When `mcp_headers.enabled` is `false`, the system falls back to using the `API_K
 
 ### API Modes
 
-#### With API Enabled (`api.enabled: true`)
-- **Real-time data generation**: Queries are sent to external API
+#### With API Enabled (`agents.enabled: true`)
+- **Live data generation**: Queries are sent to external API
 - **Dynamic responses**: `response` and `tool_calls` fields populated by API
 - **Conversation context**: Conversation context is maintained across turns
 - **Authentication**: Use `API_KEY` environment variable
 - **Data persistence**: Saves amended `response` and `tool_calls` to the output data file in the output directory so it can be re-used with API option disabled
 
-#### With API Disabled (`api.enabled: false`)
+#### With API Disabled (`agents.enabled: false`)
 - **Static data mode**: Use pre-filled `response` and `tool_calls` from the input data
 - **Faster execution**: No external API calls -- LLM as a judge are still called
 - **Reproducible results**: Same response data used across runs
@@ -250,28 +250,29 @@ When `mcp_headers.enabled` is `false`, the system falls back to using the `API_K
 #### Example Configuration
 
 ```yaml
-api:
+agents:
   enabled: true
-  api_base: http://localhost:8080
-  endpoint_type: streaming
-  timeout: 300
-  
-  provider: openai
-  model: gpt-4o-mini
-  no_tools: null
-  system_prompt: null
-  cache_dir: ".caches/api_cache"
-  cache_enabled: true
-  num_retries: 3
-  
-  # MCP Server Authentication Configuration
-  mcp_headers:
-    enabled: true                      # Enable MCP headers functionality
-    servers:                          # MCP server configurations
-      filesystem-tools:
-        env_var: API_KEY              # Environment variable containing the token/key
-      another-mcp-server:
-        env_var: ANOTHER_API_KEY      # Use a different environment variable
+  default:
+    agent: ols_api
+  ols_api:
+    type: http_api
+    api_base: http://localhost:8080
+    endpoint_type: streaming
+    timeout: 300
+    provider: openai
+    model: gpt-4o-mini
+    system_prompt: null
+    num_retries: 3
+    extra_request_params:
+      mode: troubleshooting
+    # MCP Server Authentication Configuration
+    mcp_headers:
+      enabled: true                     # Enable MCP headers functionality
+      servers:                          # MCP server configurations
+        filesystem-tools:
+          env_var: API_KEY              # Environment variable containing the token/key
+        another-mcp-server:
+          env_var: ANOTHER_API_KEY      # Use a different environment variable
 ```
 
 #### Lightspeed Stack API Compatibility
@@ -318,7 +319,7 @@ By default no metrics are computed (`default` is set to `false`).
 | conversation_level | Conversation level metrics metadata |
 
 ### Example
-For complete example with all metrics see the default config file [config/system.yaml](config/system.yaml).
+For complete example with all metrics see the default config file [config/system.yaml](../config/system.yaml).
 ```yaml
 # Metrics Configuration with thresholds and defaults
 metrics_metadata:

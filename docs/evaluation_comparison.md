@@ -60,5 +60,5 @@ These dependencies are automatically available when using `uv run` in the projec
 Run the test suite to verify the script works correctly:
 
 ```bash
-uv run python tests/test_compare_evaluations.py
+uv run pytest tests/script/test_compare_evaluations.py
 ```

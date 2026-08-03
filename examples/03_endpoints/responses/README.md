@@ -14,7 +14,7 @@ uv run lightspeed-eval \
 
 ## What This Example Demonstrates
 
-- **Endpoint**: `responses` — targets the Lightspeed Responses API endpoint (`api.endpoint_type: responses`)
+- **Endpoint**: `responses` — targets the Lightspeed Responses API endpoint (`agents.ls_api.endpoint_type: responses`)
 - **Tool use**: `file_search` is required on every turn via `tool_choice.mode: "required"` (with `allowed_tools`), searching the `okp` vector store
 - **Tool evaluation**: `custom:tool_eval` validates that the correct tool was called with the expected arguments (exact/ordered match)
 - **Response quality**: `ragas:response_relevancy` measures how well the response addresses the query (threshold: 0.8)
