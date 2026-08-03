@@ -845,13 +845,14 @@ metrics_metadata:
       description: "Factual accuracy"
       default: false            # Only when specified
 
-# Output settings
-output:
-  output_dir: "./eval_output"
-  enabled_outputs:
-    - csv                       # Detailed results
-    - json                      # Statistics
-    - txt                       # Summary
+# Storage settings
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+    enabled_outputs:
+      - csv                     # Detailed results
+      - json                    # Statistics
+      - txt                     # Summary
 
 # Visualization
 visualization:
@@ -2019,8 +2020,9 @@ metrics_metadata:
       threshold: 0.8
       default: true
 
-output:
-  output_dir: "./eval_output"
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
 ```
 
 **Minimal evaluation_data.yaml:**
@@ -2132,7 +2134,7 @@ This repository:
 
 ### Key Concepts Glossary
 
-- **API-Enabled Mode**: Real-time evaluation calling your AI system's API
+- **API-Enabled Mode**: Live evaluation calling your AI system's API
 - **Binary Metric**: Pass/fail evaluation (0 or 1)
 - **Context**: Background information from knowledge base
 - **Faithfulness**: How well answer sticks to provided facts

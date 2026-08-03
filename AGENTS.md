@@ -113,13 +113,17 @@ Refer to `README.md` for full list. Key variables:
 src/lightspeed_evaluation/
 ├── core/
 │   ├── api/           # API client for live data
+│   ├── embedding/     # Embedding model management
 │   ├── llm/           # LLM provider management
 │   ├── metrics/       # Evaluation metrics (Ragas, DeepEval, NLP, custom, script, user-defined)
 │   ├── models/        # Pydantic data models
 │   ├── output/        # Report generation and visualization
+│   ├── proposal/      # AgenticRun CRD operations
 │   ├── script/        # Script execution for environment validation
+│   ├── storage/       # Storage backends (file, database, MLflow, Langfuse)
 │   └── system/        # Configuration and validation
 ├── pipeline/
+│   ├── behavioral/    # NxM behavioral evaluation orchestrator (preview)
 │   └── evaluation/    # Main evaluation pipeline orchestration
 └── runner/            # CLI interface and main entry points
 ```
@@ -129,6 +133,7 @@ src/lightspeed_evaluation/
 - `SystemConfig` / `EvaluationData`: Pydantic config models
 - `MetricManager`: Metric execution
 - `OutputHandler`: Report generation
+- `BaseStorageBackend`: Pluggable storage (file, SQLite, PostgreSQL, MLflow, Langfuse)
 
 ## Testing Guidelines
 

@@ -145,7 +145,7 @@ lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --cac
 
 ### Programmatic Usage (Library Mode)
 
-Use the framework as a Python library for real-time integration with Python applications:
+Use the framework as a Python library for live integration with Python applications:
 
 ```python
 from lightspeed_evaluation import evaluate, SystemConfig, LLMConfig, EvaluationData, TurnData
@@ -172,7 +172,7 @@ results = evaluate(config, [data])
 
 Please make any necessary modifications to system configuration yaml and evaluation data yaml files.
 
-#### 1. API-Enabled Real-time data collection
+#### 1. API-Enabled Live Data Collection
 ```bash
 # Set required environment variable(s) for both Judge-LLM and API authentication (for MCP)
 export OPENAI_API_KEY="your-evaluation-llm-key"
@@ -604,7 +604,7 @@ export AZURE_API_BASE="https://your-resource.openai.azure.com/"
 
 > **Note for Azure**: The `model` field should be **Azure deployment name**, not the model name (when these are different).
 
-#### For Lightspeed Core API Integration (When `api.enabled: true`)
+#### For Lightspeed Core API Integration (When `agents.enabled: true`)
 ```bash
 # API authentication for external system (MCP)
 export API_KEY="your-api-endpoint-key"
@@ -635,7 +635,7 @@ export KUBECONFIG="/path/to/your/kubeconfig"
 
 ### Streaming Performance Metrics
 
-When using the streaming endpoint (`api.endpoint_type: streaming`), the framework captures additional performance metrics:
+When using the streaming endpoint (`agents.<name>.endpoint_type: streaming`), the framework captures additional performance metrics:
 
 | Metric | Description |
 |--------|-------------|
