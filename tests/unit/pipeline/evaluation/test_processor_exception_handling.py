@@ -46,9 +46,13 @@ class TestEvaluateMetricExceptionHandling:
         assert len(results) == 1
         assert results[0].result == "ERROR"
         assert results[0].metric_identifier == "ragas:faithfulness"
+        assert results[0].conversation_group_id == "test_conv"
+        assert results[0].turn_id == "1"
         assert "RuntimeError" in results[0].reason
         assert "max_tokens" in results[0].reason
         assert "ragas:faithfulness evaluation failed" in caplog.text
+        assert "test_conv" in caplog.text
+        assert "turn 0" in caplog.text
 
     def test_evaluate_turn_continues_after_exception(
         self,
@@ -83,6 +87,9 @@ class TestEvaluateMetricExceptionHandling:
         assert len(results) == 2
         assert results[0].result == "ERROR"
         assert results[0].metric_identifier == "ragas:faithfulness"
+        assert results[0].conversation_group_id == "test_conv"
+        assert results[0].turn_id == "1"
+        assert "RuntimeError" in results[0].reason
         assert results[1].result == "PASS"
         assert results[1].metric_identifier == "geval:correctness"
 
@@ -110,5 +117,8 @@ class TestEvaluateMetricExceptionHandling:
         assert len(results) == 1
         assert results[0].result == "ERROR"
         assert results[0].metric_identifier == "deepeval:conversation_completeness"
+        assert results[0].conversation_group_id == "test_conv"
         assert "RuntimeError" in results[0].reason
+        assert "unexpected failure" in results[0].reason
         assert "conversation_completeness evaluation failed" in caplog.text
+        assert "test_conv" in caplog.text
