@@ -402,7 +402,19 @@ Save results to a database for querying and analysis. Supports SQLite, PostgreSQ
 > **Note:** Database storage is incremental - results are saved as each conversation completes. Storage failures are logged as warnings but don't stop the evaluation.
 
 ### Langfuse Backend (Optional)
-Export evaluation scores to [Langfuse](https://langfuse.com) for observability, analytics, and score tracking. Creates one trace per evaluation run with one numeric score per metric result.
+Export evaluation scores to [Langfuse](https://langfuse.com) for observability, analytics, and score tracking.
+
+**Unified export (always):**
+- One **per-turn** trace per unique `(conversation_group_id, turn_id)` with CSV-shaped metadata (written incrementally on each conversation `save_run`)
+- One numeric score per metric result on that turn trace (metadata = full CSV row / `SUPPORTED_CSV_COLUMNS`)
+- One **run-level aggregate** span at finalize with `aggregate/*` scores plus `eval_status` / `eval/success` from the evaluation outcome
+
+**Optional `dataset_name`:** Also links the same per-turn traces into a [Langfuse Dataset](https://langfuse.com/docs/evaluation/experiments/datasets) **run** (visible under **Datasets → Runs**):
+- Upserts one Dataset **item** per turn (stable input / expected output)
+- Creates one Dataset **run** named `{run_label}__{run_id_prefix}`
+- Creates one **run item** per turn linking the item to the turn trace
+
+Reuse the same `dataset_name` across evaluations to compare two runs side-by-side in the Runs tab. Omit `dataset_name` (or leave it blank) to keep traces, scores, and aggregates without Dataset linking.
 
 Requires the Langfuse SDK v4:
 ```bash
@@ -419,9 +431,11 @@ uv sync --extra langfuse
 | host | `null` | Langfuse API host URL (falls back to `LANGFUSE_HOST` env var) |
 | public_key | `null` | Langfuse public key (falls back to `LANGFUSE_PUBLIC_KEY` env var) |
 | secret_key | `null` | Langfuse secret key (falls back to `LANGFUSE_SECRET_KEY` env var) |
+| dataset_name | `null` | Optional Langfuse Dataset name. When set, also upserts items and creates a Dataset **run** (Datasets → Runs) linking the same per-turn traces. Blank/whitespace is treated as unset. |
 
 > **Credentials:** Configure credentials via environment variables (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`) or inline in the YAML config. Environment variables are the recommended approach — inline config fields take precedence when set.
-> **Score handling:** Results with a numeric score (PASS/FAIL) are exported as `NUMERIC` scores. Results without a score (`score=None`, e.g. ERROR/SKIPPED) are skipped. All Langfuse errors are logged but never abort the evaluation.
+> **Score handling:** Results with a numeric score (PASS/FAIL) are exported as `NUMERIC` scores on the turn trace. Results without a score (`score=None`, e.g. ERROR/SKIPPED) are skipped. Run-level `aggregate/*` scores and `eval/success` are written at finalize from the evaluation outcome. All Langfuse errors (including dataset link failures) are logged but never abort the evaluation; per-turn export and aggregates continue when Dataset linking fails.
+> **Dataset comparison:** Keep the same `dataset_name` (for example `eval-baseline-v1`) across evaluations. Each evaluation becomes a separate run under **Datasets → Runs** (run names include a short `run_id` suffix). Open two runs to compare scores and CSV fields.
 
 ### Example: Langfuse via Environment Variables
 ```yaml
@@ -446,6 +460,19 @@ storage:
     public_key: "pk-lf-..."
     secret_key: "sk-lf-..."
 ```
+
+### Example: Langfuse with Optional Dataset Run Export
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "langfuse"
+    host: "https://cloud.langfuse.com"
+    # Also creates Dataset items + a Dataset run (compare under Datasets → Runs)
+    dataset_name: "eval-baseline-v1"
+```
+
+Run evaluation twice against the same `dataset_name` (for example baseline vs candidate model). In Langfuse open **Datasets → eval-baseline-v1 → Runs** and select both runs to compare.
 
 ### MLflow Backend (Optional)
 Export evaluation metrics, traces, and results to [MLflow](https://mlflow.org) for experiment tracking and comparison. Creates one MLflow run per evaluation run, logs metrics incrementally as each result arrives, and writes aggregates plus a results table at finalize.
