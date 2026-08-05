@@ -404,6 +404,8 @@ Save results to a database for querying and analysis. Supports SQLite, PostgreSQ
 ### Langfuse Backend (Optional)
 Export evaluation scores to [Langfuse](https://langfuse.com) for observability, analytics, and score tracking. Creates one trace per evaluation run with one numeric score per metric result.
 
+Optionally, set `dataset_name` to also upsert evaluation items into a [Langfuse Dataset](https://langfuse.com/docs/evaluation/experiments/datasets) with that name. Items are deduplicated by conversation/turn, linked to the run’s score trace via `source_trace_id`, and safely reuse an existing dataset when the name already exists. Omit `dataset_name` (or leave it blank) to keep the default scores-only behavior.
+
 Requires the Langfuse SDK v4:
 ```bash
 # Using pip
@@ -419,9 +421,11 @@ uv sync --extra langfuse
 | host | `null` | Langfuse API host URL (falls back to `LANGFUSE_HOST` env var) |
 | public_key | `null` | Langfuse public key (falls back to `LANGFUSE_PUBLIC_KEY` env var) |
 | secret_key | `null` | Langfuse secret key (falls back to `LANGFUSE_SECRET_KEY` env var) |
+| dataset_name | `null` | Optional Langfuse Dataset name. When set, upserts evaluation items into that dataset in addition to score export. Blank/whitespace is treated as unset. |
 
 > **Credentials:** Configure credentials via environment variables (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`) or inline in the YAML config. Environment variables are the recommended approach — inline config fields take precedence when set.
-> **Score handling:** Results with a numeric score (PASS/FAIL) are exported as `NUMERIC` scores. Results without a score (`score=None`, e.g. ERROR/SKIPPED) are skipped. All Langfuse errors are logged but never abort the evaluation.
+> **Score handling:** Results with a numeric score (PASS/FAIL) are exported as `NUMERIC` scores. Results without a score (`score=None`, e.g. ERROR/SKIPPED) are skipped. All Langfuse errors (including dataset export failures) are logged but never abort the evaluation.
+> **Dataset comparison:** Use different `dataset_name` values across runs (for example `eval-baseline-v1` vs `eval-model-b-v2`) so each run’s items stay separable in the Langfuse Datasets UI while scores remain on the linked run traces.
 
 ### Example: Langfuse via Environment Variables
 ```yaml
@@ -446,6 +450,19 @@ storage:
     public_key: "pk-lf-..."
     secret_key: "sk-lf-..."
 ```
+
+### Example: Langfuse with Optional Dataset Export
+```yaml
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+  - type: "langfuse"
+    host: "https://cloud.langfuse.com"
+    # Scores are always exported; dataset_name also stores items for comparison
+    dataset_name: "eval-baseline-v1"
+```
+
+Use a different `dataset_name` on a later run (for example `eval-model-b-v2`) to keep results separable and comparable in Langfuse.
 
 ### MLflow Backend (Optional)
 Export evaluation metrics, traces, and results to [MLflow](https://mlflow.org) for experiment tracking and comparison. Creates one MLflow run per evaluation run, logs metrics incrementally as each result arrives, and writes aggregates plus a results table at finalize.

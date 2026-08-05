@@ -314,6 +314,8 @@ storage:
   # Or provide them inline below:
   # - type: "langfuse"
   #   host: "https://cloud.langfuse.com"
+  #   # Optional — omit for scores-only (default)
+  #   dataset_name: "eval-baseline-v1"
 
   # MLflow backend (optional) - export metrics, traces, and results to MLflow
   # Requires: pip install 'lightspeed-evaluation[mlflow]'

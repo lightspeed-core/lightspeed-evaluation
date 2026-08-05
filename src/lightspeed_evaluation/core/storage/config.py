@@ -130,7 +130,9 @@ class LangfuseBackendConfig(BaseModel):
     """Configuration for Langfuse observability storage backend.
 
     Exports evaluation scores to Langfuse as a trace with per-metric scores.
-    Requires the ``langfuse`` optional extra: ``pip install 'lightspeed-evaluation[langfuse]'``
+    Optionally upserts evaluation items into a named Langfuse Dataset when
+    ``dataset_name`` is set. Requires the ``langfuse`` optional extra:
+    ``pip install 'lightspeed-evaluation[langfuse]'``
 
     Credentials are resolved from config fields first, then ``LANGFUSE_PUBLIC_KEY``,
     ``LANGFUSE_SECRET_KEY``, and ``LANGFUSE_HOST`` environment variables as fallback.
@@ -138,6 +140,7 @@ class LangfuseBackendConfig(BaseModel):
     Example:
         - type: "langfuse"
           host: "https://cloud.langfuse.com"
+          dataset_name: "eval-baseline-v1"  # optional
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -155,6 +158,22 @@ class LangfuseBackendConfig(BaseModel):
         default=None,
         description="Langfuse secret key (falls back to LANGFUSE_SECRET_KEY env var)",
     )
+    dataset_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "If set, also upsert evaluation items into this Langfuse Dataset. "
+            "Omit or leave blank to keep scores-only export."
+        ),
+    )
+
+    @field_validator("dataset_name")
+    @classmethod
+    def normalize_dataset_name(cls, value: Optional[str]) -> Optional[str]:
+        """Treat blank/whitespace dataset names as unset (scores-only)."""
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class MLflowBackendConfig(BaseModel):
