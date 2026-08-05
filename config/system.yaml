@@ -168,6 +168,15 @@ metrics_metadata:
       description: "LLM judge of agentic remediation workflow quality (diagnosis, actions, risk, verification)"
       default: false
 
+    "nlp:mrr":
+      threshold: 0.5
+      description: "Mean Reciprocal Rank — position of first relevant context in retrieved list (semantic similarity matching)"
+      default_similarity_threshold: 0.65
+      # Opt-in: conformal risk control calibration (Angelopoulos et al., ICLR 2024)
+      # alpha: 0.1                     # target false-negative rate bound
+      # calibration_pairs:             # known-matching text pairs for threshold calibration
+      #   - ["text A", "paraphrase of A"]
+
     # Script-based metrics
     "script:action_eval":
       description: "Script-based evaluation for infrastructure/environment validation"

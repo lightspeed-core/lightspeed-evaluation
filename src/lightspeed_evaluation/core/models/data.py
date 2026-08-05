@@ -168,6 +168,11 @@ class TurnData(StreamingMetricsMixin):
     contexts: Optional[list[str]] = Field(
         default=None, min_length=1, description="Contexts"
     )
+    expected_contexts: Optional[list[str]] = Field(
+        default=None,
+        min_length=1,
+        description="Expected contexts for retrieval evaluation (ground truth)",
+    )
     expected_keywords: Optional[list[list[str]]] = Field(
         default=None,
         description="Expected keywords for keyword evaluation (list of alternatives)",
