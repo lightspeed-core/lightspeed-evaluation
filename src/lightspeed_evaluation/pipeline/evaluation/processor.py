@@ -293,7 +293,25 @@ class ConversationProcessor:
             request = EvaluationRequest.for_turn(
                 conv_data, metric_identifier, turn_idx, turn_data
             )
-            result = self.components.metrics_evaluator.evaluate_metric(request)
+            try:
+                result = self.components.metrics_evaluator.evaluate_metric(request)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                error_reason = f"{type(e).__name__}: {e}"
+                logger.error(
+                    "%s evaluation failed for conversation %s turn %d: %s",
+                    metric_identifier,
+                    conv_data.conversation_group_id,
+                    turn_idx,
+                    error_reason,
+                )
+                result = self.components.error_handler.create_error_result(
+                    conv_data.conversation_group_id,
+                    metric_identifier,
+                    error_reason,
+                    tag=conv_data.tag,
+                    turn_id=turn_data.turn_id,
+                    query=turn_data.query or "",
+                )
             if result:
                 results.append(result)
         return results
@@ -321,7 +339,22 @@ class ConversationProcessor:
                 continue
 
             request = EvaluationRequest.for_conversation(conv_data, metric_identifier)
-            result = self.components.metrics_evaluator.evaluate_metric(request)
+            try:
+                result = self.components.metrics_evaluator.evaluate_metric(request)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                error_reason = f"{type(e).__name__}: {e}"
+                logger.error(
+                    "%s evaluation failed for conversation %s: %s",
+                    metric_identifier,
+                    conv_data.conversation_group_id,
+                    error_reason,
+                )
+                result = self.components.error_handler.create_error_result(
+                    conv_data.conversation_group_id,
+                    metric_identifier,
+                    error_reason,
+                    tag=conv_data.tag,
+                )
             if result:
                 results.append(result)
         return results
