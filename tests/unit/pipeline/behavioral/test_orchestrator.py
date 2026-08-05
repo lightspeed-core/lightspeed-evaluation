@@ -271,11 +271,11 @@ class TestMakeSummary:
             ),
         ]
         summary = _make_summary(results)
-        assert summary["api_input_tokens"] == 100
-        assert summary["api_output_tokens"] == 50
-        assert summary["judge_llm_input_tokens"] == 350
-        assert summary["judge_llm_output_tokens"] == 140
-        assert summary["embedding_tokens"] == 15
+        assert summary.agent_input_tokens == 100
+        assert summary.agent_output_tokens == 50
+        assert summary.judge_input_tokens == 350
+        assert summary.judge_output_tokens == 140
+        assert summary.embedding_tokens == 15
 
     def test_different_turns_counted_separately(self) -> None:
         """API tokens from different turns are summed."""
@@ -298,8 +298,43 @@ class TestMakeSummary:
             ),
         ]
         summary = _make_summary(results)
-        assert summary["api_input_tokens"] == 300
-        assert summary["api_output_tokens"] == 130
+        assert summary.agent_input_tokens == 300
+        assert summary.agent_output_tokens == 130
+
+    def test_latency_averages_positive_values(self) -> None:
+        """Agent latency is the mean of positive per-turn latencies."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t1",
+                metric_identifier="m1",
+                result="PASS",
+                agent_latency=2.0,
+            ),
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t2",
+                metric_identifier="m1",
+                result="PASS",
+                agent_latency=4.0,
+            ),
+        ]
+        summary = _make_summary(results)
+        assert summary.agent_latency == 3.0
+
+    def test_latency_zero_when_no_positive(self) -> None:
+        """Returns 0.0 when no turn has positive latency."""
+        results = [
+            EvaluationResult(
+                conversation_group_id="c1",
+                turn_id="t1",
+                metric_identifier="m1",
+                result="PASS",
+                agent_latency=0.0,
+            ),
+        ]
+        summary = _make_summary(results)
+        assert summary.agent_latency == 0.0
 
 
 class TestRunOrchestrator:

@@ -21,7 +21,11 @@ from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
     DataValidationError,
 )
-from lightspeed_evaluation.pipeline.behavioral.models import RunContext, RunResult
+from lightspeed_evaluation.pipeline.behavioral.models import (
+    RunContext,
+    RunResult,
+    RunSummary,
+)
 from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
 logger = logging.getLogger(__name__)
@@ -293,7 +297,7 @@ def _run_single(ctx: RunContext) -> RunResult:
                 run_index=ctx.run_index,
                 output_dir=ctx.run_output_dir,
                 success=True,
-                summary=_empty_summary(),
+                summary=RunSummary(),
             )
 
         pinned = _pin_conversations_to_agent(filtered, ctx.agent_name)
@@ -341,51 +345,39 @@ def _run_single(ctx: RunContext) -> RunResult:
         )
 
 
-def _make_summary(results: list) -> dict[str, Any]:
-    """Build summary dict from evaluation results.
+def _make_summary(results: list) -> RunSummary:
+    """Build summary from evaluation results.
 
     Judge/embedding tokens are summed per result (each metric has its own).
     API tokens are deduplicated per turn to avoid overcounting when a turn
     has multiple metrics.
     """
     seen_turns: set[tuple[str, str]] = set()
-    api_in = 0
-    api_out = 0
+    agent_in = 0
+    agent_out = 0
+    latencies = []
     for r in results:
         turn_key = (r.conversation_group_id, r.turn_id or "")
         if turn_key not in seen_turns:
             seen_turns.add(turn_key)
-            api_in += r.api_input_tokens
-            api_out += r.api_output_tokens
+            agent_in += r.api_input_tokens
+            agent_out += r.api_output_tokens
+            if r.agent_latency > 0:
+                latencies.append(r.agent_latency)
 
-    return {
-        "TOTAL": len(results),
-        "PASS": sum(1 for r in results if r.result == "PASS"),
-        "FAIL": sum(1 for r in results if r.result == "FAIL"),
-        "ERROR": sum(1 for r in results if r.result == "ERROR"),
-        "SKIPPED": sum(1 for r in results if r.result == "SKIPPED"),
-        "judge_llm_input_tokens": sum(r.judge_llm_input_tokens for r in results),
-        "judge_llm_output_tokens": sum(r.judge_llm_output_tokens for r in results),
-        "embedding_tokens": sum(r.embedding_tokens for r in results),
-        "api_input_tokens": api_in,
-        "api_output_tokens": api_out,
-    }
-
-
-def _empty_summary() -> dict[str, Any]:
-    """Return empty summary for runs with no matching conversations."""
-    return {
-        "TOTAL": 0,
-        "PASS": 0,
-        "FAIL": 0,
-        "ERROR": 0,
-        "SKIPPED": 0,
-        "judge_llm_input_tokens": 0,
-        "judge_llm_output_tokens": 0,
-        "embedding_tokens": 0,
-        "api_input_tokens": 0,
-        "api_output_tokens": 0,
-    }
+    return RunSummary(
+        total=len(results),
+        passed=sum(1 for r in results if r.result == "PASS"),
+        failed=sum(1 for r in results if r.result == "FAIL"),
+        error=sum(1 for r in results if r.result == "ERROR"),
+        skipped=sum(1 for r in results if r.result == "SKIPPED"),
+        agent_input_tokens=agent_in,
+        agent_output_tokens=agent_out,
+        agent_latency=sum(latencies) / len(latencies) if latencies else 0.0,
+        judge_input_tokens=sum(r.judge_llm_input_tokens for r in results),
+        judge_output_tokens=sum(r.judge_llm_output_tokens for r in results),
+        embedding_tokens=sum(r.embedding_tokens for r in results),
+    )
 
 
 def _warn_resource_usage(num_runs: int, config: SystemConfig) -> None:
