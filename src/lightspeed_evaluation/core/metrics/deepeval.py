@@ -69,6 +69,8 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             metric_manager=metric_manager,
         )
 
+        self.last_verbose_logs: str | None = None
+
         # Standard DeepEval metrics routing
         self.supported_metrics = {
             "conversation_completeness": self._evaluate_conversation_completeness,
@@ -137,6 +139,8 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             tuple[float | None, str]: Tuple of (score, reason).
                 Score is in [0, 1] or None if evaluation failed.
         """
+        self.last_verbose_logs = None
+
         # Route to standard DeepEval metrics
         if metric_name in self.supported_metrics:
             try:
@@ -152,13 +156,15 @@ class DeepEvalMetrics:  # pylint: disable=too-few-public-methods
             if metric_name.startswith("geval:")
             else metric_name
         )
-        return self.geval_handler.evaluate(
+        result = self.geval_handler.evaluate(
             metric_name=normalized_metric_name,
             conv_data=conv_data,
             _turn_idx=scope.turn_idx,
             turn_data=scope.turn_data,
             is_conversation=scope.is_conversation,
         )
+        self.last_verbose_logs = self.geval_handler.last_verbose_logs
+        return result
 
     def _evaluate_conversation_completeness(
         self,

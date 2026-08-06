@@ -14,6 +14,7 @@ from lightspeed_evaluation.core.models import (
 )
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
+from lightspeed_evaluation.core.output.serializers import result_to_json_dict
 from lightspeed_evaluation.core.output.statistics import (
     compute_detailed_stats,
     compute_overall_stats,
@@ -185,3 +186,36 @@ class TestSystemLoaderEdgeCases:
         assert any("unknown:metric1" in err for err in validator.validation_errors)
         assert any("unknown:metric2" in err for err in validator.validation_errors)
         assert any("unknown:conv_metric" in err for err in validator.validation_errors)
+
+
+class TestResultToJsonDictVerboseLogs:
+    """Tests for verbose_logs in result_to_json_dict serializer."""
+
+    def test_verbose_logs_included_when_set(self) -> None:
+        """Test verbose_logs appears in JSON dict when populated."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="t1",
+            metric_identifier="geval:accuracy",
+            result="PASS",
+            score=0.9,
+            threshold=0.7,
+            verbose_logs="Criteria:\nAccuracy\nSteps:\n1. Verify",
+        )
+        d = result_to_json_dict(result)
+        assert "verbose_logs" in d
+        assert d["verbose_logs"] == "Criteria:\nAccuracy\nSteps:\n1. Verify"
+
+    def test_verbose_logs_null_when_none(self) -> None:
+        """Test verbose_logs is None in JSON dict when not set."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="t1",
+            metric_identifier="ragas:faithfulness",
+            result="PASS",
+            score=0.85,
+            threshold=0.7,
+        )
+        d = result_to_json_dict(result)
+        assert "verbose_logs" in d
+        assert d["verbose_logs"] is None

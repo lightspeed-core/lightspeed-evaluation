@@ -433,5 +433,6 @@ class TestEvaluationResultDB:
             "expected_intent",
             "expected_keywords",
             "expected_tool_calls",
+            "verbose_logs",
         }
         assert required_columns == columns

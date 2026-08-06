@@ -55,6 +55,7 @@ class GEvalHandler:  # pylint: disable=R0903
         """
         self.deepeval_llm_manager = deepeval_llm_manager
         self.metric_manager = metric_manager
+        self.last_verbose_logs: str | None = None
 
     def evaluate(  # pylint: disable=R0913,R0917
         self,
@@ -99,6 +100,8 @@ class GEvalHandler:  # pylint: disable=R0903
         4. Delegate to `_evaluate_conversation()` or `_evaluate_turn()` depending
            on the `is_conversation` flag.
         """
+        self.last_verbose_logs = None
+
         # Extract GEval configuration from metadata (runtime or system registry)
         raw_config = self._get_geval_config(
             metric_name, conv_data, turn_data, is_conversation
@@ -131,6 +134,7 @@ class GEvalHandler:  # pylint: disable=R0903
                 config.evaluation_steps,
                 config.threshold,
                 rubrics,
+                config.verbose,
             )
         return self._evaluate_turn(
             turn_data,
@@ -139,6 +143,7 @@ class GEvalHandler:  # pylint: disable=R0903
             config.evaluation_steps,
             config.threshold,
             rubrics,
+            config.verbose,
         )
 
     def _convert_evaluation_params(
@@ -201,7 +206,7 @@ class GEvalHandler:  # pylint: disable=R0903
         # Return the successfully converted list, or None if it ended up empty
         return converted if converted else None
 
-    def _evaluate_turn(  # pylint: disable=R0913,R0917
+    def _evaluate_turn(  # pylint: disable=R0913,R0914,R0917
         self,
         turn_data: Any,
         criteria: str,
@@ -209,6 +214,7 @@ class GEvalHandler:  # pylint: disable=R0903
         evaluation_steps: list[str] | None,
         threshold: float,
         rubrics: list[Rubric] | None = None,
+        verbose: bool = False,
     ) -> tuple[float | None, str]:
         """Evaluate a single turn using GEval.
 
@@ -305,6 +311,9 @@ class GEvalHandler:  # pylint: disable=R0903
                 else "No reason provided"
             )
 
+            if verbose and hasattr(metric, "verbose_logs"):
+                self.last_verbose_logs = metric.verbose_logs
+
             # CRITICAL: Warn if score is None (indicates evaluation failure)
             # None scores indicate evaluation failures that need investigation:
             # - Rate limiting (429 errors after all retries exhausted)
@@ -347,6 +356,7 @@ class GEvalHandler:  # pylint: disable=R0903
         evaluation_steps: list[str] | None,
         threshold: float,
         rubrics: list[Rubric] | None = None,
+        verbose: bool = False,
     ) -> tuple[float | None, str]:
         """Evaluate a conversation using GEval.
 
@@ -434,6 +444,9 @@ class GEvalHandler:  # pylint: disable=R0903
                 if hasattr(metric, "reason") and metric.reason
                 else "No reason provided"
             )
+
+            if verbose and hasattr(metric, "verbose_logs"):
+                self.last_verbose_logs = metric.verbose_logs
 
             # CRITICAL: Warn if score is None (indicates evaluation failure)
             # See turn-level evaluation for detailed explanation of why this matters

@@ -654,6 +654,10 @@ class JudgeScore(BaseModel):
     judge_input_tokens: int = Field(default=0, ge=0, description="Input tokens used")
     judge_output_tokens: int = Field(default=0, ge=0, description="Output tokens used")
     embedding_tokens: int = Field(default=0, ge=0, description="Embedding tokens used")
+    verbose_logs: Optional[str] = Field(
+        default=None,
+        description="Verbose logs from DeepEval/GEval judge when enabled",
+    )
 
 
 class MetricResult(BaseModel):
@@ -680,6 +684,10 @@ class MetricResult(BaseModel):
     judge_scores: Optional[list[JudgeScore]] = Field(
         default=None,
         description="Per-judge scores when using judge panel (for transparency)",
+    )
+    verbose_logs: Optional[str] = Field(
+        default=None,
+        description="GEval verbose logs when verbose mode is enabled",
     )
 
     @field_validator("result")
