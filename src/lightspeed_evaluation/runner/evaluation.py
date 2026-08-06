@@ -77,11 +77,10 @@ def _print_run_summary(
     run_results: Optional[list] = None,
     output_dir: Optional[str] = None,
 ) -> None:
-    """Print evaluation summary and token usage.
+    """Print evaluation summary.
 
     Args:
-        totals: Aggregated summary dict with TOTAL/PASS/FAIL/ERROR/SKIPPED
-            and token fields.
+        totals: Aggregated dict with TOTAL/PASS/FAIL/ERROR/SKIPPED.
         run_results: Run results from orchestrator (agent mode).
         output_dir: Explicit output directory (offline mode).
     """
@@ -111,47 +110,24 @@ def _print_run_summary(
     if totals.get("ERROR", 0) > 0:
         print(f"⚠️ {totals['ERROR']} evaluations had errors - check detailed report")
 
-    judge_in = totals.get("judge_llm_input_tokens", 0)
-    judge_out = totals.get("judge_llm_output_tokens", 0)
-    embed = totals.get("embedding_tokens", 0)
-    api_in = totals.get("api_input_tokens", 0)
-    api_out = totals.get("api_output_tokens", 0)
-
-    print("\n📊 Token Usage Summary:")
-    print(
-        f"Judge LLM: {judge_in + judge_out:,} tokens "
-        f"(Input: {judge_in:,}, Output: {judge_out:,})"
-    )
-    print(f"Embeddings: {embed:,} tokens")
-    if api_in + api_out > 0:
-        print(
-            f"API Calls: {api_in + api_out:,} tokens "
-            f"(Input: {api_in:,}, Output: {api_out:,})"
-        )
-    total_tokens = judge_in + judge_out + embed + api_in + api_out
-    if total_tokens > 0:
-        print(f"Total: {total_tokens:,} tokens")
-
 
 def _aggregate_totals(run_results: list) -> dict[str, int]:
-    """Aggregate summary totals from multiple run results."""
-    totals: dict[str, int] = {
-        "TOTAL": 0,
-        "PASS": 0,
-        "FAIL": 0,
-        "ERROR": 0,
-        "SKIPPED": 0,
-        "judge_llm_input_tokens": 0,
-        "judge_llm_output_tokens": 0,
-        "embedding_tokens": 0,
-        "api_input_tokens": 0,
-        "api_output_tokens": 0,
-    }
+    """Aggregate status counts from multiple run results."""
+    total = passed = failed = error = skipped = 0
     for rr in run_results:
         if rr.summary:
-            for key, val in rr.summary.items():
-                totals[key] = totals.get(key, 0) + val
-    return totals
+            total += rr.summary.total
+            passed += rr.summary.passed
+            failed += rr.summary.failed
+            error += rr.summary.error
+            skipped += rr.summary.skipped
+    return {
+        "TOTAL": total,
+        "PASS": passed,
+        "FAIL": failed,
+        "ERROR": error,
+        "SKIPPED": skipped,
+    }
 
 
 def _copy_flat_output(run_results: list, output_dir: str) -> None:
@@ -182,8 +158,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         eval_args: Parsed command line arguments
 
     Returns:
-        dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR, SKIPPED
-            and token usage fields (judge_llm, embedding, api).
+        dict: Summary statistics with keys TOTAL, PASS, FAIL, ERROR, SKIPPED.
     """
     print("🚀 Lightspeed Evaluation Framework")
     print("=" * 50)
@@ -236,18 +211,7 @@ def run_evaluation(  # pylint: disable=too-many-locals
         if len(evaluation_data) == 0:
             print("\n⚠️ No conversation groups matched the filter criteria")
             print("   Nothing to evaluate - returning empty results")
-            return {
-                "TOTAL": 0,
-                "PASS": 0,
-                "FAIL": 0,
-                "ERROR": 0,
-                "SKIPPED": 0,
-                "judge_llm_input_tokens": 0,
-                "judge_llm_output_tokens": 0,
-                "embedding_tokens": 0,
-                "api_input_tokens": 0,
-                "api_output_tokens": 0,
-            }
+            return {"TOTAL": 0, "PASS": 0, "FAIL": 0, "ERROR": 0, "SKIPPED": 0}
 
         # Run evaluation
         print("\n🔄 Running Evaluation...")
@@ -289,11 +253,6 @@ def run_evaluation(  # pylint: disable=too-many-locals
                 "FAIL": summary.failed,
                 "ERROR": summary.error,
                 "SKIPPED": summary.skipped,
-                "judge_llm_input_tokens": summary.total_judge_llm_input_tokens,
-                "judge_llm_output_tokens": summary.total_judge_llm_output_tokens,
-                "embedding_tokens": summary.total_embedding_tokens,
-                "api_input_tokens": 0,
-                "api_output_tokens": 0,
             }
             print("\n🎉 Evaluation Complete!")
             _print_run_summary(totals, output_dir=out_dir)
