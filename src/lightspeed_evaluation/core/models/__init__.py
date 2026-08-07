@@ -52,6 +52,19 @@ from lightspeed_evaluation.core.models.system import (
     SystemConfig,
     VisualizationConfig,
 )
+from lightspeed_evaluation.core.models.trace import (
+    SPAN_TYPE_MAP,
+    LLMSpanData,
+    ModelInfo,
+    Span,
+    SpanStatus,
+    SpanType,
+    TokenUsage,
+    Trace,
+    TracePlatform,
+    TraceSession,
+    normalize_span_type,
+)
 
 __all__ = [
     # Agent config models
@@ -101,4 +114,16 @@ __all__ = [
     "AttachmentData",
     # Mixins
     "StreamingMetricsMixin",
+    # Trace models (platform-agnostic; not used by evaluation pipeline yet)
+    "SpanType",
+    "SpanStatus",
+    "TracePlatform",
+    "SPAN_TYPE_MAP",
+    "normalize_span_type",
+    "TokenUsage",
+    "ModelInfo",
+    "LLMSpanData",
+    "Span",
+    "Trace",
+    "TraceSession",
 ]
