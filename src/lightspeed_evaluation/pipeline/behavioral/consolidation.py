@@ -61,15 +61,20 @@ def consolidate(
 
     collected = _collect_run_data(runs)
     overall = _build_overall(collected.pass_rates, collected.latencies)
-    overall["total_agent_tokens"] = sum(
+    num_runs = len(collected.per_run)
+    total_agent = sum(
         r.agent_input_tokens + r.agent_output_tokens for r in collected.per_run
     )
-    overall["total_judge_tokens"] = sum(
+    total_judge = sum(
         r.judge_input_tokens + r.judge_output_tokens for r in collected.per_run
     )
-    overall["total_embedding_tokens"] = sum(
-        float(r.embedding_tokens) for r in collected.per_run
-    )
+    total_embed = sum(float(r.embedding_tokens) for r in collected.per_run)
+    overall["total_agent_tokens"] = total_agent
+    overall["total_judge_tokens"] = total_judge
+    overall["total_embedding_tokens"] = total_embed
+    if num_runs > 0:
+        overall["agent_tokens_mean"] = total_agent / num_runs
+        overall["judge_tokens_mean"] = total_judge / num_runs
 
     return AgentConsolidated(
         agent_name=agent_name,
@@ -128,11 +133,11 @@ def _extract_run_snapshot(run: RunData) -> RunSummary:
 
     return RunSummary(
         run_index=run.run_index,
-        total=overall.get("total", 0),
-        passed=overall.get("passed", 0),
-        failed=overall.get("failed", 0),
-        error=overall.get("error", 0),
-        skipped=overall.get("skipped", 0),
+        total=overall.get("TOTAL", 0),
+        passed=overall.get("PASS", 0),
+        failed=overall.get("FAIL", 0),
+        error=overall.get("ERROR", 0),
+        skipped=overall.get("SKIPPED", 0),
         pass_rate=overall.get("pass_rate"),
         by_metric=by_metric_scores or None,
         quality_score=quality_score,
@@ -197,6 +202,7 @@ def _build_by_metric(
     result: dict[str, dict[str, Optional[float]]] = {}
     for name, scores in metric_scores.items():
         entry: dict[str, Optional[float]] = {
+            "runs_count": len(scores),
             "mean": statistics.mean(scores),
             "min": min(scores),
             "max": max(scores),
