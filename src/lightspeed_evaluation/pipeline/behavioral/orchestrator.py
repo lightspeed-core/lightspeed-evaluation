@@ -12,7 +12,7 @@ import os
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from lightspeed_evaluation.core.models import EvaluationData, SystemConfig
 from lightspeed_evaluation.core.models.data import DatasetMetadata
@@ -21,12 +21,21 @@ from lightspeed_evaluation.core.system.exceptions import (
     ConfigurationError,
     DataValidationError,
 )
+from lightspeed_evaluation.pipeline.behavioral.comparison import compare_agents
+from lightspeed_evaluation.pipeline.behavioral.consolidation import consolidate
+from lightspeed_evaluation.pipeline.behavioral.loader import load_run_data
 from lightspeed_evaluation.pipeline.behavioral.models import (
+    EvalMetadata,
+    EvalReport,
     RunContext,
     RunResult,
     RunSummary,
 )
+from lightspeed_evaluation.pipeline.behavioral.report import save_report
 from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
+
+if TYPE_CHECKING:
+    from lightspeed_evaluation.core.models.data import EvaluationResult
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +109,12 @@ def run(
         len(results),
         len(results) - succeeded,
     )
+
+    if results:
+        _build_and_save_report(
+            results, os.path.join(output_base, f"eval_{timestamp}"), repeat, timestamp
+        )
+
     return results
 
 
@@ -345,7 +360,7 @@ def _run_single(ctx: RunContext) -> RunResult:
         )
 
 
-def _make_summary(results: list) -> RunSummary:
+def _make_summary(results: "list[EvaluationResult]") -> RunSummary:
     """Build summary from evaluation results.
 
     Judge/embedding tokens are summed per result (each metric has its own).
@@ -378,6 +393,64 @@ def _make_summary(results: list) -> RunSummary:
         judge_output_tokens=sum(r.judge_llm_output_tokens for r in results),
         embedding_tokens=sum(r.embedding_tokens for r in results),
     )
+
+
+def _build_and_save_report(
+    results: list[RunResult],
+    eval_dir: str,
+    repeat: int,
+    timestamp: str,
+) -> None:
+    """Consolidate results and save eval_report.json.
+
+    Wrapped in try/except — consolidation failure does not fail the evaluation.
+    """
+    try:
+        by_agent: dict[str, list[RunResult]] = {}
+        for rr in results:
+            by_agent.setdefault(rr.agent_name, []).append(rr)
+
+        consolidated = {}
+        for agent_name, agent_results in by_agent.items():
+            runs_data = []
+            for rr in agent_results:
+                if not rr.success or not rr.output_dir:
+                    continue
+                rd = load_run_data(rr.output_dir, rr.run_index)
+                if rd is not None:
+                    runs_data.append(rd)
+                else:
+                    logger.warning(
+                        "Run %s/run_%d succeeded but output unreadable",
+                        rr.agent_name,
+                        rr.run_index,
+                    )
+            consolidated[agent_name] = consolidate(
+                agent_name, runs_data, runs_requested=repeat
+            )
+
+        comparable = {
+            name: agent
+            for name, agent in consolidated.items()
+            if agent.runs_succeeded > 0
+        }
+        comparison = compare_agents(comparable)
+        report = EvalReport(
+            summary=EvalMetadata(
+                timestamp=datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+                .replace(tzinfo=UTC)
+                .isoformat(),
+                total_agents=len(consolidated),
+                total_runs=len(results),
+                repeat=repeat,
+            ),
+            agents=consolidated,
+            comparison=comparison,
+        )
+        path = save_report(report, eval_dir)
+        logger.info("Eval report: %s", path)
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to generate eval report: %s", traceback.format_exc())
 
 
 def _warn_resource_usage(num_runs: int, config: SystemConfig) -> None:

@@ -11,8 +11,14 @@ from lightspeed_evaluation.core.models.data import (
     EvaluationResult,
     TurnData,
 )
+from lightspeed_evaluation.pipeline.behavioral.models import (
+    AgentConsolidated,
+    RunResult,
+    RunSummary,
+)
 from lightspeed_evaluation.pipeline.behavioral.orchestrator import (
     _build_agent_set,
+    _build_and_save_report,
     _clone_config_for_run,
     _filter_conversations,
     _make_summary,
@@ -513,3 +519,137 @@ class TestRunOrchestrator:
             assert output_path.parent.name == "model_a"
             assert output_path.parent.parent.name.startswith("eval_")
             assert output_path.is_dir()
+
+
+class TestBuildAndSaveReport:
+    """Tests for _build_and_save_report integration."""
+
+    def test_generates_report(self, mocker: MockerFixture, tmp_path: Path) -> None:
+        """Successful runs produce eval_report.json."""
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.load_run_data",
+            return_value=mocker.Mock(
+                summary={"summary_stats": {"overall": {"pass_rate": 80.0}}},
+                quality=None,
+                run_index=1,
+            ),
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.consolidate",
+            return_value=AgentConsolidated(
+                agent_name="model_a",
+                runs_requested=1,
+                runs_succeeded=1,
+                conversations_count=5,
+            ),
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.compare_agents",
+            return_value=None,
+        )
+        mock_save = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.save_report"
+        )
+
+        results = [
+            RunResult(
+                agent_name="model_a",
+                run_index=1,
+                output_dir=str(tmp_path),
+                success=True,
+                summary=RunSummary(total=10, passed=8),
+            ),
+        ]
+        _build_and_save_report(
+            results, str(tmp_path), repeat=1, timestamp="20260810_120000"
+        )
+
+        mock_save.assert_called_once()
+        report = mock_save.call_args[0][0]
+        assert "model_a" in report.agents
+        assert report.agents["model_a"].agent_name == "model_a"
+        assert report.agents["model_a"].runs_requested == 1
+        assert report.comparison is None
+        assert report.summary.total_agents == 1
+        assert report.summary.timestamp == "2026-08-10T12:00:00+00:00"
+
+    def test_failure_does_not_raise(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        """Report generation failure is logged at ERROR, not raised."""
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.load_run_data",
+            side_effect=RuntimeError("disk error"),
+        )
+        mock_logger = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.logger"
+        )
+
+        results = [
+            RunResult(
+                agent_name="model_a",
+                run_index=1,
+                output_dir=str(tmp_path),
+                success=True,
+                summary=RunSummary(total=10, passed=8),
+            ),
+        ]
+        _build_and_save_report(
+            results, str(tmp_path), repeat=1, timestamp="20260810_120000"
+        )
+
+        mock_logger.error.assert_called_once()
+
+    def test_mixed_success_and_failure(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
+        """Only successful runs with loadable data are consolidated."""
+        mock_load = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.load_run_data"
+        )
+        mock_load.return_value = mocker.Mock(
+            summary={"summary_stats": {"overall": {"pass_rate": 90.0}}},
+            quality=None,
+            run_index=1,
+        )
+
+        mock_consolidate = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.consolidate"
+        )
+        mock_consolidate.return_value = AgentConsolidated(
+            agent_name="model_a",
+            runs_requested=2,
+            runs_succeeded=1,
+            conversations_count=5,
+        )
+
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.compare_agents",
+            return_value=None,
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.save_report"
+        )
+
+        results = [
+            RunResult(
+                agent_name="model_a",
+                run_index=1,
+                output_dir=str(tmp_path),
+                success=True,
+            ),
+            RunResult(
+                agent_name="model_a",
+                run_index=2,
+                output_dir="",
+                success=False,
+                error="crashed",
+            ),
+        ]
+        _build_and_save_report(
+            results, str(tmp_path), repeat=2, timestamp="20260810_120000"
+        )
+
+        mock_load.assert_called_once()
+        mock_consolidate.assert_called_once()
+        assert len(mock_consolidate.call_args[0][1]) == 1

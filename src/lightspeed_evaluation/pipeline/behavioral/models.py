@@ -86,9 +86,46 @@ class AgentConsolidated(BaseModel):
     per_run: list[RunSummary] = []
 
 
+class PairwiseDelta(BaseModel):
+    """Delta between two agents."""
+
+    agent_a: str
+    agent_b: str
+    pass_rate_mean_delta: Optional[float] = None
+    agent_latency_mean_delta: Optional[float] = None
+    agent_tokens_mean_delta: Optional[float] = None
+    score_deltas: dict[str, float] = {}
+
+
+class Rankings(BaseModel):
+    """Per-dimension agent rankings (best first)."""
+
+    by_pass_rate: list[str] = []
+    by_latency: list[str] = []
+    by_tokens: list[str] = []
+    by_metric: dict[str, list[str]] = {}
+
+
+class ComparisonResult(BaseModel):
+    """Cross-agent comparison output."""
+
+    deltas: list[PairwiseDelta] = []
+    rankings: Rankings = Field(default_factory=Rankings)
+    incomparable: list[str] = []
+
+
+class EvalMetadata(BaseModel):
+    """Top-level report metadata."""
+
+    timestamp: str
+    total_agents: int
+    total_runs: int
+    repeat: int
+
+
 class EvalReport(BaseModel):
     """Top-level evaluation report."""
 
-    summary: dict[str, Any]
+    summary: EvalMetadata
     agents: dict[str, AgentConsolidated]
-    comparison: Optional[dict[str, Any]] = None
+    comparison: Optional[ComparisonResult] = None
