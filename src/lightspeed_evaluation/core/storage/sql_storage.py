@@ -176,9 +176,30 @@ class SQLStorageBackend(BaseStorageBackend):
         Databases created before new columns were added would fail strict
         validation.  This method applies safe additive migrations (nullable
         columns only) so that older databases keep working.
+
+        Before mutating the schema, a preflight check ensures all required
+        non-nullable ORM columns already exist.  If any are missing, the
+        table is structurally incompatible and must not be altered.
         """
         reflected = {col["name"] for col in db_inspector.get_columns(table_name)}
         orm_columns = EvaluationResultDB.__table__.columns
+
+        missing_required = sorted(
+            col.name
+            for col in orm_columns
+            if col.name not in reflected and not col.nullable
+        )
+        if missing_required:
+            missing_list = ", ".join(missing_required)
+            raise StorageError(
+                "Database schema mismatch: the existing table "
+                f"{table_name!r} is missing required non-nullable column(s): "
+                f"{missing_list}. This database was likely created by an "
+                "incompatible version or is not an evaluation results database. "
+                "Use a different database path or remove this database.",
+                backend_name=self.backend_name,
+            )
+
         for col in orm_columns:
             if col.name not in reflected and col.nullable:
                 col_type = col.type.compile(dialect=self._engine.dialect)

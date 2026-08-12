@@ -2,10 +2,13 @@
 
 """Additional tests to boost coverage towards 75%."""
 
+import csv
+import io
 from pathlib import Path
 
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.constants import SUPPORTED_CSV_COLUMNS
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
@@ -186,6 +189,40 @@ class TestSystemLoaderEdgeCases:
         assert any("unknown:metric1" in err for err in validator.validation_errors)
         assert any("unknown:metric2" in err for err in validator.validation_errors)
         assert any("unknown:conv_metric" in err for err in validator.validation_errors)
+
+
+class TestCsvExportVerboseLogs:
+    """Tests for verbose_logs in CSV export path."""
+
+    def test_csv_includes_verbose_logs_column(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """Test verbose_logs column appears in CSV output."""
+        file_config = FileBackendConfig(csv_columns=list(SUPPORTED_CSV_COLUMNS))
+        config = mocker.Mock()
+        config.storage = [file_config]
+        config.visualization.enabled_graphs = []
+
+        handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
+        results = [
+            EvaluationResult(
+                conversation_group_id="conv1",
+                metric_identifier="geval:accuracy",
+                result="PASS",
+                verbose_logs="Criteria:\nAccuracy\nSteps:\n1. Verify",
+            ),
+            EvaluationResult(
+                conversation_group_id="conv2",
+                metric_identifier="ragas:faithfulness",
+                result="PASS",
+            ),
+        ]
+
+        csv_file = handler._generate_csv_report(results, "test_verbose")
+        rows = list(csv.reader(io.StringIO(csv_file.read_text())))
+        verbose_idx = rows[0].index("verbose_logs")
+        assert rows[1][verbose_idx] == "Criteria:\nAccuracy\nSteps:\n1. Verify"
+        assert rows[2][verbose_idx] == ""
 
 
 class TestResultToJsonDictVerboseLogs:
