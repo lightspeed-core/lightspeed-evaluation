@@ -54,3 +54,35 @@ class TestLoadRunData:
 
         result = load_run_data(str(tmp_path), run_index=1)
         assert result is None
+
+    def test_loads_case_results_from_csv(self, tmp_path: Path) -> None:
+        """Loads per-case results from detailed CSV."""
+        summary = {"summary_stats": {"overall": {"TOTAL": 2}}}
+        (tmp_path / "evaluation_20260805_summary.json").write_text(json.dumps(summary))
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result\n"
+            "conv_group_1,turn_1,ragas:response_relevancy,PASS\n"
+            "conv_group_2,turn_1,custom:answer_correctness,FAIL\n"
+        )
+        (tmp_path / "evaluation_20260805_detailed.csv").write_text(csv_content)
+
+        result = load_run_data(str(tmp_path), run_index=1)
+
+        assert result is not None
+        assert result.case_results is not None
+        assert len(result.case_results) == 2
+        assert result.case_results[0]["result"] == "PASS"
+        assert result.case_results[0]["conversation_group_id"] == "conv_group_1"
+        assert (
+            result.case_results[1]["metric_identifier"] == "custom:answer_correctness"
+        )
+
+    def test_no_csv_returns_none_case_results(self, tmp_path: Path) -> None:
+        """case_results is None when no CSV exists."""
+        summary = {"summary_stats": {"overall": {"TOTAL": 1}}}
+        (tmp_path / "evaluation_20260805_summary.json").write_text(json.dumps(summary))
+
+        result = load_run_data(str(tmp_path), run_index=1)
+
+        assert result is not None
+        assert result.case_results is None

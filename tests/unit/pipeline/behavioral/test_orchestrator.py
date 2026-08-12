@@ -568,6 +568,7 @@ class TestBuildAndSaveReport:
         )
 
         mock_agent_save.assert_called_once()
+        assert mock_agent_save.call_args[0][1].endswith("model_a")
         mock_save.assert_called_once()
         report = mock_save.call_args[0][0]
         assert "model_a" in report.agents

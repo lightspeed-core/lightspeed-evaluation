@@ -56,6 +56,7 @@ def _make_run_data(run_index: int, **kwargs: Any) -> RunData:
         run_index=run_index,
         summary={"summary_stats": stats},
         quality=kwargs.get("quality"),
+        case_results=kwargs.get("case_results"),
     )
 
 
@@ -189,3 +190,83 @@ class TestConsolidate:
         result = consolidate("model_a", [run], runs_requested=1)
 
         assert result.quality_score is None
+
+    def test_pass_at_k_wiring(self) -> None:
+        """pass@k flows into overall, by_metric, and by_conversation."""
+
+        def _case(conv: str, result: str) -> dict[str, str]:
+            return {
+                "conversation_group_id": conv,
+                "turn_id": "turn_1",
+                "metric_identifier": "ragas:response_relevancy",
+                "result": result,
+            }
+
+        convs = {"conv_1": {"pass_rate": 80.0}, "conv_2": {"pass_rate": 60.0}}
+        metrics = {
+            "ragas:response_relevancy": {"score_statistics": {"mean": 0.8}},
+        }
+        runs = [
+            _make_run_data(
+                1,
+                metrics=metrics,
+                conversations=convs,
+                case_results=[_case("conv_1", "PASS"), _case("conv_2", "PASS")],
+            ),
+            _make_run_data(
+                2,
+                metrics=metrics,
+                conversations=convs,
+                case_results=[_case("conv_1", "PASS"), _case("conv_2", "FAIL")],
+            ),
+            _make_run_data(
+                3,
+                metrics=metrics,
+                conversations=convs,
+                case_results=[_case("conv_1", "FAIL"), _case("conv_2", "FAIL")],
+            ),
+        ]
+        result = consolidate("model_a", runs, runs_requested=3)
+
+        assert result.overall.get("pass_at_k") is not None
+        assert "pass_at_k" in result.by_metric.get("ragas:response_relevancy", {})
+        c1 = result.by_conversation.get("conv_1", {})
+        c2 = result.by_conversation.get("conv_2", {})
+        assert "pass_at_k" in c1
+        assert "pass_at_k" in c2
+        c1_pak = c1["pass_at_k"]
+        c2_pak = c2["pass_at_k"]
+        assert isinstance(c1_pak, float)
+        assert isinstance(c2_pak, float)
+        assert c1_pak >= c2_pak
+
+    def test_pass_at_k_excludes_errors(self) -> None:
+        """ERROR results are excluded from pass@k denominator."""
+
+        def _case(result: str) -> dict[str, str]:
+            return {
+                "conversation_group_id": "conv_1",
+                "turn_id": "turn_1",
+                "metric_identifier": "ragas:response_relevancy",
+                "result": result,
+            }
+
+        runs = [
+            _make_run_data(1, case_results=[_case("PASS")]),
+            _make_run_data(2, case_results=[_case("FAIL")]),
+            _make_run_data(3, case_results=[_case("ERROR")]),
+        ]
+        result = consolidate("model_a", runs, runs_requested=3)
+
+        pak = result.overall.get("pass_at_k")
+        assert pak is not None
+        # Only PASS/FAIL counted: n=2, c=1, k=min(3,2)=2
+        # 1 - C(1,2)/C(2,2) = 1 - 0/1 = 1.0
+        assert abs(pak - 1.0) < 1e-9
+
+    def test_no_pass_at_k_for_single_run(self) -> None:
+        """pass@k not computed for single run."""
+        run = _make_run_data(1)
+        result = consolidate("model_a", [run], runs_requested=1)
+
+        assert "pass_at_k" not in result.overall

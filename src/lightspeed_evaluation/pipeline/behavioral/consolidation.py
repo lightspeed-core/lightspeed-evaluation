@@ -16,6 +16,7 @@ from lightspeed_evaluation.pipeline.behavioral.models import (
     AgentConsolidated,
     RunSummary,
 )
+from lightspeed_evaluation.pipeline.behavioral.statistics import pass_at_k
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,18 @@ def consolidate(
     if num_runs > 0:
         overall["agent_tokens_mean"] = total_agent / num_runs
         overall["judge_tokens_mean"] = total_judge / num_runs
+    by_metric = _build_by_metric(collected.metric_scores)
+    by_conversation = _build_by_conversation(collected.conv_pass_rates)
+    if num_runs > 1:
+        pak = _compute_pass_at_k(runs, k=num_runs)
+        if pak is not None:
+            overall["pass_at_k"] = pak["overall"]
+            for metric, val in pak.get("by_metric", {}).items():
+                if metric in by_metric:
+                    by_metric[metric]["pass_at_k"] = val
+            for conv, val in pak.get("by_conversation", {}).items():
+                if conv in by_conversation:
+                    by_conversation[conv]["pass_at_k"] = val
 
     return AgentConsolidated(
         agent_name=agent_name,
@@ -82,8 +95,8 @@ def consolidate(
         runs_succeeded=len(runs),
         conversations_count=len(collected.conv_pass_rates),
         overall=overall,
-        by_metric=_build_by_metric(collected.metric_scores),
-        by_conversation=_build_by_conversation(collected.conv_pass_rates),
+        by_metric=by_metric,
+        by_conversation=by_conversation,
         quality_score=_build_quality(runs),
         per_run=collected.per_run,
     )
@@ -261,3 +274,69 @@ def _build_quality(runs: list[RunData]) -> Optional[dict[str, Any]]:
         result["metrics"] = metrics
 
     return result
+
+
+def _compute_pass_at_k(runs: list[RunData], k: int) -> Optional[dict[str, Any]]:
+    """Compute pass@k overall, per-metric, and per-conversation.
+
+    Returns dict with "overall", "by_metric", "by_conversation" keys,
+    or None if no case data available.
+    """
+    case_pass, case_total = _collect_case_counts(runs)
+    if not case_total:
+        return None
+
+    keys = sorted(case_total.keys())
+    passes = [case_pass.get(key, 0) for key in keys]
+    totals_list = [case_total[key] for key in keys]
+
+    return {
+        "overall": pass_at_k(passes, totals_list, k=k),
+        "by_metric": _grouped_pass_at_k(keys, case_pass, case_total, k, idx=2),
+        "by_conversation": _grouped_pass_at_k(keys, case_pass, case_total, k, idx=0),
+    }
+
+
+def _collect_case_counts(
+    runs: list[RunData],
+) -> tuple[dict[tuple[str, str, str], int], dict[tuple[str, str, str], int]]:
+    """Count PASS and total (PASS+FAIL) per case across runs."""
+    case_pass: dict[tuple[str, str, str], int] = defaultdict(int)
+    case_total: dict[tuple[str, str, str], int] = defaultdict(int)
+
+    for run in runs:
+        if not run.case_results:
+            continue
+        for case in run.case_results:
+            if case["result"] not in ("PASS", "FAIL"):
+                continue
+            key = (
+                case["conversation_group_id"],
+                case["turn_id"],
+                case["metric_identifier"],
+            )
+            case_total[key] += 1
+            if case["result"] == "PASS":
+                case_pass[key] += 1
+
+    return case_pass, case_total
+
+
+def _grouped_pass_at_k(
+    keys: list[tuple[str, str, str]],
+    case_pass: dict[tuple[str, str, str], int],
+    case_total: dict[tuple[str, str, str], int],
+    k: int,
+    idx: int,
+) -> dict[str, float]:
+    """Compute pass@k grouped by a tuple index (0=conv_id, 2=metric)."""
+    grouped_pass: dict[str, list[int]] = defaultdict(list)
+    grouped_total: dict[str, list[int]] = defaultdict(list)
+    for key in keys:
+        group = key[idx]
+        grouped_pass[group].append(case_pass.get(key, 0))
+        grouped_total[group].append(case_total[key])
+    return {
+        g: pass_at_k(grouped_pass[g], grouped_total[g], k=k)
+        for g in sorted(grouped_pass)
+    }
