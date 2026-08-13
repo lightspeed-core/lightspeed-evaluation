@@ -1,6 +1,6 @@
 # pylint: disable=protected-access
 
-"""Unit tests for proposal agent driver module."""
+"""Unit tests for agentic run agent driver module."""
 
 from typing import Any
 
@@ -8,17 +8,17 @@ import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.models import ProposalAgentConfig, TurnData
+from lightspeed_evaluation.core.models import OpenshiftAgenticRunAgentConfig, TurnData
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.driver import (
-    ProposalDriver,
+    OpenshiftAgenticRunDriver,
     TerminalOutcome,
 )
 
 MODULE = "lightspeed_evaluation.pipeline.evaluation.driver"
 
 VALID_CONFIG: dict[str, Any] = {
-    "type": "proposal",
+    "type": "openshift_agentic_run",
     "namespace": "openshift-lightspeed",
 }
 
@@ -45,17 +45,17 @@ def _cond(
 # ── Config validation ────────────────────────────────────────────────
 
 
-class TestProposalAgentConfig:
-    """Unit tests for ProposalAgentConfig Pydantic model."""
+class TestOpenshiftAgenticRunAgentConfig:
+    """Unit tests for OpenshiftAgenticRunAgentConfig Pydantic model."""
 
     def test_valid_config_all_fields(self) -> None:
         """Test config with all fields explicit."""
-        config = ProposalAgentConfig.model_validate(
+        config = OpenshiftAgenticRunAgentConfig.model_validate(
             {
-                "type": "proposal",
+                "type": "openshift_agentic_run",
                 "namespace": "ns",
                 "auto_approve": False,
-                "cleanup_proposals": False,
+                "cleanup_openshift_agentic_runs": False,
                 "timeout": 60,
                 "cli_timeout": 15,
                 "poll_interval": 5,
@@ -63,16 +63,16 @@ class TestProposalAgentConfig:
         )
         assert config.namespace == "ns"
         assert config.auto_approve is False
-        assert config.cleanup_proposals is False
+        assert config.cleanup_openshift_agentic_runs is False
         assert config.timeout == 60
         assert config.cli_timeout == 15
         assert config.poll_interval == 5
 
     def test_valid_config_defaults(self) -> None:
         """Test config with only required fields uses defaults."""
-        config = ProposalAgentConfig.model_validate(VALID_CONFIG)
+        config = OpenshiftAgenticRunAgentConfig.model_validate(VALID_CONFIG)
         assert config.auto_approve is True
-        assert config.cleanup_proposals is True
+        assert config.cleanup_openshift_agentic_runs is True
         assert config.timeout == 900
         assert config.cli_timeout == 30
         assert config.poll_interval == 2
@@ -80,44 +80,58 @@ class TestProposalAgentConfig:
     def test_missing_namespace(self) -> None:
         """Test missing required namespace raises ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({"type": "proposal"})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {"type": "openshift_agentic_run"}
+            )
 
     def test_extra_field_rejected(self) -> None:
         """Test extra fields raise ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({**VALID_CONFIG, "extra": "bad"})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "extra": "bad"}
+            )
 
     def test_invalid_timeout_zero(self) -> None:
         """Test timeout=0 raises ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({**VALID_CONFIG, "timeout": 0})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "timeout": 0}
+            )
 
     def test_invalid_timeout_negative(self) -> None:
         """Test negative timeout raises ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({**VALID_CONFIG, "timeout": -1})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "timeout": -1}
+            )
 
     def test_invalid_cli_timeout_zero(self) -> None:
         """Test cli_timeout=0 raises ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({**VALID_CONFIG, "cli_timeout": 0})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "cli_timeout": 0}
+            )
 
     def test_invalid_cli_timeout_negative(self) -> None:
         """Test negative cli_timeout raises ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({**VALID_CONFIG, "cli_timeout": -1})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "cli_timeout": -1}
+            )
 
     def test_invalid_poll_interval_zero(self) -> None:
         """Test poll_interval=0 raises ValidationError."""
         with pytest.raises(ValidationError):
-            ProposalAgentConfig.model_validate({**VALID_CONFIG, "poll_interval": 0})
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "poll_interval": 0}
+            )
 
 
 # ── Condition helpers ────────────────────────────────────────────────
 
 
 class TestIsTerminal:  # pylint: disable=too-few-public-methods
-    """Unit tests for ProposalDriver._is_terminal."""
+    """Unit tests for OpenshiftAgenticRunDriver._is_terminal."""
 
     @pytest.mark.parametrize(
         "conditions, spec, expected",
@@ -241,7 +255,7 @@ class TestIsTerminal:  # pylint: disable=too-few-public-methods
         expected: TerminalOutcome | None,
     ) -> None:
         """Test _is_terminal returns correct terminal outcome."""
-        assert ProposalDriver._is_terminal(conditions, spec) == expected
+        assert OpenshiftAgenticRunDriver._is_terminal(conditions, spec) == expected
 
 
 # ── CR manifest building ────────────────────────────────────────────
@@ -250,13 +264,13 @@ class TestIsTerminal:  # pylint: disable=too-few-public-methods
 class TestBuildCR:
     """Unit tests for CR manifest construction."""
 
-    def _make_driver(self, mocker: MockerFixture) -> ProposalDriver:
+    def _make_driver(self, mocker: MockerFixture) -> OpenshiftAgenticRunDriver:
         """Create a driver with mocked CLI resolution."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        return ProposalDriver(VALID_CONFIG)
+        return OpenshiftAgenticRunDriver(VALID_CONFIG)
 
-    def test_proposal_cr_query_only(self, mocker: MockerFixture) -> None:
-        """Test Proposal CR with query only, no agentic_run_spec."""
+    def test_agentic_run_cr_query_only(self, mocker: MockerFixture) -> None:
+        """Test AgenticRun CR with query only, no openshift_agentic_run_spec."""
         driver = self._make_driver(mocker)
         turn = TurnData(turn_id="t1", query="Pod is crash looping")
         cr = driver._build_agentic_run_cr(turn, "eval-abc123")
@@ -268,13 +282,13 @@ class TestBuildCR:
         assert cr["spec"]["request"] == "Pod is crash looping"
         assert cr["spec"]["analysis"] == {}
 
-    def test_proposal_cr_with_spec(self, mocker: MockerFixture) -> None:
-        """Test Proposal CR with full agentic_run_spec."""
+    def test_agentic_run_cr_with_spec(self, mocker: MockerFixture) -> None:
+        """Test AgenticRun CR with full openshift_agentic_run_spec."""
         driver = self._make_driver(mocker)
         turn = TurnData(
             turn_id="t1",
             query="Pod is crash looping",
-            agentic_run_spec={
+            openshift_agentic_run_spec={
                 "targetNamespaces": ["production"],
                 "analysis": {"agent": "smart"},
                 "execution": {"agent": "default"},
@@ -287,20 +301,20 @@ class TestBuildCR:
         assert cr["spec"]["analysis"] == {"agent": "smart"}
         assert cr["spec"]["execution"] == {"agent": "default"}
 
-    def test_proposal_cr_defaults_analysis(self, mocker: MockerFixture) -> None:
-        """Test Proposal CR defaults analysis to empty dict."""
+    def test_agentic_run_cr_defaults_analysis(self, mocker: MockerFixture) -> None:
+        """Test AgenticRun CR defaults analysis to empty dict."""
         driver = self._make_driver(mocker)
         turn = TurnData(
             turn_id="t1",
             query="Q",
-            agentic_run_spec={"execution": {}},
+            openshift_agentic_run_spec={"execution": {}},
         )
         cr = driver._build_agentic_run_cr(turn, "eval-x")
 
         assert cr["spec"]["analysis"] == {}
 
     def test_approval_cr_analysis_only(self, mocker: MockerFixture) -> None:
-        """Test ProposalApproval with analysis-only spec."""
+        """Test AgenticRunApproval with analysis-only spec."""
         driver = self._make_driver(mocker)
         cr = driver._build_approval_cr("eval-abc", SPEC_ANALYSIS_ONLY)
 
@@ -311,7 +325,7 @@ class TestBuildCR:
         assert cr["spec"]["stages"][0]["analysis"] == {"agent": "default"}
 
     def test_approval_cr_full(self, mocker: MockerFixture) -> None:
-        """Test ProposalApproval with all three stages."""
+        """Test AgenticRunApproval with all three stages."""
         driver = self._make_driver(mocker)
         cr = driver._build_approval_cr("eval-abc", SPEC_FULL)
 
@@ -323,7 +337,7 @@ class TestBuildCR:
         assert cr["spec"]["stages"][2]["verification"] == {"agent": "default"}
 
     def test_approval_cr_with_agent_refs(self, mocker: MockerFixture) -> None:
-        """Test ProposalApproval passes agent names from agentic_run_spec."""
+        """Test AgenticRunApproval passes agent names from openshift_agentic_run_spec."""
         driver = self._make_driver(mocker)
         spec: dict[str, Any] = {
             "analysis": {"agent": "eval-default"},
@@ -341,7 +355,7 @@ class TestBuildCR:
 
 
 class TestExtractSummary:
-    """Unit tests for ProposalDriver._extract_summary."""
+    """Unit tests for OpenshiftAgenticRunDriver._extract_summary."""
 
     def test_with_messages(self) -> None:
         """Test summary from condition messages."""
@@ -351,24 +365,26 @@ class TestExtractSummary:
                 _cond("Executed", "True", message="Execution ok"),
             ]
         }
-        result = ProposalDriver._extract_summary(status)
+        result = OpenshiftAgenticRunDriver._extract_summary(status)
         assert result == "Analysis done; Execution ok"
 
     def test_no_messages(self) -> None:
         """Test fallback when conditions have no messages."""
         status = {"conditions": [_cond("Analyzed", "True")]}
-        assert ProposalDriver._extract_summary(status) == "No summary available"
+        assert (
+            OpenshiftAgenticRunDriver._extract_summary(status) == "No summary available"
+        )
 
     def test_empty_status(self) -> None:
         """Test fallback for empty status dict."""
-        assert ProposalDriver._extract_summary({}) == "No summary available"
+        assert OpenshiftAgenticRunDriver._extract_summary({}) == "No summary available"
 
 
 # ── Driver lifecycle ─────────────────────────────────────────────────
 
 
-class TestProposalDriver:
-    """Unit tests for ProposalDriver init, validate_config, enabled, close."""
+class TestOpenshiftAgenticRunDriver:
+    """Unit tests for OpenshiftAgenticRunDriver init, validate_config, enabled, close."""
 
     def test_validate_config_with_oc(self, mocker: MockerFixture) -> None:
         """Test driver resolves oc as primary CLI."""
@@ -376,7 +392,7 @@ class TestProposalDriver:
         mock_shutil.which.side_effect = lambda cmd: (
             "/usr/bin/oc" if cmd == "oc" else None
         )
-        driver = ProposalDriver(VALID_CONFIG)
+        driver = OpenshiftAgenticRunDriver(VALID_CONFIG)
         assert driver._cli == "/usr/bin/oc"
 
     def test_validate_config_kubectl_fallback(self, mocker: MockerFixture) -> None:
@@ -385,31 +401,31 @@ class TestProposalDriver:
         mock_shutil.which.side_effect = lambda cmd: (
             "/usr/bin/kubectl" if cmd == "kubectl" else None
         )
-        driver = ProposalDriver(VALID_CONFIG)
+        driver = OpenshiftAgenticRunDriver(VALID_CONFIG)
         assert driver._cli == "/usr/bin/kubectl"
 
     def test_validate_config_neither_found(self, mocker: MockerFixture) -> None:
         """Test ConfigurationError when neither oc nor kubectl found."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = None
         with pytest.raises(ConfigurationError, match="Neither 'oc' nor 'kubectl'"):
-            ProposalDriver(VALID_CONFIG)
+            OpenshiftAgenticRunDriver(VALID_CONFIG)
 
     def test_validate_config_invalid(self, mocker: MockerFixture) -> None:
         """Test ValidationError for missing required fields."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
         with pytest.raises(ValidationError):
-            ProposalDriver({"type": "proposal"})
+            OpenshiftAgenticRunDriver({"type": "openshift_agentic_run"})
 
     def test_enabled_always_true(self, mocker: MockerFixture) -> None:
         """Test enabled property defaults to True (inherited)."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = ProposalDriver(VALID_CONFIG)
+        driver = OpenshiftAgenticRunDriver(VALID_CONFIG)
         assert driver.enabled is True
 
     def test_close_is_noop(self, mocker: MockerFixture) -> None:
         """Test close does nothing (no persistent connections)."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = ProposalDriver(VALID_CONFIG)
+        driver = OpenshiftAgenticRunDriver(VALID_CONFIG)
         driver.close()
 
 
@@ -417,12 +433,12 @@ class TestProposalDriver:
 
 
 class TestCleanup:
-    """Unit tests for ProposalDriver._cleanup."""
+    """Unit tests for OpenshiftAgenticRunDriver._cleanup."""
 
     def test_cleanup_calls_delete(self, mocker: MockerFixture) -> None:
         """Test cleanup delegates to _delete when enabled."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = ProposalDriver(VALID_CONFIG)
+        driver = OpenshiftAgenticRunDriver(VALID_CONFIG)
         mock_delete = mocker.patch.object(driver, "_delete")
 
         driver._cleanup("eval-test")
@@ -430,9 +446,11 @@ class TestCleanup:
         mock_delete.assert_called_once_with("eval-test")
 
     def test_cleanup_disabled(self, mocker: MockerFixture) -> None:
-        """Test cleanup skips _delete when cleanup_proposals=False."""
+        """Test cleanup skips _delete when cleanup_openshift_agentic_runs=False."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = ProposalDriver({**VALID_CONFIG, "cleanup_proposals": False})
+        driver = OpenshiftAgenticRunDriver(
+            {**VALID_CONFIG, "cleanup_openshift_agentic_runs": False}
+        )
         mock_delete = mocker.patch.object(driver, "_delete")
 
         driver._cleanup("eval-test")
@@ -442,7 +460,7 @@ class TestCleanup:
     def test_cleanup_failure_logged(self, mocker: MockerFixture) -> None:
         """Test cleanup logs warning on _delete failure."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
-        driver = ProposalDriver(VALID_CONFIG)
+        driver = OpenshiftAgenticRunDriver(VALID_CONFIG)
         mocker.patch.object(driver, "_delete", side_effect=OSError("boom"))
         mock_logger = mocker.patch(f"{MODULE}.logger")
 
@@ -455,17 +473,19 @@ class TestCleanup:
 
 
 class TestExecuteTurn:
-    """Unit tests for ProposalDriver.execute_turn."""
+    """Unit tests for OpenshiftAgenticRunDriver.execute_turn."""
 
     @pytest.fixture()
-    def driver(self, mocker: MockerFixture) -> ProposalDriver:
+    def driver(self, mocker: MockerFixture) -> OpenshiftAgenticRunDriver:
         """Create a driver with mocked shutil and uuid."""
         mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
         mocker.patch(f"{MODULE}.uuid").uuid4.return_value.hex = "abcd1234"
-        return ProposalDriver({**VALID_CONFIG, "timeout": 10, "poll_interval": 1})
+        return OpenshiftAgenticRunDriver(
+            {**VALID_CONFIG, "timeout": 10, "poll_interval": 1}
+        )
 
     def test_happy_path_completed(
-        self, mocker: MockerFixture, driver: ProposalDriver
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
         """Test successful full lifecycle returns no error."""
         mock_time = mocker.patch(f"{MODULE}.time")
@@ -484,7 +504,9 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(terminal_status, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Fix pod", agentic_run_spec=SPEC_FULL)
+        turn = TurnData(
+            turn_id="t1", query="Fix pod", openshift_agentic_run_spec=SPEC_FULL
+        )
         error, conv_id = driver.execute_turn(turn)
 
         assert error is None
@@ -492,10 +514,12 @@ class TestExecuteTurn:
         response = str(turn.response)
         assert "Analysis done" in response
         assert "Passed" in response
-        assert turn.agentic_run_status == terminal_status
+        assert turn.openshift_agentic_run_status == terminal_status
         driver._cleanup.assert_called_once_with("eval-abcd1234")
 
-    def test_apply_failure(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
+    def test_apply_failure(
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
+    ) -> None:
         """Test apply failure returns error without polling."""
         mock_apply = mocker.patch.object(driver, "_apply")
         mock_apply.return_value = mocker.Mock(returncode=1, stderr="connection refused")
@@ -506,7 +530,9 @@ class TestExecuteTurn:
         assert error == "Failed to apply AgenticRun CR: connection refused"
         assert conv_id is None
 
-    def test_timeout(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
+    def test_timeout(
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
+    ) -> None:
         """Test timeout returns error when no terminal condition reached."""
         mock_time = mocker.patch(f"{MODULE}.time")
         mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0, 11.0]
@@ -518,7 +544,7 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(non_terminal, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Q", agentic_run_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_FULL)
         error, conv_id = driver.execute_turn(turn)
 
         assert error is not None
@@ -526,7 +552,9 @@ class TestExecuteTurn:
         assert conv_id is None
         driver._cleanup.assert_called_once()
 
-    def test_auto_approve(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
+    def test_auto_approve(
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
+    ) -> None:
         """Test auto-approve sends approval before polling."""
         mock_time = mocker.patch(f"{MODULE}.time")
         mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
@@ -552,14 +580,14 @@ class TestExecuteTurn:
         )
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Q", agentic_run_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_FULL)
         error, _ = driver.execute_turn(turn)
 
         assert error is None
         assert mock_apply.call_count == 2
 
     def test_auto_approve_disabled(
-        self, mocker: MockerFixture, driver: ProposalDriver
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
         """Test auto-approve skipped when disabled."""
         driver._config.auto_approve = False
@@ -580,9 +608,9 @@ class TestExecuteTurn:
         assert mock_apply.call_count == 1
 
     def test_denied_terminal(
-        self, mocker: MockerFixture, driver: ProposalDriver
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
-        """Test denied proposal populates turn data and returns no error."""
+        """Test denied agentic run populates turn data and returns no error."""
         mock_time = mocker.patch(f"{MODULE}.time")
         mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
@@ -595,14 +623,14 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(status, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Q", agentic_run_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_FULL)
         error, _ = driver.execute_turn(turn)
 
         assert error is None
-        assert turn.agentic_run_status == status
+        assert turn.openshift_agentic_run_status == status
 
     def test_get_status_error(
-        self, mocker: MockerFixture, driver: ProposalDriver
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
         """Test get_status error triggers cleanup and returns error."""
         mock_time = mocker.patch(f"{MODULE}.time")
@@ -629,7 +657,7 @@ class TestExecuteTurn:
         driver._cleanup.assert_called_once()
 
     def test_conversation_id_in_cr_name(
-        self, mocker: MockerFixture, driver: ProposalDriver
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
         """Test conversation_id is included in CR name."""
         mock_time = mocker.patch(f"{MODULE}.time")

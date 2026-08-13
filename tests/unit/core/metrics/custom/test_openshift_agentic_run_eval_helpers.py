@@ -1,32 +1,32 @@
-"""Unit tests for proposal_eval helper functions.
+"""Unit tests for openshift_agentic_run_eval helper functions.
 
 Covers: _get_result_phase, _latest_terminal_result.
 """
 
 from typing import Any, Optional
 
-from lightspeed_evaluation.core.metrics.custom.agentic_run_eval import (
+from lightspeed_evaluation.core.metrics.custom.openshift_agentic_run_eval import (
     _get_result_phase,
     _latest_terminal_result,
-    evaluate_agentic_run_status,
+    evaluate_openshift_agentic_run_status,
 )
 from lightspeed_evaluation.core.models import TurnData
 
 
 def _make_turn(
-    expected_agentic_run_status: Optional[dict[str, Any]] = None,
-    agentic_run_status: Optional[dict[str, Any]] = None,
-    agentic_run_spec: Optional[dict[str, Any]] = None,
-    agentic_run_results: Optional[dict[str, Any]] = None,
+    expected_openshift_agentic_run_status: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_status: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_spec: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_results: Optional[dict[str, Any]] = None,
 ) -> TurnData:
     """Build a minimal TurnData for testing."""
     return TurnData(
         turn_id="t1",
         query="test query",
-        expected_agentic_run_status=expected_agentic_run_status,
-        agentic_run_status=agentic_run_status,
-        agentic_run_spec=agentic_run_spec,
-        agentic_run_results=agentic_run_results,
+        expected_openshift_agentic_run_status=expected_openshift_agentic_run_status,
+        openshift_agentic_run_status=openshift_agentic_run_status,
+        openshift_agentic_run_spec=openshift_agentic_run_spec,
+        openshift_agentic_run_results=openshift_agentic_run_results,
     )
 
 
@@ -148,15 +148,15 @@ class TestLatestTerminalResult:
     def test_analysis_skips_trailing_non_terminal(self) -> None:
         """A trailing in-progress analysis result is skipped end-to-end."""
         turn = _make_turn(
-            expected_agentic_run_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"risk_in": ["low"]}],
                 },
             },
-            agentic_run_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            agentic_run_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -167,5 +167,5 @@ class TestLatestTerminalResult:
                 ],
             },
         )
-        score, _ = evaluate_agentic_run_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0

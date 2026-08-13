@@ -1,7 +1,7 @@
-"""Integration tests for AgenticRunDriver-based evaluation.
+"""Integration tests for OpenshiftAgenticRunDriver-based evaluation.
 
 These tests run the evaluation pipeline against a live OpenShift cluster
-using the AgenticRunDriver to create and manage AgenticRun CRs.
+using the OpenshiftAgenticRunDriver to create and manage AgenticRun CRs.
 
 Prerequisites:
     - oc CLI authenticated against a cluster with agentic CRDs installed
@@ -11,7 +11,7 @@ Prerequisites:
 Each scenario has its own setup/cleanup scripts that source a shared
 infrastructure script per provider (e.g. _setup_infra-openai.sh).
 
-Run with: pytest tests/integration/test_agentic_run_evaluation.py -v -m agentic
+Run with: pytest tests/integration/test_openshift_agentic_run_evaluation.py -v -m agentic
 """
 
 import os
@@ -69,13 +69,15 @@ def check_env_vars_set() -> bool:
 pytestmark = pytest.mark.agentic
 
 INTEGRATION_TEST_DIR = Path(__file__).parent
-AGENTIC_RUN_CONFIG_PATH = INTEGRATION_TEST_DIR / "system-config-agents-agentic-run.yaml"
-AGENTIC_RUN_EVAL_DATA_PATH = (
-    INTEGRATION_TEST_DIR / "test_evaluation_data_agentic_run.yaml"
+OPENSHIFT_AGENTIC_RUN_CONFIG_PATH = (
+    INTEGRATION_TEST_DIR / "system-config-agents-openshift-agentic-run.yaml"
+)
+OPENSHIFT_AGENTIC_RUN_EVAL_DATA_PATH = (
+    INTEGRATION_TEST_DIR / "test_evaluation_data_openshift_agentic_run.yaml"
 )
 
 
-class TestAgenticRunPrerequisites:
+class TestOpenshiftAgenticRunPrerequisites:
     """Verify prerequisites for agentic run integration tests."""
 
     def test_cli_available(self) -> None:
@@ -97,8 +99,8 @@ class TestAgenticRunPrerequisites:
         assert check_env_vars_set(), "OPENAI_API_KEY environment variable must be set"
 
 
-class TestAgenticRunDriverEvaluation:
-    """End-to-end tests for AgenticRunDriver evaluation pipeline."""
+class TestOpenshiftAgenticRunDriverEvaluation:
+    """End-to-end tests for OpenshiftAgenticRunDriver evaluation pipeline."""
 
     @pytest.mark.timeout(1200)
     def test_oomkill_full_lifecycle(self, tmp_path: Path) -> None:
@@ -106,14 +108,16 @@ class TestAgenticRunDriverEvaluation:
 
         Verifies:
         - Setup script deploys infrastructure and test workload
-        - AgenticRunDriver creates AgenticRun CR and auto-approves stages
+        - OpenshiftAgenticRunDriver creates AgenticRun CR and auto-approves stages
         - Pipeline completes without errors
-        - TurnData is enriched with response and proposal_status
+        - TurnData is enriched with response and openshift_agentic_run_status
         - At least the Analyzed condition reaches status True
         - Cleanup script removes test resources
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
+        system_config = loader.load_system_config(
+            str(OPENSHIFT_AGENTIC_RUN_CONFIG_PATH)
+        )
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -122,26 +126,30 @@ class TestAgenticRunDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(
+            str(OPENSHIFT_AGENTIC_RUN_EVAL_DATA_PATH)
+        )
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "proposal_oomkill_openai"
+            d
+            for d in all_data
+            if d.conversation_group_id == "agentic_run_oomkill_openai"
         ]
-        assert len(eval_data) == 1, "Should find proposal_oomkill_openai data"
+        assert len(eval_data) == 1, "Should find agentic_run_oomkill_openai data"
 
         evaluate(system_config, eval_data)
 
         turn = eval_data[0].turns[0]
         assert (
             turn.response and turn.response.strip()
-        ), "Response should be populated by AgenticRunDriver"
+        ), "Response should be populated by OpenshiftAgenticRunDriver"
         assert isinstance(
-            turn.proposal_status, dict
-        ), "proposal_status should be populated"
+            turn.openshift_agentic_run_status, dict
+        ), "openshift_agentic_run_status should be populated"
         assert (
-            "conditions" in turn.proposal_status
-        ), "proposal_status should contain conditions"
+            "conditions" in turn.openshift_agentic_run_status
+        ), "openshift_agentic_run_status should contain conditions"
 
-        conditions = turn.proposal_status["conditions"]
+        conditions = turn.openshift_agentic_run_status["conditions"]
         by_type = {c["type"]: c for c in conditions}
         assert "Analyzed" in by_type, "Should have Analyzed condition"
         assert (
@@ -150,14 +158,16 @@ class TestAgenticRunDriverEvaluation:
 
     @pytest.mark.timeout(600)
     def test_analysis_only(self, tmp_path: Path) -> None:
-        """Test analysis-only Proposal (no execution or verification).
+        """Test analysis-only OpenshiftAgenticRun (no execution or verification).
 
         Verifies:
         - Only analysis stage runs
         - No Executed or Verified conditions present
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
+        system_config = loader.load_system_config(
+            str(OPENSHIFT_AGENTIC_RUN_CONFIG_PATH)
+        )
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -166,23 +176,27 @@ class TestAgenticRunDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(
+            str(OPENSHIFT_AGENTIC_RUN_EVAL_DATA_PATH)
+        )
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "proposal_analysis_only"
+            d
+            for d in all_data
+            if d.conversation_group_id == "agentic_run_analysis_only"
         ]
-        assert len(eval_data) == 1, "Should find proposal_analysis_only data"
+        assert len(eval_data) == 1, "Should find agentic_run_analysis_only data"
 
         evaluate(system_config, eval_data)
 
         turn = eval_data[0].turns[0]
         assert (
             turn.response and turn.response.strip()
-        ), "Response should be populated by AgenticRunDriver"
+        ), "Response should be populated by OpenshiftAgenticRunDriver"
         assert isinstance(
-            turn.proposal_status, dict
-        ), "proposal_status should be populated"
+            turn.openshift_agentic_run_status, dict
+        ), "openshift_agentic_run_status should be populated"
 
-        conditions = turn.proposal_status.get("conditions", [])
+        conditions = turn.openshift_agentic_run_status.get("conditions", [])
         by_type = {c["type"]: c for c in conditions}
         assert "Analyzed" in by_type, "Should have Analyzed condition"
         assert (
@@ -204,12 +218,14 @@ class TestAgenticRunDriverEvaluation:
         """Test OOMKill full lifecycle with Claude/Vertex AI provider.
 
         Verifies:
-        - AgenticRunDriver populates response with workflow summary
-        - custom:proposal_evaluation_correctness metric runs against response
+        - OpenshiftAgenticRunDriver populates response with workflow summary
+        - custom:openshift_agentic_run_evaluation_correctness metric runs against response
         - Pipeline completes without errors
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
+        system_config = loader.load_system_config(
+            str(OPENSHIFT_AGENTIC_RUN_CONFIG_PATH)
+        )
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -218,20 +234,22 @@ class TestAgenticRunDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(
+            str(OPENSHIFT_AGENTIC_RUN_EVAL_DATA_PATH)
+        )
         eval_data = [
             d
             for d in all_data
-            if d.conversation_group_id == "proposal_oomkill_claude-vertex"
+            if d.conversation_group_id == "agentic_run_oomkill_claude-vertex"
         ]
-        assert len(eval_data) == 1, "Should find proposal_oomkill_claude-vertex data"
+        assert len(eval_data) == 1, "Should find agentic_run_oomkill_claude-vertex data"
 
         evaluate(system_config, eval_data)
 
         turn = eval_data[0].turns[0]
         assert (
             turn.response and turn.response.strip()
-        ), "Response should be populated by AgenticRunDriver"
+        ), "Response should be populated by OpenshiftAgenticRunDriver"
 
     @pytest.mark.timeout(120)
     def test_timeout_handling(self, tmp_path: Path) -> None:
@@ -242,13 +260,15 @@ class TestAgenticRunDriverEvaluation:
         - AgenticRun CRs are cleaned up after timeout
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
+        system_config = loader.load_system_config(
+            str(OPENSHIFT_AGENTIC_RUN_CONFIG_PATH)
+        )
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
 
         assert system_config.agents is not None
-        agent_cfg = system_config.agents.agents["proposal_agent"]
+        agent_cfg = system_config.agents.agents["openshift_agentic_run_agent"]
         agent_cfg.timeout = 5
         agent_cfg.poll_interval = 1
 
@@ -256,9 +276,13 @@ class TestAgenticRunDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(
+            str(OPENSHIFT_AGENTIC_RUN_EVAL_DATA_PATH)
+        )
         eval_data = [
-            d for d in all_data if d.conversation_group_id == "proposal_analysis_only"
+            d
+            for d in all_data
+            if d.conversation_group_id == "agentic_run_analysis_only"
         ]
 
         evaluate(system_config, eval_data)
@@ -285,7 +309,7 @@ class TestAgenticRunDriverEvaluation:
         lines = [
             line
             for line in result.stdout.strip().splitlines()
-            if line.startswith("proposal.agentic.openshift.io/eval-")
+            if line.startswith("agenticrun.agentic.openshift.io/eval-")
         ]
         assert (
             len(lines) == 0

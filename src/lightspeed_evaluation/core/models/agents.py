@@ -168,12 +168,12 @@ class HttpApiAgentConfig(HttpApiBaseFields):
     )
 
 
-class AgenticRunAgentConfig(BaseModel):
+class OpenshiftAgenticRunAgentConfig(BaseModel):
     """Configuration for an AgenticRun CRD-based agent."""
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["agentic_run", "proposal"] = "agentic_run"
+    type: Literal["openshift_agentic_run"] = "openshift_agentic_run"
     namespace: str = Field(
         ...,
         min_length=1,
@@ -181,7 +181,7 @@ class AgenticRunAgentConfig(BaseModel):
         description="Kubernetes namespace containing AgenticRun resources",
     )
     auto_approve: bool = True
-    cleanup_proposals: bool = True
+    cleanup_openshift_agentic_runs: bool = True
     timeout: int = Field(default=900, gt=0)
     cli_timeout: int = Field(default=30, gt=0)
     poll_interval: int = Field(default=2, gt=0)
@@ -193,25 +193,11 @@ class AgenticRunAgentConfig(BaseModel):
         default=True, description="Is caching of API queries enabled?"
     )
 
-    @field_validator("type")
-    @classmethod
-    def _warn_deprecated_proposal_type(cls, v: str) -> str:
-        """Emit deprecation warning when using 'proposal' type."""
-        if v == "proposal":
-            logger.warning(
-                "Agent type 'proposal' is deprecated. Use 'agentic_run' instead. "
-                "Support for 'proposal' will be removed in a future release."
-            )
-        return v
+    # Type alias for all agent config types; extend by adding new
 
 
-# Deprecated alias for backward compatibility
-ProposalAgentConfig = AgenticRunAgentConfig
-
-
-# Type alias for all agent config types; extend by adding new
 # config classes to support additional agent types.
-AgentDefinition = HttpApiAgentConfig | AgenticRunAgentConfig
+AgentDefinition = HttpApiAgentConfig | OpenshiftAgenticRunAgentConfig
 
 
 class AgentDefaultConfig(BaseModel):

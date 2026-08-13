@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
-from lightspeed_evaluation.core.metrics.custom.agentic_run_eval import (
-    evaluate_agentic_run_status,
-)
 from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
+from lightspeed_evaluation.core.metrics.custom.openshift_agentic_run_eval import (
+    evaluate_openshift_agentic_run_status,
+)
 from lightspeed_evaluation.core.metrics.custom.prompts import (
     ANSWER_CORRECTNESS_PROMPT,
     INTENT_EVALUATION_PROMPT,
-    PROPOSAL_EVALUATION_CORRECTNESS_PROMPT,
+    OPENSHIFT_AGENTIC_RUN_EVALUATION_CORRECTNESS_PROMPT,
 )
 from lightspeed_evaluation.core.metrics.custom.tool_eval import evaluate_tool_calls
 from lightspeed_evaluation.core.metrics.manager import MetricLevel
@@ -51,13 +51,9 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             "answer_correctness": self._evaluate_answer_correctness,
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
-            "agentic_run_status": evaluate_agentic_run_status,
-            "proposal_status": evaluate_agentic_run_status,  # Deprecated alias
-            "agentic_run_evaluation_correctness": (
-                self._evaluate_agentic_run_evaluation_correctness
-            ),
-            "proposal_evaluation_correctness": (  # Deprecated alias
-                self._evaluate_agentic_run_evaluation_correctness
+            "openshift_agentic_run_status": evaluate_openshift_agentic_run_status,
+            "openshift_agentic_run_evaluation_correctness": (
+                self._evaluate_openshift_agentic_run_evaluation_correctness
             ),
         }
 
@@ -308,10 +304,10 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         except LLMError as e:
             return None, f"Intent evaluation failed: {str(e)}"
 
-    def _parse_proposal_eval_response(
+    def _parse_openshift_agentic_run_eval_response(
         self, response: str
     ) -> tuple[Optional[float], str]:
-        """Parse JSON LLM judge response for proposal evaluation.
+        """Parse JSON LLM judge response for OpenShift agentic run evaluation.
 
         Expected JSON schema::
 
@@ -377,32 +373,41 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
     @staticmethod
     def _build_workflow_phases(turn_data: TurnData) -> str:
         """Build the workflow phases string for the judge prompt."""
-        phases = turn_data.agentic_run_phases
+        phases = turn_data.openshift_agentic_run_phases
         if phases:
             return "Phases executed: " + ", ".join(phases)
         return "Phases executed: unknown (score only dimensions visible in the workflow summary)"
 
-    def _evaluate_agentic_run_evaluation_correctness(
+    def _evaluate_openshift_agentic_run_evaluation_correctness(
         self,
         _conv_data: Any,
         _turn_idx: Optional[int],
         turn_data: Optional[TurnData],
         is_conversation: bool,
     ) -> tuple[Optional[float], str]:
-        """Evaluate agentic remediation workflow quality using LLM judge."""
+        """Evaluate OpenShift agentic remediation workflow quality using LLM judge."""
         if is_conversation:
-            return None, "AgenticRun evaluation correctness is a turn-level metric"
+            return (
+                None,
+                "OpenShift AgenticRun evaluation correctness is a turn-level metric",
+            )
 
         if turn_data is None or not turn_data.response:
-            return None, "TurnData with response is required for agentic run evaluation"
+            return (
+                None,
+                "TurnData with response is required for OpenShift agentic run evaluation",
+            )
 
         if not turn_data.expected_outcome:
-            return None, "No expected outcome provided for agentic run evaluation"
+            return (
+                None,
+                "No expected outcome provided for OpenShift agentic run evaluation",
+            )
 
         optional_sections = self._build_optional_expected_outcomes(turn_data)
         workflow_phases = self._build_workflow_phases(turn_data)
 
-        prompt = PROPOSAL_EVALUATION_CORRECTNESS_PROMPT.format(
+        prompt = OPENSHIFT_AGENTIC_RUN_EVALUATION_CORRECTNESS_PROMPT.format(
             request=turn_data.query or "N/A",
             workflow_phases=workflow_phases,
             workflow_summary=turn_data.response,
@@ -412,7 +417,9 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
 
         try:
             llm_response = self._call_llm(prompt)
-            score, reason = self._parse_proposal_eval_response(llm_response)
+            score, reason = self._parse_openshift_agentic_run_eval_response(
+                llm_response
+            )
 
             if score is None:
                 return (
@@ -420,6 +427,6 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
                     f"Could not parse score from LLM response: {llm_response[:100]}...",
                 )
 
-            return score, f"AgenticRun evaluation correctness: {reason}"
+            return score, f"OpenShift AgenticRun evaluation correctness: {reason}"
         except LLMError as e:
-            return None, f"AgenticRun evaluation correctness failed: {str(e)}"
+            return None, f"OpenShift AgenticRun evaluation correctness failed: {str(e)}"

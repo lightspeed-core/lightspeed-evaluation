@@ -1,0 +1,23 @@
+# Minimal system config for agentic run integration tests
+core:
+  max_threads: 1
+
+llm_pool:
+  defaults:
+    timeout: 300
+  models:
+    judge_default:
+      provider: openai
+      model: gpt-4o-mini
+
+agents:
+  enabled: true
+  default:
+    agent: openshift_agentic_run_agent
+
+  openshift_agentic_run_agent:
+    type: openshift_agentic_run
+    namespace: openshift-lightspeed
+    auto_approve: true
+    cleanup_openshift_agentic_runs: false
+    timeout: 900

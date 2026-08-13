@@ -1,4 +1,4 @@
-"""AgenticRunAmender — fetches child Result CRs and enriches TurnData."""
+"""OpenshiftAgenticRunAmender — fetches child Result CRs and enriches TurnData."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ STEP_RESOURCES: dict[str, str] = {
 }
 
 
-class AgenticRunAmender:
+class OpenshiftAgenticRunAmender:
     """Fetches child Result CRs and enriches TurnData with structured results and summary."""
 
     def __init__(self, cli_client: CLIClient) -> None:
@@ -27,7 +27,7 @@ class AgenticRunAmender:
         self._cli = cli_client
 
     def amend(
-        self, turn_data: TurnData, agentic_run_status: dict[str, Any]
+        self, turn_data: TurnData, openshift_agentic_run_status: dict[str, Any]
     ) -> Optional[str]:
         """Amend turn_data in-place with agentic run results and Markdown summary.
 
@@ -35,20 +35,20 @@ class AgenticRunAmender:
             Error message on failure, None on success.
         """
         try:
-            return self._do_amend(turn_data, agentic_run_status)
+            return self._do_amend(turn_data, openshift_agentic_run_status)
         except (KeyError, TypeError, ValueError, subprocess.SubprocessError) as exc:
-            return f"AgenticRunAmender error: {exc}"
+            return f"OpenshiftAgenticRunAmender error: {exc}"
 
     def _do_amend(
-        self, turn_data: TurnData, agentic_run_status: dict[str, Any]
+        self, turn_data: TurnData, openshift_agentic_run_status: dict[str, Any]
     ) -> Optional[str]:
         """Internal amend logic."""
-        turn_data.agentic_run_status = agentic_run_status
+        turn_data.openshift_agentic_run_status = openshift_agentic_run_status
 
-        steps = agentic_run_status.get("steps", {})
+        steps = openshift_agentic_run_status.get("steps", {})
         if not steps:
-            turn_data.agentic_run_results = {}
-            turn_data.agentic_run_phases = []
+            turn_data.openshift_agentic_run_results = {}
+            turn_data.openshift_agentic_run_phases = []
             turn_data.response = self.build_summary(turn_data, {})
             return None
 
@@ -77,8 +77,8 @@ class AgenticRunAmender:
                     step_results.append(status)
             results[step_name] = step_results
 
-        turn_data.agentic_run_results = results
-        turn_data.agentic_run_phases = [
+        turn_data.openshift_agentic_run_results = results
+        turn_data.openshift_agentic_run_phases = [
             step for step in STEP_RESOURCES if results.get(step)
         ]
         turn_data.response = self.build_summary(turn_data, results)
@@ -132,7 +132,7 @@ def _build_analysis_section(analysis_results: list[dict[str, Any]]) -> str:
             title = option.get("title", "Untitled")
             lines.append(f"\n### Option {idx} {label}: {title}".rstrip())
             _append_diagnosis(lines, option.get("diagnosis", {}))
-            _append_proposal(lines, option.get("remediationPlan", {}))
+            _append_remediation_plan(lines, option.get("remediationPlan", {}))
 
     return "\n".join(lines)
 
@@ -150,22 +150,22 @@ def _append_diagnosis(lines: list[str], diagnosis: dict[str, Any]) -> None:
         lines.append(f"**Root Cause:** {root_cause}")
 
 
-def _append_proposal(lines: list[str], proposal: dict[str, Any]) -> None:
-    """Append proposal details to output lines."""
-    if not proposal:
+def _append_remediation_plan(lines: list[str], plan: dict[str, Any]) -> None:
+    """Append remediation plan details to output lines."""
+    if not plan:
         return
-    actions = proposal.get("actions", [])
+    actions = plan.get("actions", [])
     if actions:
         lines.append("**Proposed Actions:**")
         for i, action in enumerate(actions, 1):
             a_type = action.get("type", "")
             a_desc = action.get("description", "")
             lines.append(f"{i}. [{a_type}] {a_desc}")
-    risk = proposal.get("risk", "")
-    reversible = proposal.get("reversible", "")
+    risk = plan.get("risk", "")
+    reversible = plan.get("reversible", "")
     if risk or reversible:
         lines.append(f"**Risk:** {risk} | **Reversible:** {reversible}")
-    impact = proposal.get("estimatedImpact", "")
+    impact = plan.get("estimatedImpact", "")
     if impact:
         lines.append(f"**Estimated Impact:** {impact}")
 
@@ -250,10 +250,10 @@ def _build_escalation_section(
 
 
 def _build_outcome_section(turn_data: TurnData) -> str:
-    """Build the Outcome section from agentic_run_status conditions."""
+    """Build the Outcome section from openshift_agentic_run_status conditions."""
     conditions = []
-    if turn_data.agentic_run_status:
-        conditions = turn_data.agentic_run_status.get("conditions", [])
+    if turn_data.openshift_agentic_run_status:
+        conditions = turn_data.openshift_agentic_run_status.get("conditions", [])
     if not conditions:
         return "## Outcome\n\nNo conditions available"
     messages = [c.get("message", "") for c in conditions if c.get("message")]

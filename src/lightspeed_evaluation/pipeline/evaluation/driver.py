@@ -12,20 +12,20 @@ from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Any, Optional, cast
 
-from lightspeed_evaluation.core.agentic_run import derive_phase
 from lightspeed_evaluation.core.api import APIClient
 from lightspeed_evaluation.core.models import (
-    AgenticRunAgentConfig,
     APIConfig,
     HttpApiAgentConfig,
+    OpenshiftAgenticRunAgentConfig,
     TurnData,
 )
+from lightspeed_evaluation.core.openshift_agentic_run import derive_phase
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
-from lightspeed_evaluation.pipeline.evaluation.agentic_run_amender import (
-    AgenticRunAmender,
-)
 from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
 from lightspeed_evaluation.pipeline.evaluation.cli import KubeCLI
+from lightspeed_evaluation.pipeline.evaluation.openshift_agentic_run_amender import (
+    OpenshiftAgenticRunAmender,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class HttpApiDriver(AgentDriver):
 
 
 # ---------------------------------------------------------------------------
-# AgenticRun driver — CRD-based agent lifecycle via oc/kubectl CLI
+# OpenShift AgenticRun driver — CRD-based agent lifecycle via oc/kubectl CLI
 # ---------------------------------------------------------------------------
 
 
@@ -133,11 +133,11 @@ CRD_PLURAL = "agenticruns"
 CRD_API_VERSION = f"{CRD_GROUP}/{CRD_VERSION}"
 
 
-class AgenticRunDriver(AgentDriver):
+class OpenshiftAgenticRunDriver(AgentDriver):
     """Driver that manages AgenticRun CR lifecycle via oc/kubectl CLI."""
 
     def __init__(self, config: dict[str, Any], *, enabled: bool = True) -> None:
-        """Initialize the agentic run driver."""
+        """Initialize the OpenShift agentic run driver."""
         super().__init__(config, enabled=enabled)
         self._cli = self._resolve_cli()
         self._kube_cli = KubeCLI(
@@ -145,11 +145,11 @@ class AgenticRunDriver(AgentDriver):
             namespace=self._config.namespace,
             timeout=self._config.cli_timeout,
         )
-        self._amender = AgenticRunAmender(self._kube_cli)
+        self._amender = OpenshiftAgenticRunAmender(self._kube_cli)
 
-    def validate_config(self, config: dict[str, Any]) -> AgenticRunAgentConfig:
-        """Validate agentic run driver configuration."""
-        parsed = AgenticRunAgentConfig.model_validate(config)
+    def validate_config(self, config: dict[str, Any]) -> OpenshiftAgenticRunAgentConfig:
+        """Validate OpenShift agentic run driver configuration."""
+        parsed = OpenshiftAgenticRunAgentConfig.model_validate(config)
         if self._enabled and not shutil.which("oc") and not shutil.which("kubectl"):
             raise ConfigurationError("Neither 'oc' nor 'kubectl' found on PATH")
         return parsed
@@ -164,8 +164,8 @@ class AgenticRunDriver(AgentDriver):
         # 3. Poll status — read .status.conditions each interval
         # 4. Auto-approve — create AgenticRunApproval when Analyzed=True
         # 5. Terminal detection — break on completed/failed/denied/escalated
-        # 6. Amend TurnData — set response and agentic_run_status in-place
-        # 7. Cleanup — delete AgenticRun CR if cleanup_proposals enabled
+        # 6. Amend TurnData — set response and openshift_agentic_run_status in-place
+        # 7. Cleanup — delete AgenticRun CR if cleanup_openshift_agentic_runs enabled
         suffix = uuid.uuid4().hex[:8]
         safe_id = (
             re.sub(r"[^a-z0-9-]", "", conversation_id.lower())[:50]
@@ -173,7 +173,7 @@ class AgenticRunDriver(AgentDriver):
             else ""
         )
         cr_name = f"eval-{safe_id}-{suffix}" if safe_id else f"eval-{suffix}"
-        agentic_run_spec = turn_data.agentic_run_spec or {}
+        openshift_agentic_run_spec = turn_data.openshift_agentic_run_spec or {}
         manifest = self._build_agentic_run_cr(turn_data, cr_name)
 
         result = self._apply(manifest)
@@ -184,7 +184,7 @@ class AgenticRunDriver(AgentDriver):
             )
 
         if self._config.auto_approve:
-            err = self._approve_when_ready(cr_name, agentic_run_spec)
+            err = self._approve_when_ready(cr_name, openshift_agentic_run_spec)
             if err:
                 self._cleanup(cr_name)
                 return (err, None)
@@ -201,7 +201,7 @@ class AgenticRunDriver(AgentDriver):
                 return (err, None)
             conditions = status_dict.get("conditions", [])
 
-            outcome = self._is_terminal(conditions, agentic_run_spec)
+            outcome = self._is_terminal(conditions, openshift_agentic_run_spec)
             if outcome is not None:
                 break
         else:
@@ -219,14 +219,14 @@ class AgenticRunDriver(AgentDriver):
     def _amend_turn_data(
         self, turn_data: TurnData, status_dict: dict[str, Any]
     ) -> None:
-        """Amend turn data from agentic run status, with fallback on amender failure."""
+        """Amend turn data from OpenShift agentic run status, with fallback on amender failure."""
         amend_err = self._amender.amend(turn_data, status_dict)
         if amend_err:
-            logger.warning("AgenticRunAmender failed: %s", amend_err)
+            logger.warning("OpenshiftAgenticRunAmender failed: %s", amend_err)
             if not turn_data.response:
                 turn_data.response = self._extract_summary(status_dict)
-            if not turn_data.agentic_run_status:
-                turn_data.agentic_run_status = status_dict
+            if not turn_data.openshift_agentic_run_status:
+                turn_data.openshift_agentic_run_status = status_dict
 
     @staticmethod
     def _resolve_cli() -> str:
@@ -250,7 +250,7 @@ class AgenticRunDriver(AgentDriver):
 
     def _cleanup(self, cr_name: str) -> None:
         """Delete the AgenticRun CR if cleanup is enabled."""
-        if not self._config.cleanup_proposals:
+        if not self._config.cleanup_openshift_agentic_runs:
             return
         try:
             self._delete(cr_name)
@@ -263,8 +263,8 @@ class AgenticRunDriver(AgentDriver):
     ) -> dict[str, Any]:
         """Build AgenticRun CR manifest from TurnData."""
         spec: dict[str, Any] = {"request": turn_data.query}
-        if turn_data.agentic_run_spec:
-            spec.update(turn_data.agentic_run_spec)
+        if turn_data.openshift_agentic_run_spec:
+            spec.update(turn_data.openshift_agentic_run_spec)
         spec.setdefault("analysis", {})
         return {
             "apiVersion": CRD_API_VERSION,
@@ -277,14 +277,14 @@ class AgenticRunDriver(AgentDriver):
         }
 
     def _build_approval_cr(
-        self, cr_name: str, agentic_run_spec: dict[str, Any]
+        self, cr_name: str, openshift_agentic_run_spec: dict[str, Any]
     ) -> dict[str, Any]:
         """Build AgenticRunApproval CR manifest."""
         analysis_params: dict[str, Any] = {}
-        if "analysis" in agentic_run_spec and isinstance(
-            agentic_run_spec["analysis"], dict
+        if "analysis" in openshift_agentic_run_spec and isinstance(
+            openshift_agentic_run_spec["analysis"], dict
         ):
-            agent = agentic_run_spec["analysis"].get("agent")
+            agent = openshift_agentic_run_spec["analysis"].get("agent")
             if agent:
                 analysis_params["agent"] = agent
         if not analysis_params:
@@ -293,10 +293,10 @@ class AgenticRunDriver(AgentDriver):
         stages: list[dict[str, Any]] = [
             {"type": "Analysis", "decision": "Approved", "analysis": analysis_params},
         ]
-        if "execution" in agentic_run_spec:
+        if "execution" in openshift_agentic_run_spec:
             exec_params: dict[str, Any] = {"option": 0}
-            if isinstance(agentic_run_spec["execution"], dict):
-                agent = agentic_run_spec["execution"].get("agent")
+            if isinstance(openshift_agentic_run_spec["execution"], dict):
+                agent = openshift_agentic_run_spec["execution"].get("agent")
                 if agent:
                     exec_params["agent"] = agent
             stages.append(
@@ -306,10 +306,10 @@ class AgenticRunDriver(AgentDriver):
                     "execution": exec_params,
                 }
             )
-        if "verification" in agentic_run_spec:
+        if "verification" in openshift_agentic_run_spec:
             verif_params: dict[str, Any] = {}
-            if isinstance(agentic_run_spec["verification"], dict):
-                agent = agentic_run_spec["verification"].get("agent")
+            if isinstance(openshift_agentic_run_spec["verification"], dict):
+                agent = openshift_agentic_run_spec["verification"].get("agent")
                 if agent:
                     verif_params["agent"] = agent
             if not verif_params:
@@ -332,7 +332,7 @@ class AgenticRunDriver(AgentDriver):
         }
 
     def _approve_when_ready(
-        self, cr_name: str, agentic_run_spec: dict[str, Any]
+        self, cr_name: str, openshift_agentic_run_spec: dict[str, Any]
     ) -> Optional[str]:
         """Wait for AgenticRun CR to exist on the cluster, then approve all stages."""
         start = time.monotonic()
@@ -344,7 +344,7 @@ class AgenticRunDriver(AgentDriver):
         else:
             return f"AgenticRun '{cr_name}' not found within {self._config.timeout}s"
 
-        approval = self._build_approval_cr(cr_name, agentic_run_spec)
+        approval = self._build_approval_cr(cr_name, openshift_agentic_run_spec)
         result = self._apply(approval)
         if result.returncode != 0:
             return f"Failed to apply AgenticRunApproval: {result.stderr.strip()}"
@@ -359,25 +359,23 @@ class AgenticRunDriver(AgentDriver):
 
     @staticmethod
     def _is_terminal(
-        conditions: list[dict[str, Any]], agentic_run_spec: dict[str, Any]
+        conditions: list[dict[str, Any]], openshift_agentic_run_spec: dict[str, Any]
     ) -> Optional[TerminalOutcome]:
         """Check if conditions indicate a terminal state."""
-        phase = derive_phase(conditions, agentic_run_spec=agentic_run_spec or None)
-        return AgenticRunDriver._PHASE_TO_OUTCOME.get(phase)
+        phase = derive_phase(
+            conditions, openshift_agentic_run_spec=openshift_agentic_run_spec or None
+        )
+        return OpenshiftAgenticRunDriver._PHASE_TO_OUTCOME.get(phase)
 
     @staticmethod
     def _extract_summary(status_dict: dict[str, Any]) -> str:
         """Extract a human-readable summary from analysis results.
 
-        Degraded fallback: only called when AgenticRunAmender.amend() fails.
-        Reads only condition messages, ignoring agentic_run_results and child
+        Degraded fallback: only called when OpenshiftAgenticRunAmender.amend() fails.
+        Reads only condition messages, ignoring openshift_agentic_run_results and child
         Result CRs (analysis/execution/verification). The full rich summary
-        is built by AgenticRunAmender.build_summary() in the happy path.
+        is built by OpenshiftAgenticRunAmender.build_summary() in the happy path.
         """
         conditions = status_dict.get("conditions", [])
         messages = [c["message"] for c in conditions if c.get("message")]
         return "; ".join(messages) if messages else "No summary available"
-
-
-# Deprecated alias for backward compatibility
-ProposalDriver = AgenticRunDriver

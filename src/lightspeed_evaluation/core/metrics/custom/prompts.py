@@ -45,8 +45,8 @@ Format your response as:
 Score: [0 or 1]
 Reason: [your detailed explanation]"""
 
-# Proposal Evaluation Correctness Prompt
-PROPOSAL_EVALUATION_CORRECTNESS_PROMPT = """You are evaluating an automated remediation workflow on an OpenShift/Kubernetes cluster. You must be strict, objective, and critical. Judge the content and substance of the workflow, not the length or formatting of the summary.
+# OpenShift AgenticRun Evaluation Correctness Prompt
+OPENSHIFT_AGENTIC_RUN_EVALUATION_CORRECTNESS_PROMPT = """You are evaluating an automated remediation workflow on an OpenShift/Kubernetes cluster. You must be strict, objective, and critical. Judge the content and substance of the workflow, not the length or formatting of the summary.
 
 ## Original Request
 {request}

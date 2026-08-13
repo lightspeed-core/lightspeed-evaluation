@@ -4,8 +4,8 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from lightspeed_evaluation.core.agentic_run import derive_phase
 from lightspeed_evaluation.core.models import TurnData
+from lightspeed_evaluation.core.openshift_agentic_run import derive_phase
 
 _NON_TERMINAL_PHASES: frozenset[str] = frozenset({"StepStarted"})
 
@@ -85,14 +85,16 @@ def _latest_terminal_result(
 def _check_phase(
     expected: dict[str, Any],
     conditions: list[dict[str, Any]],
-    agentic_run_spec: Optional[dict[str, Any]],
+    openshift_agentic_run_spec: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check exact phase match."""
     phase = expected.get("phase")
     if phase is None:
         return None
 
-    actual = derive_phase(conditions, agentic_run_spec=agentic_run_spec)
+    actual = derive_phase(
+        conditions, openshift_agentic_run_spec=openshift_agentic_run_spec
+    )
     if actual == phase:
         return True, f"Phase matches: {actual}"
     return False, f"Phase mismatch: expected '{phase}', got '{actual}'"
@@ -101,14 +103,16 @@ def _check_phase(
 def _check_phase_in(
     expected: dict[str, Any],
     conditions: list[dict[str, Any]],
-    agentic_run_spec: Optional[dict[str, Any]],
+    openshift_agentic_run_spec: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check phase membership in a list."""
     phase_in = expected.get("phase_in")
     if phase_in is None:
         return None
 
-    actual = derive_phase(conditions, agentic_run_spec=agentic_run_spec)
+    actual = derive_phase(
+        conditions, openshift_agentic_run_spec=openshift_agentic_run_spec
+    )
     if actual in phase_in:
         return True, f"Phase '{actual}' in {phase_in}"
     return False, f"Phase '{actual}' not in {phase_in}"
@@ -142,14 +146,14 @@ def _check_max_duration(
 def _check_max_attempts(
     expected: dict[str, Any],
     conditions: list[dict[str, Any]],
-    agentic_run_status: dict[str, Any],
+    openshift_agentic_run_status: dict[str, Any],
 ) -> Optional[tuple[bool, str]]:
     """Check that the number of execution attempts is within limit."""
     max_attempts = expected.get("max_attempts")
     if max_attempts is None:
         return None
 
-    actual = agentic_run_status.get("attempts")
+    actual = openshift_agentic_run_status.get("attempts")
     if actual is None:
         actual = (
             sum(
@@ -265,18 +269,20 @@ def _check_analysis_option(
 
 def _check_analysis(
     expected: dict[str, Any],
-    agentic_run_results: Optional[dict[str, Any]],
+    openshift_agentic_run_results: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check analysis-specific assertions (options, risk, confidence, components)."""
     analysis_expected = expected.get("analysis")
     if analysis_expected is None:
         return None
 
-    if not agentic_run_results:
-        return False, "No agentic_run_results available for analysis check"
+    if not openshift_agentic_run_results:
+        return False, "No openshift_agentic_run_results available for analysis check"
 
     analysis_results = [
-        r for r in agentic_run_results.get("analysis", []) if isinstance(r, dict)
+        r
+        for r in openshift_agentic_run_results.get("analysis", [])
+        if isinstance(r, dict)
     ]
     latest_analysis = (
         _latest_terminal_result(analysis_results) if analysis_results else {}
@@ -311,18 +317,20 @@ def _check_analysis(
 
 def _check_execution(
     expected: dict[str, Any],
-    agentic_run_results: Optional[dict[str, Any]],
+    openshift_agentic_run_results: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check execution-specific assertions."""
     execution_expected = expected.get("execution")
     if execution_expected is None:
         return None
 
-    if not agentic_run_results:
-        return False, "No agentic_run_results available for execution check"
+    if not openshift_agentic_run_results:
+        return False, "No openshift_agentic_run_results available for execution check"
 
     execution_results = [
-        r for r in agentic_run_results.get("execution", []) if isinstance(r, dict)
+        r
+        for r in openshift_agentic_run_results.get("execution", [])
+        if isinstance(r, dict)
     ]
     if not execution_results:
         return False, "No execution results available"
@@ -416,7 +424,7 @@ def _check_verification(
     return True, "Verification assertions passed"
 
 
-def evaluate_agentic_run_status(
+def evaluate_openshift_agentic_run_status(
     _conv_data: Any,
     _turn_idx: Optional[int],
     turn_data: Optional[TurnData],
@@ -427,7 +435,8 @@ def evaluate_agentic_run_status(
     Args:
         _conv_data: Conversation data (unused).
         _turn_idx: Turn index (unused).
-        turn_data: Turn data with agentic_run_status and expected_agentic_run_status.
+        turn_data: Turn data with openshift_agentic_run_status and
+            expected_openshift_agentic_run_status.
         is_conversation: Whether this is conversation-level evaluation.
 
     Returns:
@@ -440,25 +449,25 @@ def evaluate_agentic_run_status(
     if turn_data is None:
         return None, "TurnData is required for agentic run status evaluation"
 
-    if not turn_data.expected_agentic_run_status:
-        return None, "No expected_agentic_run_status provided"
+    if not turn_data.expected_openshift_agentic_run_status:
+        return None, "No expected_openshift_agentic_run_status provided"
 
-    if not turn_data.agentic_run_status:
-        return 0.0, "agentic_run_status not populated by driver"
+    if not turn_data.openshift_agentic_run_status:
+        return 0.0, "openshift_agentic_run_status not populated by driver"
 
-    expected = turn_data.expected_agentic_run_status
-    agentic_run_status = turn_data.agentic_run_status
-    conditions = agentic_run_status.get("conditions", [])
-    agentic_run_spec = turn_data.agentic_run_spec
-    agentic_run_results = turn_data.agentic_run_results
+    expected = turn_data.expected_openshift_agentic_run_status
+    openshift_agentic_run_status = turn_data.openshift_agentic_run_status
+    conditions = openshift_agentic_run_status.get("conditions", [])
+    openshift_agentic_run_spec = turn_data.openshift_agentic_run_spec
+    openshift_agentic_run_results = turn_data.openshift_agentic_run_results
 
     checks = [
-        _check_phase(expected, conditions, agentic_run_spec),
-        _check_phase_in(expected, conditions, agentic_run_spec),
+        _check_phase(expected, conditions, openshift_agentic_run_spec),
+        _check_phase_in(expected, conditions, openshift_agentic_run_spec),
         _check_max_duration(expected, conditions),
-        _check_max_attempts(expected, conditions, agentic_run_status),
-        _check_analysis(expected, agentic_run_results),
-        _check_execution(expected, agentic_run_results),
+        _check_max_attempts(expected, conditions, openshift_agentic_run_status),
+        _check_analysis(expected, openshift_agentic_run_results),
+        _check_execution(expected, openshift_agentic_run_results),
         _check_conditions(expected, conditions),
         _check_verification(expected, conditions),
     ]

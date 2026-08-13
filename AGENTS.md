@@ -73,32 +73,19 @@ make test            # Or: uv run pytest tests
 
 **Important:** Do NOT disable lint warnings (e.g., `# noqa`, `# type: ignore`, `# pylint: disable`). Always try to fix the underlying issue. If a fix becomes too complicated, inform the user and discuss alternatives.
 
-### 6. AgenticRun Naming Convention (Proposal Deprecated)
+### 6. OpenshiftAgenticRun Naming Convention
 
-The framework renamed "Proposal" to "AgenticRun" to align with upstream CRD changes in `lightspeed-agentic-operator`. **Backward compatibility is maintained** via Pydantic validation aliases and Python class aliases.
-
-**Internal code (new):**
-- `AgenticRunDriver`, `AgenticRunAmender`, `AgenticRunAgentConfig`
-- `agentic_run_spec`, `agentic_run_status`, `agentic_run_results`, `agentic_run_phases`
-- `custom:agentic_run_status`, `custom:agentic_run_evaluation_correctness`
-- Agent type: `"agentic_run"`
-
-**Deprecated (backward compatible via aliases):**
-- `ProposalDriver`, `ProposalAmender`, `ProposalAgentConfig` 
-- `proposal_spec`, `proposal_status`, `proposal_results`, `proposal_phases` (in YAML)
-- `custom:proposal_status`, `custom:proposal_evaluation_correctness`
-- Agent type: `"proposal"` (emits deprecation warning)
-
-**When writing new code:**
-- Use `AgenticRun*` names internally
-- Pydantic automatically handles `proposal_*` field names in YAML via `validation_alias`
-- Deprecation warnings log when old names are used
+The framework uses "OpenshiftAgenticRun" naming for OpenShift-specific agentic workflow evaluation:
+- `OpenshiftAgenticRunDriver`, `OpenshiftAgenticRunAmender`, `OpenshiftAgenticRunAgentConfig`
+- `openshift_agentic_run_spec`, `openshift_agentic_run_status`, `openshift_agentic_run_results`, `openshift_agentic_run_phases`
+- `custom:openshift_agentic_run_status`, `custom:openshift_agentic_run_evaluation_correctness`
+- Agent type: `"openshift_agentic_run"`
 
 ---
 
 ## Project Overview
 
-The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (AgenticRun) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
+The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (OpenshiftAgenticRun) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
 
 ### Key Components
 
@@ -139,7 +126,7 @@ src/lightspeed_evaluation/
 │   ├── metrics/       # Evaluation metrics (Ragas, DeepEval, NLP, custom, script, user-defined)
 │   ├── models/        # Pydantic data models
 │   ├── output/        # Report generation and visualization
-│   ├── proposal/      # AgenticRun CRD operations
+│   ├── openshift_agentic_run/   # OpenShift AgenticRun CRD operations
 │   ├── script/        # Script execution for environment validation
 │   ├── storage/       # Storage backends (file, database, MLflow, Langfuse)
 │   └── system/        # Configuration and validation

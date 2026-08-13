@@ -69,24 +69,16 @@ METRIC_REQUIREMENTS = {
             "with 'tool_name', 'arguments', and optional 'result'"
         ),
     },
-    "custom:agentic_run_status": {
-        "required_fields": ["expected_agentic_run_status"],
-        "description": "requires 'expected_agentic_run_status' field",
+    "custom:openshift_agentic_run_status": {
+        "required_fields": ["expected_openshift_agentic_run_status"],
+        "description": "requires 'expected_openshift_agentic_run_status' field",
     },
-    "custom:proposal_status": {  # Deprecated alias
-        "required_fields": ["expected_agentic_run_status"],
-        "description": "deprecated: use custom:agentic_run_status instead",
-    },
-    "custom:agentic_run_evaluation_correctness": {
+    "custom:openshift_agentic_run_evaluation_correctness": {
         "required_fields": ["response", "expected_outcome"],
         "description": (
             "requires 'response' and 'expected_outcome' fields "
-            "(Markdown workflow summary from AgenticRunAmender)"
+            "(Markdown workflow summary from OpenshiftAgenticRunAmender)"
         ),
-    },
-    "custom:proposal_evaluation_correctness": {  # Deprecated alias
-        "required_fields": ["response", "expected_outcome"],
-        "description": "deprecated: use custom:agentic_run_evaluation_correctness instead",
     },
     "nlp:mrr": {
         "required_fields": ["contexts", "expected_contexts"],

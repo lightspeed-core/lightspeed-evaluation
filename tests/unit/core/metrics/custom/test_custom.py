@@ -197,7 +197,7 @@ def _make_scope(turn_data: TurnData, is_conversation: bool = False) -> Evaluatio
     )
 
 
-METRIC_NAME = "proposal_evaluation_correctness"
+METRIC_NAME = "openshift_agentic_run_evaluation_correctness"
 
 _LLM_RESPONSE_ALL_DIMS = json.dumps(
     {
@@ -223,13 +223,15 @@ _LLM_RESPONSE_NO_VERIFICATION = json.dumps(
 )
 
 
-class TestParseProposalEvalResponse:
-    """Test _parse_proposal_eval_response parser."""
+class TestParseOpenshiftAgenticRunEvalResponse:
+    """Test _parse_openshift_agentic_run_eval_response parser."""
 
     def test_all_dimensions(self, mocker: MockerFixture) -> None:
         """Test parsing response with all three dimensions scored."""
         cm = _make_custom_metrics(mocker)
-        score, detail = cm._parse_proposal_eval_response(_LLM_RESPONSE_ALL_DIMS)
+        score, detail = cm._parse_openshift_agentic_run_eval_response(
+            _LLM_RESPONSE_ALL_DIMS
+        )
 
         assert score == 0.80
         assert "diagnosis=0.90" in detail
@@ -241,7 +243,9 @@ class TestParseProposalEvalResponse:
     def test_dimension_na(self, mocker: MockerFixture) -> None:
         """Test parsing response with N/A dimension."""
         cm = _make_custom_metrics(mocker)
-        score, detail = cm._parse_proposal_eval_response(_LLM_RESPONSE_NO_VERIFICATION)
+        score, detail = cm._parse_openshift_agentic_run_eval_response(
+            _LLM_RESPONSE_NO_VERIFICATION
+        )
 
         assert score == 0.85
         assert "verification=N/A" in detail
@@ -259,7 +263,7 @@ class TestParseProposalEvalResponse:
             }
         )
 
-        score, detail = cm._parse_proposal_eval_response(response)
+        score, detail = cm._parse_openshift_agentic_run_eval_response(response)
 
         assert score is not None
         assert abs(score - 0.80) < 0.01
@@ -268,14 +272,16 @@ class TestParseProposalEvalResponse:
     def test_invalid_json_returns_none(self, mocker: MockerFixture) -> None:
         """Test that invalid JSON response returns None score."""
         cm = _make_custom_metrics(mocker)
-        score, detail = cm._parse_proposal_eval_response("I cannot evaluate this.")
+        score, detail = cm._parse_openshift_agentic_run_eval_response(
+            "I cannot evaluate this."
+        )
 
         assert score is None
         assert "Invalid JSON" in detail
 
 
-class TestProposalEvaluationCorrectness:
-    """Test custom:proposal_evaluation_correctness metric."""
+class TestOpenshiftAgenticRunEvaluationCorrectness:
+    """Test custom:openshift_agentic_run_evaluation_correctness metric."""
 
     def test_returns_score_from_llm(self, mocker: MockerFixture) -> None:
         """Test successful LLM evaluation returns parsed score."""
@@ -427,7 +433,7 @@ class TestProposalEvaluationCorrectness:
             query="q",
             response="r",
             expected_outcome="e",
-            agentic_run_phases=["analysis", "execution"],
+            openshift_agentic_run_phases=["analysis", "execution"],
         )
         cm.evaluate(METRIC_NAME, None, _make_scope(turn))
 
@@ -437,7 +443,7 @@ class TestProposalEvaluationCorrectness:
     def test_prompt_workflow_phases_unknown_when_none(
         self, mocker: MockerFixture
     ) -> None:
-        """Test that missing agentic_run_phases produces fallback text."""
+        """Test that missing openshift_agentic_run_phases produces fallback text."""
         cm = _make_custom_metrics(mocker)
         call_spy = mocker.patch.object(
             cm, "_call_llm", return_value=_LLM_RESPONSE_ALL_DIMS
@@ -464,7 +470,7 @@ class TestBuildWorkflowPhases:
         turn = TurnData(
             turn_id="t1",
             query="q",
-            agentic_run_phases=["analysis", "execution", "verification"],
+            openshift_agentic_run_phases=["analysis", "execution", "verification"],
         )
 
         result = cm._build_workflow_phases(turn)
@@ -477,7 +483,7 @@ class TestBuildWorkflowPhases:
         turn = TurnData(
             turn_id="t1",
             query="q",
-            agentic_run_phases=["analysis"],
+            openshift_agentic_run_phases=["analysis"],
         )
 
         result = cm._build_workflow_phases(turn)
@@ -485,7 +491,7 @@ class TestBuildWorkflowPhases:
         assert result == "Phases executed: analysis"
 
     def test_none_phases(self, mocker: MockerFixture) -> None:
-        """Test None agentic_run_phases produces fallback."""
+        """Test None openshift_agentic_run_phases produces fallback."""
         cm = _make_custom_metrics(mocker)
         turn = TurnData(turn_id="t1", query="q")
 
@@ -496,7 +502,7 @@ class TestBuildWorkflowPhases:
     def test_empty_phases(self, mocker: MockerFixture) -> None:
         """Test empty list produces fallback."""
         cm = _make_custom_metrics(mocker)
-        turn = TurnData(turn_id="t1", query="q", agentic_run_phases=[])
+        turn = TurnData(turn_id="t1", query="q", openshift_agentic_run_phases=[])
 
         result = cm._build_workflow_phases(turn)
 

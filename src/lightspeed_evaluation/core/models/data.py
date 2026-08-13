@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Annotated, Any, Optional
 
 from pydantic import (
-    AliasChoices,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -143,13 +142,13 @@ def _validate_and_deduplicate_metrics(
 class TurnData(StreamingMetricsMixin):
     """Individual turn data within a conversation."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
 
     turn_id: str = Field(..., min_length=1, description="Turn ID (alphanumeric)")
     query: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Query — auto-populated from agentic_run_spec.request when absent",
+        description="Query — auto-populated from openshift_agentic_run_spec.request when absent",
     )
     attachments: Optional[list[str]] = Field(
         default=None, min_length=0, description="Attachments"
@@ -191,22 +190,22 @@ class TurnData(StreamingMetricsMixin):
     expected_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected outcome for proposal evaluation correctness",
+        description="Expected outcome for OpenShift agentic run evaluation correctness",
     )
     expected_analysis_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected analysis/diagnosis outcome for proposal evaluation",
+        description="Expected analysis/diagnosis outcome for OpenShift agentic run evaluation",
     )
     expected_execution_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected execution/action outcome for proposal evaluation",
+        description="Expected execution/action outcome for OpenShift agentic run evaluation",
     )
     expected_verification_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected verification outcome for proposal evaluation",
+        description="Expected verification outcome for OpenShift agentic run evaluation",
     )
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation ID - populated by API if enabled"
@@ -240,35 +239,29 @@ class TurnData(StreamingMetricsMixin):
         default=None, description="Path to verify script for script-based evaluation"
     )
 
-    # AgenticRun driver fields
+    # OpenshiftAgenticRun driver fields
     description: Optional[str] = Field(
         default=None, description="Human-readable label for reports"
     )
-    agentic_run_spec: Optional[dict[str, Any]] = Field(
+    openshift_agentic_run_spec: Optional[dict[str, Any]] = Field(
         default=None,
-        validation_alias=AliasChoices("agentic_run_spec", "proposal_spec"),
-        description="Inline agentic run spec for CRD-based agents",
+        description="Inline OpenShift agentic run spec for CRD-based agents",
     )
-    expected_agentic_run_status: Optional[dict[str, Any]] = Field(
+    expected_openshift_agentic_run_status: Optional[dict[str, Any]] = Field(
         default=None,
-        validation_alias=AliasChoices(
-            "expected_agentic_run_status", "expected_proposal_status"
-        ),
-        description="Expected agentic run status for assertion metrics",
+        description="Expected OpenShift agentic run status for assertion metrics",
     )
-    agentic_run_status: Optional[dict[str, Any]] = Field(
+    openshift_agentic_run_status: Optional[dict[str, Any]] = Field(
         default=None,
-        validation_alias=AliasChoices("agentic_run_status", "proposal_status"),
-        description="Raw CRD status populated by AgenticRunDriver",
+        description="Raw CRD status populated by OpenshiftAgenticRunDriver",
     )
-    agentic_run_results: Optional[dict[str, Any]] = Field(
+    openshift_agentic_run_results: Optional[dict[str, Any]] = Field(
         default=None,
-        validation_alias=AliasChoices("agentic_run_results", "proposal_results"),
-        description="Structured results from child Result CRs, populated by AgenticRunAmender",
+        description="Structured results from child Result CRs, "
+        "populated by OpenshiftAgenticRunAmender",
     )
-    agentic_run_phases: Optional[list[str]] = Field(
+    openshift_agentic_run_phases: Optional[list[str]] = Field(
         default=None,
-        validation_alias=AliasChoices("agentic_run_phases", "proposal_phases"),
         description="Workflow phases that actually executed (e.g. ['analysis', 'execution'])",
     )
 
@@ -283,72 +276,23 @@ class TurnData(StreamingMetricsMixin):
         """Returns True if the metric didn't pass the validation."""
         return metric in self._invalid_metrics
 
-    # Deprecated property accessors for backward compatibility
-    @property
-    def proposal_spec(self) -> Optional[dict[str, Any]]:
-        """Deprecated: use agentic_run_spec instead."""
-        return self.agentic_run_spec
-
-    @proposal_spec.setter
-    def proposal_spec(self, value: Optional[dict[str, Any]]) -> None:
-        """Deprecated setter for proposal_spec."""
-        self.agentic_run_spec = value
-
-    @property
-    def expected_proposal_status(self) -> Optional[dict[str, Any]]:
-        """Deprecated: use expected_agentic_run_status instead."""
-        return self.expected_agentic_run_status
-
-    @expected_proposal_status.setter
-    def expected_proposal_status(self, value: Optional[dict[str, Any]]) -> None:
-        """Deprecated setter for expected_proposal_status."""
-        self.expected_agentic_run_status = value
-
-    @property
-    def proposal_status(self) -> Optional[dict[str, Any]]:
-        """Deprecated: use agentic_run_status instead."""
-        return self.agentic_run_status
-
-    @proposal_status.setter
-    def proposal_status(self, value: Optional[dict[str, Any]]) -> None:
-        """Deprecated setter for proposal_status."""
-        self.agentic_run_status = value
-
-    @property
-    def proposal_results(self) -> Optional[dict[str, Any]]:
-        """Deprecated: use agentic_run_results instead."""
-        return self.agentic_run_results
-
-    @proposal_results.setter
-    def proposal_results(self, value: Optional[dict[str, Any]]) -> None:
-        """Deprecated setter for proposal_results."""
-        self.agentic_run_results = value
-
-    @property
-    def proposal_phases(self) -> Optional[list[str]]:
-        """Deprecated: use agentic_run_phases instead."""
-        return self.agentic_run_phases
-
-    @proposal_phases.setter
-    def proposal_phases(self, value: Optional[list[str]]) -> None:
-        """Deprecated setter for proposal_phases."""
-        self.agentic_run_phases = value
-
     @model_validator(mode="after")
-    def populate_query_from_agentic_run_spec(self) -> "TurnData":
-        """Auto-populate query from agentic_run_spec.request when absent."""
+    def populate_query_from_openshift_agentic_run_spec(self) -> "TurnData":
+        """Auto-populate query from openshift_agentic_run_spec.request when absent."""
         if self.query is not None:
             return self
-        if self.agentic_run_spec is not None:
-            request = self.agentic_run_spec.get("request")
+        if self.openshift_agentic_run_spec is not None:
+            request = self.openshift_agentic_run_spec.get("request")
             if isinstance(request, str) and request.strip():
                 self.query = request
                 return self
             raise ValueError(
-                "agentic_run_spec must contain a non-empty 'request' "
+                "openshift_agentic_run_spec must contain a non-empty 'request' "
                 "when query is not provided"
             )
-        raise ValueError("query is required when agentic_run_spec is not provided")
+        raise ValueError(
+            "query is required when openshift_agentic_run_spec is not provided"
+        )
 
     @field_validator("turn_metrics")
     @classmethod
