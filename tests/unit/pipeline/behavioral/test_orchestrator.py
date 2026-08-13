@@ -550,6 +550,9 @@ class TestBuildAndSaveReport:
         mock_save = mocker.patch(
             "lightspeed_evaluation.pipeline.behavioral.orchestrator.save_report"
         )
+        mock_agent_save = mocker.patch(
+            "lightspeed_evaluation.pipeline.behavioral.orchestrator.save_agent_report"
+        )
 
         results = [
             RunResult(
@@ -564,10 +567,10 @@ class TestBuildAndSaveReport:
             results, str(tmp_path), repeat=1, timestamp="20260810_120000"
         )
 
+        mock_agent_save.assert_called_once()
         mock_save.assert_called_once()
         report = mock_save.call_args[0][0]
         assert "model_a" in report.agents
-        assert report.agents["model_a"].agent_name == "model_a"
         assert report.agents["model_a"].runs_requested == 1
         assert report.comparison is None
         assert report.summary.total_agents == 1

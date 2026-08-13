@@ -31,7 +31,10 @@ from lightspeed_evaluation.pipeline.behavioral.models import (
     RunResult,
     RunSummary,
 )
-from lightspeed_evaluation.pipeline.behavioral.report import save_report
+from lightspeed_evaluation.pipeline.behavioral.report import (
+    save_agent_report,
+    save_report,
+)
 from lightspeed_evaluation.pipeline.evaluation import EvaluationPipeline
 
 if TYPE_CHECKING:
@@ -401,7 +404,7 @@ def _build_and_save_report(
     repeat: int,
     timestamp: str,
 ) -> None:
-    """Consolidate results and save eval_report.json.
+    """Consolidate results and save agent + eval reports.
 
     Wrapped in try/except — consolidation failure does not fail the evaluation.
     """
@@ -429,6 +432,9 @@ def _build_and_save_report(
                 agent_name, runs_data, runs_requested=repeat
             )
 
+        for agent_name, agent in consolidated.items():
+            save_agent_report(agent, os.path.join(eval_dir, agent_name))
+
         comparable = {
             name: agent
             for name, agent in consolidated.items()
@@ -447,8 +453,7 @@ def _build_and_save_report(
             agents=consolidated,
             comparison=comparison,
         )
-        path = save_report(report, eval_dir)
-        logger.info("Eval report: %s", path)
+        logger.info("Eval report: %s", save_report(report, eval_dir))
     except Exception:  # pylint: disable=broad-exception-caught
         logger.error("Failed to generate eval report: %s", traceback.format_exc())
 
