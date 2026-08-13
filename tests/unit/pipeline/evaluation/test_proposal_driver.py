@@ -256,10 +256,10 @@ class TestBuildCR:
         return ProposalDriver(VALID_CONFIG)
 
     def test_proposal_cr_query_only(self, mocker: MockerFixture) -> None:
-        """Test Proposal CR with query only, no proposal_spec."""
+        """Test Proposal CR with query only, no agentic_run_spec."""
         driver = self._make_driver(mocker)
         turn = TurnData(turn_id="t1", query="Pod is crash looping")
-        cr = driver._build_proposal_cr(turn, "eval-abc123")
+        cr = driver._build_agentic_run_cr(turn, "eval-abc123")
 
         assert cr["apiVersion"] == "agentic.openshift.io/v1alpha1"
         assert cr["kind"] == "AgenticRun"
@@ -269,18 +269,18 @@ class TestBuildCR:
         assert cr["spec"]["analysis"] == {}
 
     def test_proposal_cr_with_spec(self, mocker: MockerFixture) -> None:
-        """Test Proposal CR with full proposal_spec."""
+        """Test Proposal CR with full agentic_run_spec."""
         driver = self._make_driver(mocker)
         turn = TurnData(
             turn_id="t1",
             query="Pod is crash looping",
-            proposal_spec={
+            agentic_run_spec={
                 "targetNamespaces": ["production"],
                 "analysis": {"agent": "smart"},
                 "execution": {"agent": "default"},
             },
         )
-        cr = driver._build_proposal_cr(turn, "eval-abc123")
+        cr = driver._build_agentic_run_cr(turn, "eval-abc123")
 
         assert cr["spec"]["request"] == "Pod is crash looping"
         assert cr["spec"]["targetNamespaces"] == ["production"]
@@ -293,9 +293,9 @@ class TestBuildCR:
         turn = TurnData(
             turn_id="t1",
             query="Q",
-            proposal_spec={"execution": {}},
+            agentic_run_spec={"execution": {}},
         )
-        cr = driver._build_proposal_cr(turn, "eval-x")
+        cr = driver._build_agentic_run_cr(turn, "eval-x")
 
         assert cr["spec"]["analysis"] == {}
 
@@ -323,7 +323,7 @@ class TestBuildCR:
         assert cr["spec"]["stages"][2]["verification"] == {"agent": "default"}
 
     def test_approval_cr_with_agent_refs(self, mocker: MockerFixture) -> None:
-        """Test ProposalApproval passes agent names from proposal_spec."""
+        """Test ProposalApproval passes agent names from agentic_run_spec."""
         driver = self._make_driver(mocker)
         spec: dict[str, Any] = {
             "analysis": {"agent": "eval-default"},
@@ -484,7 +484,7 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(terminal_status, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Fix pod", proposal_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Fix pod", agentic_run_spec=SPEC_FULL)
         error, conv_id = driver.execute_turn(turn)
 
         assert error is None
@@ -492,7 +492,7 @@ class TestExecuteTurn:
         response = str(turn.response)
         assert "Analysis done" in response
         assert "Passed" in response
-        assert turn.proposal_status == terminal_status
+        assert turn.agentic_run_status == terminal_status
         driver._cleanup.assert_called_once_with("eval-abcd1234")
 
     def test_apply_failure(self, mocker: MockerFixture, driver: ProposalDriver) -> None:
@@ -518,7 +518,7 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(non_terminal, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Q", proposal_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Q", agentic_run_spec=SPEC_FULL)
         error, conv_id = driver.execute_turn(turn)
 
         assert error is not None
@@ -552,7 +552,7 @@ class TestExecuteTurn:
         )
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Q", proposal_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Q", agentic_run_spec=SPEC_FULL)
         error, _ = driver.execute_turn(turn)
 
         assert error is None
@@ -595,11 +595,11 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(status, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(turn_id="t1", query="Q", proposal_spec=SPEC_FULL)
+        turn = TurnData(turn_id="t1", query="Q", agentic_run_spec=SPEC_FULL)
         error, _ = driver.execute_turn(turn)
 
         assert error is None
-        assert turn.proposal_status == status
+        assert turn.agentic_run_status == status
 
     def test_get_status_error(
         self, mocker: MockerFixture, driver: ProposalDriver

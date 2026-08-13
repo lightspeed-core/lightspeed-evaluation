@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.driver import (
     AgentDriver,
+    AgenticRunDriver,
     HttpApiDriver,
-    ProposalDriver,
 )
+
+logger = logging.getLogger(__name__)
 
 AGENT_DRIVERS: dict[str, type[AgentDriver]] = {
     "http_api": HttpApiDriver,
-    "proposal": ProposalDriver,
+    "agentic_run": AgenticRunDriver,
+    "proposal": AgenticRunDriver,  # Deprecated: maps to AgenticRunDriver
 }
 
 
@@ -31,6 +35,13 @@ class AgentDriverRegistry:  # pylint: disable=too-few-public-methods
         agent_type = agent_config.get("type")
         if not agent_type:
             raise ConfigurationError("Agent config missing required 'type' field")
+
+        # Emit deprecation warning for "proposal" type
+        if agent_type == "proposal":
+            logger.warning(
+                "Agent type 'proposal' is deprecated. Use 'agentic_run' instead. "
+                "Support for 'proposal' will be removed in a future release."
+            )
 
         driver_cls = self._drivers.get(agent_type)
         if not driver_cls:

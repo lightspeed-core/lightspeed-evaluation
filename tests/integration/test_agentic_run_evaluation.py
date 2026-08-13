@@ -1,7 +1,7 @@
-"""Integration tests for ProposalDriver-based evaluation.
+"""Integration tests for AgenticRunDriver-based evaluation.
 
 These tests run the evaluation pipeline against a live OpenShift cluster
-using the ProposalDriver to create and manage Proposal CRs.
+using the AgenticRunDriver to create and manage AgenticRun CRs.
 
 Prerequisites:
     - oc CLI authenticated against a cluster with agentic CRDs installed
@@ -11,7 +11,7 @@ Prerequisites:
 Each scenario has its own setup/cleanup scripts that source a shared
 infrastructure script per provider (e.g. _setup_infra-openai.sh).
 
-Run with: pytest tests/integration/test_proposal_evaluation.py -v -m agentic
+Run with: pytest tests/integration/test_agentic_run_evaluation.py -v -m agentic
 """
 
 import os
@@ -47,7 +47,7 @@ def check_cluster_reachable() -> bool:
 
 
 def check_crd_installed() -> bool:
-    """Check if the Proposal CRD is installed on the cluster."""
+    """Check if the AgenticRun CRD is installed on the cluster."""
     try:
         result = subprocess.run(
             ["oc", "get", "crd", "agenticruns.agentic.openshift.io"],
@@ -69,12 +69,14 @@ def check_env_vars_set() -> bool:
 pytestmark = pytest.mark.agentic
 
 INTEGRATION_TEST_DIR = Path(__file__).parent
-PROPOSAL_CONFIG_PATH = INTEGRATION_TEST_DIR / "system-config-agents-proposal.yaml"
-PROPOSAL_EVAL_DATA_PATH = INTEGRATION_TEST_DIR / "test_evaluation_data_proposal.yaml"
+AGENTIC_RUN_CONFIG_PATH = INTEGRATION_TEST_DIR / "system-config-agents-agentic-run.yaml"
+AGENTIC_RUN_EVAL_DATA_PATH = (
+    INTEGRATION_TEST_DIR / "test_evaluation_data_agentic_run.yaml"
+)
 
 
-class TestProposalPrerequisites:
-    """Verify prerequisites for proposal integration tests."""
+class TestAgenticRunPrerequisites:
+    """Verify prerequisites for agentic run integration tests."""
 
     def test_cli_available(self) -> None:
         """Verify that oc CLI is available."""
@@ -85,7 +87,7 @@ class TestProposalPrerequisites:
         assert check_cluster_reachable(), "Cluster must be reachable via 'oc whoami'"
 
     def test_crd_installed(self) -> None:
-        """Verify that Proposal CRD is installed on the cluster."""
+        """Verify that AgenticRun CRD is installed on the cluster."""
         assert (
             check_crd_installed()
         ), "agenticruns.agentic.openshift.io CRD must be installed"
@@ -95,8 +97,8 @@ class TestProposalPrerequisites:
         assert check_env_vars_set(), "OPENAI_API_KEY environment variable must be set"
 
 
-class TestProposalDriverEvaluation:
-    """End-to-end tests for ProposalDriver evaluation pipeline."""
+class TestAgenticRunDriverEvaluation:
+    """End-to-end tests for AgenticRunDriver evaluation pipeline."""
 
     @pytest.mark.timeout(1200)
     def test_oomkill_full_lifecycle(self, tmp_path: Path) -> None:
@@ -104,14 +106,14 @@ class TestProposalDriverEvaluation:
 
         Verifies:
         - Setup script deploys infrastructure and test workload
-        - ProposalDriver creates Proposal CR and auto-approves stages
+        - AgenticRunDriver creates AgenticRun CR and auto-approves stages
         - Pipeline completes without errors
         - TurnData is enriched with response and proposal_status
         - At least the Analyzed condition reaches status True
         - Cleanup script removes test resources
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
+        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -120,7 +122,7 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
         eval_data = [
             d for d in all_data if d.conversation_group_id == "proposal_oomkill_openai"
         ]
@@ -131,7 +133,7 @@ class TestProposalDriverEvaluation:
         turn = eval_data[0].turns[0]
         assert (
             turn.response and turn.response.strip()
-        ), "Response should be populated by ProposalDriver"
+        ), "Response should be populated by AgenticRunDriver"
         assert isinstance(
             turn.proposal_status, dict
         ), "proposal_status should be populated"
@@ -155,7 +157,7 @@ class TestProposalDriverEvaluation:
         - No Executed or Verified conditions present
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
+        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -164,7 +166,7 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
         eval_data = [
             d for d in all_data if d.conversation_group_id == "proposal_analysis_only"
         ]
@@ -175,7 +177,7 @@ class TestProposalDriverEvaluation:
         turn = eval_data[0].turns[0]
         assert (
             turn.response and turn.response.strip()
-        ), "Response should be populated by ProposalDriver"
+        ), "Response should be populated by AgenticRunDriver"
         assert isinstance(
             turn.proposal_status, dict
         ), "proposal_status should be populated"
@@ -202,12 +204,12 @@ class TestProposalDriverEvaluation:
         """Test OOMKill full lifecycle with Claude/Vertex AI provider.
 
         Verifies:
-        - ProposalDriver populates response with workflow summary
+        - AgenticRunDriver populates response with workflow summary
         - custom:proposal_evaluation_correctness metric runs against response
         - Pipeline completes without errors
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
+        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -216,7 +218,7 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
         eval_data = [
             d
             for d in all_data
@@ -229,7 +231,7 @@ class TestProposalDriverEvaluation:
         turn = eval_data[0].turns[0]
         assert (
             turn.response and turn.response.strip()
-        ), "Response should be populated by ProposalDriver"
+        ), "Response should be populated by AgenticRunDriver"
 
     @pytest.mark.timeout(120)
     def test_timeout_handling(self, tmp_path: Path) -> None:
@@ -237,10 +239,10 @@ class TestProposalDriverEvaluation:
 
         Verifies:
         - Pipeline does not crash on timeout
-        - Proposal CRs are cleaned up after timeout
+        - AgenticRun CRs are cleaned up after timeout
         """
         loader = ConfigLoader()
-        system_config = loader.load_system_config(str(PROPOSAL_CONFIG_PATH))
+        system_config = loader.load_system_config(str(AGENTIC_RUN_CONFIG_PATH))
         system_config.storage = [
             FileBackendConfig(output_dir=str(tmp_path / "eval_output"))
         ]
@@ -254,7 +256,7 @@ class TestProposalDriverEvaluation:
             api_enabled=True,
             fail_on_invalid_data=system_config.core.fail_on_invalid_data,
         )
-        all_data = validator.load_evaluation_data(str(PROPOSAL_EVAL_DATA_PATH))
+        all_data = validator.load_evaluation_data(str(AGENTIC_RUN_EVAL_DATA_PATH))
         eval_data = [
             d for d in all_data if d.conversation_group_id == "proposal_analysis_only"
         ]
@@ -287,4 +289,4 @@ class TestProposalDriverEvaluation:
         ]
         assert (
             len(lines) == 0
-        ), f"Proposal CRs should be cleaned up after timeout, but found: {lines}"
+        ), f"AgenticRun CRs should be cleaned up after timeout, but found: {lines}"

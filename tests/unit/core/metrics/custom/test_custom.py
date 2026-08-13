@@ -427,7 +427,7 @@ class TestProposalEvaluationCorrectness:
             query="q",
             response="r",
             expected_outcome="e",
-            proposal_phases=["analysis", "execution"],
+            agentic_run_phases=["analysis", "execution"],
         )
         cm.evaluate(METRIC_NAME, None, _make_scope(turn))
 
@@ -437,7 +437,7 @@ class TestProposalEvaluationCorrectness:
     def test_prompt_workflow_phases_unknown_when_none(
         self, mocker: MockerFixture
     ) -> None:
-        """Test that missing proposal_phases produces fallback text."""
+        """Test that missing agentic_run_phases produces fallback text."""
         cm = _make_custom_metrics(mocker)
         call_spy = mocker.patch.object(
             cm, "_call_llm", return_value=_LLM_RESPONSE_ALL_DIMS
@@ -464,7 +464,7 @@ class TestBuildWorkflowPhases:
         turn = TurnData(
             turn_id="t1",
             query="q",
-            proposal_phases=["analysis", "execution", "verification"],
+            agentic_run_phases=["analysis", "execution", "verification"],
         )
 
         result = cm._build_workflow_phases(turn)
@@ -477,7 +477,7 @@ class TestBuildWorkflowPhases:
         turn = TurnData(
             turn_id="t1",
             query="q",
-            proposal_phases=["analysis"],
+            agentic_run_phases=["analysis"],
         )
 
         result = cm._build_workflow_phases(turn)
@@ -485,7 +485,7 @@ class TestBuildWorkflowPhases:
         assert result == "Phases executed: analysis"
 
     def test_none_phases(self, mocker: MockerFixture) -> None:
-        """Test None proposal_phases produces fallback."""
+        """Test None agentic_run_phases produces fallback."""
         cm = _make_custom_metrics(mocker)
         turn = TurnData(turn_id="t1", query="q")
 
@@ -496,7 +496,7 @@ class TestBuildWorkflowPhases:
     def test_empty_phases(self, mocker: MockerFixture) -> None:
         """Test empty list produces fallback."""
         cm = _make_custom_metrics(mocker)
-        turn = TurnData(turn_id="t1", query="q", proposal_phases=[])
+        turn = TurnData(turn_id="t1", query="q", agentic_run_phases=[])
 
         result = cm._build_workflow_phases(turn)
 

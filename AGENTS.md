@@ -73,11 +73,32 @@ make test            # Or: uv run pytest tests
 
 **Important:** Do NOT disable lint warnings (e.g., `# noqa`, `# type: ignore`, `# pylint: disable`). Always try to fix the underlying issue. If a fix becomes too complicated, inform the user and discuss alternatives.
 
+### 6. AgenticRun Naming Convention (Proposal Deprecated)
+
+The framework renamed "Proposal" to "AgenticRun" to align with upstream CRD changes in `lightspeed-agentic-operator`. **Backward compatibility is maintained** via Pydantic validation aliases and Python class aliases.
+
+**Internal code (new):**
+- `AgenticRunDriver`, `AgenticRunAmender`, `AgenticRunAgentConfig`
+- `agentic_run_spec`, `agentic_run_status`, `agentic_run_results`, `agentic_run_phases`
+- `custom:agentic_run_status`, `custom:agentic_run_evaluation_correctness`
+- Agent type: `"agentic_run"`
+
+**Deprecated (backward compatible via aliases):**
+- `ProposalDriver`, `ProposalAmender`, `ProposalAgentConfig` 
+- `proposal_spec`, `proposal_status`, `proposal_results`, `proposal_phases` (in YAML)
+- `custom:proposal_status`, `custom:proposal_evaluation_correctness`
+- Agent type: `"proposal"` (emits deprecation warning)
+
+**When writing new code:**
+- Use `AgenticRun*` names internally
+- Pydantic automatically handles `proposal_*` field names in YAML via `validation_alias`
+- Deprecation warnings log when old names are used
+
 ---
 
 ## Project Overview
 
-The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
+The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (AgenticRun) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
 
 ### Key Components
 

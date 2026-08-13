@@ -2,11 +2,12 @@
 
 from lightspeed_evaluation.core.models.agents import (
     AgentDefaultConfig,
+    AgenticRunAgentConfig,
     AgentsConfig,
     HttpApiAgentConfig,
     MCPHeadersConfig,
     MCPServerConfig,
-    ProposalAgentConfig,
+    ProposalAgentConfig,  # Deprecated alias for AgenticRunAgentConfig
 )
 from lightspeed_evaluation.core.models.api import (
     APIRequest,
@@ -69,11 +70,12 @@ from lightspeed_evaluation.core.models.trace import (
 __all__ = [
     # Agent config models
     "AgentDefaultConfig",
+    "AgenticRunAgentConfig",
     "AgentsConfig",
     "HttpApiAgentConfig",
     "MCPHeadersConfig",
     "MCPServerConfig",
-    "ProposalAgentConfig",
+    "ProposalAgentConfig",  # Deprecated alias for AgenticRunAgentConfig
     # Data models
     "TurnData",
     "EvaluationData",

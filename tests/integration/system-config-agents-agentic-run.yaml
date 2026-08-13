@@ -1,0 +1,25 @@
+# Minimal system config for agentic run integration tests
+# Uses old naming for backward compatibility testing
+core:
+  max_threads: 1
+
+# Minimal LLM config to avoid deprecation warnings
+llm_pool:
+  defaults:
+    timeout: 300
+  models:
+    judge_default:
+      provider: openai
+      model: gpt-4o-mini
+
+agents:
+  enabled: true
+  default:
+    agent: proposal_agent
+
+  proposal_agent:
+    type: proposal  # Old name - tests backward compatibility
+    namespace: openshift-lightspeed  # Operator namespace where Agent/LLMProvider live
+    auto_approve: true
+    cleanup_proposals: false  # Temporarily disabled for debugging
+    timeout: 900

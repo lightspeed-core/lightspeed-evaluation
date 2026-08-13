@@ -168,17 +168,17 @@ class HttpApiAgentConfig(HttpApiBaseFields):
     )
 
 
-class ProposalAgentConfig(BaseModel):
-    """Configuration for a Proposal CRD-based agent."""
+class AgenticRunAgentConfig(BaseModel):
+    """Configuration for an AgenticRun CRD-based agent."""
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["proposal"] = "proposal"
+    type: Literal["agentic_run", "proposal"] = "agentic_run"
     namespace: str = Field(
         ...,
         min_length=1,
         pattern=r"\S+",
-        description="Kubernetes namespace containing Proposal resources",
+        description="Kubernetes namespace containing AgenticRun resources",
     )
     auto_approve: bool = True
     cleanup_proposals: bool = True
@@ -193,10 +193,25 @@ class ProposalAgentConfig(BaseModel):
         default=True, description="Is caching of API queries enabled?"
     )
 
+    @field_validator("type")
+    @classmethod
+    def _warn_deprecated_proposal_type(cls, v: str) -> str:
+        """Emit deprecation warning when using 'proposal' type."""
+        if v == "proposal":
+            logger.warning(
+                "Agent type 'proposal' is deprecated. Use 'agentic_run' instead. "
+                "Support for 'proposal' will be removed in a future release."
+            )
+        return v
+
+
+# Deprecated alias for backward compatibility
+ProposalAgentConfig = AgenticRunAgentConfig
+
 
 # Type alias for all agent config types; extend by adding new
 # config classes to support additional agent types.
-AgentDefinition = HttpApiAgentConfig | ProposalAgentConfig
+AgentDefinition = HttpApiAgentConfig | AgenticRunAgentConfig
 
 
 class AgentDefaultConfig(BaseModel):

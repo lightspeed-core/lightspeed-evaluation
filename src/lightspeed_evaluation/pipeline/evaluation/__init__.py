@@ -9,7 +9,8 @@ if TYPE_CHECKING:
     from lightspeed_evaluation.pipeline.evaluation.amender import APIDataAmender
     from lightspeed_evaluation.pipeline.evaluation.driver import (
         AgentDriver,
-        ProposalDriver,
+        AgenticRunDriver,
+        ProposalDriver,  # Deprecated alias
     )
     from lightspeed_evaluation.pipeline.evaluation.errors import EvaluationErrorHandler
     from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
@@ -48,7 +49,11 @@ _LAZY_IMPORTS = {
         "lightspeed_evaluation.pipeline.evaluation.evaluator",
         "MetricsEvaluator",
     ),
-    "ProposalDriver": (
+    "AgenticRunDriver": (
+        "lightspeed_evaluation.pipeline.evaluation.driver",
+        "AgenticRunDriver",
+    ),
+    "ProposalDriver": (  # Deprecated alias
         "lightspeed_evaluation.pipeline.evaluation.driver",
         "ProposalDriver",
     ),

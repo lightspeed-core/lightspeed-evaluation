@@ -66,7 +66,11 @@ DEFAULT_API_NUM_RETRIES = 3
 
 # Agent Constants
 DEFAULT_AGENT_TYPE = "http_api"
-SUPPORTED_AGENT_TYPES = ["http_api", "proposal"]
+SUPPORTED_AGENT_TYPES = [
+    "http_api",
+    "agentic_run",  # AgenticRun CRD-based agent (preferred)
+    "proposal",  # Deprecated: use "agentic_run" instead
+]
 
 # Frameworks that don't require judge LLM (NLP, script-based evaluations)
 NON_LLM_FRAMEWORKS = frozenset({"nlp", "script"})

@@ -59,8 +59,8 @@ def _make_turn(query: str = "Fix pod crash") -> TurnData:
 
 def _get_results(turn: TurnData) -> dict[str, Any]:
     """Extract proposal_results, failing if None."""
-    assert turn.proposal_results is not None
-    return dict(turn.proposal_results)
+    assert turn.agentic_run_results is not None
+    return dict(turn.agentic_run_results)
 
 
 def _get_response(turn: TurnData) -> str:
@@ -169,7 +169,7 @@ class TestAmendAnalysisOnly:
         err = amender.amend(turn, status)
 
         assert err is None
-        assert turn.proposal_status == status
+        assert turn.agentic_run_status == status
         results = _get_results(turn)
         assert "analysis" in results
         assert len(results["analysis"]) == 1
@@ -253,7 +253,7 @@ class TestAmendAnalysisOnly:
 
         amender.amend(turn, status)
 
-        assert turn.proposal_phases == ["analysis"]
+        assert turn.agentic_run_phases == ["analysis"]
 
 
 class TestAmendFullPipeline:
@@ -338,7 +338,7 @@ class TestAmendFullPipeline:
 
         amender.amend(turn, self._make_status())
 
-        assert turn.proposal_phases == ["analysis", "execution", "verification"]
+        assert turn.agentic_run_phases == ["analysis", "execution", "verification"]
 
 
 class TestAmendEdgeCases:
@@ -353,8 +353,8 @@ class TestAmendEdgeCases:
 
         amender.amend(turn, status)
 
-        assert not turn.proposal_results
-        assert not turn.proposal_phases
+        assert not turn.agentic_run_results
+        assert not turn.agentic_run_phases
         response = _get_response(turn)
         assert "## Request" in response
 
@@ -389,7 +389,7 @@ class TestAmendEdgeCases:
             },
         }
         mock_logger = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.proposal_amender.logger"
+            "lightspeed_evaluation.pipeline.evaluation.agentic_run_amender.logger"
         )
 
         err = amender.amend(turn, status)
@@ -492,7 +492,7 @@ class TestAmendEdgeCases:
         err = amender.amend(turn, status)
 
         assert err is not None
-        assert "ProposalAmender error" in err
+        assert "AgenticRunAmender error" in err
 
 
 class TestKubeCLITimeoutHandling:
