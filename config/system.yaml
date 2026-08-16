@@ -323,6 +323,8 @@ storage:
   # Or provide them inline below:
   # - type: "langfuse"
   #   host: "https://cloud.langfuse.com"
+  #   # Optional — also link per-turn traces into a Dataset run (Datasets → Runs)
+  #   dataset_name: "eval-baseline-v1"
 
   # MLflow backend (optional) - export metrics, traces, and results to MLflow
   # Requires: pip install 'lightspeed-evaluation[mlflow]'
