@@ -2,10 +2,13 @@
 
 """Additional tests to boost coverage towards 75%."""
 
+import csv
+import io
 from pathlib import Path
 
 from pytest_mock import MockerFixture
 
+from lightspeed_evaluation.core.constants import SUPPORTED_CSV_COLUMNS
 from lightspeed_evaluation.core.models import (
     EvaluationData,
     EvaluationResult,
@@ -14,6 +17,7 @@ from lightspeed_evaluation.core.models import (
 )
 from lightspeed_evaluation.core.models.summary import EvaluationSummary
 from lightspeed_evaluation.core.output.generator import OutputHandler
+from lightspeed_evaluation.core.output.serializers import result_to_json_dict
 from lightspeed_evaluation.core.output.statistics import (
     compute_detailed_stats,
     compute_overall_stats,
@@ -185,3 +189,70 @@ class TestSystemLoaderEdgeCases:
         assert any("unknown:metric1" in err for err in validator.validation_errors)
         assert any("unknown:metric2" in err for err in validator.validation_errors)
         assert any("unknown:conv_metric" in err for err in validator.validation_errors)
+
+
+class TestCsvExportVerboseLogs:
+    """Tests for verbose_logs in CSV export path."""
+
+    def test_csv_includes_verbose_logs_column(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """Test verbose_logs column appears in CSV output."""
+        file_config = FileBackendConfig(csv_columns=list(SUPPORTED_CSV_COLUMNS))
+        config = mocker.Mock()
+        config.storage = [file_config]
+        config.visualization.enabled_graphs = []
+
+        handler = OutputHandler(output_dir=str(tmp_path), system_config=config)
+        results = [
+            EvaluationResult(
+                conversation_group_id="conv1",
+                metric_identifier="geval:accuracy",
+                result="PASS",
+                verbose_logs="Criteria:\nAccuracy\nSteps:\n1. Verify",
+            ),
+            EvaluationResult(
+                conversation_group_id="conv2",
+                metric_identifier="ragas:faithfulness",
+                result="PASS",
+            ),
+        ]
+
+        csv_file = handler._generate_csv_report(results, "test_verbose")
+        rows = list(csv.reader(io.StringIO(csv_file.read_text())))
+        verbose_idx = rows[0].index("verbose_logs")
+        assert rows[1][verbose_idx] == "Criteria:\nAccuracy\nSteps:\n1. Verify"
+        assert rows[2][verbose_idx] == ""
+
+
+class TestResultToJsonDictVerboseLogs:
+    """Tests for verbose_logs in result_to_json_dict serializer."""
+
+    def test_verbose_logs_included_when_set(self) -> None:
+        """Test verbose_logs appears in JSON dict when populated."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="t1",
+            metric_identifier="geval:accuracy",
+            result="PASS",
+            score=0.9,
+            threshold=0.7,
+            verbose_logs="Criteria:\nAccuracy\nSteps:\n1. Verify",
+        )
+        d = result_to_json_dict(result)
+        assert "verbose_logs" in d
+        assert d["verbose_logs"] == "Criteria:\nAccuracy\nSteps:\n1. Verify"
+
+    def test_verbose_logs_null_when_none(self) -> None:
+        """Test verbose_logs is None in JSON dict when not set."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="t1",
+            metric_identifier="ragas:faithfulness",
+            result="PASS",
+            score=0.85,
+            threshold=0.7,
+        )
+        d = result_to_json_dict(result)
+        assert "verbose_logs" in d
+        assert d["verbose_logs"] is None

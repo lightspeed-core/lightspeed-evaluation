@@ -122,6 +122,10 @@ class JudgeOrchestrator:
             judge_llm_output_tokens=token_totals["judge_output_tokens"],
             embedding_tokens=token_totals["embedding_tokens"],
             judge_scores=judge_scores,
+            verbose_logs="\n---\n".join(
+                js.verbose_logs for js in judge_scores if js.verbose_logs
+            )
+            or None,
         )
 
     def _evaluate_all_judges(  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -206,42 +210,30 @@ class JudgeOrchestrator:
             score, reason = handler.evaluate(
                 metric_name, request.conv_data, evaluation_scope
             )
-            judge_input_tokens, judge_output_tokens = token_tracker.get_judge_counts()
-            embedding_tokens = token_tracker.get_embedding_counts()
-
-            logger.debug(
-                "Judge %s: score=%s, tokens=%d/%d, embeddings=%d",
-                judge_id,
-                score,
-                judge_input_tokens,
-                judge_output_tokens,
-                embedding_tokens,
-            )
-
-            return JudgeScore(
-                judge_id=judge_id,
-                score=score,
-                reason=reason,
-                judge_input_tokens=judge_input_tokens,
-                judge_output_tokens=judge_output_tokens,
-                embedding_tokens=embedding_tokens,
-            )
-
+            handler_logs = getattr(handler, "last_verbose_logs", None)
         except EvaluationError as e:
-            # Catch expected evaluation errors (LLM errors, metric errors, etc.)
-            # Let unexpected exceptions (ConfigurationError, bugs) propagate
             logger.error("Judge %s failed: %s", judge_id, e)
-            judge_input_tokens, judge_output_tokens = token_tracker.get_judge_counts()
-            embedding_tokens = token_tracker.get_embedding_counts()
+            score, reason, handler_logs = None, f"Evaluation error: {e}", None
 
-            return JudgeScore(
-                judge_id=judge_id,
-                score=None,
-                reason=f"Evaluation error: {e}",
-                judge_input_tokens=judge_input_tokens,
-                judge_output_tokens=judge_output_tokens,
-                embedding_tokens=embedding_tokens,
-            )
+        judge_tokens = token_tracker.get_judge_counts()
+        emb_tokens = token_tracker.get_embedding_counts()
+        logger.debug(
+            "Judge %s: score=%s, tokens=%d/%d, embeddings=%d",
+            judge_id,
+            score,
+            judge_tokens[0],
+            judge_tokens[1],
+            emb_tokens,
+        )
+        return JudgeScore(
+            judge_id=judge_id,
+            score=score,
+            reason=reason,
+            judge_input_tokens=judge_tokens[0],
+            judge_output_tokens=judge_tokens[1],
+            embedding_tokens=emb_tokens,
+            verbose_logs=handler_logs if isinstance(handler_logs, str) else None,
+        )
 
     def _get_handler_for_judge(self, framework: str, judge_manager: LLMManager) -> Any:
         """Get or create a metric handler for a specific judge.

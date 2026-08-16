@@ -390,6 +390,86 @@ class TestSQLStorageBackendMultipleRuns:  # pylint: disable=too-few-public-metho
         assert run_info2.run_id in run_ids
 
 
+class TestSQLStorageBackendMigration:
+    """Tests for schema migration in initialize()."""
+
+    def test_migrate_adds_missing_nullable_column(self, temp_db_url: str) -> None:
+        """Test legacy DB without verbose_logs is migrated transparently."""
+        engine = create_engine(temp_db_url)
+        orm_cols = EvaluationResultDB.__table__.columns
+        col_defs = ", ".join(
+            f"{c.name} {c.type.compile(dialect=engine.dialect)}"
+            f"{'' if c.nullable else ' NOT NULL'}"
+            for c in orm_cols
+            if c.name != "verbose_logs"
+        )
+        with engine.begin() as conn:
+            conn.execute(text(f"CREATE TABLE evaluation_results ({col_defs})"))
+        engine.dispose()
+
+        backend = SQLStorageBackend(temp_db_url)
+        backend.initialize(RunInfo())
+
+        check_engine = create_engine(temp_db_url)
+        with check_engine.connect() as conn:
+            cols = {
+                row[1]
+                for row in conn.execute(
+                    text("PRAGMA table_info(evaluation_results)")
+                ).fetchall()
+            }
+        assert "verbose_logs" in cols
+        backend.close()
+        check_engine.dispose()
+
+    def test_migrate_rejects_incompatible_table(self, temp_db_url: str) -> None:
+        """Test that a table missing required non-nullable columns is rejected."""
+        engine = create_engine(temp_db_url)
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE evaluation_results ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "run_id VARCHAR(36) NOT NULL"
+                    ")"
+                )
+            )
+        engine.dispose()
+
+        backend = SQLStorageBackend(temp_db_url)
+        with pytest.raises(StorageError, match="non-nullable"):
+            backend.initialize(RunInfo())
+
+    def test_migrate_does_not_alter_incompatible_table(self, temp_db_url: str) -> None:
+        """Test that incompatible tables are not mutated before rejection."""
+        engine = create_engine(temp_db_url)
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE evaluation_results ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "run_id VARCHAR(36) NOT NULL"
+                    ")"
+                )
+            )
+        engine.dispose()
+
+        backend = SQLStorageBackend(temp_db_url)
+        with pytest.raises(StorageError, match="non-nullable"):
+            backend.initialize(RunInfo())
+
+        check_engine = create_engine(temp_db_url)
+        with check_engine.connect() as conn:
+            cols = {
+                row[1]
+                for row in conn.execute(
+                    text("PRAGMA table_info(evaluation_results)")
+                ).fetchall()
+            }
+        assert "verbose_logs" not in cols
+        check_engine.dispose()
+
+
 class TestEvaluationResultDB:
     """Tests for EvaluationResultDB SQLAlchemy model."""
 
@@ -433,5 +513,6 @@ class TestEvaluationResultDB:
             "expected_intent",
             "expected_keywords",
             "expected_tool_calls",
+            "verbose_logs",
         }
         assert required_columns == columns

@@ -550,6 +550,10 @@ class GEvalConfig(BaseModel):
         le=1.0,
         description="Minimum score threshold for pass/fail",
     )
+    verbose: bool = Field(
+        default=False,
+        description="Include verbose logs (criteria, evaluation steps, rubric) in output",
+    )
 
     @model_validator(mode="after")
     def validate_rubrics_non_overlapping(self) -> "GEvalConfig":
@@ -599,6 +603,7 @@ class GEvalConfig(BaseModel):
             "evaluation_params": raw.get("evaluation_params") or [],
             "evaluation_steps": raw.get("evaluation_steps"),
             "threshold": raw.get("threshold", 0.5),
+            "verbose": raw.get("verbose", False),
         }
         raw_rubrics = raw.get("rubrics")
         if raw_rubrics and isinstance(raw_rubrics, list):

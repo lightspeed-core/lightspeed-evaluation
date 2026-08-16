@@ -1,4 +1,4 @@
-# pylint: disable=too-many-public-methods,protected-access
+# pylint: disable=too-many-public-methods,protected-access,too-many-lines
 
 """Tests for GEval metrics handler."""
 
@@ -875,3 +875,171 @@ class TestGEvalHandler:
             is_conversation=False,
         )
         assert score == 0.85
+
+    def test_verbose_logs_captured_when_enabled(
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test that verbose_logs are captured when verbose is True."""
+        mock_geval_class = mocker.patch(
+            "lightspeed_evaluation.core.metrics.geval.GEval"
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.9
+        mock_metric.reason = "Good"
+        mock_metric.verbose_logs = "Criteria:\nTest\nEvaluation Steps:\n1. Step"
+        mock_geval_class.return_value = mock_metric
+
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "threshold": 0.5,
+            "verbose": True,
+        }
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Q"
+        turn_data.response = "R"
+        turn_data.expected_response = None
+        turn_data.contexts = None
+        conv_data = mocker.MagicMock()
+
+        score, reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
+        assert score == 0.9
+        assert reason == "Good"
+        assert (
+            handler.last_verbose_logs == "Criteria:\nTest\nEvaluation Steps:\n1. Step"
+        )
+
+    def test_verbose_logs_not_captured_when_disabled(
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test that verbose_logs are NOT captured when verbose is False (default)."""
+        mock_geval_class = mocker.patch(
+            "lightspeed_evaluation.core.metrics.geval.GEval"
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.9
+        mock_metric.reason = "Good"
+        mock_metric.verbose_logs = "Should not be captured"
+        mock_geval_class.return_value = mock_metric
+
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test criteria",
+            "threshold": 0.5,
+        }
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Q"
+        turn_data.response = "R"
+        turn_data.expected_response = None
+        turn_data.contexts = None
+        conv_data = mocker.MagicMock()
+
+        handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
+        assert handler.last_verbose_logs is None
+
+    def test_verbose_logs_captured_conversation_level(
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test that verbose_logs are captured at conversation level."""
+        mock_geval_class = mocker.patch(
+            "lightspeed_evaluation.core.metrics.geval.GEval"
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.8
+        mock_metric.reason = "Coherent"
+        mock_metric.verbose_logs = "Conversation verbose logs"
+        mock_geval_class.return_value = mock_metric
+
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Evaluate coherence",
+            "evaluation_params": ["query", "response"],
+            "threshold": 0.6,
+            "verbose": True,
+        }
+
+        turn1 = mocker.MagicMock()
+        turn1.query = "Hello"
+        turn1.response = "Hi there"
+        conv_data = mocker.MagicMock()
+        conv_data.turns = [turn1]
+
+        score, _reason = handler.evaluate(
+            metric_name="test_metric",
+            conv_data=conv_data,
+            _turn_idx=None,
+            turn_data=None,
+            is_conversation=True,
+        )
+        assert score == 0.8
+        assert handler.last_verbose_logs == "Conversation verbose logs"
+
+    def test_verbose_logs_reset_between_evaluations(
+        self,
+        handler: GEvalHandler,
+        mock_metric_manager: Any,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test that verbose_logs are reset at the start of each evaluate() call."""
+        mock_geval_class = mocker.patch(
+            "lightspeed_evaluation.core.metrics.geval.GEval"
+        )
+        mock_metric = mocker.MagicMock()
+        mock_metric.score = 0.9
+        mock_metric.reason = "OK"
+        mock_metric.verbose_logs = "Logs from first eval"
+        mock_geval_class.return_value = mock_metric
+
+        turn_data = mocker.MagicMock()
+        turn_data.query = "Q"
+        turn_data.response = "R"
+        turn_data.expected_response = None
+        turn_data.contexts = None
+        conv_data = mocker.MagicMock()
+
+        # First eval with verbose=True
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test",
+            "threshold": 0.5,
+            "verbose": True,
+        }
+        handler.evaluate(
+            metric_name="m",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
+        assert handler.last_verbose_logs == "Logs from first eval"
+
+        # Second eval with verbose=False — logs should be reset
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "criteria": "Test",
+            "threshold": 0.5,
+        }
+        handler.evaluate(
+            metric_name="m",
+            conv_data=conv_data,
+            _turn_idx=0,
+            turn_data=turn_data,
+            is_conversation=False,
+        )
+        assert handler.last_verbose_logs is None
