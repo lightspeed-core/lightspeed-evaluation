@@ -685,10 +685,6 @@ class MetricResult(BaseModel):
         default=None,
         description="Per-judge scores when using judge panel (for transparency)",
     )
-    verbose_logs: Optional[str] = Field(
-        default=None,
-        description="GEval verbose logs when verbose mode is enabled",
-    )
 
     @field_validator("result")
     @classmethod

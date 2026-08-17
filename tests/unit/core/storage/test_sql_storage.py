@@ -394,14 +394,17 @@ class TestSQLStorageBackendMigration:
     """Tests for schema migration in initialize()."""
 
     def test_migrate_adds_missing_nullable_column(self, temp_db_url: str) -> None:
-        """Test legacy DB without verbose_logs is migrated transparently."""
+        """Test legacy DB without a nullable column is migrated transparently."""
         engine = create_engine(temp_db_url)
         orm_cols = EvaluationResultDB.__table__.columns
+        nullable_cols = [c for c in orm_cols if c.nullable]
+        assert nullable_cols, "Need at least one nullable column to test migration"
+        drop_col = nullable_cols[-1].name
         col_defs = ", ".join(
             f"{c.name} {c.type.compile(dialect=engine.dialect)}"
             f"{'' if c.nullable else ' NOT NULL'}"
             for c in orm_cols
-            if c.name != "verbose_logs"
+            if c.name != drop_col
         )
         with engine.begin() as conn:
             conn.execute(text(f"CREATE TABLE evaluation_results ({col_defs})"))
@@ -418,7 +421,7 @@ class TestSQLStorageBackendMigration:
                     text("PRAGMA table_info(evaluation_results)")
                 ).fetchall()
             }
-        assert "verbose_logs" in cols
+        assert drop_col in cols
         backend.close()
         check_engine.dispose()
 
@@ -466,8 +469,26 @@ class TestSQLStorageBackendMigration:
                     text("PRAGMA table_info(evaluation_results)")
                 ).fetchall()
             }
-        assert "verbose_logs" not in cols
+        assert cols == {"id", "run_id"}
         check_engine.dispose()
+
+    def test_extra_db_column_not_in_orm_is_tolerated(self, temp_db_url: str) -> None:
+        """DB with an extra column (e.g. dropped verbose_logs) works fine."""
+        engine = create_engine(temp_db_url)
+        orm_cols = EvaluationResultDB.__table__.columns
+        col_defs = ", ".join(
+            f"{c.name} {c.type.compile(dialect=engine.dialect)}"
+            f"{'' if c.nullable else ' NOT NULL'}"
+            for c in orm_cols
+        )
+        col_defs += ", verbose_logs TEXT"
+        with engine.begin() as conn:
+            conn.execute(text(f"CREATE TABLE evaluation_results ({col_defs})"))
+        engine.dispose()
+
+        backend = SQLStorageBackend(temp_db_url)
+        backend.initialize(RunInfo())
+        backend.close()
 
 
 class TestEvaluationResultDB:
@@ -513,6 +534,5 @@ class TestEvaluationResultDB:
             "expected_intent",
             "expected_keywords",
             "expected_tool_calls",
-            "verbose_logs",
         }
         assert required_columns == columns

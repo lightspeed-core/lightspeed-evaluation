@@ -122,10 +122,6 @@ class JudgeOrchestrator:
             judge_llm_output_tokens=token_totals["judge_output_tokens"],
             embedding_tokens=token_totals["embedding_tokens"],
             judge_scores=judge_scores,
-            verbose_logs="\n---\n".join(
-                js.verbose_logs for js in judge_scores if js.verbose_logs
-            )
-            or None,
         )
 
     def _evaluate_all_judges(  # pylint: disable=too-many-arguments,too-many-positional-arguments
