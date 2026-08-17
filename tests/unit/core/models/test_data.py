@@ -750,44 +750,6 @@ class TestMetricResultJudgeScores:
         assert len(result.judge_scores) == 2
 
 
-class TestMetricResultVerboseLogs:
-    """Tests for MetricResult.verbose_logs field."""
-
-    def test_metric_result_with_verbose_logs(self) -> None:
-        """Test MetricResult with verbose_logs populated."""
-        result = MetricResult(
-            result="PASS",
-            score=0.9,
-            threshold=0.7,
-            reason="Good",
-            verbose_logs="Criteria:\nTest\nEvaluation Steps:\n1. Step",
-        )
-        assert result.verbose_logs == "Criteria:\nTest\nEvaluation Steps:\n1. Step"
-
-    def test_metric_result_verbose_logs_defaults_none(self) -> None:
-        """Test MetricResult verbose_logs defaults to None."""
-        result = MetricResult(
-            result="PASS",
-            score=0.9,
-            threshold=0.7,
-            reason="Good",
-        )
-        assert result.verbose_logs is None
-
-    def test_evaluation_result_inherits_verbose_logs(self) -> None:
-        """Test that EvaluationResult inherits verbose_logs from MetricResult."""
-        result = EvaluationResult(
-            conversation_group_id="conv1",
-            turn_id="turn1",
-            metric_identifier="geval:accuracy",
-            result="PASS",
-            score=0.9,
-            threshold=0.7,
-            verbose_logs="Verbose log content",
-        )
-        assert result.verbose_logs == "Verbose log content"
-
-
 class TestEvaluationDataAgentFields:
     """Tests for agent-related fields on EvaluationData."""
 

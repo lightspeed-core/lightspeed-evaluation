@@ -1,4 +1,5 @@
 # pylint: disable=redefined-outer-name,too-few-public-methods,protected-access
+# pylint: disable=unsubscriptable-object,not-an-iterable
 
 """Unit tests for JudgeOrchestrator - multi-judge evaluation and aggregation."""
 
@@ -215,10 +216,12 @@ class TestAggregationStrategies:
 
 
 class TestVerboseLogsPropagation:
-    """Tests for verbose_logs capture and aggregation across judges."""
+    """Tests for verbose_logs capture in per-judge JudgeScore."""
 
-    def test_single_judge_verbose_logs_propagated(self, mocker: MockerFixture) -> None:
-        """Verbose logs from a single judge appear in MetricResult."""
+    def test_single_judge_verbose_logs_in_judge_score(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Verbose logs from a single judge appear in JudgeScore."""
         mock_manager = mocker.MagicMock()
         mock_manager.system_config = None
         mock_manager.judge_id = "primary"
@@ -237,8 +240,7 @@ class TestVerboseLogsPropagation:
             handler_factory=mocker.MagicMock(),
             status_determiner=lambda s, _: "PASS" if s >= 0.5 else "FAIL",
         )
-        mock_manager_list = [mock_manager]
-        mock_manager.get_judges_for_metric.return_value = mock_manager_list
+        mock_manager.get_judges_for_metric.return_value = [mock_manager]
 
         request = mocker.MagicMock()
         request.metric_identifier = "deepeval:g_eval"
@@ -246,10 +248,15 @@ class TestVerboseLogsPropagation:
 
         result = orch.evaluate_with_judges(request, scope, token_tracker, 0.7)
 
-        assert result.verbose_logs == "Criteria:\nAccuracy\nSteps:\n1. Check"
+        assert isinstance(result.judge_scores, list)
+        assert len(result.judge_scores) == 1
+        assert (
+            result.judge_scores[0].verbose_logs
+            == "Criteria:\nAccuracy\nSteps:\n1. Check"
+        )
 
-    def test_multi_judge_verbose_logs_aggregated(self, mocker: MockerFixture) -> None:
-        """Verbose logs from multiple judges are joined with separator."""
+    def test_multi_judge_verbose_logs_per_judge(self, mocker: MockerFixture) -> None:
+        """Each judge's verbose logs are stored in its own JudgeScore."""
         mock_manager = mocker.MagicMock()
         mock_manager.system_config.judge_panel.aggregation_strategy = "max"
         mock_manager.judge_id = "primary"
@@ -286,50 +293,13 @@ class TestVerboseLogsPropagation:
 
         result = orch.evaluate_with_judges(request, scope, token_tracker, 0.7)
 
-        assert result.verbose_logs == "Judge A logs\n---\nJudge B logs"
-
-    def test_multi_judge_only_one_has_verbose_logs(self, mocker: MockerFixture) -> None:
-        """When only one judge produces verbose_logs, no separator is added."""
-        mock_manager = mocker.MagicMock()
-        mock_manager.system_config.judge_panel.aggregation_strategy = "max"
-        mock_manager.judge_id = "primary"
-
-        handler_a = mocker.MagicMock()
-        handler_a.evaluate.return_value = (0.9, "Good")
-        handler_a.last_verbose_logs = "Only judge A logs"
-
-        handler_b = mocker.MagicMock()
-        handler_b.evaluate.return_value = (0.8, "OK")
-        handler_b.last_verbose_logs = None
-
-        judge_a = mocker.MagicMock()
-        judge_a.judge_id = "judge-a"
-        judge_b = mocker.MagicMock()
-        judge_b.judge_id = "judge-b"
-
-        token_tracker = mocker.MagicMock()
-        token_tracker.get_judge_counts.return_value = (10, 20)
-        token_tracker.get_embedding_counts.return_value = 0
-
-        factory = mocker.MagicMock(side_effect=[handler_a, handler_b])
-        orch = JudgeOrchestrator(
-            llm_manager=mock_manager,
-            primary_handlers={},
-            handler_factory=factory,
-            status_determiner=lambda s, _: "PASS" if s >= 0.5 else "FAIL",
-        )
-        mock_manager.get_judges_for_metric.return_value = [judge_a, judge_b]
-
-        request = mocker.MagicMock()
-        request.metric_identifier = "deepeval:g_eval"
-        scope = mocker.MagicMock()
-
-        result = orch.evaluate_with_judges(request, scope, token_tracker, 0.7)
-
-        assert result.verbose_logs == "Only judge A logs"
+        assert isinstance(result.judge_scores, list)
+        assert len(result.judge_scores) == 2
+        assert result.judge_scores[0].verbose_logs == "Judge A logs"
+        assert result.judge_scores[1].verbose_logs == "Judge B logs"
 
     def test_no_judges_have_verbose_logs(self, mocker: MockerFixture) -> None:
-        """When no judge produces verbose_logs, result is None."""
+        """When no judge produces verbose_logs, JudgeScore.verbose_logs is None."""
         mock_manager = mocker.MagicMock()
         mock_manager.system_config.judge_panel.aggregation_strategy = "max"
         mock_manager.judge_id = "primary"
@@ -366,7 +336,8 @@ class TestVerboseLogsPropagation:
 
         result = orch.evaluate_with_judges(request, scope, token_tracker, 0.7)
 
-        assert result.verbose_logs is None
+        assert isinstance(result.judge_scores, list)
+        assert all(js.verbose_logs is None for js in result.judge_scores)
 
     def test_handler_without_last_verbose_logs_attribute(
         self, mocker: MockerFixture
@@ -397,7 +368,8 @@ class TestVerboseLogsPropagation:
 
         result = orch.evaluate_with_judges(request, scope, token_tracker, 0.7)
 
-        assert result.verbose_logs is None
+        assert isinstance(result.judge_scores, list)
+        assert result.judge_scores[0].verbose_logs is None
 
 
 class TestHandlerCaching:

@@ -76,7 +76,6 @@ class EvaluationResultDB(Base):  # pylint: disable=too-few-public-methods
     expected_intent = Column(Text, nullable=True)
     expected_keywords = Column(Text, nullable=True)
     expected_tool_calls = Column(Text, nullable=True)
-    verbose_logs = Column(Text, nullable=True)
 
 
 class SQLStorageBackend(BaseStorageBackend):
@@ -390,7 +389,6 @@ class SQLStorageBackend(BaseStorageBackend):
             expected_intent=result.expected_intent,
             expected_keywords=result.expected_keywords,
             expected_tool_calls=result.expected_tool_calls,
-            verbose_logs=result.verbose_logs,
         )
 
     @staticmethod
