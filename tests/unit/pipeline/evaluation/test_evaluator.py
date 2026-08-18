@@ -132,6 +132,32 @@ class TestMetricsEvaluator:
         assert "missing or empty" in result.reason
         mock_ragas.evaluate.assert_not_called()
 
+    def test_evaluate_conversation_loop_eval_missing_tool_calls_returns_error(
+        self, evaluator: MetricsEvaluator
+    ) -> None:
+        """Conversation-level loop_eval errors when any turn lacks tool_calls."""
+        mock_custom = evaluator.handlers["custom"]
+
+        turns = [
+            TurnData(
+                turn_id="1",
+                query="Query",
+                tool_calls=[[{"tool_name": "oc_get", "arguments": {}}]],
+            ),
+            TurnData(turn_id="2", query="Query", tool_calls=None),
+        ]
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=turns)
+        request = EvaluationRequest.for_conversation(conv_data, "custom:loop_eval")
+
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.result == "ERROR"
+        assert result.score is None
+        assert "tool_calls" in result.reason
+        assert "missing" in result.reason
+        mock_custom.evaluate.assert_not_called()
+
     def test_evaluate_metric_conversation_level(
         self, evaluator: MetricsEvaluator
     ) -> None:

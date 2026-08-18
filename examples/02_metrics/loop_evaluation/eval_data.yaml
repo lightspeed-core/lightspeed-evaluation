@@ -1,0 +1,85 @@
+- conversation_group_id: no_loops
+  description: Distinct consecutive tools should score 1.0
+  tag: loops
+  turns:
+  - turn_id: mixed_tools
+    query: Show pods then describe the first one
+    tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: default
+    - - tool_name: oc_describe
+        arguments:
+          kind: pod
+          name: my-pod
+
+- conversation_group_id: exact_loop
+  description: Same tool with identical arguments three times
+  tag: loops
+  turns:
+  - turn_id: repeated_get
+    query: List pods in default
+    tool_calls:
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: default
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: default
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+          namespace: default
+
+- conversation_group_id: soft_loop
+  description: Same tool called with different arguments (thrashing)
+  tag: loops
+  turns:
+  - turn_id: search_thrash
+    query: Find the crashlooping pod
+    tool_calls:
+    - - tool_name: search
+        arguments:
+          q: crashloop
+    - - tool_name: search
+        arguments:
+          q: CrashLoopBackOff
+    - - tool_name: search
+        arguments:
+          q: pod restart
+
+- conversation_group_id: recursive_depth
+  description: Nested tool chain deeper than max_recursive_depth (10 by default, 2 in this turn)
+  tag: loops
+  turns:
+  - turn_id: nested_tools
+    query: Diagnose nested agent tool use
+    turn_metrics_metadata:
+      custom:loop_eval:
+        max_recursive_depth: 2
+    tool_calls:
+    - - tool_name: plan
+        arguments: {}
+        span_id: s1
+    - - tool_name: search
+        arguments:
+          q: pods
+        span_id: s2
+        parent_span_id: s1
+    - - tool_name: oc_get
+        arguments:
+          kind: pod
+        span_id: s3
+        parent_span_id: s2
+
+- conversation_group_id: empty_tools
+  description: No tool calls is a pass (nothing to loop)
+  tag: loops
+  turns:
+  - turn_id: no_tools
+    query: What is a namespace?
+    response: A namespace is a logical cluster partition.
+    tool_calls: []

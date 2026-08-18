@@ -1,0 +1,49 @@
+core:
+  max_threads: 1
+  cache_enabled: false
+
+agents:
+  enabled: false
+
+metrics_metadata:
+  turn_level:
+    custom:loop_eval:
+      threshold: 1.0
+      description: Detect exact tool loops, soft thrashing, and excessive recursive depth
+      default: true
+      exact_loop_threshold: 3
+      soft_loop_threshold: 3
+      max_recursive_depth: 10
+
+storage:
+- type: file
+  output_dir: examples/02_metrics/loop_evaluation/eval_output
+  base_filename: evaluation
+  enabled_outputs:
+  - csv
+  - json
+  - txt
+  csv_columns:
+  - conversation_group_id
+  - turn_id
+  - metric_identifier
+  - score
+  - threshold
+  - result
+  - reason
+  - query
+
+visualization:
+  figsize:
+  - 10
+  - 6
+  dpi: 150
+  enabled_graphs:
+  - pass_rates
+  - status_breakdown
+
+logging:
+  source_level: INFO
+  package_level: WARNING
+  log_format: '%(asctime)s - %(levelname)s - %(message)s'
+  show_timestamps: true

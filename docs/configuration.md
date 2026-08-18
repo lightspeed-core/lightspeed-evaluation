@@ -311,6 +311,57 @@ For **user-defined criteria** metrics (`geval:...`), you can define custom evalu
 
 User-defined criteria metrics return a score in **[0, 1]**.
 
+For **`custom:loop_eval`** (turn-level and conversation-level), additional keys control detection.
+
+**Eval-data contract:** The pipeline reads `turns[].tool_calls` only (`list[list[dict]]`). Evaluation YAML has no `traces` or `trace` field — do not submit MLflow, Langfuse, or OpenTelemetry payloads as a sibling of `tool_calls`. Recursive depth uses optional identity keys **on each tool-call dict**, not a nested `Trace` object:
+
+```yaml
+turns:
+  - turn_id: nested_tools
+    query: Diagnose nested agent tool use
+    tool_calls:
+      - - tool_name: plan          # also accepts name
+          arguments: {}            # also accepts args
+          span_id: s1              # optional; also accepts id
+      - - tool_name: search
+          arguments:
+            q: pods
+          span_id: s2
+          parent_span_id: s1       # optional; also accepts parent_id
+      - - tool_name: oc_get
+          arguments:
+            kind: pod
+          span_id: s3
+          parent_span_id: s2
+```
+
+`evaluate_loops_from_trace` can score a normalized `Trace` from Python after adapter conversion. That helper is not configuration, not eval-data input, and is not called by `lightspeed-eval`. See [Internal Trace Model](trace_model.md).
+
+- **`exact_loop_threshold`** (default `3`): Consecutive identical tool name + arguments that count as an exact loop.
+- **`soft_loop_threshold`** (default `3`): Consecutive same tool name with any arguments that count as thrashing.
+- **`max_recursive_depth`** (default `10`): Maximum allowed number of spans in a parent chain, including the root and the current span (`span_id` / `parent_span_id` on `tool_calls`). A chain fails only when its span count is **greater than** this value (for example, `root → child → leaf` is 3 and fails when the setting is `2`).
+- **`threshold`** (default `1.0`): Score at or above this is PASS. `1.0` means any detected loop fails.
+
+**Conversation-level:** Exact/soft loops and recursive depth are detected **within each turn** (one user query). Tool-call sequences are not concatenated across turns — repeating the same tool for a later query is not a loop. The conversation score uses the worst per-turn finding.
+
+```yaml
+metrics_metadata:
+  turn_level:
+    "custom:loop_eval":
+      threshold: 1.0
+      exact_loop_threshold: 3
+      soft_loop_threshold: 3
+      max_recursive_depth: 10
+      default: false
+  conversation_level:
+    "custom:loop_eval":
+      threshold: 1.0
+      exact_loop_threshold: 3
+      soft_loop_threshold: 3
+      max_recursive_depth: 10
+      default: false
+```
+
 By default no metrics are computed (`default` is set to `false`).
 
 | Setting (metrics_metadata.) | Description |

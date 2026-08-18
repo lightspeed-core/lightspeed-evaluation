@@ -163,6 +163,14 @@ metrics_metadata:
       ordered: true       # true (default): sequence order matters, false: any order allowed
       full_match: true    # true (default): exact 1:1 match, false: expected tools found in actual (extras allowed)
 
+    "custom:loop_eval":
+      threshold: 1.0  # 1.0 = no loops; any detected loop fails unless threshold is lowered
+      description: "Detect exact tool loops, soft thrashing, and excessive recursive call depth"
+      exact_loop_threshold: 3    # consecutive identical tool+args
+      soft_loop_threshold: 3     # consecutive same tool, any args
+      max_recursive_depth: 10    # parent-child span/tool chain depth
+      default: false
+
     "custom:openshift_agentic_run_evaluation_correctness":
       threshold: 0.75
       description: "LLM judge of OpenShift agentic remediation workflow quality (diagnosis, actions, risk, verification)"
@@ -244,6 +252,14 @@ metrics_metadata:
     "deepeval:knowledge_retention":
       threshold: 0.7
       description: "How well the model retains information from previous turns"
+
+    "custom:loop_eval":
+      threshold: 1.0
+      description: "Detect exact tool loops, soft thrashing, and excessive recursive call depth within each turn"
+      exact_loop_threshold: 3
+      soft_loop_threshold: 3
+      max_recursive_depth: 10
+      default: false
 
     # GEval conversation-level metrics (criteria = required; evaluation_steps, rubrics = optional)
     "geval:conversation_coherence":

@@ -420,6 +420,56 @@ expected_tool_calls:
 
 ---
 
+#### Loop Evaluation
+
+**What it measures:** Did the agent get stuck repeating the same tool instead of making progress?
+
+**Plain English:** "Did the agent call the same tool over and over (same or similar arguments), or nest tool calls too deeply?"
+
+**Score:** 1.0 = no loops, down to 0.0 = severe looping
+
+**How it works (deterministic, no LLM):**
+- **Exact loop:** same tool + identical arguments N+ times consecutively (default N=3)
+- **Soft loop:** same tool N+ times consecutively regardless of arguments (thrashing)
+- **Recursive depth:** number of spans in the parent chain (including the root and the current span) greater than `max_recursive_depth` (default 10). Put `span_id` / `parent_span_id` on each dict inside `turns[].tool_calls` (`list[list[dict]]`). Evaluation YAML has no `traces` or `trace` field. A separate Python helper (`evaluate_loops_from_trace`) can score a normalized `Trace`; that is not eval YAML input and is not used by the evaluation pipeline.
+
+**Conversation-level:** Detection stays inside each turn. Consecutive calls are not joined across queries, because repeating a tool for a new user question is not thrashing. The conversation score is the worst per-turn finding.
+
+This is **not** an extension of `custom:tool_eval`. `tool_eval` matches actual calls against expected calls. `loop_eval` only looks at the actual sequence. Ragas and DeepEval do not provide loop detection; GEval can approximate it subjectively if you prefer an LLM judge.
+
+**Example:**
+```yaml
+turns:
+  - turn_id: "stuck-search"
+    query: "Find the crashlooping pod"
+    tool_calls:
+      - - tool_name: search
+          arguments: {q: crashloop}
+      - - tool_name: search
+          arguments: {q: crashloop}
+      - - tool_name: search
+          arguments: {q: crashloop}
+    turn_metrics:
+      - custom:loop_eval
+```
+
+**Configuration** (system or turn `metrics_metadata`):
+```yaml
+"custom:loop_eval":
+  threshold: 1.0                 # any detected loop fails
+  exact_loop_threshold: 3
+  soft_loop_threshold: 3
+  max_recursive_depth: 10
+```
+
+**When to use:** Tool-calling agents in production that may retry or recurse without making progress
+
+**Threshold:** 1.0 (any loop fails unless you lower it)
+
+**Required fields:** `tool_calls` (empty list is valid and scores 1.0)
+
+---
+
 #### Proposal Evaluation Correctness
 
 **What it measures:** How good is the agentic remediation workflow? Evaluates diagnosis, actions, risk management, and verification.
@@ -692,7 +742,8 @@ What are you evaluating?
 │  │
 │  ├─ Tool Calls & AI Behavior?
 │  │  ├─ Right intent? → intent_eval
-│  │  └─ Right tools + arguments? → tool_eval
+│  │  ├─ Right tools + arguments? → tool_eval
+│  │  └─ Stuck repeating tools? → loop_eval
 │  │
 │  ├─ Agentic Workflows?
 │  │  ├─ Workflow reached expected state? → proposal_status
@@ -740,6 +791,7 @@ conversation_metrics:
 ```yaml
 turn_metrics:
   - custom:tool_eval            # Right tool + params?
+  - custom:loop_eval            # Not stuck repeating tools?
   - ragas:response_relevancy    # Good explanation?
 ```
 
@@ -1660,7 +1712,7 @@ exit $?
 |----------|---------------------|
 | Customer Support (Single Q&A) | response_relevancy, faithfulness, answer_correctness |
 | Multi-turn Conversations | conversation_completeness, knowledge_retention |
-| Tool-calling Agents | tool_eval, response_relevancy |
+| Tool-calling Agents | tool_eval, loop_eval, response_relevancy |
 | Infrastructure Automation | script:action_eval, tool_eval |
 
 ### 3. Set Realistic Thresholds
@@ -1830,6 +1882,7 @@ response: "This is the answer"
 | answer_correctness | query, response, expected_response |
 | intent_eval | query, response, expected_intent |
 | tool_eval | expected_tool_calls, tool_calls |
+| loop_eval | tool_calls |
 | action_eval | verify_script (API mode) |
 
 ---
@@ -1994,6 +2047,7 @@ lightspeed-eval --eval-data config/eval_batch2.yaml
 | **custom:answer_correctness** | 0-1 | Matches expected answer | 0.75 | query, response, expected_response |
 | **custom:intent_eval** | 0/1 | Has right intent | 1 | query, response, expected_intent |
 | **custom:tool_eval** | 0/1 | Called correct tools with expected results | 1 | expected_tool_calls, tool_calls |
+| **custom:loop_eval** | 0-1 | No exact/soft tool loops or excessive recursive depth | 1 | tool_calls |
 | **custom:proposal_evaluation_correctness** | 0-1 | Agentic workflow quality (diagnosis, actions, risk) | 0.75 | response (workflow summary) |
 | **custom:keywords_eval** | 0/1 | Expected keywords present | 1 | response, expected_keywords |
 | **custom:proposal_status** | 0/1 | Proposal CRD reached expected state | 1 | expected_proposal_status |

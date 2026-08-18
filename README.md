@@ -227,6 +227,7 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <AGENTIC
     - [`keywords_eval`](src/lightspeed_evaluation/core/metrics/custom/keywords_eval.py) - Keywords evaluation with alternatives (ALL keywords must match, case insensitive)
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom/tool_eval.py) - Validates tool calls, arguments, and optional results with regex pattern matching
+    - [`loop_eval`](src/lightspeed_evaluation/core/metrics/custom/loop_eval.py) - Detects exact tool loops, same-tool thrashing, and excessive recursive call depth (no LLM)
   - Agentic Workflow Evaluation
     - [`openshift_agentic_run_status`](src/lightspeed_evaluation/core/metrics/custom/openshift_agentic_run_eval.py) - Deterministic assertions on AgenticRun CRD status (phase, timing, analysis, execution, verification)
     - [`openshift_agentic_run_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
@@ -431,6 +432,7 @@ Examples
 > - `expected_response`: Required for `custom:answer_correctness`
 > - `expected_intent`: Required for `custom:intent_eval`
 > - `expected_tool_calls`: Required for `custom:tool_eval` (multiple alternative sets format)
+> - `tool_calls`: Required for `custom:loop_eval` (empty list is valid: no loops). Also required for `custom:tool_eval`
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)
 > - `openshift_agentic_run_spec`: Required for `custom:openshift_agentic_run_status` (CRD-based agent workflows)

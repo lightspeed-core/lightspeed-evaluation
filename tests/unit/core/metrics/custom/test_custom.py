@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.metrics.custom.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.manager import MetricLevel
-from lightspeed_evaluation.core.models import EvaluationScope, TurnData
+from lightspeed_evaluation.core.models import EvaluationData, EvaluationScope, TurnData
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
 
@@ -507,3 +507,100 @@ class TestBuildWorkflowPhases:
         result = cm._build_workflow_phases(turn)
 
         assert "unknown" in result
+
+
+class TestCustomMetricsLoopEval:
+    """Test CustomMetrics loop_eval wiring and metadata."""
+
+    def test_evaluate_loop_eval_no_loops(self, mocker: MockerFixture) -> None:
+        """Registered loop_eval metric scores 1.0 when tools do not repeat."""
+        custom_metrics = _make_custom_metrics(mocker)
+        turn_data = TurnData(
+            turn_id="t1",
+            query="list pods",
+            tool_calls=[
+                [{"tool_name": "oc_get", "arguments": {"kind": "pod"}}],
+                [{"tool_name": "oc_describe", "arguments": {"kind": "pod"}}],
+            ],
+        )
+        scope = _make_scope(turn_data)
+
+        score, reason = custom_metrics.evaluate("loop_eval", None, scope)
+
+        assert score == 1.0
+        assert "No loops detected" in reason
+
+    def test_evaluate_loop_eval_detects_exact_loop(self, mocker: MockerFixture) -> None:
+        """Registered loop_eval metric flags identical consecutive calls."""
+        custom_metrics = _make_custom_metrics(mocker)
+        repeated = {"tool_name": "oc_get", "arguments": {"kind": "pod"}}
+        turn_data = TurnData(
+            turn_id="t1",
+            query="list pods",
+            tool_calls=[[repeated], [repeated], [repeated]],
+        )
+        scope = _make_scope(turn_data)
+
+        score, reason = custom_metrics.evaluate("loop_eval", None, scope)
+
+        assert score is not None
+        assert score < 1.0
+        assert "Exact loop" in reason
+
+    def test_loop_eval_threshold_from_metric_manager(
+        self, mocker: MockerFixture
+    ) -> None:
+        """System metadata overrides the consecutive-call threshold."""
+        mock_llm_manager = mocker.Mock()
+        mock_llm_manager.get_model_name.return_value = "test-model"
+        mock_llm_manager.get_llm_params.return_value = {"parameters": {}}
+        mock_metric_manager = mocker.Mock()
+        mock_metric_manager.get_metric_metadata.return_value = {
+            "exact_loop_threshold": 2,
+            "soft_loop_threshold": 10,
+            "max_recursive_depth": 10,
+        }
+        custom_metrics = CustomMetrics(mock_llm_manager, mock_metric_manager)
+
+        repeated = {"tool_name": "search", "arguments": {"q": "x"}}
+        turn_data = TurnData(
+            turn_id="t1",
+            query="search",
+            tool_calls=[[repeated], [repeated]],
+        )
+        scope = _make_scope(turn_data)
+
+        score, reason = custom_metrics.evaluate("loop_eval", None, scope)
+
+        mock_metric_manager.get_metric_metadata.assert_called_once_with(
+            metric_identifier="custom:loop_eval",
+            level=MetricLevel.TURN,
+            conv_data=None,
+            turn_data=turn_data,
+        )
+        assert score is not None
+        assert score < 1.0
+        assert "threshold 2" in reason
+
+    def test_loop_eval_conversation_level(self, mocker: MockerFixture) -> None:
+        """Conversation-level loop_eval scores each turn; in-turn loops still fail."""
+        custom_metrics = _make_custom_metrics(mocker)
+        repeated = {"tool_name": "search", "arguments": {"q": "x"}}
+        conv_data = EvaluationData(
+            conversation_group_id="c1",
+            turns=[
+                TurnData(
+                    turn_id="t1",
+                    query="one",
+                    tool_calls=[[repeated], [repeated], [repeated]],
+                ),
+                TurnData(turn_id="t2", query="two", tool_calls=[[repeated]]),
+            ],
+        )
+        scope = EvaluationScope(turn_idx=None, turn_data=None, is_conversation=True)
+
+        score, reason = custom_metrics.evaluate("loop_eval", conv_data, scope)
+
+        assert score is not None
+        assert score < 1.0
+        assert "Exact loop" in reason
