@@ -175,6 +175,7 @@ class OpenshiftAgenticRunDriver(AgentDriver):
         cr_name = f"eval-{safe_id}-{suffix}" if safe_id else f"eval-{suffix}"
         openshift_agentic_run_spec = turn_data.openshift_agentic_run_spec or {}
         manifest = self._build_agentic_run_cr(turn_data, cr_name)
+        deadline = time.monotonic() + self._config.timeout
 
         result = self._apply(manifest)
         if result.returncode != 0:
@@ -184,16 +185,17 @@ class OpenshiftAgenticRunDriver(AgentDriver):
             )
 
         if self._config.auto_approve:
-            err = self._approve_when_ready(cr_name, openshift_agentic_run_spec)
+            err = self._approve_when_ready(
+                cr_name, openshift_agentic_run_spec, deadline
+            )
             if err:
                 self._cleanup(cr_name)
                 return (err, None)
 
         outcome: Optional[TerminalOutcome] = None
         status_dict: dict[str, Any] = {}
-        start = time.monotonic()
 
-        while time.monotonic() - start < self._config.timeout:
+        while time.monotonic() < deadline:
             time.sleep(self._config.poll_interval)
             status_dict, err = self._get_status(cr_name)
             if err:
@@ -332,17 +334,19 @@ class OpenshiftAgenticRunDriver(AgentDriver):
         }
 
     def _approve_when_ready(
-        self, cr_name: str, openshift_agentic_run_spec: dict[str, Any]
+        self,
+        cr_name: str,
+        openshift_agentic_run_spec: dict[str, Any],
+        deadline: float,
     ) -> Optional[str]:
         """Wait for AgenticRun CR to exist on the cluster, then approve all stages."""
-        start = time.monotonic()
-        while time.monotonic() - start < self._config.timeout:
+        while time.monotonic() < deadline:
             _, err = self._get_status(cr_name)
             if err is None:
                 break
             time.sleep(self._config.poll_interval)
         else:
-            return f"AgenticRun '{cr_name}' not found within {self._config.timeout}s"
+            return f"AgenticRun '{cr_name}' not found before turn deadline"
 
         approval = self._build_approval_cr(cr_name, openshift_agentic_run_spec)
         result = self._apply(approval)

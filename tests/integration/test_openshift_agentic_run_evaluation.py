@@ -271,6 +271,8 @@ class TestOpenshiftAgenticRunDriverEvaluation:
         agent_cfg = system_config.agents.agents["openshift_agentic_run_agent"]
         agent_cfg.timeout = 5
         agent_cfg.poll_interval = 1
+        agent_cfg.cleanup_openshift_agentic_runs = True
+        namespace = agent_cfg.namespace
 
         validator = DataValidator(
             api_enabled=True,
@@ -293,7 +295,7 @@ class TestOpenshiftAgenticRunDriverEvaluation:
                 "get",
                 "agenticruns",
                 "-n",
-                "lightspeed-evaluation-test",
+                namespace,
                 "-o",
                 "name",
             ],
