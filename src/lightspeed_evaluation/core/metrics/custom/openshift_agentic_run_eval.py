@@ -225,13 +225,13 @@ def _check_analysis_option(
     """Check assertions on a single analysis option by index."""
     risk_in = expected_opt.get("risk_in")
     if risk_in is not None:
-        actual_risk = actual_opt.get("remediationPlan", {}).get("risk", "")
+        actual_risk = (actual_opt.get("remediationPlan") or {}).get("risk", "")
         if actual_risk.lower() not in [r.lower() for r in risk_in]:
             return False, f"Option[{idx}] risk '{actual_risk}' not in {risk_in}"
 
     confidence_in = expected_opt.get("confidence_in")
     if confidence_in is not None:
-        actual_conf = actual_opt.get("diagnosis", {}).get("confidence", "")
+        actual_conf = (actual_opt.get("diagnosis") or {}).get("confidence", "")
         if actual_conf.lower() not in [c.lower() for c in confidence_in]:
             return (
                 False,
@@ -240,7 +240,7 @@ def _check_analysis_option(
 
     diagnosis_contains = expected_opt.get("diagnosis_contains")
     if diagnosis_contains is not None:
-        summary = actual_opt.get("diagnosis", {}).get("summary", "")
+        summary = (actual_opt.get("diagnosis") or {}).get("summary", "")
         for substring in diagnosis_contains:
             if substring.lower() not in summary.lower():
                 return (
