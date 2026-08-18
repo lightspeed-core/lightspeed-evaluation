@@ -4,7 +4,7 @@
 [![Required Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Flightspeed-core%2Flightspeed-evaluation%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](https://www.python.org/)
 [![Tag](https://img.shields.io/github/v/tag/lightspeed-core/lightspeed-evaluation)](https://github.com/lightspeed-core/lightspeed-evaluation/releases)
 
-An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes in both live and offline modes. Supports multiple evaluation metrics (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, multi-judge scoring, statistical analysis, and environment setup/cleanup scripts. Works with API-based and Agentic Lightspeed workflows out of the box, with extensible integrations. Available as a CLI tool and as a Python library.
+An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and agentic workflow (OpenshiftAgenticRun) outcomes in both live and offline modes. Supports multiple evaluation metrics (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, multi-judge scoring, statistical analysis, and environment setup/cleanup scripts. Works with API-based and Agentic Lightspeed workflows out of the box, with extensible integrations. Available as a CLI tool and as a Python library.
 
 ## 🎯 Key Features
 
@@ -14,7 +14,7 @@ An evaluation framework for LLM-powered applications — evaluating responses, c
 - **LLM Provider Flexibility**: OpenAI, Watsonx, Gemini, vLLM and others
 - **Panel of Judges**: Use multiple LLMs as judges to reduce bias and improve evaluation accuracy with configurable aggregation strategies
 - **API Integration**: Direct integration with external API for live data generation (if enabled)
-- **Agentic Lightspeed Evaluation**: Support for Agentic Lightspeed evaluation via Proposal CRD workflow
+- **Agentic Lightspeed Evaluation**: Support for Agentic Lightspeed evaluation via AgenticRun CRD workflow
 - **Setup/Cleanup Scripts**: Support for running setup and cleanup scripts before/after each conversation evaluation (applicable when API is enabled)
 - **Token Usage Tracking**: Track input/output tokens for both API calls and Judge LLM evaluations (per-judge tracking for panel mode)
 - **API Latency Tracking**: Measure and analyze API response times with percentile statistics (p50, p95, p99) for performance monitoring
@@ -201,9 +201,9 @@ uv run lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml
 export OPENAI_API_KEY="your-key"
 export KUBECONFIG="/path/to/your/kubeconfig"
 
-# Use system configuration with agents.enabled: true and a proposal agent
-# Evaluation data should contain proposal_spec and expected_proposal_status
-uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <PROPOSAL_EVAL_DATA.yaml>
+# Use system configuration with agents.enabled: true and an openshift_agentic_run agent
+# Evaluation data should contain openshift_agentic_run_spec and expected_openshift_agentic_run_status
+uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <AGENTIC_RUN_EVAL_DATA.yaml>
 ```
 
 ## 📊 Supported Metrics
@@ -228,8 +228,8 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <PROPOSA
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom/tool_eval.py) - Validates tool calls, arguments, and optional results with regex pattern matching
   - Agentic Workflow Evaluation
-    - [`proposal_status`](src/lightspeed_evaluation/core/metrics/custom/proposal_eval.py) - Deterministic assertions on proposal CRD status (phase, timing, analysis, execution, verification)
-    - [`proposal_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
+    - [`openshift_agentic_run_status`](src/lightspeed_evaluation/core/metrics/custom/openshift_agentic_run_eval.py) - Deterministic assertions on AgenticRun CRD status (phase, timing, analysis, execution, verification)
+    - [`openshift_agentic_run_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
@@ -272,7 +272,7 @@ The `agents:` block in `system.yaml` is a generic configuration layer for agent-
 | Type | Description |
 |------|-------------|
 | `http_api` | Wraps the existing HTTP API client (query/streaming endpoint). This is the type that the legacy `api:` block auto-migrates to. |
-| `proposal` | Manages the full lifecycle of Proposal CRDs on OpenShift clusters (create → poll → auto-approve → cleanup). Used for OpenShift Agentic Lightspeed. |
+| `openshift_agentic_run` | Manages the full lifecycle of AgenticRun CRDs on OpenShift clusters (create → poll → auto-approve → cleanup). Used for OpenShift Agentic Lightspeed. |
 
 **Backward Compatibility:** When `agents:` is absent, the existing `api:` block auto-migrates to `agents:` with a single `http_api` agent. When both are present, `agents:` takes precedence.
 
@@ -297,22 +297,22 @@ agents:
     model: gpt-4o
 ```
 
-**Example — Proposal CRD agent:**
+**Example — OpenshiftAgenticRun CRD agent:**
 ```yaml
 agents:
   enabled: true
   default:
     agent: openshift_agentic_lightspeed
   openshift_agentic_lightspeed:
-    type: proposal
+    type: openshift_agentic_run
     namespace: openshift-lightspeed
     auto_approve: true
-    cleanup_proposals: true
+    cleanup_openshift_agentic_runs: true
     timeout: 900
     poll_interval: 2
 ```
 
-For proposal agent configuration fields, evaluation data structure, assertion reference, and full examples, see **[Agentic Lightspeed Evaluation](docs/agentic_lightspeed_evaluation.md)**.
+For OpenshiftAgenticRun agent configuration fields, evaluation data structure, assertion reference, and full examples, see **[Agentic Lightspeed Evaluation](docs/agentic_lightspeed_evaluation.md)**.
 
 ### Storage Configuration
 
@@ -415,9 +415,9 @@ For field tables, full YAML examples (file-only, file + SQLite, file + Postgres,
 | `tool_calls`          | list[list[dict]] | ❌       | Actual tool calls from API           | ✅ (if API enabled)   |
 | `verify_script`       | string           | 📋       | Path to verification script          | ❌                    |
 | `description`         | string           | ❌       | Human-readable label for reports (falls back to query) | ❌              |
-| `proposal_spec`       | dict             | 📋       | Inline proposal spec for CRD-based agents | ❌                    |
-| `expected_proposal_status` | dict        | 📋       | Assertions to check against proposal status | ❌                  |
-| `expected_outcome`    | string           | 📋       | Expected outcome for proposal evaluation correctness | ❌           |
+| `openshift_agentic_run_spec` | dict      | 📋       | Inline AgenticRun spec for CRD-based agents | ❌                    |
+| `expected_openshift_agentic_run_status` | dict | 📋  | Assertions to check against AgenticRun status | ❌                  |
+| `expected_outcome`    | string           | 📋       | Expected outcome for AgenticRun evaluation correctness | ❌           |
 | `expected_analysis_outcome` | string     | ❌       | Optional per-phase expected outcome for analysis/diagnosis | ❌     |
 | `expected_execution_outcome` | string    | ❌       | Optional per-phase expected outcome for execution/actions | ❌      |
 | `expected_verification_outcome` | string | ❌       | Optional per-phase expected outcome for verification | ❌           |
@@ -433,10 +433,10 @@ Examples
 > - `expected_tool_calls`: Required for `custom:tool_eval` (multiple alternative sets format)
 > - `verify_script`: Required for `script:action_eval` (used when API is enabled)
 > - `response`: Required for most metrics (auto-populated if API enabled)
-> - `proposal_spec`: Required for `custom:proposal_status` (CRD-based agent workflows)
-> - `expected_proposal_status`: Required for `custom:proposal_status`
-> - `expected_outcome`: Required for `custom:proposal_evaluation_correctness`
-> - `expected_analysis_outcome`, `expected_execution_outcome`, `expected_verification_outcome`: Optional per-phase outcomes for `custom:proposal_evaluation_correctness` (refine scoring precision)
+> - `openshift_agentic_run_spec`: Required for `custom:openshift_agentic_run_status` (CRD-based agent workflows)
+> - `expected_openshift_agentic_run_status`: Required for `custom:openshift_agentic_run_status`
+> - `expected_outcome`: Required for `custom:openshift_agentic_run_evaluation_correctness`
+> - `expected_analysis_outcome`, `expected_execution_outcome`, `expected_verification_outcome`: Optional per-phase outcomes for `custom:openshift_agentic_run_evaluation_correctness` (refine scoring precision)
 
 **Multiple `expected responses`**: For metrics that include `expected_response` in their `required_fields` (defined in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py)), you can provide `expected_response` as a list of strings. The evaluator will test each expected response until one passes. If all fail, it returns the maximum `score` from all attempts and logs all scores with their reasons into `reason`. Note: This feature only works for metrics explicitly listed in [`METRIC_REQUIREMENTS`](./src/lightspeed_evaluation/core/system/validator.py). For other metrics (e.g. user-defined criteria), only the first item in the list will be used. See example config for multiple expected responses ([evaluation_data_multiple_expected_responses.yaml](./config/evaluation_data_multiple_expected_responses.yaml)).
 
@@ -545,7 +545,7 @@ Script paths in evaluation data can be specified in multiple ways:
 
 #### Agentic Workflow Evaluation
 
-The framework supports evaluation of event-driven agentic workflows via Kubernetes CRDs. The `proposal` agent type manages the full Proposal CR lifecycle: create, poll status, auto-approve, capture results, and cleanup.
+The framework supports evaluation of event-driven agentic workflows via Kubernetes CRDs. The `openshift_agentic_run` agent type manages the full AgenticRun CR lifecycle: create, poll status, auto-approve, capture results, and cleanup.
 
 ```yaml
 - conversation_group_id: full_lifecycle
@@ -554,7 +554,7 @@ The framework supports evaluation of event-driven agentic workflows via Kubernet
   cleanup_script: agentic/scripts/cleanup.sh
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace test-ns is in CrashLoopBackOff
           due to OOMKill. Analyze, fix, and verify.
@@ -562,14 +562,14 @@ The framework supports evaluation of event-driven agentic workflows via Kubernet
         analysis: { agent: eval-default }
         execution: { agent: eval-default }
         verification: { agent: eval-default }
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         max_duration: "15m"
         execution: { phase: Succeeded }
         verification: { passed: true }
       turn_metrics:
-        - custom:proposal_status
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_status
+        - custom:openshift_agentic_run_evaluation_correctness
 ```
 
 For prerequisites, configuration, assertion reference, and full examples, see **[Agentic Lightspeed Evaluation](docs/agentic_lightspeed_evaluation.md)**.
@@ -609,13 +609,13 @@ export AZURE_API_BASE="https://your-resource.openai.azure.com/"
 export API_KEY="your-api-endpoint-key"
 ```
 
-#### For Agentic Workflow Evaluation (When using `proposal` agent type)
+#### For Agentic Workflow Evaluation (When using `openshift_agentic_run` agent type)
 ```bash
 # Kubernetes cluster access
 export KUBECONFIG="/path/to/your/kubeconfig"
 ```
 
-> **Note:** The Agentic Lightspeed operator must be installed on the cluster and the user must have RBAC permissions for Proposal CRD operations in the target namespace. `oc` or `kubectl` must be available in PATH.
+> **Note:** The Agentic Lightspeed operator must be installed on the cluster and the user must have RBAC permissions for AgenticRun CRD operations in the target namespace. `oc` or `kubectl` must be available in PATH.
 
 ## 📈 Output & Visualization
 
