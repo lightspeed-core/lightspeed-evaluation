@@ -39,6 +39,7 @@ Frame as outcomes, not framework terminology. One at a time.
 | Context quality | `ragas:context_precision`, `ragas:context_recall` | response, contexts, expected_response |
 | Context relevance | `ragas:context_relevance`, `ragas:context_utilization` | response, contexts |
 | Tool correctness | `custom:tool_eval` | tool_calls, expected_tool_calls |
+| Tool looping / thrashing | `custom:loop_eval` | tool_calls |
 | Keywords | `custom:keywords_eval` | response, expected_keywords |
 | Intent | `custom:intent_eval` | response, expected_intent |
 | Text similarity | `nlp:bleu`, `nlp:rouge`, `nlp:semantic_similarity_distance` | response, expected_response |

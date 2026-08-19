@@ -28,6 +28,7 @@
 | `core/metrics/custom/custom.py` | `CustomMetrics` | Custom LLM-based metric handler |
 | `core/metrics/custom/keywords_eval.py` | — | Keyword matching evaluation |
 | `core/metrics/custom/tool_eval.py` | — | Tool use evaluation |
+| `core/metrics/custom/loop_eval.py` | — | Tool-loop / thrashing detection |
 | `core/metrics/custom/proposal_eval.py` | `evaluate_proposal_status()` | Proposal status assertion metric |
 | `core/metrics/custom/prompts.py` | — | Prompt templates for custom metrics |
 | `core/llm/manager.py` | `LLMManager` | LLM provider abstraction, judge panel creation |

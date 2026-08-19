@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING, Any, Optional
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
+from lightspeed_evaluation.core.metrics.custom.loop_eval import (
+    LOOP_EVAL_DEFAULTS,
+    config_from_metadata,
+    evaluate_loops,
+)
 from lightspeed_evaluation.core.metrics.custom.openshift_agentic_run_eval import (
     evaluate_openshift_agentic_run_status,
 )
@@ -51,6 +56,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             "answer_correctness": self._evaluate_answer_correctness,
             "intent_eval": self._evaluate_intent,
             "tool_eval": self._evaluate_tool_calls,
+            "loop_eval": self._evaluate_loops,
             "openshift_agentic_run_status": evaluate_openshift_agentic_run_status,
             "openshift_agentic_run_evaluation_correctness": (
                 self._evaluate_openshift_agentic_run_evaluation_correctness
@@ -214,8 +220,11 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         # Get actual tool calls from turn data (will be populated by API)
         actual_tool_calls = getattr(turn_data, "tool_calls", []) or []
 
-        # Get tool_eval configuration with proper priority hierarchy
-        metadata = self._get_tool_eval_metadata(turn_data, _conv_data)
+        metadata = self._get_metric_metadata(
+            "custom:tool_eval",
+            turn_data,
+            _conv_data,
+        ) or {"ordered": True, "full_match": True}
         ordered = metadata.get("ordered", True)
         full_match = metadata.get("full_match", True)
 
@@ -230,37 +239,67 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
 
         return score, details
 
-    def _get_tool_eval_metadata(
+    def _evaluate_loops(
         self,
-        turn_data: TurnData,
+        conv_data: Any,
+        _turn_idx: Optional[int],
+        turn_data: Optional[TurnData],
+        is_conversation: bool,
+    ) -> tuple[Optional[float], str]:
+        """Detect exact loops, soft loops, and excessive recursive depth."""
+        level = MetricLevel.CONVERSATION if is_conversation else MetricLevel.TURN
+        metadata = (
+            self._get_metric_metadata(
+                "custom:loop_eval",
+                turn_data,
+                conv_data,
+                level,
+            )
+            or LOOP_EVAL_DEFAULTS
+        )
+        return evaluate_loops(
+            conv_data,
+            _turn_idx,
+            turn_data,
+            is_conversation,
+            config_from_metadata(metadata),
+        )
+
+    def _get_metric_metadata(
+        self,
+        metric_identifier: str,
+        turn_data: Optional[TurnData],
         conv_data: Any = None,
-    ) -> dict[str, Any]:
-        """Get tool_eval configuration with proper priority hierarchy.
+        level: MetricLevel = MetricLevel.TURN,
+    ) -> Optional[dict[str, Any]]:
+        """Resolve metric metadata from MetricManager or level-specific overrides.
 
         Args:
-            turn_data: Turn data containing turn_metrics_metadata
-            conv_data: Optional conversation data for MetricManager
+            metric_identifier: Fully qualified metric id (e.g. ``custom:tool_eval``).
+            turn_data: Turn data for turn-level overrides.
+            conv_data: Conversation data for conversation-level overrides.
+            level: Whether to read turn or conversation metadata.
 
         Returns:
-            Dictionary with tool_eval configuration (ordered, full_match)
+            Metadata dictionary, or None when nothing is configured.
         """
-        # Use MetricManager if available for proper system defaults
         if self.metric_manager is not None:
-            metadata = self.metric_manager.get_metric_metadata(
-                metric_identifier="custom:tool_eval",
-                level=MetricLevel.TURN,
+            return self.metric_manager.get_metric_metadata(
+                metric_identifier=metric_identifier,
+                level=level,
                 conv_data=conv_data,
                 turn_data=turn_data,
             )
-            if metadata:
-                return metadata
-            return {"ordered": True, "full_match": True}
 
-        # Fallback: read directly from turn_data (backwards compatibility)
-        turn_metadata = turn_data.turn_metrics_metadata or {}
-        return turn_metadata.get(
-            "custom:tool_eval", {"ordered": True, "full_match": True}
-        )
+        if level == MetricLevel.CONVERSATION and conv_data is not None:
+            conv_metadata = (
+                getattr(conv_data, "conversation_metrics_metadata", None) or {}
+            )
+            return conv_metadata.get(metric_identifier)
+        if turn_data is not None:
+            turn_metadata = turn_data.turn_metrics_metadata or {}
+            return turn_metadata.get(metric_identifier)
+        return None
 
     def _evaluate_intent(
         self,

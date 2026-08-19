@@ -6,6 +6,10 @@ from lightspeed_evaluation.core.metrics.custom.conformal import (
 )
 from lightspeed_evaluation.core.metrics.custom.custom import CustomMetrics
 from lightspeed_evaluation.core.metrics.custom.keywords_eval import evaluate_keywords
+from lightspeed_evaluation.core.metrics.custom.loop_eval import (
+    evaluate_loop_calls,
+    evaluate_loops,
+)
 from lightspeed_evaluation.core.metrics.custom.mrr_eval import evaluate_mrr
 from lightspeed_evaluation.core.metrics.custom.openshift_agentic_run_eval import (
     evaluate_openshift_agentic_run_status,
@@ -21,6 +25,8 @@ __all__ = [
     "compute_mrr_threshold",
     "evaluate_openshift_agentic_run_status",
     "evaluate_keywords",
+    "evaluate_loop_calls",
+    "evaluate_loops",
     "evaluate_mrr",
     "evaluate_tool_calls",
     "get_lhat",

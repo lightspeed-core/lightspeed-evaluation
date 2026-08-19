@@ -69,6 +69,11 @@ METRIC_REQUIREMENTS = {
             "with 'tool_name', 'arguments', and optional 'result'"
         ),
     },
+    "custom:loop_eval": {
+        "required_fields": ["tool_calls"],
+        "allow_empty_fields": ["tool_calls"],
+        "description": ("requires 'tool_calls' field (empty list is valid: no loops)"),
+    },
     "custom:openshift_agentic_run_status": {
         "required_fields": ["expected_openshift_agentic_run_status"],
         "description": "requires 'expected_openshift_agentic_run_status' field",
@@ -146,9 +151,18 @@ def check_metric_required_data(
     requirements = METRIC_REQUIREMENTS[metric_identifier]
     required_fields = requirements["required_fields"]
     description = requirements["description"]
+    allow_empty_fields = set(requirements.get("allow_empty_fields", []))
 
     for field_name in required_fields:
         field_value = getattr(turn_data, field_name, None)
+        if field_name in allow_empty_fields:
+            if field_value is None:
+                return (
+                    False,
+                    f"Metric '{metric_identifier}' {description}: "
+                    f"required field '{field_name}' is missing",
+                )
+            continue
         if _is_field_empty(field_value):
             return (
                 False,
@@ -512,55 +526,63 @@ class DataValidator:  # pylint: disable=too-few-public-methods
     def _check_metric_requirements(
         self, data: EvaluationData, api_enabled: bool = True
     ) -> list[str]:
-        """Check that required fields exist for specified metrics and API configuration."""
-        errors = []
+        """Check required fields for turn- and conversation-level metrics."""
+        errors: list[str] = []
+        conversation_metrics = data.conversation_metrics or []
 
-        # Check each turn against metric requirements
         for turn_data in data.turns:
-            # Skip validation if no turn metrics specified
-            if not turn_data.turn_metrics:
-                continue
-
-            for metric in turn_data.turn_metrics:
-                if metric not in METRIC_REQUIREMENTS:
-                    continue  # Unknown metrics are handled separately
-
-                # Skip script metric validation if API is disabled
-                if metric.startswith("script:") and not self.api_enabled:
+            turn_metrics: list[str] = turn_data.turn_metrics or []
+            metrics: list[str] = list(
+                dict.fromkeys(turn_metrics + conversation_metrics)
+            )
+            for metric in metrics:
+                error = self._metric_field_error(turn_data, metric, api_enabled)
+                if error is None:
                     continue
-
-                requirements = METRIC_REQUIREMENTS[metric]
-                required_fields = requirements["required_fields"]
-                description = requirements["description"]
-
-                # Check each required field
-                for field_name in required_fields:
-                    field_value = getattr(turn_data, field_name, None)
-
-                    # For API-populated fields, allow None if API is enabled
-                    if (
-                        field_name in API_POPULATED_FIELDS
-                        and api_enabled
-                        and field_value is None
-                    ):
-                        continue  # will be populated by API
-
-                    # Check if field is missing or empty
-                    if _is_field_empty(field_value):
-                        turn_data.add_invalid_metric(metric)
-
-                        api_context = (
-                            " when API is disabled"
-                            if field_name in API_POPULATED_FIELDS and not api_enabled
-                            else ""
-                        )
-                        errors.append(
-                            f"TurnData {turn_data.turn_id}: Metric '{metric}' "
-                            f"{description}{api_context}"
-                        )
-                        break  # Only report once per metric per turn
+                if metric in turn_metrics:
+                    turn_data.add_invalid_metric(metric)
+                if metric in conversation_metrics:
+                    data.add_invalid_metric(metric)
+                errors.append(error)
 
         return errors
+
+    def _metric_field_error(
+        self,
+        turn_data: TurnData,
+        metric: str,
+        api_enabled: bool,
+    ) -> Optional[str]:
+        """Return a requirement error for ``metric`` on ``turn_data``, if any."""
+        if metric not in METRIC_REQUIREMENTS:
+            return None
+        if metric.startswith("script:") and not self.api_enabled:
+            return None
+
+        requirements = METRIC_REQUIREMENTS[metric]
+        allow_empty = set(requirements.get("allow_empty_fields", []))
+
+        for field_name in requirements["required_fields"]:
+            field_value = getattr(turn_data, field_name, None)
+            if (
+                field_name in API_POPULATED_FIELDS
+                and api_enabled
+                and field_value is None
+            ):
+                continue
+            if field_name in allow_empty and field_value is not None:
+                continue
+            if _is_field_empty(field_value):
+                api_context = (
+                    " when API is disabled"
+                    if field_name in API_POPULATED_FIELDS and not api_enabled
+                    else ""
+                )
+                return (
+                    f"TurnData {turn_data.turn_id}: Metric '{metric}' "
+                    f"{requirements['description']}{api_context}"
+                )
+        return None
 
     def _validate_scripts(self, evaluation_data: list[EvaluationData]) -> None:
         """Validate all script paths when API is enabled."""

@@ -194,18 +194,22 @@ class MetricsEvaluator:
                 )
 
             # Check required data for metric (after API call); skip with ERROR if missing
-            if (
-                request.turn_data is not None
-                and request.metric_identifier in METRIC_REQUIREMENTS
-            ):
-                ok, msg = check_metric_required_data(
-                    request.turn_data, request.metric_identifier
-                )
-                if not ok:
-                    logger.warning(
-                        "Skipping metric due to missing required data: %s", msg
+            if request.metric_identifier in METRIC_REQUIREMENTS:
+                if request.is_conversation:
+                    turns_to_check = request.conv_data.turns
+                elif request.turn_data is not None:
+                    turns_to_check = [request.turn_data]
+                else:
+                    turns_to_check = []
+                for turn in turns_to_check:
+                    ok, msg = check_metric_required_data(
+                        turn, request.metric_identifier
                     )
-                    return self._create_error_result(request, msg, start_time)
+                    if not ok:
+                        logger.warning(
+                            "Skipping metric due to missing required data: %s", msg
+                        )
+                        return self._create_error_result(request, msg, start_time)
 
             # Create evaluation scope
             evaluation_scope = EvaluationScope(
