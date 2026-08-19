@@ -16,7 +16,10 @@ from lightspeed_evaluation.pipeline.behavioral.models import (
     AgentConsolidated,
     RunSummary,
 )
-from lightspeed_evaluation.pipeline.behavioral.statistics import pass_at_k
+from lightspeed_evaluation.pipeline.behavioral.statistics import (
+    confidence_interval,
+    pass_at_k,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +201,10 @@ def _build_overall(
         result["pass_rate_std"] = (
             statistics.stdev(pass_rates) if len(pass_rates) > 1 else 0.0
         )
+        ci = confidence_interval(pass_rates)
+        if ci is not None:
+            result["pass_rate_ci_low"] = max(0.0, ci[0])
+            result["pass_rate_ci_high"] = min(100.0, ci[1])
 
     if latencies:
         result["agent_latency_mean"] = statistics.mean(latencies)
@@ -221,6 +228,10 @@ def _build_by_metric(
             "max": max(scores),
         }
         entry["std"] = statistics.stdev(scores) if len(scores) > 1 else 0.0
+        ci = confidence_interval(scores)
+        if ci is not None:
+            entry["ci_low"] = ci[0]
+            entry["ci_high"] = ci[1]
         result[name] = entry
     return result
 

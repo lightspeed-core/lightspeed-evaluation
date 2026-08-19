@@ -6,13 +6,14 @@ from lightspeed_evaluation.pipeline.behavioral.comparison import compare_agents
 from lightspeed_evaluation.pipeline.behavioral.models import (
     AgentConsolidated,
     ComparisonResult,
+    RunSummary,
 )
 
 
 def _make_agent(name: str, **kwargs: Any) -> AgentConsolidated:
     """Build an AgentConsolidated for testing.
 
-    Keyword args: pass_rate, latency, tokens, metrics, conversations.
+    Keyword args: pass_rate, latency, tokens, metrics, conversations, per_run.
     """
     overall: dict[str, float | None] = {
         "pass_rate_mean": kwargs.get("pass_rate", 80.0),
@@ -32,6 +33,7 @@ def _make_agent(name: str, **kwargs: Any) -> AgentConsolidated:
         conversations_count=kwargs.get("conversations", 5),
         overall=overall,
         by_metric=by_metric,
+        per_run=kwargs.get("per_run", []),
     )
 
 
@@ -116,3 +118,65 @@ class TestCompareAgents:
 
         assert result is not None
         assert len(result.deltas) == 3
+
+    def test_significance_with_per_run_data(self) -> None:
+        """Significance tests run when per_run data is available."""
+        runs_a = [RunSummary(total=10, passed=9, run_index=i) for i in range(5)]
+        runs_b = [RunSummary(total=10, passed=2, run_index=i) for i in range(5)]
+        agents = {
+            "a": _make_agent("a", pass_rate=90.0, per_run=runs_a),
+            "b": _make_agent("b", pass_rate=20.0, per_run=runs_b),
+        }
+        result = compare_agents(agents)
+
+        assert result is not None
+        delta = result.deltas[0]
+        assert delta.significance is not None
+        assert len(delta.significance) >= 1
+        fisher = next((s for s in delta.significance if s.test == "fisher_exact"), None)
+        assert fisher is not None
+        assert fisher.significant is True
+
+    def test_per_metric_significance(self) -> None:
+        """Per-metric Mann-Whitney detects difference with realistic variance."""
+        metric = "ragas:faithfulness"
+        scores_a = [0.90, 0.85, 0.95, 0.88, 0.92]
+        scores_b = [0.40, 0.35, 0.45, 0.38, 0.42]
+        runs_a = [
+            RunSummary(total=10, passed=9, run_index=i, by_metric={metric: s})
+            for i, s in enumerate(scores_a)
+        ]
+        runs_b = [
+            RunSummary(total=10, passed=4, run_index=i, by_metric={metric: s})
+            for i, s in enumerate(scores_b)
+        ]
+        agents = {
+            "a": _make_agent(
+                "a", pass_rate=90.0, metrics={metric: 0.9}, per_run=runs_a
+            ),
+            "b": _make_agent(
+                "b", pass_rate=40.0, metrics={metric: 0.4}, per_run=runs_b
+            ),
+        }
+        result = compare_agents(agents)
+
+        assert result is not None
+        sig = result.deltas[0].significance
+        assert sig is not None
+        metric_test = next(
+            (s for s in sig if s.test == "mann_whitney_u" and s.metric == metric),
+            None,
+        )
+        assert metric_test is not None
+        assert metric_test.significant is True
+
+    def test_no_significance_without_per_run(self) -> None:
+        """No significance tests when per_run is empty."""
+        agents = {
+            "a": _make_agent("a"),
+            "b": _make_agent("b"),
+        }
+        result = compare_agents(agents)
+
+        assert result is not None
+        assert result.deltas[0].significance is None
