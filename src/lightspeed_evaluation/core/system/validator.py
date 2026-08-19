@@ -69,15 +69,15 @@ METRIC_REQUIREMENTS = {
             "with 'tool_name', 'arguments', and optional 'result'"
         ),
     },
-    "custom:proposal_status": {
-        "required_fields": ["expected_proposal_status"],
-        "description": "requires 'expected_proposal_status' field",
+    "custom:openshift_agentic_run_status": {
+        "required_fields": ["expected_openshift_agentic_run_status"],
+        "description": "requires 'expected_openshift_agentic_run_status' field",
     },
-    "custom:proposal_evaluation_correctness": {
+    "custom:openshift_agentic_run_evaluation_correctness": {
         "required_fields": ["response", "expected_outcome"],
         "description": (
             "requires 'response' and 'expected_outcome' fields "
-            "(Markdown workflow summary from ProposalAmender)"
+            "(Markdown workflow summary from OpenshiftAgenticRunAmender)"
         ),
     },
     "nlp:mrr": {

@@ -13,7 +13,7 @@ from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.driver import (
     AgentDriver,
     HttpApiDriver,
-    ProposalDriver,
+    OpenshiftAgenticRunDriver,
     TerminalOutcome,
 )
 from lightspeed_evaluation.pipeline.evaluation.registry import AgentDriverRegistry
@@ -53,20 +53,20 @@ class TestAgentDriverRegistry:
         registry = AgentDriverRegistry()
         assert "http_api" in registry._drivers
 
-    def test_default_registry_contains_proposal(self) -> None:
-        """Test default registry includes proposal driver."""
+    def test_default_registry_contains_openshift_agentic_run(self) -> None:
+        """Test default registry includes openshift_agentic_run driver."""
         registry = AgentDriverRegistry()
-        assert "proposal" in registry._drivers
+        assert "openshift_agentic_run" in registry._drivers
 
-    def test_create_proposal_driver(self, mocker: MockerFixture) -> None:
-        """Test registry creates ProposalDriver for type 'proposal'."""
+    def test_create_openshift_agentic_run_driver(self, mocker: MockerFixture) -> None:
+        """Test registry creates OpenshiftAgenticRunDriver for type 'openshift_agentic_run'."""
         mocker.patch("shutil.which", return_value="/usr/bin/oc")
         registry = AgentDriverRegistry()
         driver = registry.create_driver(
-            {"type": "proposal", "namespace": "test-ns"}, enabled=True
+            {"type": "openshift_agentic_run", "namespace": "test-ns"}, enabled=True
         )
 
-        assert isinstance(driver, ProposalDriver)
+        assert isinstance(driver, OpenshiftAgenticRunDriver)
         assert driver.enabled is True
 
 
@@ -177,15 +177,22 @@ class TestHttpApiDriver:
             )
 
 
-class TestProposalDriverExecuteTurn:
-    """Unit tests for ProposalDriver.execute_turn outcome routing."""
+class TestOpenshiftAgenticRunDriverExecuteTurn:
+    """Unit tests for OpenshiftAgenticRunDriver.execute_turn outcome routing."""
 
     @pytest.fixture()
-    def _proposal_driver(self, mocker: MockerFixture) -> ProposalDriver:
-        """Create a ProposalDriver with mocked infrastructure."""
+    def _openshift_agentic_run_driver(
+        self, mocker: MockerFixture
+    ) -> OpenshiftAgenticRunDriver:
+        """Create an OpenshiftAgenticRunDriver with mocked infrastructure."""
         mocker.patch("shutil.which", return_value="/usr/bin/oc")
-        driver = ProposalDriver(
-            {"type": "proposal", "namespace": "ns", "timeout": 10, "poll_interval": 1},
+        driver = OpenshiftAgenticRunDriver(
+            {
+                "type": "openshift_agentic_run",
+                "namespace": "ns",
+                "timeout": 10,
+                "poll_interval": 1,
+            },
             enabled=True,
         )
         apply_result = mocker.Mock(returncode=0, stderr="")
@@ -198,7 +205,7 @@ class TestProposalDriverExecuteTurn:
     def _stub_terminal(
         self,
         mocker: MockerFixture,
-        driver: ProposalDriver,
+        driver: OpenshiftAgenticRunDriver,
         outcome: TerminalOutcome,
     ) -> None:
         """Stub _get_status and _is_terminal to return a given outcome immediately."""
@@ -208,24 +215,32 @@ class TestProposalDriverExecuteTurn:
         mocker.patch.object(driver, "_is_terminal", return_value=outcome)
 
     def test_completed_returns_no_error(
-        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
+        self,
+        mocker: MockerFixture,
+        _openshift_agentic_run_driver: OpenshiftAgenticRunDriver,
     ) -> None:
         """Test COMPLETED outcome returns no error."""
-        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.COMPLETED)
+        self._stub_terminal(
+            mocker, _openshift_agentic_run_driver, TerminalOutcome.COMPLETED
+        )
         turn = TurnData(turn_id="1", query="Q")
 
-        error, _ = _proposal_driver.execute_turn(turn)
+        error, _ = _openshift_agentic_run_driver.execute_turn(turn)
 
         assert error is None
 
     def test_denied_returns_no_error(
-        self, mocker: MockerFixture, _proposal_driver: ProposalDriver
+        self,
+        mocker: MockerFixture,
+        _openshift_agentic_run_driver: OpenshiftAgenticRunDriver,
     ) -> None:
         """Test DENIED outcome returns no error so metrics are still evaluated."""
-        self._stub_terminal(mocker, _proposal_driver, TerminalOutcome.DENIED)
+        self._stub_terminal(
+            mocker, _openshift_agentic_run_driver, TerminalOutcome.DENIED
+        )
         turn = TurnData(turn_id="1", query="Q")
 
-        error, _ = _proposal_driver.execute_turn(turn)
+        error, _ = _openshift_agentic_run_driver.execute_turn(turn)
 
         assert error is None
 

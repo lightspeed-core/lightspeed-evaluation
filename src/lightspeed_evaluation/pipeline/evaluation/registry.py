@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.driver import (
     AgentDriver,
     HttpApiDriver,
-    ProposalDriver,
+    OpenshiftAgenticRunDriver,
 )
+
+logger = logging.getLogger(__name__)
 
 AGENT_DRIVERS: dict[str, type[AgentDriver]] = {
     "http_api": HttpApiDriver,
-    "proposal": ProposalDriver,
+    "openshift_agentic_run": OpenshiftAgenticRunDriver,
 }
 
 

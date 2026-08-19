@@ -1,4 +1,4 @@
-"""Unit tests for ProposalAmender module."""
+"""Unit tests for OpenshiftAgenticRunAmender module."""
 
 import subprocess
 from typing import Any, Optional
@@ -7,8 +7,8 @@ from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import TurnData
 from lightspeed_evaluation.pipeline.evaluation.cli import CLIClient, KubeCLI
-from lightspeed_evaluation.pipeline.evaluation.proposal_amender import (
-    ProposalAmender,
+from lightspeed_evaluation.pipeline.evaluation.openshift_agentic_run_amender import (
+    OpenshiftAgenticRunAmender,
 )
 
 
@@ -58,9 +58,9 @@ def _make_turn(query: str = "Fix pod crash") -> TurnData:
 
 
 def _get_results(turn: TurnData) -> dict[str, Any]:
-    """Extract proposal_results, failing if None."""
-    assert turn.proposal_results is not None
-    return dict(turn.proposal_results)
+    """Extract openshift_agentic_run_results, failing if None."""
+    assert turn.openshift_agentic_run_results is not None
+    return dict(turn.openshift_agentic_run_results)
 
 
 def _get_response(turn: TurnData) -> str:
@@ -150,12 +150,12 @@ VERIFICATION_STATUS: dict[str, Any] = {
 
 
 class TestAmendAnalysisOnly:
-    """Test ProposalAmender with analysis-only workflow."""
+    """Test OpenshiftAgenticRunAmender with analysis-only workflow."""
 
-    def test_populates_proposal_results(self) -> None:
-        """Test amend populates proposal_results with analysis data."""
+    def test_populates_openshift_agentic_run_results(self) -> None:
+        """Test amend populates openshift_agentic_run_results with analysis data."""
         cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [{"type": "Analyzed", "status": "True", "message": "Done"}],
@@ -169,7 +169,7 @@ class TestAmendAnalysisOnly:
         err = amender.amend(turn, status)
 
         assert err is None
-        assert turn.proposal_status == status
+        assert turn.openshift_agentic_run_status == status
         results = _get_results(turn)
         assert "analysis" in results
         assert len(results["analysis"]) == 1
@@ -178,7 +178,7 @@ class TestAmendAnalysisOnly:
     def test_response_contains_diagnosis(self) -> None:
         """Test Markdown summary includes diagnosis details."""
         cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [{"type": "Analyzed", "status": "True", "message": "Done"}],
@@ -199,7 +199,7 @@ class TestAmendAnalysisOnly:
     def test_option_zero_marked_approved(self) -> None:
         """Test option 0 is marked as (Approved) in summary."""
         cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [],
@@ -220,7 +220,7 @@ class TestAmendAnalysisOnly:
     def test_no_execution_or_verification_in_results(self) -> None:
         """Test analysis-only workflow has no execution/verification keys."""
         cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [],
@@ -237,10 +237,10 @@ class TestAmendAnalysisOnly:
         assert "execution" not in results
         assert "verification" not in results
 
-    def test_proposal_phases_analysis_only(self) -> None:
-        """Test proposal_phases contains only 'analysis' for analysis-only workflow."""
+    def test_openshift_agentic_run_phases_analysis_only(self) -> None:
+        """Test openshift_agentic_run_phases contains only 'analysis' for analysis-only workflow."""
         cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [],
@@ -253,11 +253,11 @@ class TestAmendAnalysisOnly:
 
         amender.amend(turn, status)
 
-        assert turn.proposal_phases == ["analysis"]
+        assert turn.openshift_agentic_run_phases == ["analysis"]
 
 
 class TestAmendFullPipeline:
-    """Test ProposalAmender with analysis + execution + verification."""
+    """Test OpenshiftAgenticRunAmender with analysis + execution + verification."""
 
     def _make_cli(self) -> MockCLI:
         """Create MockCLI with all three result CRs."""
@@ -270,7 +270,7 @@ class TestAmendFullPipeline:
         )
 
     def _make_status(self) -> dict[str, Any]:
-        """Create proposal status with all three steps."""
+        """Create agentic run status with all three steps."""
         return {
             "conditions": [
                 {"type": "Analyzed", "status": "True"},
@@ -292,7 +292,7 @@ class TestAmendFullPipeline:
 
     def test_all_results_populated(self) -> None:
         """Test all three step results are populated."""
-        amender = ProposalAmender(self._make_cli())
+        amender = OpenshiftAgenticRunAmender(self._make_cli())
         turn = _make_turn()
 
         amender.amend(turn, self._make_status())
@@ -307,7 +307,7 @@ class TestAmendFullPipeline:
 
     def test_execution_in_summary(self) -> None:
         """Test Markdown includes execution actions."""
-        amender = ProposalAmender(self._make_cli())
+        amender = OpenshiftAgenticRunAmender(self._make_cli())
         turn = _make_turn()
 
         amender.amend(turn, self._make_status())
@@ -320,7 +320,7 @@ class TestAmendFullPipeline:
 
     def test_verification_in_summary(self) -> None:
         """Test Markdown includes verification checks."""
-        amender = ProposalAmender(self._make_cli())
+        amender = OpenshiftAgenticRunAmender(self._make_cli())
         turn = _make_turn()
 
         amender.amend(turn, self._make_status())
@@ -331,37 +331,41 @@ class TestAmendFullPipeline:
         assert "Passed" in response
         assert "All checks passed" in response
 
-    def test_proposal_phases_full_pipeline(self) -> None:
-        """Test proposal_phases lists all three phases."""
-        amender = ProposalAmender(self._make_cli())
+    def test_openshift_agentic_run_phases_full_pipeline(self) -> None:
+        """Test openshift_agentic_run_phases lists all three phases."""
+        amender = OpenshiftAgenticRunAmender(self._make_cli())
         turn = _make_turn()
 
         amender.amend(turn, self._make_status())
 
-        assert turn.proposal_phases == ["analysis", "execution", "verification"]
+        assert turn.openshift_agentic_run_phases == [
+            "analysis",
+            "execution",
+            "verification",
+        ]
 
 
 class TestAmendEdgeCases:
-    """Test ProposalAmender edge cases."""
+    """Test OpenshiftAgenticRunAmender edge cases."""
 
     def test_empty_steps(self) -> None:
         """Test status with no steps produces empty results."""
         cli = MockCLI()
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {"conditions": []}
 
         amender.amend(turn, status)
 
-        assert not turn.proposal_results
-        assert not turn.proposal_phases
+        assert not turn.openshift_agentic_run_results
+        assert not turn.openshift_agentic_run_phases
         response = _get_response(turn)
         assert "## Request" in response
 
     def test_step_with_no_results(self) -> None:
         """Test step present but no result refs gives empty list."""
         cli = MockCLI()
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [],
@@ -378,7 +382,7 @@ class TestAmendEdgeCases:
     def test_failed_fetch_logged_and_skipped(self, mocker: MockerFixture) -> None:
         """Test failed CR fetch is logged and result is skipped."""
         cli = MockCLI()
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [],
@@ -389,7 +393,7 @@ class TestAmendEdgeCases:
             },
         }
         mock_logger = mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.proposal_amender.logger"
+            "lightspeed_evaluation.pipeline.evaluation.openshift_agentic_run_amender.logger"
         )
 
         err = amender.amend(turn, status)
@@ -409,7 +413,7 @@ class TestAmendEdgeCases:
             "failureReason": "LLM timeout",
         }
         cli = MockCLI({"analysisresults/ar-fail": {"status": failed_status}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [{"type": "Analyzed", "status": "False"}],
@@ -433,7 +437,7 @@ class TestAmendEdgeCases:
             "content": "Cluster admin must review",
         }
         cli = MockCLI({"escalationresults/esc-1": {"status": esc_status}})
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [{"type": "Escalated", "status": "True"}],
@@ -455,7 +459,7 @@ class TestAmendEdgeCases:
     def test_outcome_section_from_conditions(self) -> None:
         """Test outcome section uses condition messages."""
         cli = MockCLI()
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [
@@ -473,7 +477,7 @@ class TestAmendEdgeCases:
     def test_subprocess_error_caught_by_amend(self, mocker: MockerFixture) -> None:
         """Test that subprocess errors are caught by the broadened except clause."""
         cli = MockCLI()
-        amender = ProposalAmender(cli)
+        amender = OpenshiftAgenticRunAmender(cli)
         turn = _make_turn()
         status: dict[str, Any] = {
             "conditions": [],
@@ -492,7 +496,7 @@ class TestAmendEdgeCases:
         err = amender.amend(turn, status)
 
         assert err is not None
-        assert "ProposalAmender error" in err
+        assert "OpenshiftAgenticRunAmender error" in err
 
 
 class TestKubeCLITimeoutHandling:

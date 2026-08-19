@@ -6,7 +6,7 @@ from lightspeed_evaluation.core.models.agents import (
     HttpApiAgentConfig,
     MCPHeadersConfig,
     MCPServerConfig,
-    ProposalAgentConfig,
+    OpenshiftAgenticRunAgentConfig,
 )
 from lightspeed_evaluation.core.models.api import (
     APIRequest,
@@ -69,11 +69,11 @@ from lightspeed_evaluation.core.models.trace import (
 __all__ = [
     # Agent config models
     "AgentDefaultConfig",
+    "OpenshiftAgenticRunAgentConfig",
     "AgentsConfig",
     "HttpApiAgentConfig",
     "MCPHeadersConfig",
     "MCPServerConfig",
-    "ProposalAgentConfig",
     # Data models
     "TurnData",
     "EvaluationData",

@@ -1,11 +1,11 @@
-"""Proposal status evaluation for CRD-based agent workflows."""
+"""AgenticRun status evaluation for CRD-based agent workflows."""
 
 import re
 from datetime import datetime
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.models import TurnData
-from lightspeed_evaluation.core.proposal import derive_phase
+from lightspeed_evaluation.core.openshift_agentic_run import derive_phase
 
 _NON_TERMINAL_PHASES: frozenset[str] = frozenset({"StepStarted"})
 
@@ -85,14 +85,16 @@ def _latest_terminal_result(
 def _check_phase(
     expected: dict[str, Any],
     conditions: list[dict[str, Any]],
-    proposal_spec: Optional[dict[str, Any]],
+    openshift_agentic_run_spec: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check exact phase match."""
     phase = expected.get("phase")
     if phase is None:
         return None
 
-    actual = derive_phase(conditions, proposal_spec)
+    actual = derive_phase(
+        conditions, openshift_agentic_run_spec=openshift_agentic_run_spec
+    )
     if actual == phase:
         return True, f"Phase matches: {actual}"
     return False, f"Phase mismatch: expected '{phase}', got '{actual}'"
@@ -101,14 +103,16 @@ def _check_phase(
 def _check_phase_in(
     expected: dict[str, Any],
     conditions: list[dict[str, Any]],
-    proposal_spec: Optional[dict[str, Any]],
+    openshift_agentic_run_spec: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check phase membership in a list."""
     phase_in = expected.get("phase_in")
     if phase_in is None:
         return None
 
-    actual = derive_phase(conditions, proposal_spec)
+    actual = derive_phase(
+        conditions, openshift_agentic_run_spec=openshift_agentic_run_spec
+    )
     if actual in phase_in:
         return True, f"Phase '{actual}' in {phase_in}"
     return False, f"Phase '{actual}' not in {phase_in}"
@@ -142,14 +146,14 @@ def _check_max_duration(
 def _check_max_attempts(
     expected: dict[str, Any],
     conditions: list[dict[str, Any]],
-    proposal_status: dict[str, Any],
+    openshift_agentic_run_status: dict[str, Any],
 ) -> Optional[tuple[bool, str]]:
     """Check that the number of execution attempts is within limit."""
     max_attempts = expected.get("max_attempts")
     if max_attempts is None:
         return None
 
-    actual = proposal_status.get("attempts")
+    actual = openshift_agentic_run_status.get("attempts")
     if actual is None:
         actual = (
             sum(
@@ -221,13 +225,13 @@ def _check_analysis_option(
     """Check assertions on a single analysis option by index."""
     risk_in = expected_opt.get("risk_in")
     if risk_in is not None:
-        actual_risk = actual_opt.get("remediationPlan", {}).get("risk", "")
+        actual_risk = (actual_opt.get("remediationPlan") or {}).get("risk", "")
         if actual_risk.lower() not in [r.lower() for r in risk_in]:
             return False, f"Option[{idx}] risk '{actual_risk}' not in {risk_in}"
 
     confidence_in = expected_opt.get("confidence_in")
     if confidence_in is not None:
-        actual_conf = actual_opt.get("diagnosis", {}).get("confidence", "")
+        actual_conf = (actual_opt.get("diagnosis") or {}).get("confidence", "")
         if actual_conf.lower() not in [c.lower() for c in confidence_in]:
             return (
                 False,
@@ -236,7 +240,7 @@ def _check_analysis_option(
 
     diagnosis_contains = expected_opt.get("diagnosis_contains")
     if diagnosis_contains is not None:
-        summary = actual_opt.get("diagnosis", {}).get("summary", "")
+        summary = (actual_opt.get("diagnosis") or {}).get("summary", "")
         for substring in diagnosis_contains:
             if substring.lower() not in summary.lower():
                 return (
@@ -265,18 +269,20 @@ def _check_analysis_option(
 
 def _check_analysis(
     expected: dict[str, Any],
-    proposal_results: Optional[dict[str, Any]],
+    openshift_agentic_run_results: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check analysis-specific assertions (options, risk, confidence, components)."""
     analysis_expected = expected.get("analysis")
     if analysis_expected is None:
         return None
 
-    if not proposal_results:
-        return False, "No proposal_results available for analysis check"
+    if not openshift_agentic_run_results:
+        return False, "No openshift_agentic_run_results available for analysis check"
 
     analysis_results = [
-        r for r in proposal_results.get("analysis", []) if isinstance(r, dict)
+        r
+        for r in openshift_agentic_run_results.get("analysis", [])
+        if isinstance(r, dict)
     ]
     latest_analysis = (
         _latest_terminal_result(analysis_results) if analysis_results else {}
@@ -311,18 +317,20 @@ def _check_analysis(
 
 def _check_execution(
     expected: dict[str, Any],
-    proposal_results: Optional[dict[str, Any]],
+    openshift_agentic_run_results: Optional[dict[str, Any]],
 ) -> Optional[tuple[bool, str]]:
     """Check execution-specific assertions."""
     execution_expected = expected.get("execution")
     if execution_expected is None:
         return None
 
-    if not proposal_results:
-        return False, "No proposal_results available for execution check"
+    if not openshift_agentic_run_results:
+        return False, "No openshift_agentic_run_results available for execution check"
 
     execution_results = [
-        r for r in proposal_results.get("execution", []) if isinstance(r, dict)
+        r
+        for r in openshift_agentic_run_results.get("execution", [])
+        if isinstance(r, dict)
     ]
     if not execution_results:
         return False, "No execution results available"
@@ -358,7 +366,7 @@ def _check_conditions(
 
         actual_cond = by_type.get(cond_type)
         if actual_cond is None:
-            return False, f"Condition '{cond_type}' not found in proposal status"
+            return False, f"Condition '{cond_type}' not found in agentic run status"
 
         exp_status = exp_cond.get("status")
         if exp_status is not None and actual_cond.get("status") != exp_status:
@@ -392,7 +400,7 @@ def _check_verification(
     verified = by_type.get("Verified")
 
     if verified is None:
-        return False, "Verified condition not found in proposal status"
+        return False, "Verified condition not found in agentic run status"
 
     passed = verification.get("passed")
     if passed is not None:
@@ -416,18 +424,19 @@ def _check_verification(
     return True, "Verification assertions passed"
 
 
-def evaluate_proposal_status(
+def evaluate_openshift_agentic_run_status(
     _conv_data: Any,
     _turn_idx: Optional[int],
     turn_data: Optional[TurnData],
     is_conversation: bool,
 ) -> tuple[Optional[float], str]:
-    """Evaluate proposal status against expected assertions.
+    """Evaluate agentic run status against expected assertions.
 
     Args:
         _conv_data: Conversation data (unused).
         _turn_idx: Turn index (unused).
-        turn_data: Turn data with proposal_status and expected_proposal_status.
+        turn_data: Turn data with openshift_agentic_run_status and
+            expected_openshift_agentic_run_status.
         is_conversation: Whether this is conversation-level evaluation.
 
     Returns:
@@ -435,30 +444,30 @@ def evaluate_proposal_status(
         first failure, None if metric should be skipped.
     """
     if is_conversation:
-        return None, "Proposal status is a turn-level metric"
+        return None, "AgenticRun status is a turn-level metric"
 
     if turn_data is None:
-        return None, "TurnData is required for proposal status evaluation"
+        return None, "TurnData is required for agentic run status evaluation"
 
-    if not turn_data.expected_proposal_status:
-        return None, "No expected_proposal_status provided"
+    if not turn_data.expected_openshift_agentic_run_status:
+        return None, "No expected_openshift_agentic_run_status provided"
 
-    if not turn_data.proposal_status:
-        return 0.0, "proposal_status not populated by driver"
+    if not turn_data.openshift_agentic_run_status:
+        return 0.0, "openshift_agentic_run_status not populated by driver"
 
-    expected = turn_data.expected_proposal_status
-    proposal_status = turn_data.proposal_status
-    conditions = proposal_status.get("conditions", [])
-    proposal_spec = turn_data.proposal_spec
-    proposal_results = turn_data.proposal_results
+    expected = turn_data.expected_openshift_agentic_run_status
+    openshift_agentic_run_status = turn_data.openshift_agentic_run_status
+    conditions = openshift_agentic_run_status.get("conditions", [])
+    openshift_agentic_run_spec = turn_data.openshift_agentic_run_spec
+    openshift_agentic_run_results = turn_data.openshift_agentic_run_results
 
     checks = [
-        _check_phase(expected, conditions, proposal_spec),
-        _check_phase_in(expected, conditions, proposal_spec),
+        _check_phase(expected, conditions, openshift_agentic_run_spec),
+        _check_phase_in(expected, conditions, openshift_agentic_run_spec),
         _check_max_duration(expected, conditions),
-        _check_max_attempts(expected, conditions, proposal_status),
-        _check_analysis(expected, proposal_results),
-        _check_execution(expected, proposal_results),
+        _check_max_attempts(expected, conditions, openshift_agentic_run_status),
+        _check_analysis(expected, openshift_agentic_run_results),
+        _check_execution(expected, openshift_agentic_run_results),
         _check_conditions(expected, conditions),
         _check_verification(expected, conditions),
     ]

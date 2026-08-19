@@ -1,6 +1,6 @@
-- conversation_group_id: proposal_analysis_only
-  description: Analysis-only — no execution or verification (query from proposal_spec.request)
-  tag: proposal_analysis_only
+- conversation_group_id: agentic_run_analysis_only
+  description: Analysis-only — no execution or verification (query from agentic_run_spec.request)
+  tag: agentic_run_analysis_only
   setup_script: agentic/scripts/setup_oomkill-openai.sh
   cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
   conversation_metrics: []
@@ -8,7 +8,7 @@
   turns:
     - turn_id: turn_1
       response: null
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. Analyze the root cause.
@@ -22,22 +22,22 @@
                 - /skills/find-token
         analysis:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
       turn_metrics:
-        - custom:proposal_status
+        - custom:openshift_agentic_run_status
       turn_metrics_metadata: {}
 
-- conversation_group_id: proposal_analysis_verification_only
+- conversation_group_id: agentic_run_analysis_verification_only
   description: Analysis + verification without execution — verify diagnosis without remediation
-  tag: proposal_analysis_verification
+  tag: agentic_run_analysis_verification
   setup_script: agentic/scripts/setup_oomkill-openai.sh
   cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. Analyze the root cause and verify the
@@ -54,7 +54,7 @@
           agent: eval-default
         verification:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Executed
@@ -73,22 +73,22 @@
         shows OOMKilled in its container last state and that the memory
         limit is indeed insufficient.
       turn_metrics:
-        - custom:proposal_status
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_status
+        - custom:openshift_agentic_run_evaluation_correctness
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
-- conversation_group_id: proposal_oomkill_openai
+- conversation_group_id: agentic_run_oomkill_openai
   description: OOMKill full lifecycle — status check + LLM-as-judge evaluation
-  tag: proposal_oomkill
+  tag: agentic_run_oomkill
   setup_script: agentic/scripts/setup_oomkill-openai.sh
   cleanup_script: agentic/scripts/cleanup_oomkill-openai.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
@@ -107,7 +107,7 @@
           agent: eval-default
         verification:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         max_duration: "15m"
         max_attempts: 5
@@ -133,22 +133,22 @@
         The agent should verify the pod reaches Running state without
         further OOMKill events.
       turn_metrics:
-        - custom:proposal_status
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_status
+        - custom:openshift_agentic_run_evaluation_correctness
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
-- conversation_group_id: proposal_oomkill_claude-vertex
+- conversation_group_id: agentic_run_oomkill_claude-vertex
   description: Judge evaluation — LLM-as-judge on full lifecycle workflow
-  tag: proposal_oomkill
+  tag: agentic_run_oomkill
   setup_script: agentic/scripts/setup_oomkill-claude-vertex.sh
   cleanup_script: agentic/scripts/cleanup_oomkill-claude-vertex.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
@@ -183,21 +183,21 @@
         The agent should verify the pod reaches Running state without
         further OOMKill events.
       turn_metrics:
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_evaluation_correctness
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
-- conversation_group_id: proposal_crashloop_probe_openai
+- conversation_group_id: agentic_run_crashloop_probe_openai
   description: CrashLoopBackOff caused by misconfigured liveness probe — full lifecycle
-  tag: proposal_crashloop_probe
+  tag: agentic_run_crashloop_probe
   setup_script: agentic/scripts/setup_crashloop_probe-openai.sh
   cleanup_script: agentic/scripts/cleanup_crashloop_probe-openai.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. The container keeps restarting. Analyze the
@@ -216,7 +216,7 @@
           agent: eval-default
         verification:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
       expected_outcome: >-
         Root cause: the liveness probe on pod crashloop-probe-demo is
@@ -226,22 +226,22 @@
         endpoint (e.g. / or remove the probe) and verify the pod reaches
         Running state without further restarts.
       turn_metrics:
-        - custom:proposal_status
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_status
+        - custom:openshift_agentic_run_evaluation_correctness
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
-- conversation_group_id: proposal_crashloop_probe_claude-vertex
+- conversation_group_id: agentic_run_crashloop_probe_claude-vertex
   description: CrashLoopBackOff caused by misconfigured liveness probe — full lifecycle (Claude/Vertex)
-  tag: proposal_crashloop_probe
+  tag: agentic_run_crashloop_probe
   setup_script: agentic/scripts/setup_crashloop_probe-claude-vertex.sh
   cleanup_script: agentic/scripts/cleanup_crashloop_probe-claude-vertex.sh
   conversation_metrics: []
   conversation_metrics_metadata: {}
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. The container keeps restarting. Analyze the
@@ -260,7 +260,7 @@
           agent: eval-default
         verification:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
       expected_outcome: >-
         Root cause: the liveness probe on pod crashloop-probe-demo is
@@ -270,8 +270,8 @@
         endpoint (e.g. / or remove the probe) and verify the pod reaches
         Running state without further restarts.
       turn_metrics:
-        - custom:proposal_status
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_status
+        - custom:openshift_agentic_run_evaluation_correctness
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75

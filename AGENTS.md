@@ -73,11 +73,19 @@ make test            # Or: uv run pytest tests
 
 **Important:** Do NOT disable lint warnings (e.g., `# noqa`, `# type: ignore`, `# pylint: disable`). Always try to fix the underlying issue. If a fix becomes too complicated, inform the user and discuss alternatives.
 
+### 6. OpenshiftAgenticRun Naming Convention
+
+The framework uses "OpenshiftAgenticRun" naming for OpenShift-specific agentic workflow evaluation:
+- `OpenshiftAgenticRunDriver`, `OpenshiftAgenticRunAmender`, `OpenshiftAgenticRunAgentConfig`
+- `openshift_agentic_run_spec`, `openshift_agentic_run_status`, `openshift_agentic_run_results`, `openshift_agentic_run_phases`
+- `custom:openshift_agentic_run_status`, `custom:openshift_agentic_run_evaluation_correctness`
+- Agent type: `"openshift_agentic_run"`
+
 ---
 
 ## Project Overview
 
-The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
+The Lightspeed Evaluation Framework evaluates LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (OpenshiftAgenticRun) outcomes — in both live (API/agent-driven) and offline (pre-populated data) modes. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, and pluggable agent drivers. Available as a CLI tool and Python library with turn-level and conversation-level assessments.
 
 ### Key Components
 
@@ -118,7 +126,7 @@ src/lightspeed_evaluation/
 │   ├── metrics/       # Evaluation metrics (Ragas, DeepEval, NLP, custom, script, user-defined)
 │   ├── models/        # Pydantic data models
 │   ├── output/        # Report generation and visualization
-│   ├── proposal/      # AgenticRun CRD operations
+│   ├── openshift_agentic_run/   # OpenShift AgenticRun CRD operations
 │   ├── script/        # Script execution for environment validation
 │   ├── storage/       # Storage backends (file, database, MLflow, Langfuse)
 │   └── system/        # Configuration and validation

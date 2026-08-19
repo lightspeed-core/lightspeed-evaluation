@@ -4,15 +4,15 @@ This guide covers how to evaluate event-driven agentic workflows using the Light
 
 ## Overview
 
-OpenShift Agentic Lightspeed systems is event-driven: Proposal CRDs are applied, workflows are executed, and cluster state changes. The evaluation framework now supports a `proposal` agent type in order to monitor the cluster state and evaluate agent results against it.
+OpenShift Agentic Lightspeed systems is event-driven: AgenticRun CRDs are applied, workflows are executed, and cluster state changes. The evaluation framework supports an `openshift_agentic_run` agent type to monitor the cluster state and evaluate agent results against it.
 
 ## Prerequisites
 
 - OpenShift cluster with the Agentic Lightspeed operator installed
 - `oc` or `kubectl` CLI available in PATH
 - `KUBECONFIG` environment variable pointing to a valid kubeconfig
-- RBAC permissions for Proposal CRD operations in the target namespace
-- Judge LLM API key (e.g., `OPENAI_API_KEY`) for `proposal_evaluation_correctness`
+- RBAC permissions for AgenticRun CRD operations in the target namespace
+- Judge LLM API key (e.g., `OPENAI_API_KEY`) for `openshift_agentic_run_evaluation_correctness`
 
 ## Configuration
 
@@ -26,22 +26,22 @@ agents:
       timeout: 600
 
   openshift_agentic_lightspeed:
-    type: proposal
+    type: openshift_agentic_run
     namespace: openshift-lightspeed
     auto_approve: true
-    cleanup_proposals: true
+    cleanup_openshift_agentic_runs: true
     timeout: 900
     poll_interval: 2
 ```
 
-### Proposal Agent Configuration
+### OpenshiftAgenticRun Agent Configuration
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `namespace` | string | *(required)* | Kubernetes namespace containing Proposal resources |
-| `auto_approve` | bool | `true` | Automatically approve proposals when phase is Proposed |
-| `cleanup_proposals` | bool | `true` | Delete eval proposals after status is captured |
-| `timeout` | int | `900` | Total timeout in seconds for the proposal lifecycle |
+| `namespace` | string | *(required)* | Kubernetes namespace containing AgenticRun resources |
+| `auto_approve` | bool | `true` | Automatically approve AgenticRuns when phase is Proposed |
+| `cleanup_openshift_agentic_runs` | bool | `true` | Delete eval AgenticRun CRs after status is captured |
+| `timeout` | int | `900` | Total timeout in seconds for the AgenticRun lifecycle |
 | `cli_timeout` | int | `30` | Timeout in seconds for individual oc/kubectl commands |
 | `poll_interval` | int | `2` | Seconds between status polls |
 | `cache_dir` | string | `null` | Location of cached queries |
@@ -49,21 +49,21 @@ agents:
 
 ### Turn Data Structure
 
-For agentic workflows, each turn uses `proposal_spec` to define the proposal and `expected_proposal_status` to define success criteria.
+For agentic workflows, each turn uses `openshift_agentic_run_spec` to define the AgenticRun and `expected_openshift_agentic_run_status` to define success criteria.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `description` | string | No | Human-readable label for reports (falls back to `query`) |
-| `proposal_spec` | dict | Conditional | Inline proposal spec — contains `request`, `targetNamespaces`, workflow phase gates |
-| `expected_proposal_status` | dict | Conditional | Assertions to check against the proposal status |
+| `openshift_agentic_run_spec` | dict | Conditional | Inline AgenticRun spec — contains `request`, `targetNamespaces`, workflow phase gates |
+| `expected_openshift_agentic_run_status` | dict | Conditional | Assertions to check against the AgenticRun status |
 | `expected_outcome` | string | Conditional | Expected outcome description for LLM-as-judge evaluation |
 | `expected_analysis_outcome` | string | No | Optional per-phase expected outcome for analysis/diagnosis |
 | `expected_execution_outcome` | string | No | Optional per-phase expected outcome for execution/actions |
 | `expected_verification_outcome` | string | No | Optional per-phase expected outcome for verification |
-| `proposal_status` | dict | No | Raw CRD status populated by the driver (framework-managed) |
-| `proposal_results` | dict | No | Child Result CRs populated by ProposalAmender (framework-managed) |
+| `openshift_agentic_run_status` | dict | No | Raw CRD status populated by the driver (framework-managed) |
+| `openshift_agentic_run_results` | dict | No | Child Result CRs populated by OpenshiftAgenticRunAmender (framework-managed) |
 
-> `query` remains required but can be auto-populated from `proposal_spec.request` when absent.
+> `query` remains required but can be auto-populated from `openshift_agentic_run_spec.request` when absent.
 
 ### Example: Analysis-Only Workflow
 
@@ -76,7 +76,7 @@ The simplest agentic evaluation — analysis phase only, no execution or verific
   cleanup_script: agentic/scripts/cleanup.sh
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace test-ns
           is in CrashLoopBackOff. Analyze the root cause.
@@ -89,10 +89,10 @@ The simplest agentic evaluation — analysis phase only, no execution or verific
                 - /skills/find-token
         analysis:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
       turn_metrics:
-        - custom:proposal_status
+        - custom:openshift_agentic_run_status
 ```
 
 ### Example: Full Lifecycle (Analysis + Execution + Verification)
@@ -106,7 +106,7 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
   cleanup_script: agentic/scripts/cleanup.sh
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: >-
           A pod named oomkill-demo in namespace test-ns
           is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
@@ -124,7 +124,7 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
           agent: eval-default
         verification:
           agent: eval-default
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         max_duration: "15m"
         max_attempts: 5
@@ -142,37 +142,37 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
         memory limit is too low. Remediation: increase the container memory
         limit and verify the pod reaches Running state.
       turn_metrics:
-        - custom:proposal_status
-        - custom:proposal_evaluation_correctness
+        - custom:openshift_agentic_run_status
+        - custom:openshift_agentic_run_evaluation_correctness
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 ```
 
-## Proposal Lifecycle
+## AgenticRun Lifecycle
 
-The `proposal` driver manages the full Proposal CR lifecycle:
+The `openshift_agentic_run` driver manages the full AgenticRun CR lifecycle:
 
-1. **Build Proposal CR** — Merge `proposal_spec` + `request` + agent config
+1. **Build AgenticRun CR** — Merge `openshift_agentic_run_spec` + `request` + agent config
 2. **Create CR on cluster** — Auto-generated name: `eval-<uuid8>`
 3. **Poll status** — Loop every `poll_interval` seconds
 4. **Auto-approve** — If phase is `Proposed` and `auto_approve` is enabled
 5. **Terminal phase** — `Completed` / `Failed` / `Denied` / `Escalated`
-6. **Populate turn_data** — `proposal_status` (full status dict) + `proposal_results` (child Result CRs) + `response` (Markdown workflow summary)
-7. **Cleanup proposal CR** — Delete the created CR (if `cleanup_proposals` is enabled)
-8. **Metrics evaluate** — `custom:proposal_status` and/or `custom:proposal_evaluation_correctness` on enriched data
+6. **Populate turn_data** — `openshift_agentic_run_status` (full status dict) + `openshift_agentic_run_results` (child Result CRs) + `response` (Markdown workflow summary)
+7. **Cleanup AgenticRun CR** — Delete the created CR (if `cleanup_openshift_agentic_runs` is enabled)
+8. **Metrics evaluate** — `custom:openshift_agentic_run_status` and/or `custom:openshift_agentic_run_evaluation_correctness` on enriched data
 
-Setup/cleanup scripts are only needed for **infrastructure** (deploying the workload to trigger, LLM provider CRs, sandbox CRs, etc.). The driver handles Proposal CR lifecycle autonomously.
+Setup/cleanup scripts are only needed for **infrastructure** (deploying the workload to trigger, LLM provider CRs, sandbox CRs, etc.). The driver handles AgenticRun CR lifecycle autonomously.
 
 ## Metrics
 
-### `custom:proposal_status` — Deterministic Assertions
+### `custom:openshift_agentic_run_status` — Deterministic Assertions
 
-A single metric that runs all assertion checks from `expected_proposal_status` in sequence, failing fast at the first failure. Score is `1.0` if all checks pass, `0.0` on first failure.
+A single metric that runs all assertion checks from `expected_openshift_agentic_run_status` in sequence, failing fast at the first failure. Score is `1.0` if all checks pass, `0.0` on first failure.
 
 Checks run in order: **phase → timing → analysis → execution → verification**.
 
-#### `expected_proposal_status` Reference
+#### `expected_openshift_agentic_run_status` Reference
 
 **Phase checks:**
 
@@ -223,9 +223,9 @@ Checks run in order: **phase → timing → analysis → execution → verificat
 | `conditions[].status` | string | Expected condition status (e.g., `"True"`, `"False"`) |
 | `conditions[].reason` | string | Expected condition reason (e.g., `Skipped`, `Succeeded`) |
 
-> On retried proposals, analysis and execution checks use the **latest** (most recent) Result CR, so assertions reflect the final execution state.
+> On retried AgenticRuns, analysis and execution checks use the **latest** (most recent) Result CR, so assertions reflect the final execution state.
 
-### `custom:proposal_evaluation_correctness` — LLM-as-Judge
+### `custom:openshift_agentic_run_evaluation_correctness` — LLM-as-Judge
 
 Evaluates agentic remediation workflow quality using a Judge LLM. Scores 0.0–1.0 across three dimensions (only phases present in the workflow are scored; absent dimensions are marked N/A):
 

@@ -1,4 +1,4 @@
-"""Unit tests for new proposal status assertion checks.
+"""Unit tests for agentic run status assertion checks.
 
 Covers: _parse_duration, max_duration, max_attempts, analysis
 (with component/option helpers), execution, and check ordering.
@@ -8,28 +8,28 @@ from typing import Any, Optional
 
 import pytest
 
-from lightspeed_evaluation.core.metrics.custom.proposal_eval import (
+from lightspeed_evaluation.core.metrics.custom.openshift_agentic_run_eval import (
     _check_analysis_component,
     _parse_duration,
-    evaluate_proposal_status,
+    evaluate_openshift_agentic_run_status,
 )
 from lightspeed_evaluation.core.models import TurnData
 
 
 def _make_turn(
-    expected_proposal_status: Optional[dict[str, Any]] = None,
-    proposal_status: Optional[dict[str, Any]] = None,
-    proposal_spec: Optional[dict[str, Any]] = None,
-    proposal_results: Optional[dict[str, Any]] = None,
+    expected_openshift_agentic_run_status: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_status: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_spec: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_results: Optional[dict[str, Any]] = None,
 ) -> TurnData:
     """Build a minimal TurnData for testing."""
     return TurnData(
         turn_id="t1",
         query="test query",
-        expected_proposal_status=expected_proposal_status,
-        proposal_status=proposal_status,
-        proposal_spec=proposal_spec,
-        proposal_results=proposal_results,
+        expected_openshift_agentic_run_status=expected_openshift_agentic_run_status,
+        openshift_agentic_run_status=openshift_agentic_run_status,
+        openshift_agentic_run_spec=openshift_agentic_run_spec,
+        openshift_agentic_run_results=openshift_agentic_run_results,
     )
 
 
@@ -77,8 +77,8 @@ class TestMaxDurationCheck:
     def test_within_limit_pass(self) -> None:
         """Elapsed time within limit returns 1.0."""
         turn = _make_turn(
-            expected_proposal_status={"max_duration": "5m"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_duration": "5m"},
+            openshift_agentic_run_status={
                 "conditions": [
                     {
                         "type": "Analyzed",
@@ -93,7 +93,7 @@ class TestMaxDurationCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Duration" in reason
         assert "within limit" in reason
@@ -101,8 +101,8 @@ class TestMaxDurationCheck:
     def test_exceeded_fail(self) -> None:
         """Elapsed time exceeding limit returns 0.0."""
         turn = _make_turn(
-            expected_proposal_status={"max_duration": "5m"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_duration": "5m"},
+            openshift_agentic_run_status={
                 "conditions": [
                     {
                         "type": "Analyzed",
@@ -117,39 +117,39 @@ class TestMaxDurationCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "exceeds limit" in reason
 
     def test_no_timestamps_fail(self) -> None:
         """Conditions without lastTransitionTime returns 0.0."""
         turn = _make_turn(
-            expected_proposal_status={"max_duration": "5m"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_duration": "5m"},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "No lastTransitionTime" in reason
 
     def test_skip_when_not_specified(self) -> None:
         """No max_duration in expected skips the check."""
         turn = _make_turn(
-            expected_proposal_status={"phase": "Completed"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"phase": "Completed"},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_spec={"analysis": {}},
+            openshift_agentic_run_spec={"analysis": {}},
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_boundary_equal(self) -> None:
         """Elapsed time exactly at limit passes (less-than-or-equal)."""
         turn = _make_turn(
-            expected_proposal_status={"max_duration": "3m"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_duration": "3m"},
+            openshift_agentic_run_status={
                 "conditions": [
                     {
                         "type": "Analyzed",
@@ -164,7 +164,7 @@ class TestMaxDurationCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "within limit" in reason
 
@@ -175,34 +175,34 @@ class TestMaxAttemptsCheck:
     def test_within_limit_pass(self) -> None:
         """Attempts within limit returns 1.0."""
         turn = _make_turn(
-            expected_proposal_status={"max_attempts": 3},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_attempts": 3},
+            openshift_agentic_run_status={
                 "attempts": 2,
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Attempts 2 within limit 3" in reason
 
     def test_exceeded_fail(self) -> None:
         """Attempts exceeding limit returns 0.0."""
         turn = _make_turn(
-            expected_proposal_status={"max_attempts": 3},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_attempts": 3},
+            openshift_agentic_run_status={
                 "attempts": 4,
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "exceeds limit" in reason
 
     def test_from_status_field(self) -> None:
-        """Reads attempts from proposal_status.attempts when available."""
+        """Reads attempts from openshift_agentic_run_status.attempts when available."""
         turn = _make_turn(
-            expected_proposal_status={"max_attempts": 5},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_attempts": 5},
+            openshift_agentic_run_status={
                 "attempts": 1,
                 "conditions": [
                     {
@@ -214,15 +214,15 @@ class TestMaxAttemptsCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Attempts 1" in reason
 
     def test_inferred_from_conditions(self) -> None:
         """Infers attempts from RetryingExecution conditions + 1."""
         turn = _make_turn(
-            expected_proposal_status={"max_attempts": 3},
-            proposal_status={
+            expected_openshift_agentic_run_status={"max_attempts": 3},
+            openshift_agentic_run_status={
                 "conditions": [
                     {
                         "type": "Executed",
@@ -238,20 +238,20 @@ class TestMaxAttemptsCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Attempts 3" in reason
 
     def test_skip_when_not_specified(self) -> None:
         """No max_attempts in expected skips the check."""
         turn = _make_turn(
-            expected_proposal_status={"phase": "Completed"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"phase": "Completed"},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_spec={"analysis": {}},
+            openshift_agentic_run_spec={"analysis": {}},
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
 
@@ -261,68 +261,70 @@ class TestAnalysisCheck:
     def test_skip_when_not_specified(self) -> None:
         """No analysis in expected skips the check."""
         turn = _make_turn(
-            expected_proposal_status={"phase": "Completed"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"phase": "Completed"},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_spec={"analysis": {}},
+            openshift_agentic_run_spec={"analysis": {}},
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_min_options_pass(self) -> None:
         """Enough options passes min_options check."""
         turn = _make_turn(
-            expected_proposal_status={"analysis": {"min_options": 1}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"analysis": {"min_options": 1}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [{"options": [{"diagnosis": {}, "remediationPlan": {}}]}],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Analysis assertions passed" in reason
 
     def test_min_options_fail(self) -> None:
         """Too few options fails min_options check."""
         turn = _make_turn(
-            expected_proposal_status={"analysis": {"min_options": 2}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"analysis": {"min_options": 2}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={"analysis": [{"options": [{"diagnosis": {}}]}]},
+            openshift_agentic_run_results={
+                "analysis": [{"options": [{"diagnosis": {}}]}]
+            },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "1 options" in reason
         assert "at least 2" in reason
 
-    def test_no_proposal_results_fail(self) -> None:
-        """Missing proposal_results fails analysis check."""
+    def test_no_openshift_agentic_run_results_fail(self) -> None:
+        """Missing openshift_agentic_run_results fails analysis check."""
         turn = _make_turn(
-            expected_proposal_status={"analysis": {"min_options": 1}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"analysis": {"min_options": 1}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
-        assert "No proposal_results" in reason
+        assert "No openshift_agentic_run_results" in reason
 
     def test_risk_in_pass(self) -> None:
         """Risk value in allowed list passes."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"risk_in": ["low", "medium"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -332,21 +334,21 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_risk_in_fail(self) -> None:
         """Risk value not in allowed list fails."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"risk_in": ["low", "medium"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -356,7 +358,7 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "risk" in reason.lower()
         assert "High" in reason
@@ -364,15 +366,15 @@ class TestAnalysisCheck:
     def test_confidence_in_pass(self) -> None:
         """Confidence value in allowed list passes."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"confidence_in": ["medium", "high"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -382,21 +384,21 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_confidence_in_fail(self) -> None:
         """Confidence value not in allowed list fails."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"confidence_in": ["medium", "high"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -406,22 +408,22 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "confidence" in reason.lower()
 
     def test_diagnosis_contains_pass(self) -> None:
         """Diagnosis summary containing all substrings passes."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"diagnosis_contains": ["crash", "image"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -436,21 +438,21 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_diagnosis_contains_fail(self) -> None:
         """Diagnosis summary missing a substring fails."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"diagnosis_contains": ["crash", "image"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -463,7 +465,7 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "does not contain" in reason
         assert "'image'" in reason
@@ -600,15 +602,15 @@ class TestAnalysisCheck:
     def test_uses_latest_analysis_result_on_retry(self) -> None:
         """On retry, only options from the latest analysis result are checked."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [{"risk_in": ["low"]}],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -623,13 +625,13 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_option_index_out_of_range(self) -> None:
         """Expected option at index beyond actual options fails."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {
                     "options": [
                         {"risk_in": ["low"]},
@@ -637,10 +639,10 @@ class TestAnalysisCheck:
                     ],
                 },
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {
                         "options": [
@@ -650,7 +652,7 @@ class TestAnalysisCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "Option[1]" in reason
         assert "1 options present" in reason
@@ -662,11 +664,11 @@ class TestExecutionCheck:
     def test_phase_match_pass(self) -> None:
         """Execution phase match returns 1.0 with realistic conditions."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {
                         "conditions": [
@@ -677,18 +679,18 @@ class TestExecutionCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Execution assertions passed" in reason
 
     def test_phase_mismatch_fail(self) -> None:
         """Execution phase mismatch returns 0.0."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {
                         "conditions": [
@@ -699,7 +701,7 @@ class TestExecutionCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "Execution phase" in reason
         assert "'Succeeded'" in reason
@@ -708,11 +710,11 @@ class TestExecutionCheck:
     def test_phase_from_completed_condition(self) -> None:
         """Reads Completed condition reason, skipping Started."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {
                         "conditions": [
@@ -723,18 +725,18 @@ class TestExecutionCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Execution assertions passed" in reason
 
     def test_phase_from_only_completed_condition(self) -> None:
         """Works when only Completed condition is present (no start time)."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {
                         "conditions": [
@@ -744,30 +746,30 @@ class TestExecutionCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Execution assertions passed" in reason
 
     def test_skip_when_not_specified(self) -> None:
         """No execution in expected skips the check."""
         turn = _make_turn(
-            expected_proposal_status={"phase": "Completed"},
-            proposal_status={
+            expected_openshift_agentic_run_status={"phase": "Completed"},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_spec={"analysis": {}},
+            openshift_agentic_run_spec={"analysis": {}},
         )
-        score, _ = evaluate_proposal_status(None, 0, turn, False)
+        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
 
     def test_uses_latest_execution_result_on_retry(self) -> None:
         """On retry, the latest execution result determines the phase."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {
                         "conditions": [
@@ -784,18 +786,18 @@ class TestExecutionCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Execution assertions passed" in reason
 
     def test_skips_trailing_non_terminal_step_started(self) -> None:
         """A trailing in-progress result is skipped in favour of the completed one."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {
                         "conditions": [
@@ -811,38 +813,38 @@ class TestExecutionCheck:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Execution assertions passed" in reason
 
     def test_all_non_terminal_falls_back_to_last(self) -> None:
         """When every result is in-progress, the last one is used."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "execution": [
                     {"conditions": [{"type": "Started", "reason": "StepStarted"}]},
                     {"conditions": [{"type": "Started", "reason": "StepStarted"}]},
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "'StepStarted'" in reason
 
     def test_no_execution_results_fail(self) -> None:
         """Missing execution results fails."""
         turn = _make_turn(
-            expected_proposal_status={"execution": {"phase": "Succeeded"}},
-            proposal_status={
+            expected_openshift_agentic_run_status={"execution": {"phase": "Succeeded"}},
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Executed", "status": "True"}],
             },
-            proposal_results={"analysis": []},
+            openshift_agentic_run_results={"analysis": []},
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "No execution results" in reason
 
@@ -853,11 +855,11 @@ class TestCheckOrdering:
     def test_timing_fails_before_analysis(self) -> None:
         """Max duration failure reported before analysis check."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "max_duration": "1m",
                 "analysis": {"min_options": 1},
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [
                     {
                         "type": "Analyzed",
@@ -871,25 +873,25 @@ class TestCheckOrdering:
                     },
                 ],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [{"options": [{"diagnosis": {}}]}],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "exceeds limit" in reason
 
     def test_analysis_fails_before_execution(self) -> None:
         """Analysis failure reported before execution check."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "analysis": {"min_options": 5},
                 "execution": {"phase": "Succeeded"},
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "conditions": [{"type": "Analyzed", "status": "True"}],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [{"options": [{"diagnosis": {}}]}],
                 "execution": [
                     {
@@ -901,7 +903,7 @@ class TestCheckOrdering:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 0.0
         assert "options" in reason
         assert "at least 5" in reason
@@ -909,13 +911,13 @@ class TestCheckOrdering:
     def test_all_new_checks_pass(self) -> None:
         """All new checks passing returns 1.0 with combined reasons."""
         turn = _make_turn(
-            expected_proposal_status={
+            expected_openshift_agentic_run_status={
                 "max_duration": "10m",
                 "max_attempts": 3,
                 "analysis": {"min_options": 1},
                 "execution": {"phase": "Succeeded"},
             },
-            proposal_status={
+            openshift_agentic_run_status={
                 "attempts": 1,
                 "conditions": [
                     {
@@ -930,7 +932,7 @@ class TestCheckOrdering:
                     },
                 ],
             },
-            proposal_results={
+            openshift_agentic_run_results={
                 "analysis": [
                     {"options": [{"diagnosis": {}, "remediationPlan": {}}]},
                 ],
@@ -944,7 +946,7 @@ class TestCheckOrdering:
                 ],
             },
         )
-        score, reason = evaluate_proposal_status(None, 0, turn, False)
+        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Duration" in reason
         assert "Attempts" in reason

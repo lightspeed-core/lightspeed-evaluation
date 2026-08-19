@@ -148,7 +148,7 @@ class TurnData(StreamingMetricsMixin):
     query: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Query — auto-populated from proposal_spec.request when absent",
+        description="Query — auto-populated from openshift_agentic_run_spec.request when absent",
     )
     attachments: Optional[list[str]] = Field(
         default=None, min_length=0, description="Attachments"
@@ -190,22 +190,22 @@ class TurnData(StreamingMetricsMixin):
     expected_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected outcome for proposal evaluation correctness",
+        description="Expected outcome for OpenShift agentic run evaluation correctness",
     )
     expected_analysis_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected analysis/diagnosis outcome for proposal evaluation",
+        description="Expected analysis/diagnosis outcome for OpenShift agentic run evaluation",
     )
     expected_execution_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected execution/action outcome for proposal evaluation",
+        description="Expected execution/action outcome for OpenShift agentic run evaluation",
     )
     expected_verification_outcome: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Expected verification outcome for proposal evaluation",
+        description="Expected verification outcome for OpenShift agentic run evaluation",
     )
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation ID - populated by API if enabled"
@@ -239,25 +239,28 @@ class TurnData(StreamingMetricsMixin):
         default=None, description="Path to verify script for script-based evaluation"
     )
 
-    # Proposal driver fields
+    # OpenshiftAgenticRun driver fields
     description: Optional[str] = Field(
         default=None, description="Human-readable label for reports"
     )
-    proposal_spec: Optional[dict[str, Any]] = Field(
-        default=None, description="Inline proposal spec for CRD-based agents"
-    )
-    expected_proposal_status: Optional[dict[str, Any]] = Field(
+    openshift_agentic_run_spec: Optional[dict[str, Any]] = Field(
         default=None,
-        description="Expected proposal status for assertion metrics",
+        description="Inline OpenShift agentic run spec for CRD-based agents",
     )
-    proposal_status: Optional[dict[str, Any]] = Field(
-        default=None, description="Raw CRD status populated by ProposalDriver"
-    )
-    proposal_results: Optional[dict[str, Any]] = Field(
+    expected_openshift_agentic_run_status: Optional[dict[str, Any]] = Field(
         default=None,
-        description="Structured results from child Result CRs, populated by ProposalAmender",
+        description="Expected OpenShift agentic run status for assertion metrics",
     )
-    proposal_phases: Optional[list[str]] = Field(
+    openshift_agentic_run_status: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Raw CRD status populated by OpenshiftAgenticRunDriver",
+    )
+    openshift_agentic_run_results: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="Structured results from child Result CRs, "
+        "populated by OpenshiftAgenticRunAmender",
+    )
+    openshift_agentic_run_phases: Optional[list[str]] = Field(
         default=None,
         description="Workflow phases that actually executed (e.g. ['analysis', 'execution'])",
     )
@@ -274,20 +277,22 @@ class TurnData(StreamingMetricsMixin):
         return metric in self._invalid_metrics
 
     @model_validator(mode="after")
-    def populate_query_from_proposal_spec(self) -> "TurnData":
-        """Auto-populate query from proposal_spec.request when absent."""
+    def populate_query_from_openshift_agentic_run_spec(self) -> "TurnData":
+        """Auto-populate query from openshift_agentic_run_spec.request when absent."""
         if self.query is not None:
             return self
-        if self.proposal_spec is not None:
-            request = self.proposal_spec.get("request")
+        if self.openshift_agentic_run_spec is not None:
+            request = self.openshift_agentic_run_spec.get("request")
             if isinstance(request, str) and request.strip():
                 self.query = request
                 return self
             raise ValueError(
-                "proposal_spec must contain a non-empty 'request' "
+                "openshift_agentic_run_spec must contain a non-empty 'request' "
                 "when query is not provided"
             )
-        raise ValueError("query is required when proposal_spec is not provided")
+        raise ValueError(
+            "query is required when openshift_agentic_run_spec is not provided"
+        )
 
     @field_validator("turn_metrics")
     @classmethod

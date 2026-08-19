@@ -67,7 +67,7 @@ embedding:
 # Configures how the framework connects to the system under test for live data generation.
 # Supports two agent types:
 #   - http_api: Lightspeed-stack compatible HTTP APIs (example below)
-#   - proposal: Agentic Lightspeed via Proposal CRD on OpenShift (see docs/agentic_lightspeed_evaluation.md)
+#   - openshift_agentic_run: Agentic Lightspeed via AgenticRun CRD on OpenShift (see docs/agentic_lightspeed_evaluation.md)
 # Set enabled: false for offline evaluation using pre-populated data.
 agents:
   enabled: true                        # Enable agent calls instead of using pre-filled data
@@ -163,10 +163,11 @@ metrics_metadata:
       ordered: true       # true (default): sequence order matters, false: any order allowed
       full_match: true    # true (default): exact 1:1 match, false: expected tools found in actual (extras allowed)
 
-    "custom:proposal_evaluation_correctness":
+    "custom:openshift_agentic_run_evaluation_correctness":
       threshold: 0.75
-      description: "LLM judge of agentic remediation workflow quality (diagnosis, actions, risk, verification)"
+      description: "LLM judge of OpenShift agentic remediation workflow quality (diagnosis, actions, risk, verification)"
       default: false
+
 
     "nlp:mrr":
       threshold: 0.5

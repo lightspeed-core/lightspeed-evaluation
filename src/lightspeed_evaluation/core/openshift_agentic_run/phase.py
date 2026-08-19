@@ -1,17 +1,17 @@
-"""Derive terminal phase from Proposal CRD conditions."""
+"""Derive terminal phase from AgenticRun CRD conditions."""
 
 from typing import Any, Optional
 
 
 def derive_phase(
     conditions: list[dict[str, Any]],
-    proposal_spec: Optional[dict[str, Any]] = None,
+    openshift_agentic_run_spec: Optional[dict[str, Any]] = None,
 ) -> str:
     """Derive the terminal phase from CRD conditions.
 
     Args:
-        conditions: List of condition dicts from proposal_status.
-        proposal_spec: Proposal spec to determine the last expected step.
+        conditions: List of condition dicts from openshift_agentic_run_status.
+        openshift_agentic_run_spec: AgenticRun spec to determine the last expected step.
 
     Returns:
         Phase string: Completed, Failed, Denied, Escalated, or InProgress.
@@ -32,9 +32,13 @@ def derive_phase(
             return "Failed"
 
     step_to_condition = {"verification": "Verified", "execution": "Executed"}
-    if proposal_spec:
+    if openshift_agentic_run_spec:
         last = next(
-            (cond for step, cond in step_to_condition.items() if step in proposal_spec),
+            (
+                cond
+                for step, cond in step_to_condition.items()
+                if step in openshift_agentic_run_spec
+            ),
             "Analyzed",
         )
     else:
