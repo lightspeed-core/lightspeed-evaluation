@@ -126,6 +126,19 @@ class TestOpenshiftAgenticRunAgentConfig:
                 {**VALID_CONFIG, "poll_interval": 0}
             )
 
+    def test_agent_ref_default_none(self) -> None:
+        """Test agent_ref defaults to None."""
+        config = OpenshiftAgenticRunAgentConfig.model_validate(VALID_CONFIG)
+        assert config.agent_ref is None
+
+    @pytest.mark.parametrize("value", ["", " ", "  "])
+    def test_agent_ref_rejects_empty_and_whitespace(self, value: str) -> None:
+        """Test agent_ref rejects empty and whitespace-only strings."""
+        with pytest.raises(ValidationError):
+            OpenshiftAgenticRunAgentConfig.model_validate(
+                {**VALID_CONFIG, "agent_ref": value}
+            )
+
 
 # ── Condition helpers ────────────────────────────────────────────────
 
@@ -349,6 +362,73 @@ class TestBuildCR:
         assert cr["spec"]["stages"][0]["analysis"] == {"agent": "eval-default"}
         assert cr["spec"]["stages"][1]["execution"]["agent"] == "eval-default"
         assert cr["spec"]["stages"][2]["verification"] == {"agent": "eval-default"}
+
+
+# ── Config overrides ────────────────────────────────────────────────
+
+
+class TestApplyConfigOverrides:
+    """Unit tests for OpenshiftAgenticRunDriver._apply_config_overrides."""
+
+    def _make_driver(
+        self, mocker: MockerFixture, agent_ref: str | None = None
+    ) -> OpenshiftAgenticRunDriver:
+        """Create a driver with optional agent_ref."""
+        mocker.patch(f"{MODULE}.shutil").which.return_value = "/usr/bin/oc"
+        config = {**VALID_CONFIG}
+        if agent_ref:
+            config["agent_ref"] = agent_ref
+        return OpenshiftAgenticRunDriver(config)
+
+    def test_agent_ref_injected_into_stages(self, mocker: MockerFixture) -> None:
+        """Test agent_ref is set as default agent in each stage."""
+        driver = self._make_driver(mocker, agent_ref="fast-agent")
+        turn = TurnData(
+            turn_id="t1",
+            query="Q",
+            openshift_agentic_run_spec={
+                "analysis": {},
+                "execution": {},
+                "verification": {},
+            },
+        )
+        driver._apply_config_overrides(turn)
+
+        spec: dict[str, Any] = turn.openshift_agentic_run_spec or {}
+        assert spec["analysis"]["agent"] == "fast-agent"
+        assert spec["execution"]["agent"] == "fast-agent"
+        assert spec["verification"]["agent"] == "fast-agent"
+
+    def test_agent_ref_overrides_eval_data_agent(self, mocker: MockerFixture) -> None:
+        """Test agent_ref from config overrides eval data agent."""
+        driver = self._make_driver(mocker, agent_ref="fast-agent")
+        turn = TurnData(
+            turn_id="t1",
+            query="Q",
+            openshift_agentic_run_spec={
+                "analysis": {"agent": "custom-agent"},
+                "execution": {},
+            },
+        )
+        driver._apply_config_overrides(turn)
+
+        spec: dict[str, Any] = turn.openshift_agentic_run_spec or {}
+        assert spec["analysis"]["agent"] == "fast-agent"
+        assert spec["execution"]["agent"] == "fast-agent"
+
+    def test_no_agent_ref_no_change(self, mocker: MockerFixture) -> None:
+        """Test no modification when agent_ref is None."""
+        driver = self._make_driver(mocker)
+        turn = TurnData(
+            turn_id="t1",
+            query="Q",
+            openshift_agentic_run_spec={"analysis": {}, "execution": {}},
+        )
+        driver._apply_config_overrides(turn)
+
+        spec: dict[str, Any] = turn.openshift_agentic_run_spec or {}
+        assert "agent" not in spec["analysis"]
+        assert "agent" not in spec["execution"]
 
 
 # ── Extract summary ─────────────────────────────────────────────────
