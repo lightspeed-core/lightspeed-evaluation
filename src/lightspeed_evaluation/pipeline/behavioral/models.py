@@ -86,6 +86,16 @@ class AgentConsolidated(BaseModel):
     per_run: list[RunSummary] = []
 
 
+class SignificanceResult(BaseModel):
+    """Statistical significance test result for a pairwise comparison."""
+
+    test: str
+    statistic: float
+    p_value: float
+    significant: bool
+    metric: Optional[str] = None
+
+
 class PairwiseDelta(BaseModel):
     """Delta between two agents."""
 
@@ -95,6 +105,7 @@ class PairwiseDelta(BaseModel):
     agent_latency_mean_delta: Optional[float] = None
     agent_tokens_mean_delta: Optional[float] = None
     score_deltas: dict[str, float] = {}
+    significance: Optional[list[SignificanceResult]] = None
 
 
 class Rankings(BaseModel):

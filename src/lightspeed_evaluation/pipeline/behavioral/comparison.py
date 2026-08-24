@@ -8,11 +8,17 @@ from lightspeed_evaluation.pipeline.behavioral.models import (
     ComparisonResult,
     PairwiseDelta,
     Rankings,
+    SignificanceResult,
+)
+from lightspeed_evaluation.pipeline.behavioral.statistics import (
+    metric_significance,
+    significance_tests,
 )
 
 
 def compare_agents(
     agents: dict[str, AgentConsolidated],
+    alpha: float = 0.05,
 ) -> Optional[ComparisonResult]:
     """Compare multiple agents: deltas, rankings, incomparable list.
 
@@ -21,6 +27,7 @@ def compare_agents(
 
     Args:
         agents: Agent name → AgentConsolidated mapping.
+        alpha: Significance level for statistical tests.
 
     Returns:
         ComparisonResult with deltas, rankings, incomparable. None if < 2 agents.
@@ -30,20 +37,24 @@ def compare_agents(
 
     agent_list = sorted(agents.values(), key=lambda a: a.agent_name)
     return ComparisonResult(
-        deltas=_compute_deltas(agent_list),
+        deltas=_compute_deltas(agent_list, alpha),
         rankings=_compute_rankings(agent_list),
         incomparable=_find_incomparable(agent_list),
     )
 
 
-def _compute_deltas(agents: list[AgentConsolidated]) -> list[PairwiseDelta]:
+def _compute_deltas(
+    agents: list[AgentConsolidated],
+    alpha: float,
+) -> list[PairwiseDelta]:
     """Compute pairwise deltas between all agent pairs."""
-    return [_pair_delta(a, b) for a, b in itertools.combinations(agents, 2)]
+    return [_pair_delta(a, b, alpha) for a, b in itertools.combinations(agents, 2)]
 
 
 def _pair_delta(
     agent_a: AgentConsolidated,
     agent_b: AgentConsolidated,
+    alpha: float,
 ) -> PairwiseDelta:
     """Compute delta between two agents (a - b)."""
     shared_metrics = set(agent_a.by_metric) & set(agent_b.by_metric)
@@ -54,6 +65,8 @@ def _pair_delta(
         if mean_a is not None and mean_b is not None:
             score_deltas[metric] = mean_a - mean_b
 
+    sig = _compute_significance(agent_a, agent_b, alpha)
+
     return PairwiseDelta(
         agent_a=agent_a.agent_name,
         agent_b=agent_b.agent_name,
@@ -61,7 +74,42 @@ def _pair_delta(
         agent_latency_mean_delta=_overall_delta(agent_a, agent_b, "agent_latency_mean"),
         agent_tokens_mean_delta=_overall_delta(agent_a, agent_b, "agent_tokens_mean"),
         score_deltas=score_deltas,
+        significance=sig or None,
     )
+
+
+def _compute_significance(
+    agent_a: AgentConsolidated,
+    agent_b: AgentConsolidated,
+    alpha: float,
+) -> list[SignificanceResult]:
+    """Run significance tests: overall pass/fail + per-metric scores."""
+    pass_counts_a = [r.passed for r in agent_a.per_run]
+    totals_a = [r.total for r in agent_a.per_run]
+    pass_counts_b = [r.passed for r in agent_b.per_run]
+    totals_b = [r.total for r in agent_b.per_run]
+    results = significance_tests(
+        pass_counts_a, totals_a, pass_counts_b, totals_b, alpha=alpha
+    )
+
+    shared_metrics = set(agent_a.by_metric) & set(agent_b.by_metric)
+    for metric in sorted(shared_metrics):
+        scores_a = _per_run_metric_scores(agent_a, metric)
+        scores_b = _per_run_metric_scores(agent_b, metric)
+        sig = metric_significance(scores_a, scores_b, metric, alpha)
+        if sig is not None:
+            results.append(sig)
+
+    return results
+
+
+def _per_run_metric_scores(agent: AgentConsolidated, metric: str) -> list[float]:
+    """Extract per-run scores for a specific metric."""
+    return [
+        r.by_metric[metric]
+        for r in agent.per_run
+        if r.by_metric and metric in r.by_metric
+    ]
 
 
 def _overall_delta(
