@@ -28,6 +28,7 @@ agents:
   openshift_agentic_lightspeed:
     type: openshift_agentic_run
     namespace: openshift-lightspeed
+    agent_ref: default
     auto_approve: true
     cleanup_openshift_agentic_runs: true
     timeout: 900
@@ -39,6 +40,7 @@ agents:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `namespace` | string | *(required)* | Kubernetes namespace containing AgenticRun resources |
+| `agent_ref` | string | `null` | Name of the Agent CR on the cluster — injected into all stages defined in eval data |
 | `auto_approve` | bool | `true` | Automatically approve AgenticRuns when phase is Proposed |
 | `cleanup_openshift_agentic_runs` | bool | `true` | Delete eval AgenticRun CRs after status is captured |
 | `timeout` | int | `900` | Total timeout in seconds for the AgenticRun lifecycle |
@@ -46,6 +48,35 @@ agents:
 | `poll_interval` | int | `2` | Seconds between status polls |
 | `cache_dir` | string | `null` | Location of cached queries |
 | `cache_enabled` | bool | `true` | Enable caching |
+
+#### `agent_ref` and NxM evaluation
+
+For HTTP API agents, the model/provider is a config-level field — different agent configs naturally produce different runs. For agentic evaluation, the model is determined by the Agent CR on the cluster, and the Agent CR name lives in the eval data spec (`analysis.agent`, `execution.agent`, etc.).
+
+`agent_ref` bridges this gap: when set, it overrides the agent name in all stages defined in the eval data. This enables NxM behavioral evaluation with different cluster-side Agent CRs:
+
+```yaml
+agents:
+  default:
+    agent: [eval_fast, eval_smart]
+    repeat: 3
+  eval_fast:
+    type: openshift_agentic_run
+    namespace: openshift-lightspeed
+    agent_ref: fast-agent
+  eval_smart:
+    type: openshift_agentic_run
+    namespace: openshift-lightspeed
+    agent_ref: smart-agent
+```
+
+**Override rules:**
+
+- `agent_ref` set, stage defined in eval data — config overrides eval data's agent
+- `agent_ref` not set, stage defined in eval data — eval data's agent is used as-is
+- Stage not defined in eval data — `agent_ref` does not inject the stage
+
+Note: `agent_ref` overriding eval data is an inversion of the normal pattern (where eval data overrides config). This is intentional — eval data agent names are placeholders for stage selection, while `agent_ref` represents the actual agent choice. The CRD spec couples stage selection with agent selection in the same field, so the config override is the pragmatic way to separate them for NxM.
 
 ### Turn Data Structure
 

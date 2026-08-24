@@ -173,6 +173,7 @@ class OpenshiftAgenticRunDriver(AgentDriver):
             else ""
         )
         cr_name = f"eval-{safe_id}-{suffix}" if safe_id else f"eval-{suffix}"
+        self._apply_config_overrides(turn_data)
         openshift_agentic_run_spec = turn_data.openshift_agentic_run_spec or {}
         manifest = self._build_agentic_run_cr(turn_data, cr_name)
         deadline = time.monotonic() + self._config.timeout
@@ -217,6 +218,18 @@ class OpenshiftAgenticRunDriver(AgentDriver):
         self._cleanup(cr_name)
         logger.info("AgenticRun '%s' reached terminal state: %s", cr_name, outcome)
         return (None, None)
+
+    def _apply_config_overrides(self, turn_data: TurnData) -> None:
+        """Enrich turn_data spec with agent config overrides."""
+        if not self._config.agent_ref:
+            return
+        spec = turn_data.openshift_agentic_run_spec
+        if spec is None:
+            spec = {}
+            turn_data.openshift_agentic_run_spec = spec
+        for stage in ("analysis", "execution", "verification"):
+            if stage in spec and isinstance(spec[stage], dict):
+                spec[stage]["agent"] = self._config.agent_ref
 
     def _amend_turn_data(
         self, turn_data: TurnData, status_dict: dict[str, Any]

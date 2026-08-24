@@ -180,6 +180,12 @@ class OpenshiftAgenticRunAgentConfig(BaseModel):
         pattern=r"\S+",
         description="Kubernetes namespace containing AgenticRun resources",
     )
+    agent_ref: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        pattern=r"^\S+$",
+        description="Name of the Agent CR on the cluster to use for all stages",
+    )
     auto_approve: bool = True
     cleanup_openshift_agentic_runs: bool = True
     timeout: int = Field(default=900, gt=0)
