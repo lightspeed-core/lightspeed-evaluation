@@ -14,20 +14,25 @@ def derive_phase(
         openshift_agentic_run_spec: AgenticRun spec to determine the last expected step.
 
     Returns:
-        Phase string: Completed, Failed, Denied, Escalated, or InProgress.
+        Phase string: Completed, Failed, Denied, Escalated, Escalating, or InProgress.
     """
     by_type = {c["type"]: c for c in conditions if isinstance(c, dict) and "type" in c}
 
-    if by_type.get("Denied", {}).get("status") == "True":
-        return "Denied"
-    if by_type.get("Escalated", {}).get("status") == "True":
-        return "Escalated"
+    # Check terminal conditions derived from Denied / Escalated.
+    terminal_checks: list[tuple[str, str, str]] = [
+        ("Denied", "True", "Denied"),
+        ("Escalated", "True", "Escalated"),
+        ("Escalated", "False", "Failed"),
+        ("Escalated", "Unknown", "Escalating"),
+    ]
+    for cond_type, expected_status, phase in terminal_checks:
+        if by_type.get(cond_type, {}).get("status") == expected_status:
+            return phase
 
     for c in conditions:
         if isinstance(c, dict) and (
             c.get("type") in {"Analyzed", "Executed", "Verified"}
             and c.get("status") == "False"
-            and c.get("reason") != "RetryingExecution"
         ):
             return "Failed"
 

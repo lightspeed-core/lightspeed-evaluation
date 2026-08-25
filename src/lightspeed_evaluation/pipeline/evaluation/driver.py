@@ -117,7 +117,7 @@ class TerminalOutcome(StrEnum):
     - Denied:    True = user denied a step (terminal)
     - Escalated: True = escalation complete (terminal), False = failed, Unknown = in progress
 
-    Special reason: RetryingExecution (Verified=False triggers retry, not failure).
+    Verification failure now escalates directly (no retry mechanism).
     """
 
     COMPLETED = "Completed"

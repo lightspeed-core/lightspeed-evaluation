@@ -121,6 +121,7 @@ The simplest agentic evaluation — analysis phase only, no execution or verific
         analysis:
           agent: eval-default
       expected_openshift_agentic_run_status:
+        max_duration: "15m"
         phase: Completed
       turn_metrics:
         - custom:openshift_agentic_run_status
@@ -157,8 +158,6 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
           agent: eval-default
       expected_openshift_agentic_run_status:
         phase: Completed
-        max_duration: "15m"
-        max_attempts: 5
         analysis:
           min_options: 1
           options:
@@ -217,7 +216,6 @@ Checks run in order: **phase → timing → analysis → execution → verificat
 | Field | Type | Description |
 |-------|------|-------------|
 | `max_duration` | string | Max elapsed time across conditions. Go-style duration: `"5m"`, `"2m30s"`, `"1h"` |
-| `max_attempts` | int | Max number of execution attempts. Read from `status.attempts` or inferred from `RetryingExecution` conditions |
 
 **Analysis checks:**
 
@@ -254,7 +252,6 @@ Checks run in order: **phase → timing → analysis → execution → verificat
 | `conditions[].status` | string | Expected condition status (e.g., `"True"`, `"False"`) |
 | `conditions[].reason` | string | Expected condition reason (e.g., `Skipped`, `Succeeded`) |
 
-> On retried AgenticRuns, analysis and execution checks use the **latest** (most recent) Result CR, so assertions reflect the final execution state.
 
 ### `custom:openshift_agentic_run_evaluation_correctness` — LLM-as-Judge
 

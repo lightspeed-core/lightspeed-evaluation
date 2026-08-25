@@ -110,7 +110,6 @@
       expected_openshift_agentic_run_status:
         phase: Completed
         max_duration: "15m"
-        max_attempts: 5
         analysis:
           min_options: 1
         execution:

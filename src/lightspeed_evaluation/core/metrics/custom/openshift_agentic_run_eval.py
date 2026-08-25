@@ -143,32 +143,6 @@ def _check_max_duration(
     return False, f"Duration {elapsed:.0f}s exceeds limit {max_duration} ({limit:.0f}s)"
 
 
-def _check_max_attempts(
-    expected: dict[str, Any],
-    conditions: list[dict[str, Any]],
-    openshift_agentic_run_status: dict[str, Any],
-) -> Optional[tuple[bool, str]]:
-    """Check that the number of execution attempts is within limit."""
-    max_attempts = expected.get("max_attempts")
-    if max_attempts is None:
-        return None
-
-    actual = openshift_agentic_run_status.get("attempts")
-    if actual is None:
-        actual = (
-            sum(
-                1
-                for c in conditions
-                if isinstance(c, dict) and c.get("reason") == "RetryingExecution"
-            )
-            + 1
-        )
-
-    if actual <= max_attempts:
-        return True, f"Attempts {actual} within limit {max_attempts}"
-    return False, f"Attempts {actual} exceeds limit {max_attempts}"
-
-
 def _check_analysis_component(
     comp_type: str,
     expected_comp: dict[str, Any],
@@ -465,7 +439,6 @@ def evaluate_openshift_agentic_run_status(
         _check_phase(expected, conditions, openshift_agentic_run_spec),
         _check_phase_in(expected, conditions, openshift_agentic_run_spec),
         _check_max_duration(expected, conditions),
-        _check_max_attempts(expected, conditions, openshift_agentic_run_status),
         _check_analysis(expected, openshift_agentic_run_results),
         _check_execution(expected, openshift_agentic_run_results),
         _check_conditions(expected, conditions),
