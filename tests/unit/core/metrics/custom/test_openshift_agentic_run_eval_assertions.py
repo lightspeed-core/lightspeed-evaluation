@@ -1,6 +1,6 @@
 """Unit tests for agentic run status assertion checks.
 
-Covers: _parse_duration, max_duration, max_attempts, analysis
+Covers: _parse_duration, max_duration, analysis
 (with component/option helpers), execution, and check ordering.
 """
 
@@ -167,92 +167,6 @@ class TestMaxDurationCheck:
         score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "within limit" in reason
-
-
-class TestMaxAttemptsCheck:
-    """Max attempts assertion."""
-
-    def test_within_limit_pass(self) -> None:
-        """Attempts within limit returns 1.0."""
-        turn = _make_turn(
-            expected_openshift_agentic_run_status={"max_attempts": 3},
-            openshift_agentic_run_status={
-                "attempts": 2,
-                "conditions": [{"type": "Analyzed", "status": "True"}],
-            },
-        )
-        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
-        assert score == 1.0
-        assert "Attempts 2 within limit 3" in reason
-
-    def test_exceeded_fail(self) -> None:
-        """Attempts exceeding limit returns 0.0."""
-        turn = _make_turn(
-            expected_openshift_agentic_run_status={"max_attempts": 3},
-            openshift_agentic_run_status={
-                "attempts": 4,
-                "conditions": [{"type": "Analyzed", "status": "True"}],
-            },
-        )
-        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
-        assert score == 0.0
-        assert "exceeds limit" in reason
-
-    def test_from_status_field(self) -> None:
-        """Reads attempts from openshift_agentic_run_status.attempts when available."""
-        turn = _make_turn(
-            expected_openshift_agentic_run_status={"max_attempts": 5},
-            openshift_agentic_run_status={
-                "attempts": 1,
-                "conditions": [
-                    {
-                        "type": "Executed",
-                        "status": "False",
-                        "reason": "RetryingExecution",
-                    },
-                    {"type": "Analyzed", "status": "True"},
-                ],
-            },
-        )
-        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
-        assert score == 1.0
-        assert "Attempts 1" in reason
-
-    def test_inferred_from_conditions(self) -> None:
-        """Infers attempts from RetryingExecution conditions + 1."""
-        turn = _make_turn(
-            expected_openshift_agentic_run_status={"max_attempts": 3},
-            openshift_agentic_run_status={
-                "conditions": [
-                    {
-                        "type": "Executed",
-                        "status": "False",
-                        "reason": "RetryingExecution",
-                    },
-                    {
-                        "type": "Verified",
-                        "status": "False",
-                        "reason": "RetryingExecution",
-                    },
-                    {"type": "Analyzed", "status": "True"},
-                ],
-            },
-        )
-        score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
-        assert score == 1.0
-        assert "Attempts 3" in reason
-
-    def test_skip_when_not_specified(self) -> None:
-        """No max_attempts in expected skips the check."""
-        turn = _make_turn(
-            expected_openshift_agentic_run_status={"phase": "Completed"},
-            openshift_agentic_run_status={
-                "conditions": [{"type": "Analyzed", "status": "True"}],
-            },
-            openshift_agentic_run_spec={"analysis": {}},
-        )
-        score, _ = evaluate_openshift_agentic_run_status(None, 0, turn, False)
-        assert score == 1.0
 
 
 class TestAnalysisCheck:
@@ -913,12 +827,10 @@ class TestCheckOrdering:
         turn = _make_turn(
             expected_openshift_agentic_run_status={
                 "max_duration": "10m",
-                "max_attempts": 3,
                 "analysis": {"min_options": 1},
                 "execution": {"phase": "Succeeded"},
             },
             openshift_agentic_run_status={
-                "attempts": 1,
                 "conditions": [
                     {
                         "type": "Analyzed",
@@ -949,6 +861,5 @@ class TestCheckOrdering:
         score, reason = evaluate_openshift_agentic_run_status(None, 0, turn, False)
         assert score == 1.0
         assert "Duration" in reason
-        assert "Attempts" in reason
         assert "Analysis assertions passed" in reason
         assert "Execution assertions passed" in reason

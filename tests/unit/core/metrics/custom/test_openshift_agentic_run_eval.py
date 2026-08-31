@@ -90,14 +90,23 @@ class TestDerivePhase:
         ]
         assert derive_phase(conditions) == "Failed"
 
-    def test_retrying_execution_not_failed(self) -> None:
-        """RetryingExecution reason does not count as failure."""
+    def test_verification_failure_is_failed(self) -> None:
+        """Verified=False now maps to Failed (no retry mechanism)."""
         conditions = [
             {"type": "Analyzed", "status": "True"},
-            {"type": "Verified", "status": "False", "reason": "RetryingExecution"},
+            {"type": "Verified", "status": "False", "reason": "VerificationFailed"},
         ]
         spec: dict[str, Any] = {"analysis": {}, "execution": {}, "verification": {}}
-        assert derive_phase(conditions, spec) == "InProgress"
+        assert derive_phase(conditions, spec) == "Failed"
+
+    def test_escalating_phase(self) -> None:
+        """Escalated=Unknown derives Escalating (verification failure escalation)."""
+        conditions = [
+            {"type": "Analyzed", "status": "True"},
+            {"type": "Verified", "status": "False", "reason": "VerificationFailed"},
+            {"type": "Escalated", "status": "Unknown", "reason": "VerificationFailed"},
+        ]
+        assert derive_phase(conditions) == "Escalating"
 
     def test_denied(self) -> None:
         """Denied=True derives Denied."""

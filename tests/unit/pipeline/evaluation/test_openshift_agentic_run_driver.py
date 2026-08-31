@@ -172,12 +172,13 @@ class TestIsTerminal:  # pylint: disable=too-few-public-methods
                 SPEC_FULL,
                 None,
             ),
-            # RetryingExecution — not a failure
+            # Escalating — verification failure triggers escalation
             (
                 [
                     _cond("Analyzed", "True"),
                     _cond("Executed", "True"),
-                    _cond("Verified", "False", "RetryingExecution"),
+                    _cond("Verified", "False", "VerificationFailed"),
+                    _cond("Escalated", "Unknown", "VerificationFailed"),
                 ],
                 SPEC_FULL,
                 None,
@@ -202,7 +203,7 @@ class TestIsTerminal:  # pylint: disable=too-few-public-methods
                 SPEC_FULL,
                 TerminalOutcome.COMPLETED,
             ),
-            # Failed — any condition False (no RetryingExecution)
+            # Failed — any condition False
             (
                 [_cond("Analyzed", "False")],
                 SPEC_FULL,
@@ -248,7 +249,7 @@ class TestIsTerminal:  # pylint: disable=too-few-public-methods
             "executing",
             "executed-not-terminal-full",
             "verifying",
-            "retrying-execution",
+            "escalating",
             "completed-analysis-only",
             "completed-with-exec",
             "completed-full",
