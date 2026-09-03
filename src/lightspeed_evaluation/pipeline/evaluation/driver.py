@@ -96,7 +96,10 @@ class HttpApiDriver(AgentDriver):
             self._api_client.close()
 
     def _create_api_client(self, config: HttpApiAgentConfig) -> Optional[APIClient]:
-        api_config = APIConfig.model_validate(config.model_dump(exclude={"type"}))
+        # Exclude fields present on HttpApiAgentConfig but absent on APIConfig
+        # so new metadata fields (e.g. description) never leak into API calls.
+        exclude = set(config.model_fields) - set(APIConfig.model_fields)
+        api_config = APIConfig.model_validate(config.model_dump(exclude=exclude))
         return APIClient(api_config)
 
 

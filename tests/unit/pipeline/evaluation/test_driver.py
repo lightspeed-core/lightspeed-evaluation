@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.models import TurnData
+from lightspeed_evaluation.core.models import APIConfig, TurnData
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 from lightspeed_evaluation.pipeline.evaluation.driver import (
     AgentDriver,
@@ -175,6 +175,20 @@ class TestHttpApiDriver:
             HttpApiDriver(
                 {"type": "http_api", "invalid_field_only": True}, enabled=True
             )
+
+    def test_description_excluded_from_api_config(self, mocker: MockerFixture) -> None:
+        """Test description is not passed to APIConfig (extra=forbid)."""
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.driver.APIClient")
+        spy = mocker.spy(APIConfig, "model_validate")
+        # Should not raise — description must be excluded before APIConfig
+        HttpApiDriver(
+            {"type": "http_api", "description": "My test agent"}, enabled=True
+        )
+        # Verify agent-only fields were excluded while operational fields survive
+        call_args = spy.call_args[0][0]
+        assert "description" not in call_args
+        assert "type" not in call_args
+        assert "api_base" in call_args
 
 
 class TestOpenshiftAgenticRunDriverExecuteTurn:

@@ -1,6 +1,7 @@
 """Data models for the evaluation framework."""
 
 from lightspeed_evaluation.core.models.agents import (
+    AgentBaseConfig,
     AgentDefaultConfig,
     AgentsConfig,
     HttpApiAgentConfig,
@@ -68,6 +69,7 @@ from lightspeed_evaluation.core.models.trace import (
 
 __all__ = [
     # Agent config models
+    "AgentBaseConfig",
     "AgentDefaultConfig",
     "OpenshiftAgenticRunAgentConfig",
     "AgentsConfig",

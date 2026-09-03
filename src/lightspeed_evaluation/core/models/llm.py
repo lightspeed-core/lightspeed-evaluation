@@ -296,6 +296,12 @@ class LLMProviderConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # Optional human-readable description
+    description: Optional[str] = Field(
+        default=None,
+        description="Human-readable description of this LLM configuration",
+    )
+
     # Required: Provider type
     provider: str = Field(
         min_length=1,
