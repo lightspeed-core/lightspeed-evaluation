@@ -13,11 +13,13 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_ENDPOINT_TYPE,
 )
 from lightspeed_evaluation.core.models.agents import (
+    AgentBaseConfig,
     AgentDefaultConfig,
     AgentsConfig,
     HttpApiAgentConfig,
     MCPHeadersConfig,
     MCPServerConfig,
+    OpenshiftAgenticRunAgentConfig,
 )
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
@@ -29,6 +31,7 @@ class TestHttpApiAgentConfig:
         """Verify defaults match the existing APIConfig constants."""
         config = HttpApiAgentConfig()
         assert config.type == "http_api"
+        assert config.description is None
         assert config.api_base == DEFAULT_API_BASE
         assert config.version == DEFAULT_API_VERSION
         assert config.endpoint_type == DEFAULT_ENDPOINT_TYPE
@@ -41,6 +44,18 @@ class TestHttpApiAgentConfig:
         assert config.no_tools is None
         assert config.system_prompt is None
         assert config.extra_request_params is None
+
+    def test_description_field(self) -> None:
+        """Test description field is accepted and stored."""
+        config = HttpApiAgentConfig(
+            description="My test API agent for development",
+        )
+        assert config.description == "My test API agent for development"
+
+    def test_description_defaults_to_none(self) -> None:
+        """Test description defaults to None when not provided."""
+        config = HttpApiAgentConfig()
+        assert config.description is None
 
     def test_custom_values(self) -> None:
         """Test HttpApiAgentConfig with custom values."""
@@ -114,6 +129,33 @@ class TestHttpApiAgentConfig:
             HttpApiAgentConfig()
 
         assert not any("no_tools" in r.message for r in caplog.records)
+
+
+class TestAgentBaseConfig:
+    """Tests for AgentBaseConfig shared description field."""
+
+    def test_both_agent_types_inherit_from_base(self) -> None:
+        """Test both agent types inherit from AgentBaseConfig."""
+        assert issubclass(HttpApiAgentConfig, AgentBaseConfig)
+        assert issubclass(OpenshiftAgenticRunAgentConfig, AgentBaseConfig)
+
+    def test_description_defaults_to_none_http(self) -> None:
+        """Test description defaults to None on HttpApiAgentConfig."""
+        config = HttpApiAgentConfig()
+        assert config.description is None
+
+    def test_description_defaults_to_none_openshift(self) -> None:
+        """Test description defaults to None on OpenshiftAgenticRunAgentConfig."""
+        config = OpenshiftAgenticRunAgentConfig(namespace="test-ns")
+        assert config.description is None
+
+    def test_description_field_openshift(self) -> None:
+        """Test description field is accepted on OpenshiftAgenticRunAgentConfig."""
+        config = OpenshiftAgenticRunAgentConfig(
+            namespace="test-ns",
+            description="Production agentic run agent",
+        )
+        assert config.description == "Production agentic run agent"
 
 
 class TestAgentDefaultConfig:
@@ -398,3 +440,23 @@ class TestAgentsConfigResolve:
         _, resolved = config.resolve_agent_config()
         assert resolved["timeout"] == DEFAULT_API_TIMEOUT
         assert resolved["num_retries"] == DEFAULT_API_NUM_RETRIES
+
+    def test_description_flows_through_resolve(self) -> None:
+        """Test description is included in resolved agent config."""
+        config = AgentsConfig.model_validate(
+            {
+                "default": {"agent": ["my_agent"]},
+                "my_agent": {
+                    "type": "http_api",
+                    "description": "Test agent for CI",
+                },
+            }
+        )
+        _, resolved = config.resolve_agent_config()
+        assert resolved["description"] == "Test agent for CI"
+
+    def test_description_none_in_resolved_when_not_set(self) -> None:
+        """Test description is None in resolved config when not provided."""
+        config = self._make_config()
+        _, resolved = config.resolve_agent_config()
+        assert resolved["description"] is None

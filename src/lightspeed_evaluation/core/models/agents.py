@@ -156,7 +156,18 @@ class HttpApiBaseFields(BaseModel):
         return data
 
 
-class HttpApiAgentConfig(HttpApiBaseFields):
+class AgentBaseConfig(BaseModel):
+    """Common fields shared by all agent configurations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    description: Optional[str] = Field(
+        default=None,
+        description="Human-readable description of this agent",
+    )
+
+
+class HttpApiAgentConfig(HttpApiBaseFields, AgentBaseConfig):
     """Configuration for an HTTP API agent."""
 
     type: Literal["http_api"] = Field(
@@ -168,10 +179,8 @@ class HttpApiAgentConfig(HttpApiBaseFields):
     )
 
 
-class OpenshiftAgenticRunAgentConfig(BaseModel):
+class OpenshiftAgenticRunAgentConfig(AgentBaseConfig):
     """Configuration for an AgenticRun CRD-based agent."""
-
-    model_config = ConfigDict(extra="forbid")
 
     type: Literal["openshift_agentic_run"] = "openshift_agentic_run"
     namespace: str = Field(
