@@ -88,7 +88,15 @@ DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_OUTPUT_DIR = "./eval_output"
 DEFAULT_BASE_FILENAME = "evaluation"
 
-DEFAULT_STORED_CONFIGS = ["llm", "embedding", "api"]
+# llm and api are deprecated, keeping these for backward compatibility
+DEFAULT_STORED_CONFIGS = [
+    "llm",
+    "llm_pool",
+    "judge_panel",
+    "embedding",
+    "api",
+    "agents",
+]
 
 SUPPORTED_OUTPUT_TYPES = ["csv", "json", "txt"]
 SUPPORTED_CSV_COLUMNS = [

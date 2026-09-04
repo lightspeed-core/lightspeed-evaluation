@@ -657,6 +657,8 @@ class OutputHandler:
                 continue
 
             field_value = getattr(self.system_config, field_name)
+            if field_value is None:
+                continue
 
             # Format section name nicely
             section_name = field_name.replace("_", " ").title()
@@ -746,6 +748,8 @@ class OutputHandler:
                 continue
 
             field_value = getattr(self.system_config, field_name)
+            if field_value is None:
+                continue
 
             # Convert Pydantic model to dict, excluding cache_dir for security
             config_dict[field_name] = self._convert_config_to_dict(field_value)
