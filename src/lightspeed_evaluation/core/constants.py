@@ -60,7 +60,13 @@ DEFAULT_API_BASE = "http://localhost:8080"
 DEFAULT_API_VERSION = "v1"
 DEFAULT_API_TIMEOUT = 300
 DEFAULT_ENDPOINT_TYPE = "streaming"
-SUPPORTED_ENDPOINT_TYPES = ["streaming", "query", "infer", "responses"]
+SUPPORTED_ENDPOINT_TYPES = [
+    "query",
+    "streaming_query",
+    "responses",
+    "infer",
+    "streaming",
+]
 
 DEFAULT_API_NUM_RETRIES = 3
 
