@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 class ScriptExecutionManager:  # pylint: disable=too-few-public-methods
     """Executes scripts for evaluation purposes."""
 
-    def __init__(self, timeout: int = 300):
+    def __init__(self, timeout: int = 900):
         """Initialize script execution manager.
 
         Args:
-            timeout: Script execution timeout in seconds (default: 5 minutes)
+            timeout: Script execution timeout in seconds (default: 15 minutes)
 
         Note:
             KUBECONFIG environment variable will be used if set.
