@@ -120,6 +120,7 @@ def _build_analysis_section(analysis_results: list[dict[str, Any]]) -> str:
     """Build the Analysis section from AnalysisResult statuses."""
     lines: list[str] = ["## Analysis"]
     for result_status in analysis_results:
+        _append_diagnosis(lines, result_status.get("diagnosis", {}))
         options = result_status.get("options", [])
         if not options:
             failure = result_status.get("failureReason", "")
@@ -145,7 +146,8 @@ def _append_diagnosis(lines: list[str], diagnosis: dict[str, Any]) -> None:
     confidence = diagnosis.get("confidence", "")
     root_cause = diagnosis.get("rootCause", "")
     if summary:
-        lines.append(f"**Diagnosis:** {summary} (Confidence: {confidence})")
+        confidence_suffix = f" (Confidence: {confidence})" if confidence else ""
+        lines.append(f"**Diagnosis:** {summary}{confidence_suffix}")
     if root_cause:
         lines.append(f"**Root Cause:** {root_cause}")
 

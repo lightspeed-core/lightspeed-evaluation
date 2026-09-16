@@ -230,7 +230,7 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <AGENTIC
     - [`loop_eval`](src/lightspeed_evaluation/core/metrics/custom/loop_eval.py) - Detects exact tool loops, same-tool thrashing, and excessive recursive call depth (no LLM)
   - Agentic Workflow Evaluation
     - [`openshift_agentic_run_status`](src/lightspeed_evaluation/core/metrics/custom/openshift_agentic_run_eval.py) - Deterministic assertions on AgenticRun CRD status (phase, timing, analysis, execution, verification)
-    - [`openshift_agentic_run_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification)
+    - [`openshift_agentic_run_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification). The workflow summary includes result-level and option-level diagnoses, including `NoActionRequired` results without remediation options; see the [agentic evaluation guide](docs/agentic_lightspeed_evaluation.md#agenticrun-lifecycle).
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)

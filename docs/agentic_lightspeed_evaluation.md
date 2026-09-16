@@ -192,6 +192,13 @@ The `openshift_agentic_run` driver manages the full AgenticRun CR lifecycle:
 7. **Cleanup AgenticRun CR** — Delete the created CR (if `cleanup_openshift_agentic_runs` is enabled)
 8. **Metrics evaluate** — `custom:openshift_agentic_run_status` and/or `custom:openshift_agentic_run_evaluation_correctness` on enriched data
 
+The Analysis section of `response` includes both the diagnosis directly on each
+AnalysisResult status (`diagnosis.summary` and `diagnosis.rootCause`) and the
+diagnoses and remediation plans in `options[]`, when present. This preserves the
+evidence for `NoActionRequired` outcomes even when no options are proposed. If both
+result-level and option-level diagnoses are present, both are included, with the
+result-level diagnosis preceding the options.
+
 Setup/cleanup scripts are only needed for **infrastructure** (deploying the workload to trigger, LLM provider CRs, sandbox CRs, etc.). The driver handles AgenticRun CR lifecycle autonomously.
 
 ## Metrics
