@@ -3,6 +3,7 @@
 import subprocess
 from typing import Any, Optional
 
+import pytest
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import TurnData
@@ -195,6 +196,114 @@ class TestAmendAnalysisOnly:
         assert "OOMKilled due to low memory" in response
         assert "Memory limit 256Mi too low" in response
         assert "Confidence: High" in response
+
+    @pytest.mark.parametrize(
+        ("confidence_fields", "suffix"),
+        [
+            ({}, ""),
+            ({"confidence": ""}, ""),
+            ({"confidence": None}, ""),
+            ({"confidence": "High"}, " (Confidence: High)"),
+        ],
+    )
+    @pytest.mark.parametrize("summary", ["Healthy workload", ""])
+    @pytest.mark.parametrize("option_level", [False, True])
+    def test_diagnosis_confidence_suffix(
+        self,
+        confidence_fields: dict[str, Any],
+        suffix: str,
+        summary: str,
+        option_level: bool,
+    ) -> None:
+        """Test optional confidence formatting for result and option diagnoses."""
+        diagnosis = {
+            "summary": summary,
+            "rootCause": "No fault found",
+            **confidence_fields,
+        }
+        result: dict[str, Any] = (
+            {"options": [{"diagnosis": diagnosis}]}
+            if option_level
+            else {"diagnosis": diagnosis}
+        )
+
+        response = OpenshiftAgenticRunAmender.build_summary(
+            _make_turn(), {"analysis": [result]}
+        )
+
+        assert "**Root Cause:** No fault found" in response.splitlines()
+        if summary:
+            assert f"**Diagnosis:** {summary}{suffix}" in response.splitlines()
+        else:
+            assert "**Diagnosis:**" not in response
+            assert "Confidence:" not in response
+
+    @pytest.mark.parametrize("include_empty_options", [False, True])
+    def test_response_contains_no_action_diagnosis(
+        self, include_empty_options: bool
+    ) -> None:
+        """Test no-action results retain diagnosis with absent or empty options."""
+        analysis_status: dict[str, Any] = {
+            "actionRequired": "False",
+            "diagnosis": {
+                "summary": "Pod Ready, no restarts, Service has a ready endpoint.",
+                "rootCause": "No fault found",
+            },
+        }
+        if include_empty_options:
+            analysis_status["options"] = []
+        cli = MockCLI({"analysisresults/ar-1": {"status": analysis_status}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn("Investigate reported errors before changing anything")
+        status: dict[str, Any] = {
+            "conditions": [
+                {
+                    "type": "Analyzed",
+                    "status": "True",
+                    "reason": "NoActionRequired",
+                    "message": "Analysis complete — no action required",
+                }
+            ],
+            "steps": {
+                "analysis": {"results": [{"name": "ar-1", "outcome": "Succeeded"}]}
+            },
+        }
+
+        err = amender.amend(turn, status)
+
+        assert err is None
+        response = _get_response(turn)
+        assert "## Analysis" in response
+        assert analysis_status["diagnosis"]["summary"] in response
+        assert "**Root Cause:** No fault found" in response
+        assert "Analysis complete — no action required" in response
+        assert "option(s) proposed" not in response
+        assert "**Proposed Actions:**" not in response
+        assert _get_results(turn)["analysis"] == [analysis_status]
+        assert turn.openshift_agentic_run_phases == ["analysis"]
+
+    def test_response_contains_result_and_option_diagnoses(self) -> None:
+        """Test result-level diagnosis and all option diagnoses are preserved."""
+        analysis_status = {
+            **DIAGNOSIS_STATUS,
+            "diagnosis": {
+                "summary": "Application unavailable; pod repeatedly terminated.",
+                "rootCause": "Workload memory pressure",
+            },
+        }
+
+        response = OpenshiftAgenticRunAmender.build_summary(
+            _make_turn(), {"analysis": [analysis_status]}
+        )
+
+        assert "Application unavailable; pod repeatedly terminated." in response
+        assert "**Root Cause:** Workload memory pressure" in response
+        for option in DIAGNOSIS_STATUS["options"]:
+            assert option["diagnosis"]["summary"] in response
+            assert option["diagnosis"]["rootCause"] in response
+            for action in option["remediationPlan"]["actions"]:
+                assert action["description"] in response
+        assert response.index("Workload memory pressure") < response.index("### Option")
 
     def test_option_zero_marked_approved(self) -> None:
         """Test option 0 is marked as (Approved) in summary."""
