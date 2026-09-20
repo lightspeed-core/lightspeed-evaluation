@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+from datetime import datetime
 from typing import Any, Optional
 
 from lightspeed_evaluation.core.models import TurnData
@@ -81,9 +82,60 @@ class OpenshiftAgenticRunAmender:
         turn_data.openshift_agentic_run_phases = [
             step for step in STEP_RESOURCES if results.get(step)
         ]
+        self._populate_token_usage_and_latency(turn_data, results)
         turn_data.response = self.build_summary(turn_data, results)
 
         return None
+
+    def _populate_token_usage_and_latency(
+        self,
+        turn_data: TurnData,
+        results: dict[str, list[dict[str, Any]]],
+    ) -> None:
+        """Extract token usage and execution latency from all stages.
+
+        Phase 1: Aggregates token usage and latency across all stages
+        (analysis, execution, verification, escalation) into existing fields.
+        (multi-stage): Phase 2 should add per-stage breakdown in a separate
+        field (e.g., agentic_stage_metrics) for detailed telemetry while keeping
+        aggregates in existing fields for backward compatibility.
+        """
+        total_input_tokens = 0
+        total_output_tokens = 0
+        all_timestamps: list[datetime] = []
+
+        for step_name in STEP_RESOURCES:
+            step_results = results.get(step_name, [])
+            for result in step_results:
+                # Collect token usage
+                token_usage = result.get("tokenUsage", {})
+                if token_usage:
+                    total_input_tokens += token_usage.get("inputTokens", 0)
+                    total_output_tokens += token_usage.get("outputTokens", 0)
+
+                # Collect timestamps
+                conditions = result.get("conditions", [])
+                for cond in conditions:
+                    if not isinstance(cond, dict):
+                        continue
+                    ts_str = cond.get("lastTransitionTime")
+                    if not ts_str:
+                        continue
+                    try:
+                        all_timestamps.append(datetime.fromisoformat(ts_str))
+                    except (ValueError, TypeError):
+                        logger.warning("Failed to parse lastTransitionTime: %s", ts_str)
+
+        # Populate token usage
+        if total_input_tokens > 0 or total_output_tokens > 0:
+            turn_data.api_input_tokens = total_input_tokens
+            turn_data.api_output_tokens = total_output_tokens
+
+        # Calculate latency from earliest to latest timestamp across all stages
+        if len(all_timestamps) >= 2:
+            latency = (max(all_timestamps) - min(all_timestamps)).total_seconds()
+            if latency > 0:
+                turn_data.agent_latency = latency
 
     @staticmethod
     def build_summary(

@@ -72,9 +72,20 @@ def _get_response(turn: TurnData) -> str:
 
 DIAGNOSIS_STATUS: dict[str, Any] = {
     "conditions": [
-        {"type": "Started", "status": "True", "reason": "StepStarted"},
-        {"type": "Completed", "status": "True", "reason": "Succeeded"},
+        {
+            "type": "Started",
+            "status": "True",
+            "reason": "StepStarted",
+            "lastTransitionTime": "2026-09-01T13:27:01.248893Z",
+        },
+        {
+            "type": "Completed",
+            "status": "True",
+            "reason": "Succeeded",
+            "lastTransitionTime": "2026-09-01T13:27:47.825208Z",
+        },
     ],
+    "tokenUsage": {"inputTokens": 44473, "outputTokens": 133},
     "options": [
         {
             "title": "Increase memory limit",
@@ -116,9 +127,20 @@ DIAGNOSIS_STATUS: dict[str, Any] = {
 
 EXECUTION_STATUS: dict[str, Any] = {
     "conditions": [
-        {"type": "Started", "status": "True", "reason": "StepStarted"},
-        {"type": "Completed", "status": "True", "reason": "Succeeded"},
+        {
+            "type": "Started",
+            "status": "True",
+            "reason": "StepStarted",
+            "lastTransitionTime": "2026-09-01T13:27:54.782477Z",
+        },
+        {
+            "type": "Completed",
+            "status": "True",
+            "reason": "Succeeded",
+            "lastTransitionTime": "2026-09-01T13:28:09.226725Z",
+        },
     ],
+    "tokenUsage": {"inputTokens": 12000, "outputTokens": 1500},
     "actionsTaken": [
         {
             "type": "patch",
@@ -135,9 +157,20 @@ EXECUTION_STATUS: dict[str, Any] = {
 
 VERIFICATION_STATUS: dict[str, Any] = {
     "conditions": [
-        {"type": "Started", "status": "True", "reason": "StepStarted"},
-        {"type": "Completed", "status": "True", "reason": "Succeeded"},
+        {
+            "type": "Started",
+            "status": "True",
+            "reason": "StepStarted",
+            "lastTransitionTime": "2026-09-01T13:28:15.656746Z",
+        },
+        {
+            "type": "Completed",
+            "status": "True",
+            "reason": "Succeeded",
+            "lastTransitionTime": "2026-09-01T13:32:35.599737Z",
+        },
     ],
+    "tokenUsage": {"inputTokens": 8000, "outputTokens": 800},
     "checks": [
         {
             "name": "pod-running",
@@ -606,6 +639,230 @@ class TestAmendEdgeCases:
 
         assert err is not None
         assert "OpenshiftAgenticRunAmender error" in err
+
+
+class TestTokenUsageAndLatency:
+    """Test token usage and execution latency extraction across all stages."""
+
+    def test_extracts_token_usage_from_analysis(self) -> None:
+        """Test token usage is extracted from analysis result."""
+        cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        assert turn.api_input_tokens == 44473
+        assert turn.api_output_tokens == 133
+
+    def test_calculates_latency_from_conditions(self) -> None:
+        """Test execution latency is calculated from condition timestamps."""
+        cli = MockCLI({"analysisresults/ar-1": {"status": DIAGNOSIS_STATUS}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        # 2026-09-01T13:27:47.825208Z - 2026-09-01T13:27:01.248893Z ≈ 46.576s
+        assert turn.agent_latency == pytest.approx(46.576, abs=0.1)
+
+    def test_aggregates_tokens_across_all_stages(self) -> None:
+        """Test token usage is summed across analysis, execution, and verification."""
+        cli = MockCLI(
+            {
+                "analysisresults/ar-1": {"status": DIAGNOSIS_STATUS},
+                "executionresults/er-1": {"status": EXECUTION_STATUS},
+                "verificationresults/vr-1": {"status": VERIFICATION_STATUS},
+            }
+        )
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {"results": [{"name": "ar-1", "outcome": "Succeeded"}]},
+                "execution": {"results": [{"name": "er-1", "outcome": "Succeeded"}]},
+                "verification": {"results": [{"name": "vr-1", "outcome": "Succeeded"}]},
+            },
+        }
+
+        amender.amend(turn, status)
+
+        # 44473 + 12000 + 8000 = 64473
+        assert turn.api_input_tokens == 64473
+        # 133 + 1500 + 800 = 2433
+        assert turn.api_output_tokens == 2433
+
+    def test_aggregates_latency_across_all_stages(self) -> None:
+        """Test latency spans from earliest Started to latest Completed across stages."""
+        cli = MockCLI(
+            {
+                "analysisresults/ar-1": {"status": DIAGNOSIS_STATUS},
+                "executionresults/er-1": {"status": EXECUTION_STATUS},
+                "verificationresults/vr-1": {"status": VERIFICATION_STATUS},
+            }
+        )
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {"results": [{"name": "ar-1", "outcome": "Succeeded"}]},
+                "execution": {"results": [{"name": "er-1", "outcome": "Succeeded"}]},
+                "verification": {"results": [{"name": "vr-1", "outcome": "Succeeded"}]},
+            },
+        }
+
+        amender.amend(turn, status)
+
+        # From 2026-09-01T13:27:01.248893Z to 2026-09-01T13:32:35.599737Z
+        # (earliest analysis start to latest verification completion) ≈ 334.35 seconds
+        assert turn.agent_latency == pytest.approx(334.35, abs=0.1)
+
+    def test_token_usage_zero_when_missing(self) -> None:
+        """Test token usage defaults to 0 when tokenUsage field is absent."""
+        status_no_tokens: dict[str, Any] = {
+            "conditions": [
+                {"type": "Started", "status": "True", "reason": "StepStarted"},
+                {"type": "Completed", "status": "True", "reason": "Succeeded"},
+            ],
+            "options": [],
+        }
+        cli = MockCLI({"analysisresults/ar-1": {"status": status_no_tokens}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        assert turn.api_input_tokens == 0
+        assert turn.api_output_tokens == 0
+
+    def test_latency_none_with_single_timestamp(self) -> None:
+        """Test latency is 0 (default) when only one timestamp available."""
+        status_single_ts: dict[str, Any] = {
+            "conditions": [
+                {
+                    "type": "Completed",
+                    "status": "True",
+                    "reason": "Succeeded",
+                    "lastTransitionTime": "2026-09-18T10:00:20Z",
+                },
+            ],
+            "options": [],
+        }
+        cli = MockCLI({"analysisresults/ar-1": {"status": status_single_ts}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        assert turn.agent_latency == 0.0
+
+    def test_latency_none_with_no_timestamps(self) -> None:
+        """Test latency remains 0 when no lastTransitionTime present."""
+        status_no_ts: dict[str, Any] = {
+            "conditions": [
+                {"type": "Completed", "status": "True", "reason": "Succeeded"},
+            ],
+            "options": [],
+        }
+        cli = MockCLI({"analysisresults/ar-1": {"status": status_no_ts}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        assert turn.agent_latency == 0.0
+
+    def test_extraction_works_even_without_analysis(self) -> None:
+        """Test token/latency extracted from other stages when analysis missing."""
+        cli = MockCLI({"executionresults/er-1": {"status": EXECUTION_STATUS}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "execution": {
+                    "results": [{"name": "er-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+
+        amender.amend(turn, status)
+
+        # Should extract from execution even without analysis
+        assert turn.api_input_tokens == 12000
+        assert turn.api_output_tokens == 1500
+        assert turn.agent_latency > 0
+
+    def test_invalid_timestamp_logged_and_skipped(self, mocker: MockerFixture) -> None:
+        """Test invalid timestamp format is logged and skipped."""
+        status_bad_ts: dict[str, Any] = {
+            "conditions": [
+                {"type": "Started", "lastTransitionTime": "2026-09-18T10:00:00Z"},
+                {"type": "Completed", "lastTransitionTime": "invalid-date"},
+            ],
+            "options": [],
+        }
+        cli = MockCLI({"analysisresults/ar-1": {"status": status_bad_ts}})
+        amender = OpenshiftAgenticRunAmender(cli)
+        turn = _make_turn()
+        status: dict[str, Any] = {
+            "conditions": [],
+            "steps": {
+                "analysis": {
+                    "results": [{"name": "ar-1", "outcome": "Succeeded"}],
+                },
+            },
+        }
+        mock_logger = mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.openshift_agentic_run_amender.logger"
+        )
+
+        amender.amend(turn, status)
+
+        mock_logger.warning.assert_called_once()
+        assert turn.agent_latency == 0.0
 
 
 class TestKubeCLITimeoutHandling:
