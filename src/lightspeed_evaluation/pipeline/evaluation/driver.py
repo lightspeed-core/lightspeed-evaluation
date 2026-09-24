@@ -220,7 +220,30 @@ class OpenshiftAgenticRunDriver(AgentDriver):
         self._amend_turn_data(turn_data, status_dict)
         self._cleanup(cr_name)
         logger.info("AgenticRun '%s' reached terminal state: %s", cr_name, outcome)
+
+        # When only analysis is configured and CR reaches Failed, treat as
+        # an agent error so the pipeline marks remaining metrics as ERROR
+        # and skips the LLM judge. The failure details are in turn_data.response
+        # (populated by the amender above).
+        # Pending: This simple check is insufficient for multi-stage flows or
+        # scenarios where Failed is an expected/acceptable outcome. Revisit
+        # when expected-failure-phase support is added.
+        if outcome == TerminalOutcome.FAILED and self._is_analysis_only(
+            openshift_agentic_run_spec
+        ):
+            return (
+                f"AgenticRun '{cr_name}' failed — see response for details",
+                None,
+            )
+
         return (None, None)
+
+    @staticmethod
+    def _is_analysis_only(openshift_agentic_run_spec: dict[str, Any]) -> bool:
+        """Return True when only the analysis stage is configured."""
+        return "execution" not in openshift_agentic_run_spec and (
+            "verification" not in openshift_agentic_run_spec
+        )
 
     def _apply_config_overrides(self, turn_data: TurnData) -> None:
         """Enrich turn_data spec with agent config overrides."""

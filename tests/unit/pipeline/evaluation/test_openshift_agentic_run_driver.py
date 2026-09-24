@@ -432,6 +432,34 @@ class TestApplyConfigOverrides:
         assert "agent" not in spec["execution"]
 
 
+# ── Analysis-only check ─────────────────────────────────────────────
+
+
+class TestIsAnalysisOnly:  # pylint: disable=too-few-public-methods
+    """Unit tests for OpenshiftAgenticRunDriver._is_analysis_only."""
+
+    @pytest.mark.parametrize(
+        "spec, expected",
+        [
+            (SPEC_ANALYSIS_ONLY, True),
+            (SPEC_WITH_EXEC, False),
+            (SPEC_FULL, False),
+            ({}, True),
+            ({"analysis": {}, "verification": {}}, False),
+        ],
+        ids=[
+            "analysis-only",
+            "with-execution",
+            "full-pipeline",
+            "empty-spec",
+            "analysis-verification",
+        ],
+    )
+    def test_is_analysis_only(self, spec: dict[str, Any], expected: bool) -> None:
+        """Test _is_analysis_only correctly identifies single-stage specs."""
+        assert OpenshiftAgenticRunDriver._is_analysis_only(spec) == expected
+
+
 # ── Extract summary ─────────────────────────────────────────────────
 
 
@@ -736,6 +764,58 @@ class TestExecuteTurn:
         assert error is not None
         assert "Failed to get status" in error
         driver._cleanup.assert_called_once()
+
+    def test_failed_analysis_only_returns_error(
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
+    ) -> None:
+        """Test analysis-only CR reaching Failed returns error for ERROR handling."""
+        mock_time = mocker.patch(f"{MODULE}.time")
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
+
+        mock_apply = mocker.patch.object(driver, "_apply")
+        mock_apply.return_value = mocker.Mock(returncode=0)
+
+        status: dict[str, Any] = {
+            "conditions": [
+                _cond("Analyzed", "False", message="Agent returned empty response")
+            ]
+        }
+        mocker.patch.object(driver, "_get_status", return_value=(status, None))
+        mocker.patch.object(driver, "_cleanup")
+
+        turn = TurnData(
+            turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_ANALYSIS_ONLY
+        )
+        error, _ = driver.execute_turn(turn)
+
+        assert error is not None
+        assert "failed" in error.lower()
+        assert turn.openshift_agentic_run_status == status
+
+    def test_failed_multi_stage_returns_no_error(
+        self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
+    ) -> None:
+        """Test multi-stage CR reaching Failed still returns no error (evaluated by metrics)."""
+        mock_time = mocker.patch(f"{MODULE}.time")
+        mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
+
+        mock_apply = mocker.patch.object(driver, "_apply")
+        mock_apply.return_value = mocker.Mock(returncode=0)
+
+        status: dict[str, Any] = {
+            "conditions": [
+                _cond("Analyzed", "True"),
+                _cond("Executed", "False", message="Execution failed"),
+            ]
+        }
+        mocker.patch.object(driver, "_get_status", return_value=(status, None))
+        mocker.patch.object(driver, "_cleanup")
+
+        turn = TurnData(turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_FULL)
+        error, _ = driver.execute_turn(turn)
+
+        assert error is None
+        assert turn.openshift_agentic_run_status == status
 
     def test_conversation_id_in_cr_name(
         self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
