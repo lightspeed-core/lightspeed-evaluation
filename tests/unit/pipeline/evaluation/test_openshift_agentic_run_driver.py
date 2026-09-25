@@ -432,32 +432,75 @@ class TestApplyConfigOverrides:
         assert "agent" not in spec["execution"]
 
 
-# ── Analysis-only check ─────────────────────────────────────────────
+# ── Analysis failure detection ──────────────────────────────────────
 
 
-class TestIsAnalysisOnly:  # pylint: disable=too-few-public-methods
-    """Unit tests for OpenshiftAgenticRunDriver._is_analysis_only."""
+class TestIsAnalysisFailed:
+    """Unit tests for OpenshiftAgenticRunDriver._is_analysis_failed."""
 
-    @pytest.mark.parametrize(
-        "spec, expected",
-        [
-            (SPEC_ANALYSIS_ONLY, True),
-            (SPEC_WITH_EXEC, False),
-            (SPEC_FULL, False),
-            ({}, True),
-            ({"analysis": {}, "verification": {}}, False),
-        ],
-        ids=[
-            "analysis-only",
-            "with-execution",
-            "full-pipeline",
-            "empty-spec",
-            "analysis-verification",
-        ],
-    )
-    def test_is_analysis_only(self, spec: dict[str, Any], expected: bool) -> None:
-        """Test _is_analysis_only correctly identifies single-stage specs."""
-        assert OpenshiftAgenticRunDriver._is_analysis_only(spec) == expected
+    def test_analyzed_false(self) -> None:
+        """Test returns True when Analyzed is False."""
+        status: dict[str, Any] = {
+            "conditions": [_cond("Analyzed", "False", message="Agent error")]
+        }
+        assert OpenshiftAgenticRunDriver._is_analysis_failed(status) is True
+
+    def test_analyzed_true(self) -> None:
+        """Test returns False when Analyzed is True."""
+        status: dict[str, Any] = {
+            "conditions": [_cond("Analyzed", "True", message="OK")]
+        }
+        assert OpenshiftAgenticRunDriver._is_analysis_failed(status) is False
+
+    def test_no_analyzed_condition(self) -> None:
+        """Test returns False when no Analyzed condition exists."""
+        status: dict[str, Any] = {
+            "conditions": [_cond("Executed", "False", message="Failed")]
+        }
+        assert OpenshiftAgenticRunDriver._is_analysis_failed(status) is False
+
+    def test_empty_conditions(self) -> None:
+        """Test returns False for empty status."""
+        assert OpenshiftAgenticRunDriver._is_analysis_failed({}) is False
+
+
+# ── Extract failure reason ──────────────────────────────────────────
+
+
+class TestExtractFailureReason:
+    """Unit tests for OpenshiftAgenticRunDriver._extract_failure_reason."""
+
+    def test_analyzed_false_with_message(self) -> None:
+        """Test extracts message from Analyzed=False condition."""
+        status: dict[str, Any] = {
+            "conditions": [
+                _cond("Analyzed", "False", message="Agent returned empty response")
+            ]
+        }
+        result = OpenshiftAgenticRunDriver._extract_failure_reason(status)
+        assert result == "Agent returned empty response"
+
+    def test_analyzed_true_returns_unknown(self) -> None:
+        """Test returns unknown when Analyzed is True (not failed)."""
+        status: dict[str, Any] = {
+            "conditions": [
+                _cond("Analyzed", "True", message="OK"),
+                _cond("Executed", "False", message="504 Gateway Time-out"),
+            ]
+        }
+        result = OpenshiftAgenticRunDriver._extract_failure_reason(status)
+        assert "unknown" in result
+
+    def test_no_message(self) -> None:
+        """Test fallback when Analyzed=False has no message."""
+        status: dict[str, Any] = {"conditions": [_cond("Analyzed", "False")]}
+        result = OpenshiftAgenticRunDriver._extract_failure_reason(status)
+        assert "unknown" in result
+
+    def test_empty_status(self) -> None:
+        """Test fallback for empty status dict."""
+        result = OpenshiftAgenticRunDriver._extract_failure_reason({})
+        assert "unknown" in result
 
 
 # ── Extract summary ─────────────────────────────────────────────────
@@ -765,10 +808,10 @@ class TestExecuteTurn:
         assert "Failed to get status" in error
         driver._cleanup.assert_called_once()
 
-    def test_failed_analysis_only_returns_error(
+    def test_analysis_failed_returns_error(
         self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
-        """Test analysis-only CR reaching Failed returns error for ERROR handling."""
+        """Test analysis failure returns error with reason from condition."""
         mock_time = mocker.patch(f"{MODULE}.time")
         mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
@@ -783,19 +826,18 @@ class TestExecuteTurn:
         mocker.patch.object(driver, "_get_status", return_value=(status, None))
         mocker.patch.object(driver, "_cleanup")
 
-        turn = TurnData(
-            turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_ANALYSIS_ONLY
-        )
+        turn = TurnData(turn_id="t1", query="Q", openshift_agentic_run_spec=SPEC_FULL)
         error, _ = driver.execute_turn(turn)
 
         assert error is not None
-        assert "failed" in error.lower()
+        assert "analysis failed" in error.lower()
+        assert "Agent returned empty response" in error
         assert turn.openshift_agentic_run_status == status
 
-    def test_failed_multi_stage_returns_no_error(
+    def test_execution_failed_returns_no_error(
         self, mocker: MockerFixture, driver: OpenshiftAgenticRunDriver
     ) -> None:
-        """Test multi-stage CR reaching Failed still returns no error (evaluated by metrics)."""
+        """Test execution failure returns no error (evaluated by metrics)."""
         mock_time = mocker.patch(f"{MODULE}.time")
         mock_time.monotonic.side_effect = [0.0, 0.0, 0.0, 1.0]
 
