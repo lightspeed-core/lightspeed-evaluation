@@ -885,3 +885,27 @@ class TestToolCallErrorHandling:
         success, reason = evaluate_tool_calls(expected, actual)
         assert success is False
         assert "tool errors" not in reason
+
+
+class TestAllowExtraArg:
+    """Tests for the allow_extra_arg parameter."""
+
+    def test_extra_arg_fails_by_default(self) -> None:
+        """Extra keys in actual arguments cause failure when allow_extra_arg is False."""
+        expected = [[[{"tool_name": "search", "arguments": {"query": "hello"}}]]]
+        actual = [
+            [{"tool_name": "search", "arguments": {"query": "hello", "limit": 10}}]
+        ]
+
+        success, _ = evaluate_tool_calls(expected, actual)
+        assert success is False
+
+    def test_extra_arg_passes_when_allowed(self) -> None:
+        """Extra keys in actual arguments are ignored when allow_extra_arg is True."""
+        expected = [[[{"tool_name": "search", "arguments": {"query": "hello"}}]]]
+        actual = [
+            [{"tool_name": "search", "arguments": {"query": "hello", "limit": 10}}]
+        ]
+
+        success, _ = evaluate_tool_calls(expected, actual, allow_extra_arg=True)
+        assert success is True
