@@ -6,6 +6,7 @@ from lightspeed_evaluation.pipeline.behavioral.statistics import (
     confidence_interval,
     metric_significance,
     pass_at_k,
+    pass_hat_k,
     significance_tests,
 )
 
@@ -149,3 +150,43 @@ class TestConfidenceInterval:
         assert ci is not None
         assert ci[0] == approx(50.0)
         assert ci[1] == approx(50.0)
+
+
+class TestPassHatK:
+    """Tests for the pass^k consistency estimator."""
+
+    def test_all_pass(self) -> None:
+        """All cases pass in all runs → 1.0."""
+        assert pass_hat_k([3, 3], [3, 3], k=2) == 1.0
+
+    def test_none_pass(self) -> None:
+        """No cases pass → 0.0."""
+        assert pass_hat_k([0, 0], [3, 3], k=2) == 0.0
+
+    def test_empty_input(self) -> None:
+        """Empty input → 0.0."""
+        assert pass_hat_k([], [], k=2) == 0.0
+
+    def test_single_case_partial(self) -> None:
+        """One case, 3 of 5 pass, k=2 → (3/5)^2 = 0.36."""
+        result = pass_hat_k([3], [5], k=2)
+        assert abs(result - 0.36) < 1e-9
+
+    def test_k_equals_one(self) -> None:
+        """k=1 degenerates to pass rate average."""
+        result = pass_hat_k([7, 3], [10, 10], k=1)
+        assert abs(result - 0.5) < 1e-9
+
+    def test_multiple_cases_averaged(self) -> None:
+        """pass^k is averaged across cases."""
+        result = pass_hat_k([2, 0], [3, 3], k=2)
+        assert abs(result - 2 / 9) < 1e-9
+
+    def test_zero_total_returns_zero(self) -> None:
+        """n=0 for a case → 0.0, not division error."""
+        result = pass_hat_k([0, 3], [0, 3], k=2)
+        assert abs(result - 0.5) < 1e-9
+
+    def test_invalid_k(self) -> None:
+        """k < 1 → 0.0."""
+        assert pass_hat_k([3], [5], k=0) == 0.0
