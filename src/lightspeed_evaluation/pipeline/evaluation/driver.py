@@ -221,29 +221,42 @@ class OpenshiftAgenticRunDriver(AgentDriver):
         self._cleanup(cr_name)
         logger.info("AgenticRun '%s' reached terminal state: %s", cr_name, outcome)
 
-        # When only analysis is configured and CR reaches Failed, treat as
-        # an agent error so the pipeline marks remaining metrics as ERROR
-        # and skips the LLM judge. The failure details are in turn_data.response
-        # (populated by the amender above).
-        # Pending: This simple check is insufficient for multi-stage flows or
-        # scenarios where Failed is an expected/acceptable outcome. Revisit
-        # when expected-failure-phase support is added.
-        if outcome == TerminalOutcome.FAILED and self._is_analysis_only(
-            openshift_agentic_run_spec
-        ):
+        # Analysis failure means the agent never produced usable output —
+        # treat as ERROR so the pipeline skips the LLM judge.
+        # Later stages (execution/verification) may fail but still have
+        # evaluable content, so only gate on analysis here.
+        # Pending: revisit when expected-failure-phase support is added
+        # (scenarios where Failed is an acceptable outcome).
+        if outcome == TerminalOutcome.FAILED and self._is_analysis_failed(status_dict):
+            fail_reason = self._extract_failure_reason(status_dict)
             return (
-                f"AgenticRun '{cr_name}' failed — see response for details",
+                f"AgenticRun '{cr_name}' analysis failed: {fail_reason}",
                 None,
             )
 
         return (None, None)
 
     @staticmethod
-    def _is_analysis_only(openshift_agentic_run_spec: dict[str, Any]) -> bool:
-        """Return True when only the analysis stage is configured."""
-        return "execution" not in openshift_agentic_run_spec and (
-            "verification" not in openshift_agentic_run_spec
-        )
+    def _is_analysis_failed(status_dict: dict[str, Any]) -> bool:
+        """Return True when the Analyzed condition has status False."""
+        for cond in status_dict.get("conditions", []):
+            if isinstance(cond, dict) and cond.get("type") == "Analyzed":
+                return cond.get("status") == "False"
+        return False
+
+    @staticmethod
+    def _extract_failure_reason(status_dict: dict[str, Any]) -> str:
+        """Extract failure reason from the Analyzed condition."""
+        for cond in status_dict.get("conditions", []):
+            if (
+                isinstance(cond, dict)
+                and cond.get("type") == "Analyzed"
+                and cond.get("status") == "False"
+            ):
+                message = cond.get("message", "")
+                if message:
+                    return message
+        return "unknown — check response for details"
 
     def _apply_config_overrides(self, turn_data: TurnData) -> None:
         """Enrich turn_data spec with agent config overrides."""
