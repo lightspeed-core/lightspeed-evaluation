@@ -165,6 +165,7 @@ metrics_metadata:
       description: "Tool call evaluation comparing expected vs actual tool calls"
       ordered: true       # true (default): sequence order matters, false: any order allowed
       full_match: true    # true (default): exact 1:1 match, false: expected tools found in actual (extras allowed)
+      allow_extra_arg: false # false (default): if true, extra keys in actual arguments are ignored
 
     "custom:loop_eval":
       threshold: 1.0  # 1.0 = no loops; any detected loop fails unless threshold is lowered
