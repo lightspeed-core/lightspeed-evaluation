@@ -25,6 +25,7 @@ class EvaluationErrorHandler:
         tag: set[str],
         turn_id: Optional[str] = None,
         query: str = "",
+        turn_data: Optional[TurnData] = None,
     ) -> EvaluationResult:
         """Create an EvaluationResult with specified status.
 
@@ -36,7 +37,9 @@ class EvaluationErrorHandler:
             tag: Tag(s) for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
+            turn_data: Turn data to preserve execution telemetry on error results
         """
+        agent_latency = turn_data.agent_latency if turn_data else 0.0
         return EvaluationResult(
             conversation_group_id=conv_id,
             tag=tag,
@@ -45,6 +48,14 @@ class EvaluationErrorHandler:
             result=result_status,
             reason=reason,
             query=query,
+            response=(turn_data.response or "") if turn_data else "",
+            agent_latency=agent_latency,
+            execution_time=agent_latency,
+            api_input_tokens=turn_data.api_input_tokens if turn_data else 0,
+            api_output_tokens=turn_data.api_output_tokens if turn_data else 0,
+            time_to_first_token=(turn_data.time_to_first_token if turn_data else None),
+            streaming_duration=(turn_data.streaming_duration if turn_data else None),
+            tokens_per_second=(turn_data.tokens_per_second if turn_data else None),
         )
 
     def create_error_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -56,6 +67,7 @@ class EvaluationErrorHandler:
         tag: set[str],
         turn_id: Optional[str] = None,
         query: str = "",
+        turn_data: Optional[TurnData] = None,
     ) -> EvaluationResult:
         """Create an ERROR EvaluationResult with common defaults.
 
@@ -66,9 +78,17 @@ class EvaluationErrorHandler:
             tag: Tag(s) for grouping and filtering results
             turn_id: Turn ID (None for conversation-level)
             query: Query text
+            turn_data: Turn data to preserve execution telemetry on error results
         """
         return self._create_result(
-            conv_id, metric_id, reason, "ERROR", tag=tag, turn_id=turn_id, query=query
+            conv_id,
+            metric_id,
+            reason,
+            "ERROR",
+            tag=tag,
+            turn_id=turn_id,
+            query=query,
+            turn_data=turn_data,
         )
 
     def create_skipped_result(  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -131,6 +151,7 @@ class EvaluationErrorHandler:
                         tag=conv_data.tag,
                         turn_id=turn_data.turn_id,
                         query=turn_data.query or "",
+                        turn_data=turn_data,
                     )
                 )
 
@@ -182,6 +203,7 @@ class EvaluationErrorHandler:
                 tag=conv_data.tag,
                 turn_id=turn_data.turn_id,
                 query=turn_data.query or "",
+                turn_data=turn_data,
             )
             for metric_id in turn_metrics
         ]
@@ -230,15 +252,25 @@ class EvaluationErrorHandler:
 
         # Mark conversation-level metrics
         for metric_id in resolved_conversation_metrics:
-            results.append(
-                self._create_result(
-                    conv_data.conversation_group_id,
-                    metric_id,
-                    reason,
-                    result_status,
-                    tag=conv_data.tag,
-                )
+            result = self._create_result(
+                conv_data.conversation_group_id,
+                metric_id,
+                reason,
+                result_status,
+                tag=conv_data.tag,
             )
+            if conv_data.turns:
+                result.api_input_tokens = sum(
+                    turn.api_input_tokens for turn in conv_data.turns
+                )
+                result.api_output_tokens = sum(
+                    turn.api_output_tokens for turn in conv_data.turns
+                )
+                result.agent_latency = sum(
+                    turn.agent_latency for turn in conv_data.turns
+                )
+                result.execution_time = result.agent_latency
+            results.append(result)
 
         self.results.extend(results)
         return results
