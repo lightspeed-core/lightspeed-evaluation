@@ -227,6 +227,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
         ) or {"ordered": True, "full_match": True}
         ordered = metadata.get("ordered", True)
         full_match = metadata.get("full_match", True)
+        allow_extra_arg = metadata.get("allow_extra_arg", False)
 
         # Use the tool evaluation logic with configuration
         success, details = evaluate_tool_calls(
@@ -234,6 +235,7 @@ class CustomMetrics:  # pylint: disable=too-few-public-methods
             actual_tool_calls,
             ordered=ordered,
             full_match=full_match,
+            allow_extra_arg=allow_extra_arg,
         )
         score = 1.0 if success else 0.0
 

@@ -13,6 +13,7 @@ def evaluate_tool_calls(
     actual: list[list[dict[str, Any]]],
     ordered: bool = True,
     full_match: bool = True,
+    allow_extra_arg: bool = False,
 ) -> tuple[bool, str]:
     """Evaluate tool calls using the custom:tool_eval metric.
 
@@ -22,6 +23,7 @@ def evaluate_tool_calls(
         ordered: If True, tool calls must match in order. If False, order is ignored.
         full_match: True requires all expected to match all actual (1:1).
             False requires all expected tools to be present (subset matching, extras allowed).
+        allow_extra_arg: If True, extra keys in actual arguments are allowed.
 
     Returns:
         tuple: (success: bool, details: str)
@@ -33,7 +35,11 @@ def evaluate_tool_calls(
 
         for i, expected_set in enumerate(expected):
             result = compare_tool_calls(
-                expected_set, actual, ordered=ordered, full_match=full_match
+                expected_set,
+                actual,
+                ordered=ordered,
+                full_match=full_match,
+                allow_extra_arg=allow_extra_arg,
             )
             if result["success"]:
                 return _create_success_message(
@@ -70,6 +76,7 @@ def compare_tool_calls(
     actual: list[list[dict[str, Any]]],
     ordered: bool = True,
     full_match: bool = True,
+    allow_extra_arg: bool = False,
 ) -> dict[str, Any]:
     """Compare expected and actual tool calls.
 
@@ -83,6 +90,7 @@ def compare_tool_calls(
             True (default): Requires exact 1:1 match between expected and actual.
             False: Requires all expected tools to be found in actual (subset matching).
                    Extra actual tools beyond expected are allowed.
+        allow_extra_arg: If True, extra keys in actual arguments are allowed.
 
     Note:
         In partial match mode (full_match=False), the ordered parameter affects
@@ -100,7 +108,7 @@ def compare_tool_calls(
 
     if not full_match:
         matched, total, extra_tools, unmatched_expected = _compare_partial(
-            expected_normalized, actual_normalized
+            expected_normalized, actual_normalized, allow_extra_arg=allow_extra_arg
         )
         # Partial match succeeds if all expected tools matched (subset matching)
         success = matched == total
@@ -123,7 +131,9 @@ def compare_tool_calls(
     success = _compare_lists_ordered(
         expected_normalized,
         actual_normalized,
-        _compare_tool_call_sequence,
+        lambda exp, act: _compare_tool_call_sequence(
+            exp, act, allow_extra_arg=allow_extra_arg
+        ),
         mismatch_message,
     )
     return {"success": success}
@@ -146,6 +156,7 @@ def _normalize_sequences(
 def _compare_partial(
     expected: list[list[dict[str, Any]]],
     actual: list[list[dict[str, Any]]],
+    allow_extra_arg: bool = False,
 ) -> tuple[int, int, list[str], list[str]]:
     """Compare tool calls with partial matching.
 
@@ -159,6 +170,7 @@ def _compare_partial(
     Args:
         expected: Expected tool call sequences (pre-normalized)
         actual: Actual tool call sequences (pre-normalized)
+        allow_extra_arg: If True, extra keys in actual arguments are allowed.
 
     Returns:
         Tuple of (matched_count, total_expected, extra_actual_tools, unmatched_expected_tools)
@@ -174,7 +186,7 @@ def _compare_partial(
     for i, expected_seq in enumerate(expected):
         for j, actual_seq in enumerate(actual):
             if j not in used_indices and _compare_tool_call_sequence(
-                expected_seq, actual_seq
+                expected_seq, actual_seq, allow_extra_arg=allow_extra_arg
             ):
                 matched += 1
                 used_indices.add(j)
@@ -210,6 +222,7 @@ def _get_sequence_tool_names(sequence: list[dict[str, Any]]) -> str:
 def _compare_tool_call_sequence(
     expected: list[dict[str, Any]],
     actual: list[dict[str, Any]],
+    allow_extra_arg: bool = False,
 ) -> bool:
     """Compare a single sequence of tool calls.
 
@@ -219,6 +232,7 @@ def _compare_tool_call_sequence(
     Args:
         expected: Expected tool calls in the sequence
         actual: Actual tool calls in the sequence
+        allow_extra_arg: If True, extra keys in actual arguments are allowed.
 
     Returns:
         True if the sequence matches
@@ -232,7 +246,9 @@ def _compare_tool_call_sequence(
         return False
 
     for i, expected_call in enumerate(expected):
-        if not _compare_single_tool_call(expected_call, actual[i]):
+        if not _compare_single_tool_call(
+            expected_call, actual[i], allow_extra_arg=allow_extra_arg
+        ):
             logger.debug("Tool call %d does not match in sequence", i)
             return False
 
@@ -285,12 +301,17 @@ def _get_sort_key(item: Any) -> tuple[str, ...]:
     return (str(item),)
 
 
-def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+def _compare_single_tool_call(
+    expected: dict[str, Any],
+    actual: dict[str, Any],
+    allow_extra_arg: bool = False,
+) -> bool:
     """Compare a single tool call including name, arguments, and optional result.
 
     Args:
         expected: Expected tool call with tool_name, arguments, and optional result.
         actual: Actual tool call from API response.
+        allow_extra_arg: If True, extra keys in actual arguments are allowed.
 
     Returns:
         True if the tool call matches (name, arguments, and result if specified).
@@ -318,7 +339,9 @@ def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) 
     expected_args = expected.get("arguments", {})
     actual_args = actual.get("arguments", {})
 
-    if not _compare_tool_arguments(expected_args, actual_args):
+    if not _compare_tool_arguments(
+        expected_args, actual_args, allow_extra_arg=allow_extra_arg
+    ):
         return False
 
     # Compare result if expected (optional field)
@@ -328,7 +351,11 @@ def _compare_single_tool_call(expected: dict[str, Any], actual: dict[str, Any]) 
     return True
 
 
-def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+def _compare_tool_arguments(
+    expected: dict[str, Any],
+    actual: dict[str, Any],
+    allow_extra_arg: bool = False,
+) -> bool:
     """Compare tool arguments name & value (regex pattern for the value)."""
     if not isinstance(expected, dict) or not isinstance(actual, dict):
         logger.debug(
@@ -370,8 +397,10 @@ def _compare_tool_arguments(expected: dict[str, Any], actual: dict[str, Any]) ->
     # Check for extra keys in actual
     extra_keys = set(actual.keys()) - set(expected.keys())
     if extra_keys:
-        logger.debug("Additional argument keys: %s", extra_keys)
-        return False
+        if not allow_extra_arg:
+            logger.debug("Additional argument keys: %s", extra_keys)
+            return False
+        logger.debug("Ignoring additional argument keys: %s", extra_keys)
 
     return True
 
