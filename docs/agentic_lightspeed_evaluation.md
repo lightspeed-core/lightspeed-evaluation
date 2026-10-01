@@ -192,6 +192,12 @@ The `openshift_agentic_run` driver manages the full AgenticRun CR lifecycle:
 7. **Cleanup AgenticRun CR** — Delete the created CR (if `cleanup_openshift_agentic_runs` is enabled)
 8. **Metrics evaluate** — `custom:openshift_agentic_run_status` and/or `custom:openshift_agentic_run_evaluation_correctness` on enriched data
 
+Analysis-stage failure marks affected evaluation metrics as `ERROR` and skips
+LLM-judge evaluation. Token usage and agent latency already extracted from child
+Result CRs remain attached to affected turn-level error results; cascade
+conversation-level errors include aggregated turn telemetry. Setup-script failures
+create conversation-level errors with zero token counts and latency.
+
 The Analysis section of `response` includes both the diagnosis directly on each
 AnalysisResult status (`diagnosis.summary` and `diagnosis.rootCause`) and the
 diagnoses and remediation plans in `options[]`, when present. This preserves the

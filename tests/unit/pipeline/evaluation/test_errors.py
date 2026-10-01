@@ -133,7 +133,15 @@ class TestEvaluationErrorHandler:
         handler = EvaluationErrorHandler()
 
         turn_data = TurnData(
-            turn_id="turn1", query="Test query", response="Test response"
+            turn_id="turn1",
+            query="Test query",
+            response="Test response",
+            api_input_tokens=120,
+            api_output_tokens=45,
+            agent_latency=12.5,
+            time_to_first_token=0.4,
+            streaming_duration=2.1,
+            tokens_per_second=21.4,
         )
         conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
 
@@ -156,9 +164,14 @@ class TestEvaluationErrorHandler:
         assert results[0].threshold is None
         assert results[0].reason == error_reason
         assert results[0].query == "Test query"
-        assert results[0].response == ""
-        assert results[0].evaluation_latency == 0.0
-        assert results[0].execution_time == 0.0
+        assert results[0].response == "Test response"
+        assert results[0].api_input_tokens == 120
+        assert results[0].api_output_tokens == 45
+        assert results[0].agent_latency == 12.5
+        assert results[0].execution_time == 12.5
+        assert results[0].time_to_first_token == 0.4
+        assert results[0].streaming_duration == 2.1
+        assert results[0].tokens_per_second == 21.4
 
         # Check second error result
         assert results[1].conversation_group_id == "test_conv"
@@ -172,7 +185,14 @@ class TestEvaluationErrorHandler:
         handler = EvaluationErrorHandler()
 
         # Setup conversation with 3 turns
-        turn1 = TurnData(turn_id="turn1", query="Query 1", response="Response 1")
+        turn1 = TurnData(
+            turn_id="turn1",
+            query="Query 1",
+            response="Response 1",
+            api_input_tokens=100,
+            api_output_tokens=50,
+            agent_latency=3.0,
+        )
         turn2 = TurnData(turn_id="turn2", query="Query 2", response="Response 2")
         turn3 = TurnData(turn_id="turn3", query="Query 3", response="Response 3")
         conv_data = EvaluationData(
@@ -225,6 +245,10 @@ class TestEvaluationErrorHandler:
         assert conv_result1.turn_id is None  # Conversation-level
         assert conv_result1.metric_identifier == "deepeval:conversation_completeness"
         assert conv_result1.result == "ERROR"
+        assert conv_result1.api_input_tokens == 100
+        assert conv_result1.api_output_tokens == 50
+        assert conv_result1.agent_latency == 3.0
+        assert conv_result1.execution_time == 3.0
 
         conv_result2 = results[3]
         assert conv_result2.turn_id is None  # Conversation-level
