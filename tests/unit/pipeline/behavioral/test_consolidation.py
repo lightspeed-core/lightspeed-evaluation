@@ -48,8 +48,11 @@ def _make_run_data(run_index: int, **kwargs: Any) -> RunData:
         },
     }
 
+    latency_stats = kwargs.get("latency_stats")
     latency_mean = kwargs.get("latency_mean")
-    if latency_mean is not None:
+    if latency_stats is not None:
+        stats["agent_latency_stats"] = latency_stats
+    elif latency_mean is not None:
         stats["agent_latency_stats"] = {"mean": latency_mean}
 
     return RunData(
@@ -126,16 +129,19 @@ class TestConsolidate:
         assert result.overall["agent_latency_mean"] == 2.0
 
     def test_token_totals(self) -> None:
-        """Token totals are summed across runs."""
+        """Token totals are summed across runs, split by input/output."""
         runs = [
             _make_run_data(1),
             _make_run_data(2),
         ]
         result = consolidate("model_a", runs, runs_requested=2)
 
-        assert result.overall["total_agent_tokens"] == 300.0
-        assert result.overall["total_judge_tokens"] == 560.0
-        assert result.overall["total_embedding_tokens"] == 20.0
+        assert result.overall["total_agent_input_tokens"] == 200.0
+        assert result.overall["total_agent_output_tokens"] == 100.0
+        assert result.eval_costs is not None
+        assert dict(result.eval_costs)["total_judge_input_tokens"] == 400.0
+        assert dict(result.eval_costs)["total_judge_output_tokens"] == 160.0
+        assert dict(result.eval_costs)["total_embedding_tokens"] == 20.0
 
     def test_quality_aggregation(self) -> None:
         """Quality scores are aggregated across runs."""
@@ -270,3 +276,143 @@ class TestConsolidate:
         result = consolidate("model_a", [run], runs_requested=1)
 
         assert "pass_at_k" not in result.overall
+
+    def test_pass_at_1_and_pass_hat_k_wiring(self) -> None:
+        """pass@1 and pass^k flow into overall, by_metric, by_conversation."""
+
+        def _case(conv: str, result: str) -> dict[str, str]:
+            return {
+                "conversation_group_id": conv,
+                "turn_id": "turn_1",
+                "metric_identifier": "ragas:response_relevancy",
+                "result": result,
+            }
+
+        convs = {"conv_1": {"pass_rate": 80.0}}
+        metrics = {
+            "ragas:response_relevancy": {"score_statistics": {"mean": 0.8}},
+        }
+        runs = [
+            _make_run_data(
+                1,
+                metrics=metrics,
+                conversations=convs,
+                case_results=[_case("conv_1", "PASS")],
+            ),
+            _make_run_data(
+                2,
+                metrics=metrics,
+                conversations=convs,
+                case_results=[_case("conv_1", "PASS")],
+            ),
+            _make_run_data(
+                3,
+                metrics=metrics,
+                conversations=convs,
+                case_results=[_case("conv_1", "FAIL")],
+            ),
+        ]
+        result = consolidate("model_a", runs, runs_requested=3)
+
+        pa1 = result.overall.get("pass_at_1")
+        assert pa1 is not None
+        assert abs(pa1 - 2 / 3) < 1e-9
+
+        phk = result.overall.get("pass_hat_k")
+        assert phk is not None
+        assert abs(phk - (2 / 3) ** 3) < 1e-9
+
+        assert "pass_at_1" in result.by_metric.get("ragas:response_relevancy", {})
+        assert "pass_hat_k" in result.by_metric.get("ragas:response_relevancy", {})
+        assert "pass_at_1" in result.by_conversation.get("conv_1", {})
+        assert "pass_hat_k" in result.by_conversation.get("conv_1", {})
+
+    def test_no_pass_at_1_for_single_run(self) -> None:
+        """pass@1 and pass^k not computed for single run."""
+
+        def _case(result: str) -> dict[str, str]:
+            return {
+                "conversation_group_id": "conv_1",
+                "turn_id": "turn_1",
+                "metric_identifier": "m1",
+                "result": result,
+            }
+
+        run = _make_run_data(1, case_results=[_case("PASS")])
+        result = consolidate("model_a", [run], runs_requested=1)
+
+        assert "pass_at_1" not in result.overall
+        assert "pass_hat_k" not in result.overall
+
+    def test_latency_percentiles_max_across_runs(self) -> None:
+        """Latency p95/p99 are max of per-run values from summary.json."""
+        runs = [
+            _make_run_data(1, latency_stats={"mean": 1.5, "p95": 3.0, "p99": 5.0}),
+            _make_run_data(2, latency_stats={"mean": 2.0, "p95": 4.0, "p99": 6.0}),
+            _make_run_data(3, latency_stats={"mean": 1.8, "p95": 3.5, "p99": 4.5}),
+        ]
+        result = consolidate("model_a", runs, runs_requested=3)
+
+        assert result.overall["agent_latency_p95_max"] == 4.0
+        assert result.overall["agent_latency_p99_max"] == 6.0
+
+    def test_token_percentiles_from_turn_stats(self) -> None:
+        """Agent token p95/p99 computed from pooled per-turn CSV values."""
+        runs = []
+        for i in range(3):
+            run = _make_run_data(i + 1)
+            run.turn_stats = [
+                {
+                    "agent_input_tokens": 100.0 + i * 10,
+                    "agent_output_tokens": 50.0 + i * 5,
+                },
+                {
+                    "agent_input_tokens": 200.0 + i * 10,
+                    "agent_output_tokens": 80.0 + i * 5,
+                },
+            ]
+            runs.append(run)
+        result = consolidate("model_a", runs, runs_requested=3)
+
+        assert result.overall.get("agent_input_tokens_p95_max") is not None
+        assert result.overall.get("agent_input_tokens_p99_max") is not None
+        assert result.overall.get("agent_output_tokens_p95_max") is not None
+        assert result.overall.get("agent_output_tokens_p99_max") is not None
+
+    def test_eval_costs_section(self) -> None:
+        """Judge/embedding costs in separate eval_costs dict."""
+        runs = []
+        for i in range(2):
+            run = _make_run_data(i + 1)
+            run.turn_stats = [
+                {
+                    "judge_input_tokens": 300.0 + i * 50,
+                    "judge_output_tokens": 100.0 + i * 20,
+                },
+            ]
+            runs.append(run)
+        result = consolidate("model_a", runs, runs_requested=2)
+
+        assert result.eval_costs is not None
+        eval_costs = dict(result.eval_costs)
+        assert eval_costs["total_judge_input_tokens"] == 400.0
+        assert eval_costs["total_judge_output_tokens"] == 160.0
+        assert eval_costs.get("max_judge_input_tokens") is not None
+        assert eval_costs.get("max_judge_output_tokens") is not None
+
+    def test_split_token_totals(self) -> None:
+        """Agent token totals split into input/output."""
+        runs = [_make_run_data(1), _make_run_data(2)]
+        result = consolidate("model_a", runs, runs_requested=2)
+
+        assert result.overall["total_agent_input_tokens"] == 200.0
+        assert result.overall["total_agent_output_tokens"] == 100.0
+        assert result.overall["agent_input_tokens_mean"] == 100.0
+        assert result.overall["agent_output_tokens_mean"] == 50.0
+
+    def test_no_percentiles_without_turn_stats(self) -> None:
+        """No turn_stats → no percentile keys."""
+        run = _make_run_data(1)
+        result = consolidate("model_a", [run], runs_requested=1)
+
+        assert "agent_input_tokens_p95_max" not in result.overall

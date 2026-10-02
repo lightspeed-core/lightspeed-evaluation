@@ -80,6 +80,8 @@ class AgentConsolidated(BaseModel):
     # Breakdowns
     by_metric: dict[str, dict[str, Optional[float]]] = {}
     by_conversation: dict[str, dict[str, Optional[float]]] = {}
+    # Evaluation costs (judge + embedding — separate from agent performance)
+    eval_costs: Optional[dict[str, float]] = None
     # Quality score (separate — weighted aggregation with metric composition)
     quality_score: Optional[dict[str, Any]] = None
     # Per-run snapshots
