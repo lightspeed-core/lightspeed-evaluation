@@ -85,7 +85,7 @@ For agentic workflows, each turn uses `openshift_agentic_run_spec` to define the
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `description` | string | No | Human-readable label for reports (falls back to `query`) |
-| `openshift_agentic_run_spec` | dict | Conditional | Inline AgenticRun spec — contains `request`, `targetNamespaces`, workflow phase gates |
+| `openshift_agentic_run_spec` | dict | Conditional | Inline AgenticRun spec — contains `request` and workflow phase gates |
 | `expected_openshift_agentic_run_status` | dict | Conditional | Assertions to check against the AgenticRun status |
 | `expected_outcome` | string | Conditional | Expected outcome description for LLM-as-judge evaluation |
 | `expected_analysis_outcome` | string | No | Optional per-phase expected outcome for analysis/diagnosis |
@@ -111,8 +111,6 @@ The simplest agentic evaluation — analysis phase only, no execution or verific
         request: >-
           A pod named oomkill-demo in namespace test-ns
           is in CrashLoopBackOff. Analyze the root cause.
-        targetNamespaces:
-          - test-ns
         tools:
           skills:
             - image: quay.io/harpatil/agentic-skills:latest
@@ -143,8 +141,6 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
           A pod named oomkill-demo in namespace test-ns
           is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
           fix the memory configuration, and verify the fix.
-        targetNamespaces:
-          - test-ns
         tools:
           skills:
             - image: quay.io/harpatil/agentic-skills:latest

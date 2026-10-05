@@ -303,7 +303,6 @@ class TestBuildCR:
             turn_id="t1",
             query="Pod is crash looping",
             openshift_agentic_run_spec={
-                "targetNamespaces": ["production"],
                 "analysis": {"agent": "smart"},
                 "execution": {"agent": "default"},
             },
@@ -311,7 +310,6 @@ class TestBuildCR:
         cr = driver._build_agentic_run_cr(turn, "eval-abc123")
 
         assert cr["spec"]["request"] == "Pod is crash looping"
-        assert cr["spec"]["targetNamespaces"] == ["production"]
         assert cr["spec"]["analysis"] == {"agent": "smart"}
         assert cr["spec"]["execution"] == {"agent": "default"}
 

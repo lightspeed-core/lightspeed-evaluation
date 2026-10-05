@@ -12,8 +12,6 @@
         request: >-
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. Analyze the root cause.
-        targetNamespaces:
-          - lightspeed-evaluation-test
         tools:
           skills:
             # TODO(rioloc): replace with a stable image
@@ -42,8 +40,6 @@
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. Analyze the root cause and verify the
           diagnosis, but do not execute any remediation.
-        targetNamespaces:
-          - lightspeed-evaluation-test
         tools:
           skills:
             # TODO(rioloc): replace with a stable image
@@ -93,8 +89,6 @@
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
           fix the memory configuration, and verify the fix.
-        targetNamespaces:
-          - lightspeed-evaluation-test
         tools:
           skills:
             # TODO(rioloc): replace with a stable image
@@ -152,8 +146,6 @@
           A pod named oomkill-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff due to OOMKill. Analyze the root cause,
           fix the memory configuration, and verify the fix.
-        targetNamespaces:
-          - lightspeed-evaluation-test
         tools:
           skills:
             # TODO(rioloc): replace with a stable image
@@ -201,8 +193,6 @@
           A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. The container keeps restarting. Analyze the
           root cause, fix the issue, and verify the pod is stable.
-        targetNamespaces:
-          - lightspeed-evaluation-test
         tools:
           skills:
             # TODO(rioloc): replace with a stable image
@@ -245,8 +235,6 @@
           A pod named crashloop-probe-demo in namespace lightspeed-evaluation-test
           is in CrashLoopBackOff. The container keeps restarting. Analyze the
           root cause, fix the issue, and verify the pod is stable.
-        targetNamespaces:
-          - lightspeed-evaluation-test
         tools:
           skills:
             # TODO(rioloc): replace with a stable image
