@@ -560,7 +560,6 @@ The framework supports evaluation of event-driven agentic workflows via Kubernet
         request: >-
           A pod named oomkill-demo in namespace test-ns is in CrashLoopBackOff
           due to OOMKill. Analyze, fix, and verify.
-        targetNamespaces: [test-ns]
         analysis: { agent: eval-default }
         execution: { agent: eval-default }
         verification: { agent: eval-default }
