@@ -418,20 +418,30 @@ expected_tool_calls:
 
 **Required fields:** `expected_tool_calls`, `tool_calls`
 
+**Allow additional actual arguments:** By default, every expected argument must match and extra keys in an actual tool call fail the comparison. Set `allow_extra_arg: true` to ignore extra actual keys while still requiring expected keys and values to match:
+
+```yaml
+metrics_metadata:
+  turn_level:
+    custom:tool_eval:
+      allow_extra_arg: true
+```
+
+This option only relaxes argument-key matching. It does not relax tool-name, expected-value, sequence, or tool-call-count checks. Use alongside `ordered` and `full_match` settings as needed.
+
 ---
 
 #### Loop Evaluation
 
 **What it measures:** Did the agent get stuck repeating the same tool instead of making progress?
 
-**Plain English:** "Did the agent call the same tool over and over (same or similar arguments), or nest tool calls too deeply?"
+**Plain English:** "Did the agent call the same tool over and over (same or similar arguments)?"
 
 **Score:** 1.0 = no loops, down to 0.0 = severe looping
 
 **How it works (deterministic, no LLM):**
 - **Exact loop:** same tool + identical arguments N+ times consecutively (default N=3)
 - **Soft loop:** same tool N+ times consecutively regardless of arguments (thrashing)
-- **Recursive depth:** number of spans in the parent chain (including the root and the current span) greater than `max_recursive_depth` (default 10). Put `span_id` / `parent_span_id` on each dict inside `turns[].tool_calls` (`list[list[dict]]`). Evaluation YAML has no `traces` or `trace` field. A separate Python helper (`evaluate_loops_from_trace`) can score a normalized `Trace`; that is not eval YAML input and is not used by the evaluation pipeline.
 
 **Conversation-level:** Detection stays inside each turn. Consecutive calls are not joined across queries, because repeating a tool for a new user question is not thrashing. The conversation score is the worst per-turn finding.
 
@@ -459,7 +469,6 @@ turns:
   threshold: 1.0                 # any detected loop fails
   exact_loop_threshold: 3
   soft_loop_threshold: 3
-  max_recursive_depth: 10
 ```
 
 **When to use:** Tool-calling agents in production that may retry or recurse without making progress
@@ -470,62 +479,61 @@ turns:
 
 ---
 
-#### Proposal Evaluation Correctness
+#### OpenshiftAgenticRun Evaluation Correctness
 
-**What it measures:** How good is the agentic remediation workflow? Evaluates diagnosis, actions, risk management, and verification.
+**What it measures:** How well did the AgenticRun workflow match expected outcome? Scores diagnosis, execution, and verification when those phases run.
 
-**Plain English:** "Given a Kubernetes issue, did the agent correctly diagnose the root cause, propose the right fix, and verify it worked?"
+**Plain English:** "Did AgenticRun workflow meet expected outcome through applicable diagnosis, execution, and verification phases?"
 
 **Score Range:** 0.0 to 1.0 (higher is better)
 
-**How it works:** A Judge LLM evaluates the workflow summary (produced by ProposalAmender) across four aspects.
-Diagnosis Quality is the most important criterion and carries the most weight:
-1. **Diagnosis Quality** — Is the root cause correctly identified and specific? Is the reasoning sound and the confidence level appropriate?
-2. **Action Appropriateness** — Are the actions safe and well-scoped?
-3. **Risk Management** — Is the risk assessment correct?
-4. **Verification Thoroughness** — Do the checks confirm the fix?
+**How it works:** A Judge LLM compares the workflow summary (produced by `OpenshiftAgenticRunAmender`) with `expected_outcome` and scores applicable phases:
+1. **Diagnosis** — Is root cause accurate and specific? Are proposed actions appropriate and safe? Proposed actions are part of diagnostic reasoning, not execution.
+2. **Execution** — Were actions carried out, effective, safe, and appropriately scoped? Risk and safety are assessed here. Infrastructure failures may make this dimension not applicable.
+3. **Verification** — Do checks confirm expected outcome and resolution of the specific issue?
 
-Only aspects present in the workflow are evaluated. Analysis-only workflows are scored on diagnosis quality alone.
+Only dimensions for phases that ran are scored. Analysis-only workflows receive a diagnosis score; absent dimensions are not scored.
 
 **Example:**
 ```yaml
 turns:
   - turn_id: "fix-oom"
-    proposal_spec:
+    openshift_agentic_run_spec:
       request: "Pod CrashLoopBackOff in namespace production"
       analysis: {}
       execution: {}
       verification: {}
     turn_metrics:
-      - "custom:proposal_evaluation_correctness"
-      - "custom:proposal_status"
-    expected_proposal_status:
+      - custom:openshift_agentic_run_evaluation_correctness
+      - custom:openshift_agentic_run_status
+    expected_openshift_agentic_run_status:
       phase: "Completed"
+    expected_outcome: "The pod should be recovered and verified healthy."
 ```
 
-**When to use:** Evaluating agentic operator workflows (Proposal CRD lifecycle)
+**When to use:** Evaluating agentic operator workflows (AgenticRun CRD lifecycle).
 
 **Threshold:** 0.75
 
-**Required fields:** `response` (populated automatically by ProposalAmender during driver execution)
+**Required fields:** `expected_outcome`; the driver populates `response` during AgenticRun execution. See [Agentic Lightspeed Evaluation](agentic_lightspeed_evaluation.md).
 
 ---
 
-#### Proposal Status
+#### OpenshiftAgenticRun Status
 
-**What it measures:** Deterministic assertions on Proposal CRD status — phase, timing, analysis, and execution outcomes.
+**What it measures:** Deterministic assertions on AgenticRun status — phase, duration, analysis, execution, and verification outcomes.
 
 **Plain English:** "Did the agentic workflow reach the expected state within the expected constraints?"
 
 **Score:** Binary (1.0 pass, 0.0 fail)
 
-**How it works:** Compares the actual Proposal CR status against expected assertions: phase (Completed/Failed/Escalated), max duration, max attempts, analysis checks, and execution checks.
+**How it works:** Compares actual AgenticRun status against `expected_openshift_agentic_run_status` assertions, including phase, maximum duration, analysis, execution, and verification checks.
 
-**When to use:** Agentic Lightspeed evaluation — validating CRD workflow outcomes
+**When to use:** Validating OpenShift AgenticRun workflow outcomes.
 
 **Threshold:** 1.0
 
-**Required fields:** `expected_proposal_status` (see [Agentic Lightspeed Evaluation Guide](agentic_lightspeed_evaluation.md) for full assertion syntax)
+**Required fields:** `expected_openshift_agentic_run_status` (see [Agentic Lightspeed Evaluation](agentic_lightspeed_evaluation.md) for assertion syntax)
 
 ---
 
@@ -581,6 +589,23 @@ NLP metrics use traditional text comparison techniques — no LLM judge calls ne
 
 **Installation:** `pip install 'lightspeed-evaluation[nlp-metrics]'` or `uv sync --extra nlp-metrics`
 
+#### Mean Reciprocal Rank (MRR)
+
+`nlp:mrr` ranks `contexts` in supplied order: first relevant context at rank `r` scores `1/r`; no match scores `0`. It is turn-level and requires `contexts` and `expected_contexts`.
+
+```yaml
+turns:
+  - turn_id: retrieve_policy
+    query: What is OpenShift?
+    contexts: ["General cluster guide", "OpenShift is a Kubernetes-based hybrid cloud platform."]
+    expected_contexts: ["A Kubernetes-based hybrid cloud platform"]
+    turn_metrics: [nlp:mrr]
+```
+
+MRR uses semantic matching when Sentence Transformers is installed; otherwise it falls back to normalized substring matching. Install `lightspeed-evaluation[local-embeddings]` for semantic matching. The metric `threshold` (default `0.5`) controls PASS/FAIL.
+
+---
+
 #### BLEU Score
 
 **What it measures:** N-gram precision — how many word sequences in the response match the reference.
@@ -634,6 +659,8 @@ metrics_metadata:
 **Threshold:** Configurable per metric
 
 **Required fields:** `criteria` in metrics_metadata (see [Configuration Guide](configuration.md) for full options including rubrics)
+
+Set `verbose: true` to capture available DeepEval judge diagnostics. When present, logs appear in structured output as `judge_scores[].verbose_logs`; otherwise field may be empty. Verbose logs may include criteria, evaluation steps, and rubric text.
 
 ---
 
@@ -746,8 +773,8 @@ What are you evaluating?
 │  │  └─ Stuck repeating tools? → loop_eval
 │  │
 │  ├─ Agentic Workflows?
-│  │  ├─ Workflow reached expected state? → proposal_status
-│  │  └─ Workflow quality (diagnosis, actions)? → proposal_evaluation_correctness
+│  │  ├─ Workflow reached expected state? → openshift_agentic_run_status
+│  │  └─ Workflow quality (diagnosis, actions)? → openshift_agentic_run_evaluation_correctness
 │  │
 │  ├─ Real Actions?
 │  │  └─ Infrastructure changes verified? → action_eval
@@ -802,11 +829,11 @@ turn_metrics:
   - custom:tool_eval            # Called right tool?
 ```
 
-#### Recipe 5: Agentic Workflow (Proposal CRD)
+#### Recipe 5: OpenShift AgenticRun Workflow
 ```yaml
 turn_metrics:
-  - custom:proposal_status                  # Reached expected state?
-  - custom:proposal_evaluation_correctness  # Quality of remediation?
+  - custom:openshift_agentic_run_status                  # Reached expected state?
+  - custom:openshift_agentic_run_evaluation_correctness  # AgenticRun workflow quality?
 ```
 
 #### Recipe 6: Custom Evaluation Criteria
@@ -1056,17 +1083,15 @@ Skip remaining turns completely (no API calls or evaluations) when a turn fails:
 
 ### Evaluation Modes: Live vs Offline
 
-The framework supports three modes of operation:
+The framework supports two evaluation modes:
 
 | Mode | Description | When to Use |
 |------|-------------|-------------|
 | **Offline** | Responses and data are pre-populated in the evaluation data YAML | Testing against known good/bad responses, regression testing |
 | **Live** | API or agent drivers fetch responses at evaluation time | End-to-end testing against a running service |
-| **Agentic** | Proposal CRD-based workflows on Kubernetes | Evaluating agentic remediation workflows |
 
-- **Offline mode** requires no API configuration — provide `response` (and other required fields like `contexts`, `proposal_status`) directly in your evaluation data YAML.
-- **Live mode** requires API configuration in system.yaml — see [Configuration Guide](configuration.md#lightspeed-api-for-live-data-generation).
-- **Agentic mode** uses the Proposal driver to manage CRD lifecycle on a Kubernetes cluster. Can also run offline with pre-populated proposal data. See [Agentic Lightspeed Evaluation Guide](agentic_lightspeed_evaluation.md).
+- **Offline mode** requires no API configuration — provide `response` and other required fields directly in evaluation data.
+- **Live mode** requires a configured agent/API connection in `system.yaml` — see [Configuration Guide](configuration.md#lightspeed-api-for-live-data-generation).
 
 ### Storage Backends
 
@@ -2047,13 +2072,14 @@ lightspeed-eval --eval-data config/eval_batch2.yaml
 | **custom:answer_correctness** | 0-1 | Matches expected answer | 0.75 | query, response, expected_response |
 | **custom:intent_eval** | 0/1 | Has right intent | 1 | query, response, expected_intent |
 | **custom:tool_eval** | 0/1 | Called correct tools with expected results | 1 | expected_tool_calls, tool_calls |
-| **custom:loop_eval** | 0-1 | No exact/soft tool loops or excessive recursive depth | 1 | tool_calls |
-| **custom:proposal_evaluation_correctness** | 0-1 | Agentic workflow quality (diagnosis, actions, risk) | 0.75 | response (workflow summary) |
+| **custom:loop_eval** | 0-1 | No exact/soft tool loops | 1 | tool_calls |
+| **custom:openshift_agentic_run_evaluation_correctness** | 0-1 | AgenticRun workflow quality (diagnosis, execution, verification) | 0.75 | expected_outcome, response (workflow summary) |
 | **custom:keywords_eval** | 0/1 | Expected keywords present | 1 | response, expected_keywords |
-| **custom:proposal_status** | 0/1 | Proposal CRD reached expected state | 1 | expected_proposal_status |
+| **custom:openshift_agentic_run_status** | 0/1 | AgenticRun reached expected state | 1 | expected_openshift_agentic_run_status |
 | **script:action_eval** | 0/1 | Real action verified | 1 | verify_script |
 | **nlp:bleu** | 0-1 | N-gram precision vs reference | 0.5 | response, expected_response |
 | **nlp:rouge** | 0-1 | Recall overlap vs reference | 0.5 | response, expected_response |
+| **nlp:mrr** | 0-1 | Rank of first relevant retrieved context | 0.5 | contexts, expected_contexts |
 | **geval:*custom_name*** | 0-1 | User-defined criteria | Configurable | Per criteria config |
 | **deepeval:conversation_completeness** | 0-1 | User's goals achieved | 0.8 | Full conversation |
 | **deepeval:conversation_relevancy** | 0-1 | Stayed on topic | 0.7 | Full conversation |
@@ -2175,8 +2201,6 @@ uv run python script/run_multi_provider_eval.py \
 This repository:
 - Main README: `../README.md`
 - Agent Guidelines: `../AGENTS.md`
-- Multi-Provider Evaluation: `multi_provider_evaluation.md`
-- Evaluation Comparison: `evaluation_comparison.md`
 - Sample Configurations: `../config/`
 - Example Scripts: `../config/sample_scripts/`
 
