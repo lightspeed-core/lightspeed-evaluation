@@ -37,6 +37,7 @@ Define a centralized pool of LLM configurations for the Judge Panel feature.
 | `llm_pool.defaults.parameters.*` | Any additional provider-supported LLM parameter (e.g., `top_p`, `frequency_penalty`) |
 | `llm_pool.models.<id>.provider` | LLM provider (required) |
 | `llm_pool.models.<id>.model` | Model name |
+| `llm_pool.models.<id>.description` | Optional human-readable description of this model configuration |
 | `llm_pool.models.<id>.parameters.*` | Model-specific parameter overrides (merged with defaults, model takes priority) |
 
 **Dynamic Parameters:** The `parameters` dict accepts any key-value pair supported by the LLM provider. Known parameters: `temperature`, `max_completion_tokens`. Unsupported parameters are silently dropped by the provider.
@@ -245,6 +246,13 @@ When `mcp_headers.enabled` is `false`, the system falls back to using the `API_K
 - **Static data mode**: Use pre-filled `response` and `tool_calls` from the input data
 - **Faster execution**: No external API calls -- LLM as a judge are still called
 - **Reproducible results**: Same response data used across runs
+
+### Agent descriptions and multi-agent runs
+
+Named agent configurations accept an optional `description` field for human-readable identification. LLM pool model entries also accept optional `description`; neither field changes evaluation behavior.
+
+When `agents.default.agent` contains multiple agent names, the runner evaluates the configured MxN matrix. Set `repeat` for repeated trials and `parallel` to choose concurrent execution. See [Behavioral Evaluation (MxN)](behavioral_evaluation.md) for live API requirements, data selection, reports, and statistical caveats.
+
 ### Example
 
 #### Example Configuration
@@ -309,40 +317,15 @@ For **user-defined criteria** metrics (`geval:...`), you can define custom evalu
 - **`evaluation_steps`** (optional): List of step-by-step instructions the LLM judge follows. If omitted, steps are generated from `criteria`. When provided together with `rubrics`, both are used: steps define how to evaluate, rubrics define score-range boundaries; neither overrides the other.
 - **`rubrics`** (optional): List of `{ score_range: [min, max], expected_outcome: "..." }`. Score range is 0–10 inclusive; non-overlapping ranges are validated. Confines the judge’s output to these ranges. The final score is normalized to a 0–1 range.
 
-User-defined criteria metrics return a score in **[0, 1]**.
+User-defined criteria metrics return a score in **[0, 1]**. Set `verbose: true` to include available DeepEval judge diagnostics in `judge_scores[].verbose_logs`; this may include criteria, steps, or rubric text.
 
-For **`custom:loop_eval`** (turn-level and conversation-level), additional keys control detection.
-
-**Eval-data contract:** The pipeline reads `turns[].tool_calls` only (`list[list[dict]]`). Evaluation YAML has no `traces` or `trace` field — do not submit MLflow, Langfuse, or OpenTelemetry payloads as a sibling of `tool_calls`. Recursive depth uses optional identity keys **on each tool-call dict**, not a nested `Trace` object:
-
-```yaml
-turns:
-  - turn_id: nested_tools
-    query: Diagnose nested agent tool use
-    tool_calls:
-      - - tool_name: plan          # also accepts name
-          arguments: {}            # also accepts args
-          span_id: s1              # optional; also accepts id
-      - - tool_name: search
-          arguments:
-            q: pods
-          span_id: s2
-          parent_span_id: s1       # optional; also accepts parent_id
-      - - tool_name: oc_get
-          arguments:
-            kind: pod
-          span_id: s3
-          parent_span_id: s2
-```
-
-`evaluate_loops_from_trace` can score a normalized `Trace` from Python after adapter conversion. That helper is not configuration, not eval-data input, and is not called by `lightspeed-eval`. See [Internal Trace Model](trace_model.md).
+For **`custom:loop_eval`**, additional keys control exact repeats and same-tool thrashing:
 
 - **`exact_loop_threshold`** (default `3`): Consecutive identical tool name + arguments that count as an exact loop.
 - **`soft_loop_threshold`** (default `3`): Consecutive same tool name with any arguments that count as thrashing.
-- **`max_recursive_depth`** (default `10`): Maximum allowed number of spans in a parent chain, including the root and the current span (`span_id` / `parent_span_id` on `tool_calls`). A chain fails only when its span count is **greater than** this value (for example, `root → child → leaf` is 3 and fails when the setting is `2`).
 - **`threshold`** (default `1.0`): Score at or above this is PASS. `1.0` means any detected loop fails.
 
-**Conversation-level:** Exact/soft loops and recursive depth are detected **within each turn** (one user query). Tool-call sequences are not concatenated across turns — repeating the same tool for a later query is not a loop. The conversation score uses the worst per-turn finding.
+Detection is performed within each turn. Tool-call sequences are not concatenated across turns; the conversation score uses the worst per-turn finding.
 
 ```yaml
 metrics_metadata:
@@ -351,14 +334,6 @@ metrics_metadata:
       threshold: 1.0
       exact_loop_threshold: 3
       soft_loop_threshold: 3
-      max_recursive_depth: 10
-      default: false
-  conversation_level:
-    "custom:loop_eval":
-      threshold: 1.0
-      exact_loop_threshold: 3
-      soft_loop_threshold: 3
-      max_recursive_depth: 10
       default: false
 ```
 

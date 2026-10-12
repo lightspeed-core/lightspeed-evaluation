@@ -1,6 +1,6 @@
 # Agentic Lightspeed Evaluation
 
-This guide covers how to evaluate event-driven agentic workflows using the Lightspeed Evaluation Framework. While the framework's default mode evaluates synchronous HTTP request-response interactions, the agentic evaluation mode supports CRD-based workflows where the "answer" is a trajectory of events and a final cluster state.
+This guide covers live evaluation of event-driven workflows using the `openshift_agentic_run` agent type. The driver creates and monitors AgenticRun custom resources through the Kubernetes API, then adds workflow results to evaluation data. It requires a configured cluster connection; it is not a separate evaluation mode.
 
 ## Overview
 
@@ -49,11 +49,11 @@ agents:
 | `cache_dir` | string | `null` | Location of cached queries |
 | `cache_enabled` | bool | `true` | Enable caching |
 
-#### `agent_ref` and NxM evaluation
+#### `agent_ref` and MxN evaluation
 
 For HTTP API agents, the model/provider is a config-level field — different agent configs naturally produce different runs. For agentic evaluation, the model is determined by the Agent CR on the cluster, and the Agent CR name lives in the eval data spec (`analysis.agent`, `execution.agent`, etc.).
 
-`agent_ref` bridges this gap: when set, it overrides the agent name in all stages defined in the eval data. This enables NxM behavioral evaluation with different cluster-side Agent CRs:
+`agent_ref` bridges this gap: when set, it overrides the agent name in all stages defined in the eval data. This enables MxN behavioral evaluation with different cluster-side Agent CRs:
 
 ```yaml
 agents:
@@ -76,7 +76,7 @@ agents:
 - `agent_ref` not set, stage defined in eval data — eval data's agent is used as-is
 - Stage not defined in eval data — `agent_ref` does not inject the stage
 
-Note: `agent_ref` overriding eval data is an inversion of the normal pattern (where eval data overrides config). This is intentional — eval data agent names are placeholders for stage selection, while `agent_ref` represents the actual agent choice. The CRD spec couples stage selection with agent selection in the same field, so the config override is the pragmatic way to separate them for NxM.
+Note: `agent_ref` overriding eval data is an inversion of the normal pattern (where eval data overrides config). This is intentional — eval data agent names are placeholders for stage selection, while `agent_ref` represents the actual agent choice. The CRD spec couples stage selection with agent selection in the same field, so the config override is the pragmatic way to separate them for MxN.
 
 ### Turn Data Structure
 
@@ -264,7 +264,7 @@ Checks run in order: **phase → timing → analysis → execution → verificat
 
 ### `custom:openshift_agentic_run_evaluation_correctness` — LLM-as-Judge
 
-Evaluates agentic remediation workflow quality using a Judge LLM. Scores 0.0–1.0 across three dimensions (only phases present in the workflow are scored; absent dimensions are marked N/A):
+Evaluates AgenticRun workflow outcomes against the expected outcome using a Judge LLM. Scores 0.0–1.0 across three dimensions (only phases present in the workflow are scored; absent dimensions are marked N/A):
 
 1. **Diagnosis** — Is the root cause correctly identified? Are the proposed actions sound and safe?
 2. **Execution** — Were the remediation actions carried out? Are they safe, well-scoped, and minimal?

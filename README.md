@@ -28,6 +28,7 @@ An evaluation framework for LLM-powered applications — evaluating responses, c
 - **Caching**: LLM, embedding, and API response caching for faster re-runs
 - **Skip on Failure**: Optionally skip remaining evaluations in a conversation when a turn evaluation fails (configurable globally or per conversation). When there is an error in API call/Setup script execution metrics are marked as ERROR always.
 - **Usage Modes**: CLI for batch evaluation and programmatic API for integration with Python applications
+- **Behavioral Evaluation (MxN)**: Compare live agent configurations across repeated runs with aggregate reports and pairwise comparisons. Required service or cluster APIs must be configured and reachable. See [Behavioral Evaluation](docs/behavioral_evaluation.md).
 
 ## 🚀 Quick Start
 
@@ -227,16 +228,17 @@ uv run lightspeed-eval --system-config <AGENTS_CONFIG.yaml> --eval-data <AGENTIC
     - [`keywords_eval`](src/lightspeed_evaluation/core/metrics/custom/keywords_eval.py) - Keywords evaluation with alternatives (ALL keywords must match, case insensitive)
   - Tool Evaluation
     - [`tool_eval`](src/lightspeed_evaluation/core/metrics/custom/tool_eval.py) - Validates tool calls, arguments, and optional results with regex pattern matching
-    - [`loop_eval`](src/lightspeed_evaluation/core/metrics/custom/loop_eval.py) - Detects exact tool loops, same-tool thrashing, and excessive recursive call depth (no LLM)
+    - [`loop_eval`](src/lightspeed_evaluation/core/metrics/custom/loop_eval.py) - Detects exact tool loops and same-tool thrashing (no LLM)
   - Agentic Workflow Evaluation
     - [`openshift_agentic_run_status`](src/lightspeed_evaluation/core/metrics/custom/openshift_agentic_run_eval.py) - Deterministic assertions on AgenticRun CRD status (phase, timing, analysis, execution, verification)
-    - [`openshift_agentic_run_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of agentic remediation workflow quality (diagnosis, actions, risk, verification). The workflow summary includes result-level and option-level diagnoses, including `NoActionRequired` results without remediation options; see the [agentic evaluation guide](docs/agentic_lightspeed_evaluation.md#agenticrun-lifecycle).
+    - [`openshift_agentic_run_evaluation_correctness`](src/lightspeed_evaluation/core/metrics/custom/custom.py) - LLM-as-judge evaluation of AgenticRun workflow outcomes (diagnosis, execution, verification). The workflow summary includes result-level and option-level diagnoses, including `NoActionRequired` results without remediation options; see the [AgenticRun evaluation guide](docs/agentic_lightspeed_evaluation.md#agenticrun-lifecycle).
 - **Script-based**
   - Action Evaluation
     - [`script:action_eval`](src/lightspeed_evaluation/core/metrics/script.py) - Executes verification scripts to validate actions (e.g., infrastructure changes)
 - **NLP** (No LLM required)
   - [`nlp:bleu`](https://en.wikipedia.org/wiki/BLEU) - BLEU score for n-gram precision
   - [`nlp:rouge`](https://en.wikipedia.org/wiki/ROUGE_(metric)) - ROUGE score for recall-oriented overlap
+  - `nlp:mrr` - Mean Reciprocal Rank for retrieved-context ordering
   - **Installation**: `pip install 'lightspeed-evaluation[nlp-metrics]'` or `uv sync --extra nlp-metrics`
 
 ### Conversation-Level (Multi-turn)
