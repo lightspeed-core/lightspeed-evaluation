@@ -169,7 +169,7 @@ class EmbeddingConfig(BaseModel):
     )
     provider_kwargs: Optional[dict[str, Any]] = Field(
         default=None,
-        description="Embedding provider arguments, e.g. model_kwargs: device:cpu",
+        description="Provider arguments; Hugging Face supports device and model_kwargs",
     )
     cache_dir: Optional[str] = Field(
         default=None,
