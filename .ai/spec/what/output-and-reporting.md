@@ -18,6 +18,13 @@ The framework produces structured evaluation reports in multiple formats with st
 - Each level includes: pass/fail/error counts, pass rate, mean score, and total tokens.
 - Confidence intervals (bootstrap method) are computed when sample size > 1.
 
+### MxN Behavioral Reports
+
+- Each run writes normal evaluation artifacts under `eval_<timestamp>/<agent>/run_<n>/`.
+- Each agent directory contains `agent_report.json` with that agent's aggregated results; the timestamp directory contains `eval_report.json` with cross-agent summaries and comparisons.
+- Reports include per-agent pass rates, per-metric summaries, latency/token totals, pairwise deltas/rankings, and overall/per-metric/per-conversation `pass@k` when repeated per-case results are available. `pass@k` uses PASS/FAIL results; ERROR and SKIPPED cases are excluded from its denominator.
+- Pairwise significance uses Fisher's exact test for PASS vs. non-PASS outcomes and Mann–Whitney U for per-run metric scores. P-values are unadjusted; tests may be omitted when sample counts are insufficient or scores are identical.
+
 ### Visualizations
 
 - Graphs are generated per-configuration from the `enabled_graphs` setting.

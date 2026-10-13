@@ -82,6 +82,6 @@ Pairwise significance uses Fisher's exact test for aggregate PASS vs. non-PASS o
 ## Run behavior
 
 - Failed runs are recorded; other runs continue. Configuration or evaluation-data validation errors abort the evaluation.
-- Agent query caching is disabled for repetitions after first run.
+- HTTP agent query caching is disabled for repetitions after first run; AgenticRun CR operations are not cached.
 - `pass@k` uses PASS/FAIL case results; ERROR/SKIPPED cases do not contribute to its denominator.
 - Parallel runs can overload APIs or host. Start sequentially; enable concurrency after checking capacity.

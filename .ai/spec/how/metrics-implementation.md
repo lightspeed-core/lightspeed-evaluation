@@ -13,8 +13,9 @@
 | `core/metrics/custom/custom.py` | `CustomMetrics` | Custom LLM-based metric handler |
 | `core/metrics/custom/keywords_eval.py` | — | Keyword matching evaluation logic |
 | `core/metrics/custom/tool_eval.py` | — | Tool use evaluation logic |
-| `core/metrics/custom/loop_eval.py` | — | Deterministic tool-loop / thrashing / recursive-depth detection |
-| `core/metrics/custom/proposal_eval.py` | `evaluate_proposal_status()` | Proposal status assertion metric (phase, duration, attempts, conditions) |
+| `core/metrics/custom/loop_eval.py` | — | Deterministic consecutive tool-loop detection |
+| `core/metrics/custom/openshift_agentic_run_eval.py` | `evaluate_openshift_agentic_run_status()` | OpenShift AgenticRun status assertions |
+| `core/metrics/custom/mrr_eval.py` | `evaluate_mrr()` | MRR ranking with optional local embedding similarity |
 | `core/metrics/custom/prompts.py` | — | Prompt templates for custom metrics |
 | `pipeline/evaluation/evaluator.py` | `MetricsEvaluator` | Metric dispatch, multi-expected-response logic, status determination |
 | `pipeline/evaluation/judges.py` | `JudgeOrchestrator` | Panel scoring, aggregation strategies |
@@ -31,9 +32,9 @@
 
 ## Key Abstractions
 
-**MetricManager** uses a `supported_metrics` dictionary that maps metric name prefixes to handler classes. Adding a new metric backend means: (1) create a handler class in `core/metrics/`, (2) register it in `supported_metrics`, (3) add metadata to system config.
+**MetricManager** resolves metric lists and merges metadata; it does not register or dispatch handler classes. `MetricsEvaluator.handlers` maps framework prefixes to backend handlers. Each handler maintains its own `supported_metrics` mapping for metric names. New metrics must be registered in the appropriate handler and configured in system metadata; new backends also require evaluator dispatch.
 
-**Metadata merging** follows a three-layer cascade: system defaults → conversation-level overrides → turn-level overrides. Each layer can override threshold, criteria, model, strictness, and other metric-specific settings. The merge is shallow — a turn-level override replaces the entire metadata dict for that metric, not individual keys.
+**Metadata merging** starts with system defaults for the relevant evaluation level, then shallow-merges that level's override; override keys win while non-overlapping defaults remain. Turn-level and conversation-level metadata do not fall through to one another.
 
 **Handler isolation**: Each metric backend (Ragas, DeepEval, etc.) manages its own LLM wrapper. Ragas uses `core/llm/ragas.py` wrappers, DeepEval uses `core/llm/deepeval.py` wrappers. This isolates framework-specific quirks from the generic pipeline.
 
@@ -49,7 +50,8 @@
 
 ## Implementation Notes
 
-- **Ragas and DeepEval have different LLM wrapper contracts**: Ragas expects `langchain`-style interfaces; DeepEval expects its own model classes. The `core/llm/ragas.py` and `core/llm/deepeval.py` files bridge this gap.
+- **Ragas and DeepEval have different LLM wrapper contracts**: Ragas uses `llm_factory` with LiteLLM's async completion function; DeepEval uses its own model integration. `core/llm/ragas.py` and `core/llm/deepeval.py` bridge these interfaces.
 - **LiteLLM patches** (`core/llm/litellm_patch.py`) exist because LiteLLM's provider routing sometimes needs corrections for specific model/provider combinations.
-- **NLP metrics** import heavy dependencies (sacrebleu, rouge-score, rapidfuzz) via lazy imports — they're optional and only loaded when an `nlp:` metric is actually used.
+- **NLP metrics** load optional dependencies such as `sacrebleu`, `rouge-score`, and `rapidfuzz` only when the corresponding metric runs.
+- **MRR** is implemented by `core/metrics/custom/mrr_eval.py`. `NLPMetrics` lazily loads Sentence Transformers using the `embedding_model` metric setting or `all-MiniLM-L6-v2`; unavailable dependencies or model-load failures use substring fallback.
 - **Script metrics** execute external scripts via subprocess. The script manager runs the script file directly and checks the return code for pass/fail determination.

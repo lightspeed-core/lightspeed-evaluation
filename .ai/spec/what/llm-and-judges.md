@@ -38,10 +38,12 @@ LLM judges score evaluation metrics. The framework supports single-judge and pan
 
 ### Embedding
 
-- Embedding models are used by Ragas metrics for semantic similarity evaluation.
-- Supported embedding providers: OpenAI, Gemini, HuggingFace (local).
-- HuggingFace embeddings require the `local-embeddings` optional dependency (includes torch).
-- Embedding validation is lazy — `EmbeddingManager.ensure_ready()` defers provider/env validation until first use, so missing embedding credentials don't fail pipeline startup when embeddings aren't needed.
+- Ragas metrics use configured embeddings where required; `ragas:response_relevancy` uses embeddings to compare generated questions with the input query.
+- Supported embedding providers: OpenAI, Gemini, and Hugging Face.
+- Local Hugging Face embeddings require the `local-embeddings` optional dependency (Sentence Transformers and PyTorch).
+- Hugging Face provider arguments use `embedding.provider_kwargs`: set `device` directly; place SentenceTransformer model-loading options under `model_kwargs`.
+- Embedding validation is lazy — `EmbeddingManager.ensure_ready()` defers provider/env validation until first use, so missing embedding credentials do not fail pipeline startup when no embedding metric runs.
+- Hugging Face offline flags are read at import time in the current CLI import path; set `HF_HUB_OFFLINE` and `TRANSFORMERS_OFFLINE` before starting Python. System YAML `environment` values are applied too late to guarantee offline mode.
 
 ## Configuration Surface
 
@@ -56,6 +58,7 @@ LLM judges score evaluation metrics. The framework supports single-judge and pan
 | `judge_panel.enabled_metrics` | list | null | Metrics to apply panel to (null = all) |
 | `embedding.provider` | string | — | Embedding provider |
 | `embedding.model` | string | — | Embedding model name |
+| `embedding.provider_kwargs` | dict | — | Provider arguments; for Hugging Face, `device` and optional `model_kwargs` |
 
 ## Constraints
 

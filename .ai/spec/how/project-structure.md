@@ -6,30 +6,36 @@
 |---|---|---|
 | `src/lightspeed_evaluation/` | — | Package root |
 | `api.py` | `evaluate()`, `evaluate_with_summary()`, `evaluate_conversation()`, `evaluate_turn()` | Programmatic API — clean entry points for Python callers |
-| `pipeline/behavioral/orchestrator.py` | — | NxM behavioral orchestrator (M agents x N repeats) |
+| `pipeline/behavioral/orchestrator.py` | — | MxN behavioral orchestrator (M agents x N repeats) |
 | `pipeline/behavioral/models.py` | — | Behavioral orchestration data models |
+| `pipeline/behavioral/loader.py` | — | Loads individual run outputs for aggregation |
+| `pipeline/behavioral/comparison.py` | — | Pairwise agent comparisons and statistical tests |
+| `pipeline/behavioral/consolidation.py` | — | Per-agent and cross-agent aggregation |
+| `pipeline/behavioral/report.py` | — | Writes per-agent and evaluation reports |
+| `pipeline/behavioral/statistics.py` | — | Behavioral-run statistical summaries |
 | `runner/evaluation.py` | `main()` | CLI entry point (`lightspeed-eval` command) |
 | `pipeline/evaluation/pipeline.py` | `EvaluationPipeline` | Top-level orchestrator — creates components, dispatches conversations |
 | `pipeline/evaluation/processor.py` | `ConversationProcessor`, `ProcessorComponents` | Per-conversation processing — turn iteration, agent invocation, metric dispatch |
 | `pipeline/evaluation/evaluator.py` | `MetricsEvaluator` | Metric evaluation engine — routes to framework handlers, handles multi-expected-response |
 | `pipeline/evaluation/judges.py` | `JudgeOrchestrator` | Multi-judge coordination — aggregation strategies (max, average, majority_vote) |
-| `pipeline/evaluation/driver.py` | `AgentDriver`, `HttpApiDriver`, `ProposalDriver`, `TerminalOutcome` | Agent driver abstraction, HTTP and Proposal implementations |
+| `pipeline/evaluation/driver.py` | `AgentDriver`, `HttpApiDriver`, `OpenshiftAgenticRunDriver`, `TerminalOutcome` | Agent driver abstraction, HTTP and OpenShift AgenticRun implementations |
 | `pipeline/evaluation/registry.py` | `AgentDriverRegistry`, `AGENT_DRIVERS` | Driver type registry and factory |
 | `pipeline/evaluation/amender.py` | `APIDataAmender` | Mutates turn data with HTTP agent response, tokens, latency |
-| `pipeline/evaluation/proposal_amender.py` | `ProposalAmender` | Fetches child Result CRs, builds Markdown summary for proposal turns |
+| `pipeline/evaluation/openshift_agentic_run_amender.py` | `OpenshiftAgenticRunAmender` | Fetches child Result CRs and amends AgenticRun turn data |
 | `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI abstraction and OpenShift (oc/kubectl) implementation |
 | `pipeline/evaluation/errors.py` | `EvaluationErrorHandler` | Pipeline error handling (marks metrics as ERROR on failures) |
 | `core/metrics/manager.py` | `MetricManager` | Metric resolution (defaults vs overrides) and registration |
 | `core/metrics/ragas.py` | `RagasMetrics` | Ragas framework adapter |
 | `core/metrics/deepeval.py` | `DeepEvalMetrics` | DeepEval framework adapter |
 | `core/metrics/geval.py` | `GEvalHandler` | GEval (LLM-as-judge with custom criteria) adapter |
-| `core/metrics/nlp.py` | `NLPMetrics` | No-LLM statistical metrics (BLEU, ROUGE, similarity) |
+| `core/metrics/nlp.py` | `NLPMetrics` | No-LLM metrics (BLEU, ROUGE, MRR, similarity) |
 | `core/metrics/script.py` | `ScriptEvalMetrics` | External script execution for validation |
 | `core/metrics/custom/custom.py` | `CustomMetrics` | Custom LLM-based metric handler |
 | `core/metrics/custom/keywords_eval.py` | — | Keyword matching evaluation |
 | `core/metrics/custom/tool_eval.py` | — | Tool use evaluation |
 | `core/metrics/custom/loop_eval.py` | — | Tool-loop / thrashing detection |
-| `core/metrics/custom/proposal_eval.py` | `evaluate_proposal_status()` | Proposal status assertion metric |
+| `core/metrics/custom/openshift_agentic_run_eval.py` | `evaluate_openshift_agentic_run_status()` | AgenticRun status assertion metrics |
+| `core/metrics/custom/mrr_eval.py` | `evaluate_mrr()` | Mean reciprocal rank with optional semantic matching |
 | `core/metrics/custom/prompts.py` | — | Prompt templates for custom metrics |
 | `core/llm/manager.py` | `LLMManager` | LLM provider abstraction, judge panel creation |
 | `core/llm/token_tracker.py` | `TokenTracker` | Token usage accounting |
@@ -41,7 +47,7 @@
 | `core/embedding/ragas.py` | — | Ragas-specific embedding wrappers |
 | `core/models/system.py` | `SystemConfig` | Top-level system configuration model |
 | `core/models/data.py` | `EvaluationData`, `TurnData`, `MetricResult`, `EvaluationResult`, `EvaluationRequest`, `ConversationMetadata`, `DatasetMetadata` | Evaluation dataset, turn, result, and metadata models |
-| `core/models/agents.py` | `HttpApiAgentConfig`, `ProposalAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent driver configuration models |
+| `core/models/agents.py` | `HttpApiAgentConfig`, `OpenshiftAgenticRunAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent driver configuration models |
 | `core/models/api.py` | — | Legacy API configuration (deprecated) |
 | `core/models/summary.py` | `EvaluationSummary` | Evaluation result aggregation |
 | `core/models/quality.py` | `QualityReport` | Quality score computation |
@@ -62,8 +68,8 @@
 | `core/storage/composite_storage.py` | `CompositeStorageBackend` | Multi-backend chaining |
 | `core/storage/config.py` | `FileBackendConfig`, `DatabaseBackendConfig`, `LangfuseBackendConfig`, `MLflowBackendConfig` | Storage configuration models |
 | `core/api/client.py` | `APIClient` | HTTP client with caching, retries; supports query/streaming/infer/responses |
-| `core/api/streaming_parser.py` | `parse_streaming_response()`, `StreamingContext` | SSE parsing with TTFT/throughput tracking |
-| `core/proposal/phase.py` | `derive_phase()` | Proposal phase derivation from CRD conditions |
+| `core/api/streaming_parser.py` | `StreamingContext`, `ResponsesStreamingContext`, `parse_streaming_response()`, `parse_responses_streaming()` | SSE parsing with TTFT/throughput tracking |
+| `core/openshift_agentic_run/phase.py` | `derive_phase()` | AgenticRun phase derivation from CRD conditions |
 | `core/system/validator.py` | `DataValidator` | Data validation (metric prerequisites, turn structure) |
 | `core/system/loader.py` | `ConfigLoader` | YAML config loading and system config construction |
 | `core/system/exceptions.py` | `ConfigurationError`, `EvaluationError`, etc. | Custom exception hierarchy |
@@ -86,4 +92,4 @@
 - Metric adapters are named by their backend: `ragas.py`, `deepeval.py`, `geval.py`, `nlp.py`, `script.py`
 - Each `core/` subdirectory has an `__init__.py` that re-exports key symbols
 - Models use Pydantic v2 with Google-style docstrings
-- Test files mirror source structure: `tests/core/metrics/test_manager.py` tests `core/metrics/manager.py`
+- Test files mirror source structure under `tests/unit/`: `tests/unit/core/metrics/test_manager.py` tests `core/metrics/manager.py`

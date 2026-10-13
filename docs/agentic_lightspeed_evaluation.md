@@ -10,11 +10,17 @@ OpenShift Agentic Lightspeed systems is event-driven: AgenticRun CRDs are applie
 
 - OpenShift cluster with the Agentic Lightspeed operator installed
 - `oc` or `kubectl` CLI available in PATH
-- `KUBECONFIG` environment variable pointing to a valid kubeconfig
+- Valid `oc`/`kubectl` cluster credentials (via `KUBECONFIG` or default kubeconfig/current context)
 - RBAC permissions for AgenticRun CRD operations in the target namespace
 - Judge LLM API key (e.g., `OPENAI_API_KEY`) for `openshift_agentic_run_evaluation_correctness`
 
 ## Configuration
+
+### Disable live agent execution
+
+`agents.enabled` is a global switch. Set it to `false` to disable all configured drivers, including `openshift_agentic_run`; no AgenticRun CR is created. Evaluation then uses pre-populated turn data. Setup/cleanup scripts are skipped, and script metrics are not evaluated. Pre-populated AgenticRun status/results can still be evaluated; `custom:openshift_agentic_run_status` scores `0.0` when expectations are supplied but actual status is missing.
+
+There is no per-agent `enabled` flag. To omit one agent while keeping others active, exclude it from `agents.default.agent` and conversation-level `agent` selections.
 
 ```yaml
 agents:
@@ -40,20 +46,20 @@ agents:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `namespace` | string | *(required)* | Kubernetes namespace containing AgenticRun resources |
-| `agent_ref` | string | `null` | Name of the Agent CR on the cluster — injected into all stages defined in eval data |
-| `auto_approve` | bool | `true` | Automatically approve AgenticRuns when phase is Proposed |
+| `agent_ref` | string | `null` | Name of the Agent CR on the cluster — injected into defined analysis, execution, and verification stages |
+| `auto_approve` | bool | `true` | Create an AgenticRunApproval after the AgenticRun CR is available |
 | `cleanup_openshift_agentic_runs` | bool | `true` | Delete eval AgenticRun CRs after status is captured |
 | `timeout` | int | `900` | Total timeout in seconds for the AgenticRun lifecycle |
 | `cli_timeout` | int | `30` | Timeout in seconds for individual oc/kubectl commands |
 | `poll_interval` | int | `2` | Seconds between status polls |
-| `cache_dir` | string | `null` | Location of cached queries |
-| `cache_enabled` | bool | `true` | Enable caching |
+| `cache_dir` | string | `null` | Deprecated component cache path; prefer `core.cache_base_dir` for supported caches. AgenticRun CR operations are not cached |
+| `cache_enabled` | bool | `true` | Deprecated component cache toggle; does not disable or cache AgenticRun CR operations |
 
 #### `agent_ref` and MxN evaluation
 
 For HTTP API agents, the model/provider is a config-level field — different agent configs naturally produce different runs. For agentic evaluation, the model is determined by the Agent CR on the cluster, and the Agent CR name lives in the eval data spec (`analysis.agent`, `execution.agent`, etc.).
 
-`agent_ref` bridges this gap: when set, it overrides the agent name in all stages defined in the eval data. This enables MxN behavioral evaluation with different cluster-side Agent CRs:
+`agent_ref` bridges this gap: when set, it overrides the agent name in defined analysis, execution, and verification stages. It does not add missing stages or override escalation. This enables MxN behavioral evaluation with different cluster-side Agent CRs:
 
 ```yaml
 agents:
@@ -72,9 +78,9 @@ agents:
 
 **Override rules:**
 
-- `agent_ref` set, stage defined in eval data — config overrides eval data's agent
+- `agent_ref` set, analysis/execution/verification stage defined in eval data — config overrides eval data's agent
 - `agent_ref` not set, stage defined in eval data — eval data's agent is used as-is
-- Stage not defined in eval data — `agent_ref` does not inject the stage
+- Stage not defined in eval data, or stage is escalation — `agent_ref` does not inject or override the agent
 
 Note: `agent_ref` overriding eval data is an inversion of the normal pattern (where eval data overrides config). This is intentional — eval data agent names are placeholders for stage selection, while `agent_ref` represents the actual agent choice. The CRD spec couples stage selection with agent selection in the same field, so the config override is the pragmatic way to separate them for MxN.
 
@@ -179,10 +185,10 @@ Complete remediation workflow with deterministic assertions and LLM-as-judge:
 
 The `openshift_agentic_run` driver manages the full AgenticRun CR lifecycle:
 
-1. **Build AgenticRun CR** — Merge `openshift_agentic_run_spec` + `request` + agent config
-2. **Create CR on cluster** — Auto-generated name: `eval-<uuid8>`
-3. **Poll status** — Loop every `poll_interval` seconds
-4. **Auto-approve** — If phase is `Proposed` and `auto_approve` is enabled
+1. **Build AgenticRun CR** — Start with turn query as `request`, overlay `openshift_agentic_run_spec` (including any explicit `request`), and apply `agent_ref` to existing stages when configured
+2. **Create CR on cluster** — Auto-generated name: `eval-<safe-conversation-id>-<uuid8>` (or `eval-<uuid8>` when no conversation ID exists)
+3. **Auto-approve** — If `auto_approve` is enabled, wait until the AgenticRun CR is available, then create an AgenticRunApproval for analysis and any configured execution/verification stages
+4. **Poll status** — Loop every `poll_interval` seconds until a terminal condition or timeout
 5. **Terminal phase** — `Completed` / `Failed` / `Denied` / `Escalated`
 6. **Populate turn_data** — `openshift_agentic_run_status` (full status dict) + `openshift_agentic_run_results` (child Result CRs) + `response` (Markdown workflow summary)
 7. **Cleanup AgenticRun CR** — Delete the created CR (if `cleanup_openshift_agentic_runs` is enabled)
@@ -209,7 +215,7 @@ Setup/cleanup scripts are only needed for **infrastructure** (deploying the work
 
 A single metric that runs all assertion checks from `expected_openshift_agentic_run_status` in sequence, failing fast at the first failure. Score is `1.0` if all checks pass, `0.0` on first failure.
 
-Checks run in order: **phase → timing → analysis → execution → verification**.
+Checks run in order: **phase → phase_in → max_duration → analysis → execution → conditions → verification**. Only supplied checks run.
 
 #### `expected_openshift_agentic_run_status` Reference
 

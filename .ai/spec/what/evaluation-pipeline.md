@@ -14,16 +14,17 @@ The pipeline orchestrates the end-to-end evaluation lifecycle: loading configura
 ### Conversation Processing
 
 - Each conversation is processed by a ConversationProcessor that handles turn iteration, agent invocation, metric evaluation, and error handling.
-- Setup scripts run before the first turn of a conversation; cleanup scripts run after the last turn.
-- When an agent driver is configured, each turn's data is enriched with the agent's response before evaluation.
+- Setup scripts run before the first turn and cleanup scripts run after the last turn only when the conversation has an enabled agent driver; otherwise both are skipped.
+- When an agent driver is enabled, each turn's data is enriched before evaluation. If agents are disabled, no agent call or AgenticRun CR is made; the pipeline evaluates pre-populated turn data.
 - Turn results are collected into a per-conversation batch and saved to storage (best-effort — StorageError is caught and logged, pipeline continues).
 
 ### Agent Driver Integration
 
 - If an agent driver is configured for a conversation, the driver is invoked per-turn to generate or enrich the response.
-- The APIDataAmender (for HTTP drivers) or ProposalAmender (for proposal drivers) mutates turn data with the agent's response, token counts, and latency measurements.
+- The APIDataAmender (for HTTP drivers) or OpenshiftAgenticRunAmender (for OpenShift AgenticRun drivers) enriches turn data before metric evaluation. The HTTP amender captures response, token counts, and latency; the AgenticRun amender adds workflow status/results and a Markdown response.
 - Agent latency is tracked per-turn for turn-level metrics and summed across turns for conversation-level metrics.
 - Streaming responses track additional metrics: time-to-first-token (TTFT), streaming duration, tokens per second.
+- Script metrics are not evaluated when no `agents` configuration exists or `agents.enabled` is false.
 
 ### Error Handling
 

@@ -1,6 +1,6 @@
 # System Overview
 
-Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes — in both live and offline modes. It takes YAML-defined evaluation datasets (conversations with turns), runs each turn through configurable metrics using LLM judges, and produces scored reports with statistical analysis. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, environment setup/cleanup scripts, pluggable agent drivers, concurrent execution, and both single-turn and multi-turn conversation evaluation.
+Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LLM-powered application outputs — responses, context quality, tool calls, conversation flows, and OpenShift AgenticRun outcomes — in both live and offline modes. It takes YAML-defined evaluation datasets (conversations with turns), runs each turn through configurable metrics using LLM judges, and produces scored reports with statistical analysis. It supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, environment setup/cleanup scripts, pluggable agent drivers, concurrent execution, and both single-turn and multi-turn conversation evaluation.
 
 ## Behavioral Rules
 
@@ -26,7 +26,7 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 ### Execution Model
 
 - Conversations are evaluated concurrently using a configurable thread pool (`core.max_threads`).
-- NxM mode: when multiple agents or `repeat > 1` is configured, the behavioral orchestrator sits above the evaluation pipeline and invokes it once per agent x repeat combination. Each run gets a cloned config targeting one agent, with cache disabled on repeats > 1. Results are saved to separate output directories per run (`eval_{timestamp}/{agent}/run_{n}/`). Optional parallel execution via `agents.default.parallel`. Cross-run comparison and consolidation are not yet implemented — each run produces independent results.
+- When agents are enabled and `agents.default.agent` is configured, the CLI uses MxN behavioral orchestration over configured/default and conversation-selected agents, with N set by `agents.default.repeat` (including a 1×1 matrix). Each run gets a cloned config targeting one agent; HTTP agent-response caching is disabled after the first repetition (AgenticRun CR operations are not cached). Run artifacts are saved under `eval_{timestamp}/{agent}/run_{n}/`. The orchestrator produces per-agent and cross-agent reports with aggregate metrics, pairwise deltas/rankings, and statistical tests when sample sizes allow. Optional process parallelism is controlled by `agents.default.parallel`. This is live evaluation and requires reachable agent APIs or cluster access for the configured driver.
 - Within a conversation, turns are evaluated sequentially in order.
 - If `skip_on_failure` is enabled, remaining turns and conversation-level metrics in a conversation are skipped after the first FAIL or ERROR.
 - Agent API errors cascade ERROR to the current turn, all remaining turns, and conversation-level metrics — regardless of `skip_on_failure`. Setup script failures also cascade ERROR to all turns and conversation-level metrics (setup runs before any turns, so the entire conversation is marked).
@@ -54,7 +54,7 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 | `core.cache_base_dir` | string | .caches | Base directory for all cache storage |
 | `core.skip_on_failure` | bool | false | Skip remaining turns and conversation metrics on first FAIL or ERROR |
 | `core.fail_on_invalid_data` | bool | true | Fail evaluation on invalid data (vs. skip with warning) |
-| `llm_pool` | list | — | Centralized pool of judge LLM configurations |
+| `llm_pool` | object | — | Centralized pool of judge LLM configurations keyed by model ID |
 | `judge_panel` | object | — | Multi-judge panel with aggregation strategy |
 | `embedding` | object | — | Embedding provider config for semantic metrics |
 | `agents` | object | — | Agent driver configurations (replaces legacy `api` block) |
