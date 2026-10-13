@@ -187,9 +187,11 @@ embedding:
   provider: "huggingface"
   model: "sentence-transformers/all-mpnet-base-v2"
   provider_kwargs:
-    # cache_folder: <path_with_pre_downloaded_model>
-    model_kwargs:
-      device: "cpu"  # Use "gpu" for nvidia accelerated inference
+    device: "cpu"  # Or "cuda" for NVIDIA GPUs, "mps" for Apple silicon; omit for auto-detection
+    # Optional SentenceTransformer model-loading arguments:
+    # model_kwargs:
+    #   trust_remote_code: true  # Only for trusted model repositories that require it
+    # cache_folder: /path/to/model/cache
 ```
 
 ## Lightspeed API for live data generation
@@ -694,7 +696,7 @@ visualization:
     - "status_breakdown"
 ```
 ## Environment
-It is possible to configure value of environment variables. The variables are set before imports, affecting certain libraries/packages. See the example below.
+Environment values are applied while loading the system config. The current CLI imports Hugging Face Hub before parsing system YAML, so its offline flags are snapshotted too early. Export `HF_HUB_OFFLINE` and `TRANSFORMERS_OFFLINE` before starting the CLI to guarantee offline mode.
 
 ### Example
 ```yaml
@@ -703,6 +705,15 @@ environment:
   DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"     # Disable DeepEval progress bars
   LITELLM_LOG: ERROR                       # Suppress LiteLLM verbose logging
 ```
+
+Set offline flags before Python starts:
+
+```bash
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+```
+
+Then run evaluation normally.
 
 ## Logging
 Logging is highly configurable even for specific Python packages. Possible logging levels are:
