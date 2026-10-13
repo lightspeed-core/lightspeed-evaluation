@@ -6,7 +6,7 @@
 |---|---|---|
 | `core/models/system.py` | `SystemConfig` | Top-level system config Pydantic model |
 | `core/models/data.py` | `EvaluationData`, `TurnData`, `MetricResult`, `EvaluationResult` | Evaluation dataset, turn, and result models |
-| `core/models/agents.py` | `HttpApiAgentConfig`, `ProposalAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent driver configuration models |
+| `core/models/agents.py` | `HttpApiAgentConfig`, `OpenshiftAgenticRunAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent driver configuration models |
 | `core/models/api.py` | Legacy API config | Backward-compatible API config (deprecated) |
 | `core/models/llm.py` | LLM config models | LLM pool and judge panel models |
 | `core/models/summary.py` | `EvaluationSummary` | Result aggregation models |
@@ -21,7 +21,7 @@
 1. CLI or API caller provides paths to two YAML files: system config and evaluation data.
 2. `ConfigLoader` reads system config YAML → validates → produces `SystemConfig` Pydantic model.
 3. `DataValidator` reads evaluation data YAML → validates → produces `EvaluationData` with `TurnData` entries.
-4. During validation, metric data prerequisites are checked (e.g., RAG metrics need `contexts`).
+4. During validation, metric data prerequisites are checked (e.g., RAG metrics need `contexts`; MRR needs `contexts` and `expected_contexts`).
 5. `SystemConfig` performs auto-migration of legacy fields (e.g., `api:` → `agents:`).
 6. Cache settings are unified: `core.cache_enabled` AND component `cache_enabled` must both be true.
 7. GEval entries in metrics_metadata are validated at load time (fail-fast).
@@ -50,3 +50,5 @@
 - **Pydantic v2 validators** run in a specific order. Cross-field validators (`model_validator(mode='after')`) run after all field validators, which is critical for the cache unification logic.
 - **The `mixins.py` file** contains shared behaviors that multiple models inherit — if you're adding a field pattern that appears in more than two models, check if a mixin already handles it.
 - **Config loading does not merge files**: Each YAML file is loaded independently. There is no config inheritance or overlay mechanism between system config files.
+- **Embedding provider arguments** are passed through `embedding.provider_kwargs`. Hugging Face `device` is a direct provider argument; `model_kwargs` carries SentenceTransformer model-loading options.
+- **Environment setup timing**: `ConfigLoader.load_system_config()` applies `environment` values after core modules are imported. Hugging Face offline flags are snapshotted earlier in the current CLI path; export `HF_HUB_OFFLINE` and `TRANSFORMERS_OFFLINE` before Python startup.

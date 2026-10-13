@@ -1,45 +1,50 @@
 # Agent Drivers
 
-Agent drivers are pluggable abstractions for invoking external LLM-powered services during evaluation. When configured, they enrich turn data with live data, token counts, and latency measurements before metrics are evaluated. Two driver types are supported: HTTP API-based and OpenShift AgenticRun CRD-based.
+Agent drivers are pluggable abstractions for invoking external services during live evaluation. They enrich turn data with responses or AgenticRun results, token counts, and latency before metric evaluation. Supported drivers are HTTP API-based and OpenShift AgenticRun CRD-based.
 
 ## Behavioral Rules
 
 ### Driver Model
 
-- Agent drivers implement the AgentDriver abstract interface with an `execute_turn()` method.
-- Two driver types are registered: `http_api` (HttpApiDriver) and `proposal` (ProposalDriver).
-- Drivers are registered in a driver registry keyed by driver **type** (e.g., `"http_api"`, `"proposal"`). Conversation-level agent selection uses a separate agent ID to resolve config, which is a distinct concern from driver type registration.
-- Each conversation can specify which agent driver to use, with fallback to the default agent.
+- Agent drivers implement `AgentDriver.execute_turn()`.
+- Registered driver types are `http_api` (`HttpApiDriver`) and `openshift_agentic_run` (`OpenshiftAgenticRunDriver`).
+- The registry is keyed by driver type; configured agent IDs select named definitions and are separate from driver types.
+- A conversation can select agents; otherwise `agents.default.agent` supplies the default list.
 
 ### HttpApiDriver
 
-- HttpApiDriver calls an HTTP API endpoint to generate responses via the APIDataAmender.
-- Enriched fields include: response text, contexts, tool_calls, api_input_tokens, api_output_tokens, agent_latency.
-- For streaming responses: time_to_first_token, streaming_duration, tokens_per_second are also captured.
-- The original turn data (if any pre-populated response exists) is overwritten by the agent's response.
-- Four endpoint types are supported: `query` (standard POST), `streaming` (SSE), `infer` (RLSAPI), and `responses` (OpenAI Responses API format).
+- `HttpApiDriver` calls an HTTP API through `APIDataAmender`.
+- It populates `response`, `contexts`, `tool_calls`, `api_input_tokens`, `api_output_tokens`, and `agent_latency`.
+- Streaming calls also capture `time_to_first_token`, `streaming_duration`, and `tokens_per_second`.
+- The agent response replaces any pre-populated response.
+- Supported endpoint types: `query` (standard POST), `streaming` (SSE), `infer` (RLSAPI `/infer`), and `responses` (OpenAI Responses API `/responses`). Endpoint-specific payloads are normalized into turn response, context, and tool-call fields; Responses `file_search_call` items provide RAG contexts and `mcp_call` items provide tool calls.
+- DiskCache uses SHA256 keys. Cache hits report zero API token usage because no request was made.
+- When MCP auth is not configured, `API_KEY` supplies the agent API `Authorization: Bearer ...` header. MCP server tokens are read from configured environment variables and sent in the `MCP-HEADERS` JSON header.
 
-### ProposalDriver
+### OpenshiftAgenticRunDriver
 
-- ProposalDriver manages a OpenShift AgenticRun CRD lifecycle per turn: build CR → apply → auto-approve → poll status → amend turn data → cleanup.
-- Terminal outcomes are: Completed, Failed, Denied, Escalated. The driver polls until a terminal condition is reached or timeout expires.
-- When `auto_approve` is enabled, the driver polls until the AgenticRun CR exists on the cluster, then pre-approves all stages (Analysis, Execution, Verification) by creating a AgenticRunApproval CR. The controller then proceeds through each stage without human intervention.
-- ProposalAmender fetches child Result CRs (analysis, execution, verification, escalation) and builds a structured Markdown summary as the turn response.
-- Phase derivation logic determines the current phase from CRD conditions: Analyzed → Executed → Verified, with special handling for retry (RetryingExecution reason).
-- TurnData proposal fields: `proposal_spec` (input CRD spec), `proposal_status` (output CRD status), `proposal_results` (structured child results), `proposal_phases` (steps executed), `expected_proposal_status` (assertion config).
-- The turn's `query` is used to populate the AgenticRun CR's `spec.request` field. The flow is one-directional: query → proposal spec (not the reverse).
+- `OpenshiftAgenticRunDriver` manages an AgenticRun CR lifecycle per turn: build CR → apply → optionally wait for CR and approve configured stages → poll status → amend turn data → cleanup.
+- The driver uses `oc` or `kubectl` to access the configured cluster namespace; a reachable Kubernetes API and valid credentials are required.
+- Analysis failure returns an agent error and prevents judge evaluation. Execution or verification failure can still leave evaluable workflow output.
+- Terminal outcomes are `Completed`, `Failed`, `Denied`, and `Escalated`.
+- If `auto_approve` is enabled, the driver waits for the CR to exist and creates an `AgenticRunApproval` for configured Analysis, Execution, and Verification stages.
+- `OpenshiftAgenticRunAmender` adds CR status/results, phases, a Markdown workflow summary, aggregated input/output token counts, and agent latency to turn data.
+- Turn fields include `openshift_agentic_run_spec`, `openshift_agentic_run_status`, `openshift_agentic_run_results`, `openshift_agentic_run_phases`, and `expected_openshift_agentic_run_status`. LLM correctness evaluation uses `expected_outcome` and optional `expected_analysis_outcome`, `expected_execution_outcome`, and `expected_verification_outcome`.
+- The turn's `query` populates `openshift_agentic_run_spec.request` when the spec does not provide a request. If query is absent, the spec must provide a non-empty request.
+- `agent_ref` overrides `agent` in existing `analysis`, `execution`, and `verification` spec stages; it does not add missing stages or override escalation.
+- AgenticRun status assertions use `custom:openshift_agentic_run_status`; LLM-based outcome evaluation uses `custom:openshift_agentic_run_evaluation_correctness`.
 
 ### Agent Configuration
 
-- The `agents` config block defines one or more agent configurations with endpoint, auth, and behavior settings.
-- Agent config supports setup/cleanup scripts that run before/after each conversation.
-- Two-level config resolution applied on top of the agent definition (base): `default.agent_config` shared overrides (lowest) → eval_data `agent_config_override` (highest). Each level overrides matching keys while non-overlapping keys survive.
+- `agents` defines named agent configurations and shared defaults.
+- Conversation setup and cleanup scripts run around processing when an agent driver is enabled; they are skipped when the driver is disabled.
+- Agent definition fields form the base config. Shared `default.agent_config` overrides apply next; per-evaluation `agent_config_override` has highest priority. Overrides merge by key, preserving non-overlapping values.
 
 ### Latency Tracking
 
-- Per-turn agent latency is measured and stored on the turn result.
-- Conversation-level agent latency is the sum of all turn latencies in that conversation.
-- API latency statistics (median, p95, p99) are computed in the summary report.
+- Per-turn agent latency is stored on evaluation results.
+- Conversation-level agent latency is the sum of turn latencies.
+- API latency statistics (median, p95, p99) are computed in summary reports.
 
 ## Configuration Surface
 
@@ -47,41 +52,52 @@ Agent drivers are pluggable abstractions for invoking external LLM-powered servi
 
 | Field/Flag | Type | Default | Description |
 |---|---|---|---|
-| `agents.<id>.type` | string | http_api | Agent type identifier |
-| `agents.<id>.api_base` | string | (default constant) | Base URL for API requests |
-| `agents.<id>.endpoint_type` | string | streaming | Endpoint mode: query, streaming, infer, or responses |
-| `agents.<id>.timeout` | int | (default constant) | Request timeout in seconds |
-| `agents.<id>.model` | string | — | Model identifier to pass to the agent |
-| `agents.<id>.cache_enabled` | bool | true | Cache agent responses |
-| `agents.<id>.num_retries` | int | (default constant) | Max retry attempts for 429 errors |
-| `agents.<id>.extra_request_params` | dict | — | Extra parameters merged into API request payload |
+| `agents.<id>.type` | string | `http_api` | Driver type |
+| `agents.<id>.api_base` | string | framework default | API base URL |
+| `agents.<id>.version` | string | `v1` | API version |
+| `agents.<id>.endpoint_type` | string | `streaming` | `query`, `streaming` (SSE), `infer` (RLSAPI), or `responses` (OpenAI Responses API) |
+| `agents.<id>.timeout` | int | framework default | Request timeout in seconds |
+| `agents.<id>.provider` | string | — | Optional LLM provider for agent requests |
+| `agents.<id>.model` | string | — | Model identifier passed to agent |
+| `agents.<id>.system_prompt` | string | — | Optional system prompt |
+| `agents.<id>.no_tools` | bool | — | Deprecated; use `extra_request_params.no_tools` |
+| `agents.<id>.extra_request_params` | dict | — | Extra API request parameters merged into request payload |
+| `agents.<id>.mcp_headers` | object | — | MCP auth config: `enabled` plus `servers`; each server sets required `env_var` and optional `header_name` (defaults to `Authorization`, value uses Bearer token) |
+| `agents.<id>.cache_dir` | string | — | Deprecated component cache path; prefer `core.cache_base_dir` |
+| `agents.<id>.cache_enabled` | bool | true | Deprecated component toggle; combined with `core.cache_enabled` |
+| `agents.<id>.num_retries` | int | framework default | Retry attempts for 429 and selected transient 5xx responses |
 
-### ProposalAgentConfig
+### OpenshiftAgenticRunAgentConfig
 
 | Field/Flag | Type | Default | Description |
 |---|---|---|---|
-| `agents.<id>.type` | string | proposal | Agent type identifier |
-| `agents.<id>.namespace` | string | (required) | OpenShift namespace for AgenticRun CRs |
-| `agents.<id>.auto_approve` | bool | true | Auto-create AgenticRunApproval CR when Analyzed |
-| `agents.<id>.cleanup_proposals` | bool | true | Delete AgenticRun CR after terminal state |
-| `agents.<id>.timeout` | int | 900 | Max wait (seconds) for terminal condition |
-| `agents.<id>.poll_interval` | int | 2 | Status check interval (seconds) |
-| `agents.<id>.cli_timeout` | int | 30 | Per-kubectl command timeout (seconds) |
+| `agents.<id>.type` | string | `openshift_agentic_run` | Driver type |
+| `agents.<id>.namespace` | string | required | Namespace for AgenticRun resources |
+| `agents.<id>.agent_ref` | string | null | Agent CR name injected into configured stages |
+| `agents.<id>.auto_approve` | bool | true | Create approval for configured stages |
+| `agents.<id>.cleanup_openshift_agentic_runs` | bool | true | Delete the run CR after processing |
+| `agents.<id>.timeout` | int | 900 | Lifecycle timeout in seconds |
+| `agents.<id>.cli_timeout` | int | 30 | Per-command timeout in seconds |
+| `agents.<id>.poll_interval` | int | 2 | Status polling interval in seconds |
+| `agents.<id>.cache_dir` | string | null | Deprecated component cache path; prefer `core.cache_base_dir` for supported caches. AgenticRun CR operations are not cached |
+| `agents.<id>.cache_enabled` | bool | true | Deprecated component cache toggle; AgenticRun CR operations are not cached, and this is not a driver enable switch |
 
 ### Shared
 
 | Field/Flag | Type | Default | Description |
 |---|---|---|---|
-| `agents.default.agent` | list[str] | — | Default agent(s) when eval_data doesn't specify (string also accepted, normalized to list) |
-| `agents.default.agent_config` | dict | — | Shared config overrides applied to all agents |
-| `agents.default.repeat` | int | 1 | Number of times to repeat evaluation per agent (NxM mode) |
-| `agents.default.parallel` | bool | false | Run agent/repeat combinations in parallel |
+| `agents.default.agent` | list[str] | — | Default named agent(s); a string is normalized to a list |
+| `agents.default.agent_config` | dict | — | Shared overrides applied to all configured agents |
+| `agents.default.repeat` | int | 1 | Repetitions per agent in MxN behavioral evaluation |
+| `agents.default.parallel` | bool | false | Run agent/repetition combinations concurrently |
 
 ## Constraints
 
-- Setup/cleanup scripts are automatically skipped when the agent driver is disabled (`skip_setup_cleanup = not agent_driver.enabled`). This is derived behavior, not a config field.
-- Script metrics are skipped when no agent driver is configured (they require enriched turn data).
-- Agent/API errors cascade ERROR to the current turn, all remaining turns, and conversation-level metrics.
-- The driver registry is built once at pipeline initialization and is immutable during evaluation.
-- ProposalDriver requires `oc` or `kubectl` CLI binary available on PATH.
-- AgenticRun CR names are auto-generated as `eval-{safe_conv_id}-{uuid8}` to avoid collisions.
+- `agents.enabled: false` disables all configured agent drivers globally; there is no per-agent `enabled` switch. To omit one agent while keeping others active, exclude it from default and conversation-level agent selections.
+- When `agents` is absent or `agents.enabled: false`, no agent request or AgenticRun CR is made. Turn data remains pre-populated input; setup/cleanup scripts are skipped, and script metrics are not evaluated.
+- If `custom:openshift_agentic_run_status` is evaluated while agents are disabled and no status data is pre-populated, the assertion returns score `0.0` (FAIL when threshold is positive).
+- Agent/API errors cascade ERROR to the current turn, remaining turns, and conversation-level metrics.
+- The driver registry is created once at pipeline initialization and is immutable during evaluation.
+- API cache uses DiskCache with SHA256 keys; cached responses have zero API token usage. Retries cover 429, 502, 503, and 504 responses; HTTP 500 is not retried.
+- `OpenshiftAgenticRunDriver` requires `oc` or `kubectl` on PATH and reachable cluster APIs.
+- AgenticRun CR names are generated as `eval-{safe_conv_id}-{uuid8}` to avoid collisions.

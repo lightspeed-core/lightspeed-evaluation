@@ -4,50 +4,48 @@
 
 | File | Key Symbols | Responsibility |
 |---|---|---|
-| `pipeline/evaluation/driver.py` | `AgentDriver`, `HttpApiDriver`, `ProposalDriver`, `TerminalOutcome` | Driver abstraction, HTTP and Proposal implementations |
-| `pipeline/evaluation/registry.py` | `AgentDriverRegistry`, `AGENT_DRIVERS` | Driver type registry and factory |
-| `pipeline/evaluation/amender.py` | `APIDataAmender` | Mutates turn data with HTTP agent response, tokens, latency, streaming metrics |
-| `pipeline/evaluation/proposal_amender.py` | `ProposalAmender` | Fetches child Result CRs, builds Markdown summary, amends proposal turn data |
-| `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI interface and OpenShift (oc/kubectl) implementation |
-| `core/api/client.py` | `APIClient` | HTTP client with caching, retries; supports query/streaming/infer/responses endpoints |
-| `core/api/streaming_parser.py` | `parse_streaming_response()`, `StreamingContext` | SSE parsing with TTFT/throughput tracking |
-| `core/proposal/phase.py` | `derive_phase()` | Proposal phase derivation from CRD conditions |
-| `core/metrics/custom/proposal_eval.py` | `evaluate_proposal_status()` | Proposal status assertion metric |
-| `core/models/agents.py` | `HttpApiAgentConfig`, `ProposalAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent configuration models; `AgentsConfig.resolve_agent_config()` handles config merge |
+| `pipeline/evaluation/driver.py` | `AgentDriver`, `HttpApiDriver`, `OpenshiftAgenticRunDriver`, `TerminalOutcome` | Driver interface and concrete HTTP/AgenticRun drivers |
+| `pipeline/evaluation/registry.py` | `AgentDriverRegistry`, `AGENT_DRIVERS` | Driver-type registry and factory |
+| `pipeline/evaluation/amender.py` | `APIDataAmender` | Mutates turn data with HTTP response, tokens, latency, and streaming metrics |
+| `pipeline/evaluation/openshift_agentic_run_amender.py` | `OpenshiftAgenticRunAmender` | Fetches `analysisresults`, `executionresults`, `verificationresults`, and `escalationresults`; amends status, results, phases, tokens, latency, and summary |
+| `pipeline/evaluation/cli.py` | `CLIClient`, `KubeCLI` | Abstract CLI and `oc`/`kubectl` implementation |
+| `core/api/client.py` | `APIClient` | HTTP client with caching, retries, and endpoint-specific request/response handling |
+| `core/api/streaming_parser.py` | `StreamingContext`, `ResponsesStreamingContext`, `parse_streaming_response()`, `parse_responses_streaming()` | SSE parsing with TTFT/throughput tracking |
+| `core/openshift_agentic_run/phase.py` | `derive_phase()` | AgenticRun phase derivation from CRD conditions |
+| `core/metrics/custom/openshift_agentic_run_eval.py` | `evaluate_openshift_agentic_run_status()` | Deterministic assertions on phase, duration, conditions, and workflow results |
+| `core/models/agents.py` | `HttpApiAgentConfig`, `OpenshiftAgenticRunAgentConfig`, `AgentsConfig`, `AgentDefaultConfig` | Agent configuration and default resolution |
 
 ## Data Flow
 
-### HttpApiDriver Flow
+### HttpApiDriver
 
-- `EvaluationPipeline._initialize_components()` creates an `AgentDriverRegistry` with registered driver types (`http_api` → HttpApiDriver, `proposal` → ProposalDriver).
-- For each conversation, `_resolve_driver_for_conversation()` either reuses the default driver or creates a per-conversation driver if that conversation has agent config overrides.
-- `ConversationProcessor._process_turn_api()` calls `driver.execute_turn(turn_data, conversation_id)` before metrics evaluation.
-- `HttpApiDriver` delegates to `APIDataAmender.amend_single_turn()`, which calls `APIClient.query()`.
-- `APIClient` sends the HTTP request (standard POST, streaming SSE, RLSAPI /infer, or OpenAI Responses API depending on endpoint type).
-- `APIDataAmender` mutates `TurnData` in-place: response text, contexts, tool_calls, token counts, agent latency, and streaming metrics.
+- `EvaluationPipeline._initialize_components()` creates an `AgentDriverRegistry` with registered types `http_api` and `openshift_agentic_run`.
+- `EvaluationPipeline._resolve_driver_for_conversation()` reuses the default driver unless a conversation selects an agent or supplies agent configuration; then it creates a per-conversation driver.
+- `ConversationProcessor._process_turn_api()` invokes the selected driver's `execute_turn()` before metric evaluation.
+- `HttpApiDriver.execute_turn()` calls `APIDataAmender.amend_single_turn()`, which calls `APIClient.query()` and amends `TurnData` in place with response, contexts, tool calls, API input/output tokens, agent latency, and streaming metrics. Driver returns `(error_message, updated_conversation_id)`.
+- `APIClient` supports versioned `/{version}/query`, SSE `/{version}/streaming_query`, RLSAPI `/api/lightspeed/{version}/infer`, and OpenAI Responses API `/{version}/responses`. Responses requests map the query to `input` and system prompt to `instructions`; response `file_search_call` items become contexts and `mcp_call` items become tool calls. The `infer` handler normalizes its response envelope and tool-call data.
 
-### ProposalDriver Flow
+### OpenshiftAgenticRunDriver
 
-- `ProposalDriver.execute_turn()` builds a AgenticRun CR manifest from `turn_data.proposal_spec`.
-- `KubeCLI.apply()` creates the AgenticRun CR in the configured namespace.
-- If `auto_approve` is enabled, the driver polls until Analyzed=True, then creates a AgenticRunApproval CR.
-- The driver polls `KubeCLI.get_resource()` for the AgenticRun's status conditions until a terminal outcome is reached (Completed, Failed, Denied, Escalated) or timeout.
-- `derive_phase()` evaluates conditions to determine the current phase, handling retry logic (RetryingExecution reason).
-- `ProposalAmender.amend()` fetches child Result CRs (analysisresults, executionresults, verificationresults, escalationresults) and builds a Markdown summary.
-- Turn data is amended in-place: response (Markdown), proposal_status, proposal_results, proposal_phases.
-- If `cleanup_proposals` is enabled, the AgenticRun CR is deleted after processing.
+- `OpenshiftAgenticRunDriver.execute_turn()` builds an AgenticRun CR from `TurnData.openshift_agentic_run_spec` and the turn query, then applies it through `KubeCLI`.
+- With `auto_approve`, the driver waits for the resource to exist and creates an `AgenticRunApproval` for configured stages.
+- The driver polls status conditions until `Completed`, `Failed`, `Denied`, `Escalated`, or timeout. `derive_phase()` interprets `Analyzed`, `Executed`, and `Verified` conditions, configured stage gates, and terminal `Denied`/`Escalated` conditions.
+- `OpenshiftAgenticRunAmender.amend()` fetches child Result CRs (`analysisresults`, `executionresults`, `verificationresults`, `escalationresults`) and fills `openshift_agentic_run_status`, `openshift_agentic_run_results`, `openshift_agentic_run_phases`, token counts, latency, and a Markdown `response`.
+- The driver deletes the CR when `cleanup_openshift_agentic_runs` is enabled.
+- Analysis failure returns an error, so judge evaluation is skipped; execution or verification failures can still produce evaluable turn data.
+- Metrics then evaluate the enriched turn, including `custom:openshift_agentic_run_status` and `custom:openshift_agentic_run_evaluation_correctness`.
 
 ## Key Abstractions
 
-**AgentDriverRegistry** maps driver type strings to driver classes. Two types registered: `http_api` and `proposal`. Adding a new driver type: subclass `AgentDriver`, add to `AGENT_DRIVERS` dict in `registry.py`.
+**AgentDriverRegistry** maps driver-type strings (`http_api`, `openshift_agentic_run`) to driver classes. New driver types are registered in `AGENT_DRIVERS` in `registry.py`.
 
-**AgentDriver** is the abstract interface with `execute_turn()`, `validate_config()`, `enabled`, and `close()`. Returns `(error_message, conversation_id)` tuple.
+**AgentDriver** defines `execute_turn()`, `validate_config()`, `enabled`, and `close()`. `execute_turn()` returns `(error_message, updated_conversation_id)`.
 
-**APIClient** handles four query modes: standard POST (`/query`), streaming SSE, RLSAPI `/infer`, and OpenAI Responses API (`/responses`). Manages disk-based caching and automatic retries on 429/5xx.
+**OpenshiftAgenticRunAmender** maps workflow phases to child resource types (analysis, execution, verification, escalation), retrieves child results, and constructs the turn's Markdown response.
 
-**ProposalAmender** maps CRD step names to resource types (`analysis` → `analysisresults`, etc.), fetches each via KubeCLI, and builds a structured Markdown response with sections for Analysis, Execution, Verification, and Escalation.
+**APIClient** handles endpoint-specific requests, response normalization, DiskCache caching, and retries for transient HTTP failures. Without configured MCP headers, it sends `API_KEY` as `Authorization: Bearer ...`. MCP server tokens come from their named environment variables and are sent as a JSON value in the `MCP-HEADERS` request header. Cached responses have zero API token usage because no request was made.
 
-**CLIClient** abstracts CLI operations (apply, get_resource, delete). `KubeCLI` resolves `oc` or `kubectl` on PATH, runs commands with namespace and JSON output flags.
+**CLIClient** abstracts `apply`, `get_resource`, and `delete`. **KubeCLI** resolves `oc` or `kubectl`, runs commands in the configured namespace, and returns JSON resources.
 
 ## Integration Points
 
@@ -55,17 +53,17 @@
 |---|---|---|
 | `EvaluationPipeline` | `AgentDriverRegistry` | Creates drivers from config |
 | `ConversationProcessor` | `AgentDriver.execute_turn()` | Invokes driver per turn |
-| `HttpApiDriver` | `APIDataAmender` → `APIClient` | HTTP request chain |
-| `ProposalDriver` | `KubeCLI` | CR lifecycle (apply, get, delete) |
-| `ProposalDriver` | `ProposalAmender` | Fetch child CRs and build summary |
-| `derive_phase()` | CRD conditions | Phase determination logic |
+| `HttpApiDriver` | `APIDataAmender` → `APIClient` | HTTP request and turn enrichment |
+| `OpenshiftAgenticRunDriver` | `KubeCLI` | AgenticRun CR lifecycle |
+| `OpenshiftAgenticRunDriver` | `OpenshiftAgenticRunAmender` | Fetches workflow results and amends turn |
+| `derive_phase()` | CRD conditions and workflow spec | Determines current/terminal phase |
 
 ## Implementation Notes
 
-- **Per-conversation drivers** are created when a conversation has agent config overrides and are cleaned up after that conversation completes. The default driver persists across all conversations.
-- **Disk caching** in `APIClient` uses `diskcache` with SHA256 keys. Cache can be disabled per-agent or globally via `core.cache_enabled`.
-- **Streaming metrics** (TTFT, duration, tokens/second) are populated for streaming and responses endpoint types.
-- **The amender mutates TurnData in-place** — the original response is overwritten.
-- **AgenticRun CR naming** uses `eval-{safe_conv_id}-{uuid8}` to avoid namespace collisions.
-- **KubeCLI timeout** is per-command (`cli_timeout`), while ProposalDriver `timeout` is the overall lifecycle timeout for reaching a terminal state.
-- **Responses endpoint** uses OpenAI Responses API schema — maps query→input, system_prompt→instructions, extracts file_search_call for RAG contexts and mcp_call for tool calls.
+- Per-conversation drivers (for explicit agent selection or agent configuration) are closed after that conversation; the default driver is reused.
+- `agent_ref` overrides `agent` in existing analysis, execution, and verification stages only; it does not add stages or override escalation.
+- API client cache uses DiskCache with SHA256 keys; cache can be disabled per agent or globally through `core.cache_enabled`. Retries cover HTTP 429, 502, 503, and 504; HTTP 500 is not retried.
+- Streaming HTTP responses record TTFT, streaming duration, and tokens per second; Responses SSE parsing normalizes MCP and file-search output items.
+- Cached agent responses report zero API token counts and do not add API latency.
+- AgenticRun CR names use `eval-{safe_conv_id}-{uuid8}` to avoid namespace collisions.
+- KubeCLI timeout is per command; `OpenshiftAgenticRunAgentConfig.timeout` bounds the overall lifecycle.

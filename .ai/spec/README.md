@@ -1,6 +1,6 @@
 # Lightspeed Evaluation Framework — Specifications
 
-An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and agentic workflow (proposal) outcomes in both live and offline modes. Supports multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, pluggable agent drivers, and multi-turn conversation assessment. Available as CLI and programmatic API.
+An evaluation framework for LLM-powered applications — evaluating responses, context quality, tool calls, conversation flows, and OpenShift AgenticRun outcomes in live and offline modes. Supports MxN live behavioral evaluation, multiple evaluation backends (Ragas, DeepEval, NLP, custom, script-based), user-defined evaluation criteria, panel-of-judges scoring, statistical analysis, environment setup/cleanup scripts, pluggable agent drivers, and multi-turn conversation assessment. Available as CLI and programmatic API.
 
 ## Structure
 
