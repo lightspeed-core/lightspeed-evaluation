@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-# exclude-newer = "2026-10-07T00:22:27Z"
+# exclude-newer = "2026-10-07T06:31:37Z"
 
 [[package]]
 name = "absl-py"
@@ -671,7 +671,7 @@ wheels = [
 
 [[package]]
 name = "databricks-sdk"
-version = "0.147.0"
+version = "0.148.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-auth" },
@@ -679,9 +679,9 @@ dependencies = [
     { name = "requests" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/89/df/f3bfea61784130f301da566820015cccb2dad3622ef10c8cac4050cf9be0/databricks_sdk-0.147.0.tar.gz", hash = "sha256:71c7778e66fb2f0f2b5076c97503bd88467474917f6c0726dd0100950cbe4236", size = 1139816, upload-time = "2026-10-06T04:35:55.685Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/6f/87a9fdd9f8af74e4395c985042c901e1a5c170f3c59bf5ed8df5bde5b12a/databricks_sdk-0.148.0.tar.gz", hash = "sha256:be82173d75b9700122a365ed9a09782db422f27ba693eaa289e6e61546d26d94", size = 1140366, upload-time = "2026-10-07T04:37:21.063Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/69/fe08268f94da45037dca0ede740d111ad59a3ed01426c33e0270a0e978e4/databricks_sdk-0.147.0-py3-none-any.whl", hash = "sha256:2eb8bb01a73d2eafa214d319f1a2a59d253e9c3b62005b44ee5dde84ad004285", size = 1084001, upload-time = "2026-10-06T04:35:53.882Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/e9/658f5395679779ead6d0a037884725c8c08876a16a3359cfa95a4c82ca15/databricks_sdk-0.148.0-py3-none-any.whl", hash = "sha256:3df449015485af30fceb43b655c756461a7783d60f73bc6206ac92026769cbe0", size = 1084412, upload-time = "2026-10-07T04:37:19.152Z" },
 ]
 
 [[package]]
@@ -1876,7 +1876,7 @@ wheels = [
 
 [[package]]
 name = "lightspeed-evaluation"
-version = "0.9.0"
+version = "0.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

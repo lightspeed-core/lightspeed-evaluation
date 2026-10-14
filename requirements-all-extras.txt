@@ -82,7 +82,7 @@ cryptography==50.0.2
     # via google-auth
 cycler==0.12.1
     # via matplotlib
-databricks-sdk==0.147.0
+databricks-sdk==0.148.0
     # via mlflow-skinny
 dataclasses-json==0.6.7
     # via langchain-community
