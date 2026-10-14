@@ -4,7 +4,9 @@ import hashlib
 import json
 import logging
 import os
+import uuid
 from typing import Any, Optional, cast
+from collections.abc import Iterator
 
 import httpx
 from diskcache import Cache
@@ -76,6 +78,7 @@ class APIClient:
         self._streaming_query_with_retry = retry_decorator(self._streaming_query)
         self._rlsapi_infer_query_with_retry = retry_decorator(self._rlsapi_infer_query)
         self._responses_query_with_retry = retry_decorator(self._responses_query)
+        self._sca_stream_query_with_retry = retry_decorator(self._sca_stream_query)
 
     def _create_retry_decorator(self) -> Any:
         return retry(
@@ -207,6 +210,8 @@ class APIClient:
                 response = self._rlsapi_infer_query_with_retry(api_request)
             elif self.config.endpoint_type == "responses":
                 response = self._responses_query_with_retry(api_request)
+            elif self.config.endpoint_type == "sca_stream":
+                response = self._sca_stream_query_with_retry(api_request)
             else:
                 response = self._standard_query_with_retry(api_request)
 
@@ -666,6 +671,170 @@ class APIClient:
             raise
         except Exception as e:
             raise self._handle_unexpected_error(e, "responses query") from e
+    def _sca_stream_query(self, api_request: APIRequest) -> APIResponse:
+        """Query the SCA agent API using its streaming chat endpoint.
+
+        Translates the internal APIRequest into the SCA request format
+        and adapts the SCA response back to APIResponse.
+
+        The SCA endpoint accepts:
+            POST /api/v1/chat/stream
+            {conversation_id, message, action, pcm_session_id, attachment_uuids}
+
+        And returns a streaming or plain-text response (string body).
+        """
+        if not self.client:
+            raise APIError("HTTP client not initialized")
+
+        sca_payload = self._serialize_sca_request(api_request)
+
+        try:
+            response_text, server_conversation_id = self._execute_sca_request(
+                sca_payload
+            )
+            conversation_id = (
+                server_conversation_id
+                or sca_payload.get("conversation_id")
+                or api_request.conversation_id
+                or ""
+            )
+            return APIResponse(
+                response=response_text.strip(),
+                conversation_id=conversation_id or str(uuid.uuid4()),
+                tool_calls=[],
+                contexts=[],
+                input_tokens=0,
+                output_tokens=0,
+            )
+
+        except httpx.TimeoutException as e:
+            raise self._handle_timeout_error("sca_stream", self.config.timeout) from e
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                raise
+            raise self._handle_http_error(e) from e
+        except APIError:
+            raise
+        except Exception as e:
+            raise self._handle_unexpected_error(e, "sca_stream query") from e
+
+    def _serialize_sca_request(self, api_request: APIRequest) -> dict[str, Any]:
+        """Translate an internal APIRequest to the SCA chat/stream payload."""
+        attachment_uuids: list[str] = []
+        if api_request.attachments:
+            attachment_uuids = [att.content for att in api_request.attachments]
+
+        payload: dict[str, Any] = {
+            "message": api_request.query,
+            "action": self.config.sca_action,
+        }
+        if api_request.conversation_id:
+            payload["conversation_id"] = api_request.conversation_id
+        if attachment_uuids:
+            payload["attachment_uuids"] = attachment_uuids
+
+        extra = api_request.extra_request_params or {}
+        if "pcm_session_id" in extra:
+            payload["pcm_session_id"] = extra["pcm_session_id"]
+        if "action" in extra:
+            payload["action"] = extra["action"]
+
+        return payload
+
+    def _execute_sca_request(
+        self, sca_payload: dict[str, Any]
+    ) -> tuple[str, str | None]:
+        """Execute the request and return assistant text and conversation ID."""
+        if not self.client:
+            raise APIError("HTTP client not initialized")
+
+        with self.client.stream(
+            "POST",
+            f"/api/{self.config.version}/chat/stream",
+            json=sca_payload,
+            headers={"Accept": "text/event-stream"},
+        ) as response:
+            self._handle_response_errors(response)
+
+            content_type = response.headers.get("content-type", "").split(";")[0]
+            if content_type.strip().lower() == "text/event-stream":
+                return self._read_sca_stream(response)
+
+            response.read()
+            return response.text, None
+
+
+    def _iter_sca_events(
+        self, response: httpx.Response
+    ) -> Iterator[dict[str, Any]]:
+        """Decode complete SSE frames, ignoring heartbeat comments."""
+        data_lines: list[str] = []
+        event_name = ""
+
+        for line in response.iter_lines():
+            if line.startswith(":"):
+                continue
+
+            if not line:
+                if data_lines:
+                    yield self._decode_sca_event(data_lines, event_name)
+                data_lines = []
+                event_name = ""
+                continue
+
+            field, _, value = line.partition(":")
+            value = value.removeprefix(" ")
+
+            if field == "data":
+                data_lines.append(value)
+            elif field == "event":
+                event_name = value
+
+
+    @staticmethod
+    def _decode_sca_event(
+        data_lines: list[str], event_name: str
+    ) -> dict[str, Any]:
+        """Parse an event payload, using the SSE event name as a fallback."""
+        try:
+            event = json.loads("\n".join(data_lines))
+        except json.JSONDecodeError as exc:
+            raise APIError("Invalid JSON in SCA SSE event") from exc
+
+        if not isinstance(event, dict):
+            raise APIError("Expected an object in SCA SSE event")
+
+        event["event"] = event.get("event") or event_name
+        return event
+
+
+    def _read_sca_stream(
+        self, response: httpx.Response
+    ) -> tuple[str, str | None]:
+        """Assemble assistant tokens and require a completed response."""
+        chunks: list[str] = []
+        conversation_id: str | None = None
+
+        for event in self._iter_sca_events(response):
+            conversation_id = event.get("conversation_id") or conversation_id
+            event_type = event["event"]
+
+            if event_type == "error":
+                raise APIError(f"SCA stream error: {event.get('data')}")
+
+            if event_type == "token":
+                token = event.get("data")
+                if not isinstance(token, str):
+                    raise APIError("SCA token data must be a string")
+                chunks.append(token)
+
+            elif event_type == "end":
+                text = "".join(chunks)
+                if not text.strip():
+                    raise APIError("SCA stream completed without assistant text")
+                return text, conversation_id
+
+        raise APIError("SCA stream closed without an end event")
 
     def _handle_response_errors(self, response: httpx.Response) -> None:
         """Handle HTTP response errors for streaming endpoint."""

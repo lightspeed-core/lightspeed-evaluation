@@ -107,6 +107,14 @@ agents:
         filesystem-tools:
           env_var: API_KEY             # Environment variable containing the token/key
 
+api:
+  enabled: true
+  api_base: https://sca-agent-stage.apps.int.spoke.preprod.us-east-1.aws.paas.redhat.com
+  version: v1
+  endpoint_type: sca_stream
+  sca_action: troubleshoot
+  timeout: 300
+
 # Quality Score Configuration
 # Aggregated score from selected metrics for overall system quality assessment
 quality_score:
@@ -179,6 +187,33 @@ metrics_metadata:
       description: "LLM judge of AgenticRun workflow outcomes (diagnosis, execution, verification)"
       default: false
 
+
+    # "custom:completeness":
+    #   threshold: 0.8
+    #   description: "Rubric-based completeness evaluation against material requirements"
+
+    # "custom:groundedness":
+    #   threshold: 0.8
+    #   description: "Rubric-based evaluation of whether factual claims are supported by evidence"
+
+    # "custom:pertinence":
+    #   threshold: 0.8
+    #   description: "Rubric-based evaluation of whether the response addresses the user's request"
+
+    # "custom:topic_fidelity":
+    #   threshold: 0.75
+    #   description: "Rubric-based evaluation of scope containment and focus"
+
+    # "custom:completeness_fixed_checklist":
+    #   threshold: 0.8
+    #   description: "Rubric-based completeness evaluation against a fixed checklist"
+
+    # "custom:requirement_extraction":
+    #   description: "Rubric-based extraction of material requirements from user request and expected answer"
+
+    # "custom:scenario_strengths_weaknesses":
+    #   threshold: 0.5
+    #   description: "Rubric-based qualitative evaluation of model performance across troubleshooting attempts"
 
     # Script-based metrics
     "script:action_eval":
