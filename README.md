@@ -41,7 +41,7 @@ An evaluation framework for LLM-powered applications — evaluating responses, c
 Set `TAG` to the [latest release tag](https://github.com/lightspeed-core/lightspeed-evaluation/releases) before running the commands below.
 
 ```bash
-TAG=v0.7.1  # replace with latest release tag
+TAG=v0.8.0  # latest released tag
 
 # Install package (no dependencies)
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -61,7 +61,7 @@ pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-eval
 
 **CPU torch + local embeddings:**
 ```bash
-TAG=v0.7.1  # replace with latest release tag
+TAG=v0.8.0  # latest released tag
 
 # 1. Install package
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}
@@ -75,7 +75,7 @@ pip install -r https://raw.githubusercontent.com/lightspeed-core/lightspeed-eval
 
 **GPU torch + local embeddings:**
 ```bash
-TAG=v0.7.1  # replace with latest release tag
+TAG=v0.8.0  # latest released tag
 
 # 1. Install package
 pip install --no-deps git+https://github.com/lightspeed-core/lightspeed-evaluation.git@${TAG}

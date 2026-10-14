@@ -134,7 +134,7 @@ h11==0.16.0
     # via
     #   httpcore
     #   httpcore2
-hf-xet==1.6.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+hf-xet==1.7.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
     # via huggingface-hub
 httpcore==1.0.9
     # via httpx
@@ -170,7 +170,7 @@ idna==3.20
     #   yarl
 importlib-metadata==8.9.0
     # via litellm
-iniconfig==2.3.0
+iniconfig==2.3.1
     # via pytest
 instructor==1.14.5
     # via
@@ -207,7 +207,7 @@ langchain-community==0.3.31
     # via
     #   lightspeed-evaluation
     #   ragas
-langchain-core==1.6.6
+langchain-core==1.6.7
     # via
     #   langchain
     #   langchain-community
@@ -303,14 +303,14 @@ openai==2.54.0
     #   langchain-openai
     #   litellm
     #   ragas
-opentelemetry-api==1.45.0
+opentelemetry-api==1.45.1
     # via
     #   deepeval
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-sdk==1.45.0
+opentelemetry-sdk==1.45.1
     # via deepeval
-opentelemetry-semantic-conventions==0.66b0
+opentelemetry-semantic-conventions==0.66b1
     # via opentelemetry-sdk
 orjson==3.12.0
     # via
@@ -542,7 +542,7 @@ truststore==0.10.4 ; sys_platform != 'emscripten'
     # via
     #   httpcore2
     #   httpx2
-typer==0.27.2
+typer==0.27.3
     # via
     #   deepeval
     #   huggingface-hub
