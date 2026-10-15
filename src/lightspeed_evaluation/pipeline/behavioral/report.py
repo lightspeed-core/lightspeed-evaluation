@@ -16,6 +16,7 @@ _AGENT_REPORT_FIELDS = {
     "overall",
     "by_metric",
     "by_conversation",
+    "eval_costs",
     "quality_score",
 }
 
