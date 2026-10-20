@@ -16,6 +16,7 @@ from pydantic import (
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_AGENT_CACHE_SUBDIR,
+    DEFAULT_API_NUM_RETRIES,
     DEFAULT_CACHE_BASE_DIR,
     DEFAULT_LLM_CACHE_SUBDIR,
     DEFAULT_LOG_FORMAT,
@@ -24,9 +25,8 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_LOG_SOURCE_LEVEL,
     DEFAULT_VISUALIZATION_DPI,
     DEFAULT_VISUALIZATION_FIGSIZE,
-    SUPPORTED_GRAPH_TYPES,
-    DEFAULT_API_NUM_RETRIES,
     SUPPORTED_ENDPOINT_TYPES,
+    SUPPORTED_GRAPH_TYPES,
 )
 from lightspeed_evaluation.core.models.agents import (
     AgentsConfig,
@@ -60,10 +60,6 @@ class APIConfig(HttpApiBaseFields):
             "Maximum number of retry attempts for API calls on "
             "429 Too Many Requests errors"
         ),
-    )
-    sca_action: str = Field(
-        default="troubleshoot",
-        description="SCA action type for sca_stream endpoint (e.g., troubleshoot)",
     )
 
     @field_validator("endpoint_type")

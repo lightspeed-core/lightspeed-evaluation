@@ -64,6 +64,7 @@ SUPPORTED_ENDPOINT_TYPES = ["streaming", "query", "infer", "responses", "sca_str
 DEFAULT_API_CACHE_DIR = ".caches/api_cache"
 
 DEFAULT_API_NUM_RETRIES = 3
+DEFAULT_SCA_ACTION = "troubleshoot"
 
 # Agent Constants
 DEFAULT_AGENT_TYPE = "http_api"

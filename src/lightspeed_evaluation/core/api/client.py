@@ -5,8 +5,8 @@ import json
 import logging
 import os
 import uuid
-from typing import Any, Optional, cast
 from collections.abc import Iterator
+from typing import Any, Optional, cast
 
 import httpx
 from diskcache import Cache
@@ -52,6 +52,7 @@ def _is_retryable_server_error(exception: BaseException) -> bool:
     return status in (429, 502, 503, 504)
 
 
+# pylint: disable-next=too-many-instance-attributes
 class APIClient:
     """API client for actual data generation."""
 
@@ -671,6 +672,7 @@ class APIClient:
             raise
         except Exception as e:
             raise self._handle_unexpected_error(e, "responses query") from e
+
     def _sca_stream_query(self, api_request: APIRequest) -> APIResponse:
         """Query the SCA agent API using its streaming chat endpoint.
 
@@ -763,10 +765,7 @@ class APIClient:
             response.read()
             return response.text, None
 
-
-    def _iter_sca_events(
-        self, response: httpx.Response
-    ) -> Iterator[dict[str, Any]]:
+    def _iter_sca_events(self, response: httpx.Response) -> Iterator[dict[str, Any]]:
         """Decode complete SSE frames, ignoring heartbeat comments."""
         data_lines: list[str] = []
         event_name = ""
@@ -790,11 +789,8 @@ class APIClient:
             elif field == "event":
                 event_name = value
 
-
     @staticmethod
-    def _decode_sca_event(
-        data_lines: list[str], event_name: str
-    ) -> dict[str, Any]:
+    def _decode_sca_event(data_lines: list[str], event_name: str) -> dict[str, Any]:
         """Parse an event payload, using the SSE event name as a fallback."""
         try:
             event = json.loads("\n".join(data_lines))
@@ -807,10 +803,7 @@ class APIClient:
         event["event"] = event.get("event") or event_name
         return event
 
-
-    def _read_sca_stream(
-        self, response: httpx.Response
-    ) -> tuple[str, str | None]:
+    def _read_sca_stream(self, response: httpx.Response) -> tuple[str, str | None]:
         """Assemble assistant tokens and require a completed response."""
         chunks: list[str] = []
         conversation_id: str | None = None
