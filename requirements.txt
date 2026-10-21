@@ -2,7 +2,7 @@
 #    uv export --frozen --no-hashes --no-dev --no-emit-project -o requirements.txt
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.4
+aiohttp==3.14.5
     # via
     #   deepeval
     #   fsspec
@@ -30,13 +30,13 @@ attrs==26.1.0
     #   referencing
 backoff==2.2.1
     # via posthog
-boto3==1.43.116
+boto3==1.43.117
     # via litellm
-botocore==1.43.116
+botocore==1.43.117
     # via
     #   boto3
     #   s3transfer
-certifi==2026.7.22
+certifi==2026.10.19
     # via
     #   httpcore
     #   httpx
@@ -101,7 +101,7 @@ filelock==4.2.4
     #   lightspeed-evaluation
 filetype==1.2.0
     # via langchain-google-genai
-fonttools==4.66.1
+fonttools==4.67.0
     # via matplotlib
 frozenlist==1.8.0
     # via
@@ -115,7 +115,7 @@ google-ai-generativelanguage==0.12.0
     # via langchain-google-genai
 google-api-core==2.33.0
     # via google-ai-generativelanguage
-google-auth==2.60.0
+google-auth==2.62.0
     # via
     #   google-ai-generativelanguage
     #   google-api-core
@@ -141,7 +141,7 @@ hf-xet==1.7.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or 
     # via huggingface-hub
 httpcore==1.0.9
     # via httpx
-httpcore2==2.13.1 ; sys_platform != 'emscripten'
+httpcore2==2.16.0 ; sys_platform != 'emscripten'
     # via httpx2
 httpx==0.28.1
     # via
@@ -153,7 +153,7 @@ httpx==0.28.1
     #   openai
 httpx-sse==0.4.3
     # via langchain-community
-httpx2==2.13.1
+httpx2==2.16.0
     # via langsmith
 httpx2-jsfetch==1.0 ; python_full_version >= '3.12' and sys_platform == 'emscripten'
     # via httpx2
@@ -190,9 +190,9 @@ jmespath==1.1.0
     # via
     #   boto3
     #   botocore
-jsonpatch==1.33
+jsonpatch==1.36
     # via langchain-core
-jsonpointer==3.1.1
+jsonpointer==3.4
     # via jsonpatch
 jsonschema==4.26.0
     # via litellm
@@ -209,7 +209,7 @@ langchain-community==0.3.31
     # via
     #   lightspeed-evaluation
     #   ragas
-langchain-core==1.6.7
+langchain-core==1.6.13
     # via
     #   langchain
     #   langchain-community
@@ -223,25 +223,25 @@ langchain-core==1.6.7
     #   ragas
 langchain-google-genai==2.1.12
     # via lightspeed-evaluation
-langchain-huggingface==1.2.2
+langchain-huggingface==1.2.3
     # via langchain
-langchain-openai==1.6.7
+langchain-openai==1.7.2
     # via ragas
-langchain-protocol==0.0.19
+langchain-protocol==0.0.20
     # via
     #   langchain-core
     #   langgraph-sdk
-langgraph==1.2.14
+langgraph==1.2.16
     # via langchain
-langgraph-checkpoint==4.2.0
+langgraph-checkpoint==4.3.0
     # via
     #   langgraph
     #   langgraph-prebuilt
-langgraph-prebuilt==1.1.0
+langgraph-prebuilt==1.1.1
     # via langgraph
-langgraph-sdk==0.4.6
+langgraph-sdk==0.4.8
     # via langgraph
-langsmith==0.14.4
+langsmith==0.14.12
     # via
     #   langchain-community
     #   langchain-core
@@ -259,7 +259,7 @@ matplotlib==3.10.6
     #   seaborn
 mdurl==0.1.2
     # via markdown-it-py
-multidict==6.9.1
+multidict==7.1.0
     # via
     #   aiohttp
     #   yarl
@@ -303,11 +303,11 @@ opentelemetry-sdk==1.45.1
     # via deepeval
 opentelemetry-semantic-conventions==0.66b1
     # via opentelemetry-sdk
-orjson==3.12.0
+orjson==3.13.0
     # via
     #   langgraph-sdk
     #   langsmith
-ormsgpack==1.12.2
+ormsgpack==1.13.0
     # via langgraph-checkpoint
 packaging==24.2
     # via
@@ -330,9 +330,9 @@ pillow==13.0.0
     #   lightspeed-evaluation
     #   matplotlib
     #   ragas
-pluggy==1.6.0
+pluggy==1.7.0
     # via pytest
-portalocker==4.4.0
+portalocker==4.4.1
     # via deepeval
 posthog==5.4.0
     # via deepeval
@@ -357,7 +357,7 @@ pyasn1==0.6.4
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
-pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycparser==3.11 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.12.5
     # via
@@ -377,7 +377,7 @@ pydantic-core==2.41.5
     # via
     #   instructor
     #   pydantic
-pydantic-settings==2.15.0
+pydantic-settings==2.16.1
     # via
     #   deepeval
     #   langchain-community
@@ -466,9 +466,9 @@ scipy==1.16.2
     #   scikit-network
 seaborn==0.13.2
     # via lightspeed-evaluation
-sentry-sdk==2.71.0
+sentry-sdk==2.72.0
     # via deepeval
-setuptools==84.0.0
+setuptools==84.2.1
     # via deepeval
 shellingham==1.5.4
     # via typer
@@ -498,7 +498,7 @@ tiktoken==0.14.0
     #   langchain-openai
     #   litellm
     #   ragas
-tokenizers==0.23.2
+tokenizers==0.23.3
     # via
     #   langchain-huggingface
     #   litellm
@@ -510,7 +510,7 @@ tqdm==4.67.1
     #   lightspeed-evaluation
     #   openai
     #   ragas
-truststore==0.10.4 ; sys_platform != 'emscripten'
+truststore==0.10.5 ; sys_platform != 'emscripten'
     # via
     #   httpcore2
     #   httpx2
@@ -537,6 +537,7 @@ typing-extensions==4.16.0
     #   opentelemetry-semantic-conventions
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   pytest-asyncio
     #   referencing
     #   sqlalchemy
@@ -555,7 +556,7 @@ urllib3==2.8.0
     #   botocore
     #   requests
     #   sentry-sdk
-uuid-utils==0.17.1
+uuid-utils==0.18.0
     # via
     #   langchain-core
     #   langsmith
@@ -565,14 +566,14 @@ websockets==16.1.1
     #   langsmith
 wheel==0.48.0
     # via deepeval
-xxhash==4.0.1
+xxhash==4.0.2
     # via
     #   datasets
     #   langgraph
     #   langsmith
 yarl==1.25.1
     # via aiohttp
-zipp==4.1.1
+zipp==4.1.2
     # via importlib-metadata
 zstandard==0.25.0
     # via langsmith
