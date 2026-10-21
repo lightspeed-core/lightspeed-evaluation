@@ -10,7 +10,6 @@ This document serves as a guide for AI coding agents working on the Lightspeed E
 | Directory | Status | New Features? | Bug Fixes/Security/Linting? |
 |-----------|--------|---------------|----------------------------|
 | `src/lightspeed_evaluation/` | **Active Development** | ✅ Yes | ✅ Yes |
-| `lsc_agent_eval/` | **Deprecated** - will be removed | ❌ No - add to `lightspeed_evaluation` instead | ✅ Yes (with confirmation) |
 | `src/generate_answers/` | **Moving to separate repo** | ❌ No - will be relocated | ✅ Yes (with confirmation) |
 | `tests/`, `config/`, `docs/` | **Active** | ✅ Yes | ✅ Yes |
 

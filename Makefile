@@ -21,13 +21,13 @@ install-deps-test: ## Install all required dev dependencies needed to test the s
 update-deps: uv-lock-regenerate install-deps-test ## Regenerate lock files (with cooldown) and sync dev deps
 
 check-types: ## Checks type hints in sources
-	uv run mypy src/ lsc_agent_eval/src/ tests
+	uv run mypy src/ tests
 
 black-check:
-	uv run black --check src tests script lsc_agent_eval
+	uv run black --check src tests script
 
 black-format:
-	uv run black src tests script lsc_agent_eval
+	uv run black src tests script
 
 # Skip packages published within this many days (supply-chain cooldown).
 # Override: make sync-lock-and-requirements COOLDOWN_DAYS=0
@@ -93,7 +93,7 @@ distribution-archives: ## Generate distribution archives to be uploaded into Pyt
 	uv run python -m build
 
 test: install-deps-test ## Execute tests with Pytest
-	uv run pytest tests lsc_agent_eval/tests
+	uv run pytest tests
 
 e2e_tests: install-deps-test
 	uv run pytest tests/integration -v -m integration
@@ -121,20 +121,20 @@ shellcheck: ## Run shellcheck
 	@mkdir -p .shellcheck-stable
 	@wget -qO- "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.$$(uname -m).tar.xz" | tar -xJ -C .shellcheck-stable --strip-components=1
 	@PATH="$$PWD/.shellcheck-stable:$$PATH" shellcheck --version
-	@PATH="$$PWD/.shellcheck-stable:$$PATH" find . -name "*.sh" -type f ! -path "./.venv/*" ! -path "./lsc_agent_eval/.venv/*" ! -path "./.history/*" ! -path "./.git/*" -exec shellcheck -e SC1091 {} +
+	@PATH="$$PWD/.shellcheck-stable:$$PATH" find . -name "*.sh" -type f ! -path "./.venv/*" ! -path "./.history/*" ! -path "./.git/*" -exec shellcheck -e SC1091 {} +
 
 pylint:
 	uv run pylint src
-	uv run pylint lsc_agent_eval/src tests
+	uv run pylint tests
 
 pyright:
-	uv run pyright src lsc_agent_eval/src tests
+	uv run pyright src tests
 
 docstyle:
-	uv run pydocstyle -v src tests script lsc_agent_eval
+	uv run pydocstyle -v src tests script
 
 ruff:
-	uv run ruff check src tests script lsc_agent_eval
+	uv run ruff check src tests script
 
 bandit: ## Security scanning with Bandit
 	uv run bandit -c pyproject.toml -r src/lightspeed_evaluation -ll
