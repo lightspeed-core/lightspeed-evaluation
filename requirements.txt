@@ -30,6 +30,12 @@ attrs==26.1.0
     #   referencing
 backoff==2.2.1
     # via posthog
+boto3==1.43.116
+    # via litellm
+botocore==1.43.116
+    # via
+    #   boto3
+    #   s3transfer
 certifi==2026.7.22
     # via
     #   httpcore
@@ -88,10 +94,11 @@ execnet==2.1.2
     # via pytest-xdist
 fastuuid==0.14.0
     # via litellm
-filelock==4.0.12
+filelock==4.2.4
     # via
     #   datasets
     #   huggingface-hub
+    #   lightspeed-evaluation
 filetype==1.2.0
     # via langchain-google-genai
 fonttools==4.66.1
@@ -179,6 +186,10 @@ jiter==0.11.1
     # via
     #   instructor
     #   openai
+jmespath==1.1.0
+    # via
+    #   boto3
+    #   botocore
 jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.1.1
@@ -234,7 +245,7 @@ langsmith==0.14.4
     # via
     #   langchain-community
     #   langchain-core
-litellm==1.89.3
+litellm==1.102.4
     # via lightspeed-evaluation
 markdown-it-py==4.2.0
     # via rich
@@ -314,8 +325,9 @@ pandas==2.3.2
     #   datasets
     #   lightspeed-evaluation
     #   seaborn
-pillow==12.3.0
+pillow==13.0.0
     # via
+    #   lightspeed-evaluation
     #   matplotlib
     #   ragas
 pluggy==1.6.0
@@ -369,6 +381,7 @@ pydantic-settings==2.15.0
     # via
     #   deepeval
     #   langchain-community
+    #   litellm
 pyfiglet==1.0.4
     # via deepeval
 pygments==2.21.0
@@ -394,6 +407,7 @@ pytest-xdist==3.8.0
     # via deepeval
 python-dateutil==2.9.0.post0
     # via
+    #   botocore
     #   matplotlib
     #   pandas
     #   posthog
@@ -442,6 +456,8 @@ rpds-py==2026.9.1
     # via
     #   jsonschema
     #   referencing
+s3transfer==0.19.3
+    # via boto3
 scikit-network==0.33.5
     # via ragas
 scipy==1.16.2
@@ -536,6 +552,7 @@ tzdata==2026.5
     # via pandas
 urllib3==2.8.0
     # via
+    #   botocore
     #   requests
     #   sentry-sdk
 uuid-utils==0.17.1

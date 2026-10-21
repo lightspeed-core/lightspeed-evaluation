@@ -81,7 +81,8 @@ try:
     # pylint: disable=ungrouped-imports
     import litellm.litellm_core_utils.logging_worker as logging_worker_module
 
-    logging_worker_module.GLOBAL_LOGGING_WORKER = _NoOpLoggingWorker()  # type: ignore[assignment]
+    WORKER_ATTRIBUTE = "GLOBAL_LOGGING_WORKER"
+    setattr(logging_worker_module, WORKER_ATTRIBUTE, _NoOpLoggingWorker())
 except (ImportError, AttributeError):
     pass  # Older versions of litellm may not have this
 
