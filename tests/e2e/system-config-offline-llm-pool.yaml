@@ -1,0 +1,147 @@
+# Offline mode config — modern llm_pool + judge_panel format
+# agents: enabled: false — pipeline evaluates pre-populated data, no live API calls
+
+core:
+  max_threads: 1
+  fail_on_invalid_data: true
+  skip_on_failure: false
+  cache_enabled: false
+  cache_base_dir: .caches/e2e
+
+llm_pool:
+  defaults:
+    timeout: 300
+    num_retries: 3
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 1024
+  models:
+    judge_gpt_4o_mini:
+      description: "GPT-4o Mini judge"
+      provider: openai
+      model: gpt-4o-mini
+
+judge_panel:
+  judges:
+    - judge_gpt_4o_mini
+  enabled_metrics: null  # all metrics use this judge
+
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+  provider_kwargs: {}
+
+agents:
+  enabled: false
+
+metrics_metadata:
+  turn_level:
+    "ragas:response_relevancy":
+      threshold: 0.5
+    "ragas:faithfulness":
+      threshold: 0.5
+    "ragas:context_recall":
+      threshold: 0.5
+    "ragas:context_precision":
+      threshold: 0.5
+    "ragas:context_utilization":
+      threshold: 0.5
+    "ragas:context_relevance":
+      threshold: 0.5
+    "custom:answer_correctness":
+      threshold: 0.5
+    "custom:intent_eval":
+      threshold: 1
+    "custom:keywords_eval": {}
+    "custom:tool_eval":
+      ordered: true
+      full_match: true
+      allow_extra_arg: false
+    "nlp:bleu":
+      threshold: 0.1
+      max_ngram: 4
+    "nlp:rouge":
+      threshold: 0.1
+      rouge_type: "rougeL"
+    "nlp:semantic_similarity_distance":
+      threshold: 0.5
+      distance_measure: "levenshtein"
+    "nlp:mrr":
+      threshold: 0.5
+    "custom:loop_eval":
+      threshold: 1.0
+      exact_loop_threshold: 3
+      soft_loop_threshold: 3
+    "geval:technical_accuracy":
+      criteria: |
+        Assess whether the response provides technically accurate information.
+        The response should correctly answer the user's question.
+      evaluation_params:
+        - query
+        - response
+        - expected_response
+      threshold: 0.5
+  conversation_level:
+    "deepeval:conversation_completeness":
+      threshold: 0.5
+    "deepeval:conversation_relevancy":
+      threshold: 0.5
+    "deepeval:knowledge_retention":
+      threshold: 0.5
+
+storage:
+  - type: "file"
+    output_dir: "./eval_output"
+    base_filename: "evaluation"
+    enabled_outputs:
+      - csv
+      - json
+      - txt
+    csv_columns:
+      - "conversation_group_id"
+      - "turn_id"
+      - "metric_identifier"
+      - "result"
+      - "score"
+      - "threshold"
+      - "metric_metadata"
+      - "reason"
+      - "execution_time"
+      - "query"
+      - "response"
+      - "api_input_tokens"
+      - "api_output_tokens"
+      - "judge_llm_input_tokens"
+      - "judge_llm_output_tokens"
+      - "contexts"
+      - "expected_response"
+      - "expected_intent"
+      - "expected_keywords"
+      - "expected_tool_calls"
+      - "tool_calls"
+    summary_config_sections:
+      - llm_pool
+      - judge_panel
+      - embedding
+
+visualization:
+  enabled_graphs: []
+
+environment:
+  DEEPEVAL_TELEMETRY_OPT_OUT: "YES"
+  DEEPEVAL_DISABLE_PROGRESS_BAR: "YES"
+  LITELLM_LOG: ERROR
+
+logging:
+  source_level: INFO
+  package_level: ERROR
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  show_timestamps: true
+  package_overrides:
+    httpx: ERROR
+    urllib3: ERROR
+    requests: ERROR
+    matplotlib: ERROR
+    LiteLLM: WARNING
+    DeepEval: WARNING
+    ragas: WARNING

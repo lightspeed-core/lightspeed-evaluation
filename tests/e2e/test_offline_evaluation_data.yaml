@@ -1,0 +1,293 @@
+# Offline mode evaluation data — pre-populated responses/contexts for all metric families.
+# Thresholds and metric config come from system-config-offline*.yaml — not repeated here.
+
+# ── NLP metrics ───────────────────────────────────────────────────────────────
+
+- conversation_group_id: nlp_metrics
+  description: NLP text comparison metrics — bleu, rouge, semantic_similarity_distance
+  tag: offline_no_creds
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: nlp_turn_1
+      query: What is the capital of France?
+      response: The capital of France is Paris.
+      expected_response: Paris is the capital of France.
+      contexts: null
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - nlp:bleu
+        - nlp:rouge
+        - nlp:semantic_similarity_distance
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── custom:keywords_eval ──────────────────────────────────────────────────────
+
+- conversation_group_id: keywords_eval
+  description: Keyword matching — checks expected keywords appear in response
+  tag: offline_no_creds
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: keywords_turn_1
+      query: How do I list pods in Kubernetes?
+      response: Use kubectl get pods to list all pods in the current namespace.
+      expected_response: null
+      contexts: null
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords:
+        - - kubectl
+          - pods
+      turn_metrics:
+        - custom:keywords_eval
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── custom:tool_eval ──────────────────────────────────────────────────────────
+
+- conversation_group_id: tool_eval
+  description: Tool call structural comparison — expected vs actual tool calls
+  tag: offline_no_creds
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: tool_turn_1
+      query: Get all pods in the default namespace
+      response: I will retrieve the pods for you.
+      expected_response: null
+      contexts: null
+      tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: default
+      expected_tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: default
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - custom:tool_eval
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── nlp:mrr ───────────────────────────────────────────────────────────────────
+
+- conversation_group_id: mrr_metrics
+  description: Mean Reciprocal Rank — contexts + expected_contexts required
+  tag: offline_no_creds
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: mrr_turn_1
+      query: What is the capital of France?
+      response: The capital of France is Paris.
+      expected_response: null
+      contexts:
+        - France is a country in Western Europe. Its capital is Paris.
+        - Paris is a major European city and France's largest city.
+        - The Eiffel Tower is located in Paris, France.
+      expected_contexts:
+        - France is a country in Western Europe. Its capital is Paris.
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - nlp:mrr
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── custom:loop_eval ──────────────────────────────────────────────────────────
+
+- conversation_group_id: loop_eval_no_loop
+  description: loop_eval — clean tool sequence with no loops, should PASS
+  tag: offline_no_creds
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: loop_turn_1
+      query: Get pods then describe one
+      response: I will get the pods and describe the first one.
+      expected_response: null
+      contexts: null
+      tool_calls:
+        -
+          - tool_name: oc_get
+            arguments:
+              kind: pod
+              namespace: default
+        -
+          - tool_name: oc_describe
+            arguments:
+              kind: pod
+              name: nginx-123
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - custom:loop_eval
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── Ragas response metrics ────────────────────────────────────────────────────
+
+- conversation_group_id: ragas_response_metrics
+  description: Ragas response evaluation — response_relevancy and faithfulness
+  tag: offline_e2e
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: ragas_response_turn_1
+      query: What is the capital of France?
+      response: The capital of France is Paris, a major European metropolis.
+      expected_response: Paris is the capital of France.
+      contexts:
+        - France is a country in Western Europe. Its capital and largest city is Paris.
+        - Paris has been the capital of France since the 10th century.
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - ragas:response_relevancy
+        - ragas:faithfulness
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── Ragas context metrics ─────────────────────────────────────────────────────
+
+- conversation_group_id: ragas_context_metrics
+  description: Ragas context evaluation — recall, precision, utilization, relevance
+  tag: offline_e2e
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: ragas_context_turn_1
+      query: What is the capital of France?
+      response: The capital of France is Paris.
+      expected_response: Paris is the capital of France.
+      contexts:
+        - France is a country in Western Europe. Its capital and largest city is Paris.
+        - Paris has been the capital of France since the 10th century.
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - ragas:context_recall
+        - ragas:context_precision
+        - ragas:context_utilization
+        - ragas:context_relevance
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── Custom LLM metrics ────────────────────────────────────────────────────────
+
+- conversation_group_id: custom_llm_metrics
+  description: Custom LLM judge metrics — answer_correctness and intent_eval
+  tag: offline_e2e
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: custom_llm_turn_1
+      query: What is the capital of France?
+      response: The capital of France is Paris.
+      expected_response: Paris is the capital of France.
+      contexts: null
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: answer about the capital city of France
+      expected_keywords: null
+      turn_metrics:
+        - custom:answer_correctness
+        - custom:intent_eval
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── GEval ─────────────────────────────────────────────────────────────────────
+
+- conversation_group_id: geval_metrics
+  description: GEval config-driven LLM evaluation
+  tag: offline_e2e
+
+  conversation_metrics: []
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: geval_turn_1
+      query: What command lists all pods in Kubernetes?
+      response: Use kubectl get pods to list all pods in the current namespace.
+      expected_response: kubectl get pods
+      contexts: null
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics:
+        - geval:technical_accuracy
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
+
+# ── DeepEval conversation metrics ─────────────────────────────────────────────
+
+- conversation_group_id: deepeval_conv_metrics
+  description: DeepEval conversation-level — completeness, relevancy, knowledge_retention
+  tag: offline_e2e
+
+  conversation_metrics:
+    - deepeval:conversation_completeness
+    - deepeval:conversation_relevancy
+    - deepeval:knowledge_retention
+  conversation_metrics_metadata: {}
+  turns:
+    - turn_id: deepeval_turn_1
+      query: What is the capital of France?
+      response: The capital of France is Paris.
+      expected_response: null
+      contexts: null
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics: []
+      verify_script: null
+    - turn_id: deepeval_turn_2
+      query: How many people live in Paris?
+      response: Paris has approximately 2.1 million people in the city proper.
+      expected_response: null
+      contexts: null
+      tool_calls: null
+      expected_tool_calls: null
+      expected_intent: null
+      expected_keywords: null
+      turn_metrics: []
+      verify_script: null
+  setup_script: null
+  cleanup_script: null
