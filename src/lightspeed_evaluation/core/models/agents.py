@@ -304,16 +304,17 @@ class AgentsConfig(BaseModel):
         agent_name: Optional[str] = None,
         agent_config_override: Optional[dict[str, Any]] = None,
     ) -> tuple[str, dict[str, Any]]:
-        """Resolve final agent configuration from the 2-level priority chain.
+        """Resolve final agent configuration from the 3-level priority chain.
 
         Per-key merge in ascending priority order — higher levels override
         matching keys while non-overlapping keys from lower levels survive:
 
-        1. ``default.agent_config`` (lowest)
-        2. ``agent_config_override`` from eval data (highest)
+        1. ``default.agent_config`` (fallback for fields unset on agent)
+        2. Explicit fields in the selected agent definition
+        3. ``agent_config_override`` from eval data (highest priority)
 
-        The agent definition's typed fields form the base; override dicts
-        are applied on top.
+        Typed model defaults remain available when no configuration layer sets
+        a field.
 
         Args:
             agent_name: Explicit agent name. Falls back to first agent in
@@ -352,13 +353,10 @@ class AgentsConfig(BaseModel):
 
         agent_def = self.agents[name]
 
-        effective: dict[str, Any] = {}
-        if self.default.agent_config:
-            effective.update(self.default.agent_config)
-        if agent_config_override:
-            effective.update(agent_config_override)
-
         base_config = agent_def.model_dump()
+        effective = dict(self.default.agent_config or {})
+        effective.update(agent_def.model_dump(include=agent_def.model_fields_set))
+        effective.update(agent_config_override or {})
         base_config.update(effective)
 
         return name, base_config
