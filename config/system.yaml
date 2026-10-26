@@ -187,33 +187,32 @@ metrics_metadata:
       description: "LLM judge of AgenticRun workflow outcomes (diagnosis, execution, verification)"
       default: false
 
+    "custom:completeness":
+      threshold: 0.8
+      description: "Rubric-based completeness evaluation against material requirements"
 
-    # "custom:completeness":
-    #   threshold: 0.8
-    #   description: "Rubric-based completeness evaluation against material requirements"
+    "custom:groundedness":
+      threshold: 0.8
+      description: "Rubric-based evaluation of whether factual claims are supported by evidence"
 
-    # "custom:groundedness":
-    #   threshold: 0.8
-    #   description: "Rubric-based evaluation of whether factual claims are supported by evidence"
+    "custom:pertinence":
+      threshold: 0.8
+      description: "Rubric-based evaluation of whether the response addresses the user's request"
 
-    # "custom:pertinence":
-    #   threshold: 0.8
-    #   description: "Rubric-based evaluation of whether the response addresses the user's request"
+    "custom:topic_fidelity":
+      threshold: 0.75
+      description: "Rubric-based evaluation of scope containment and focus"
 
-    # "custom:topic_fidelity":
-    #   threshold: 0.75
-    #   description: "Rubric-based evaluation of scope containment and focus"
+    "custom:completeness_fixed_checklist":
+      threshold: 0.8
+      description: "Rubric-based completeness evaluation against a fixed checklist"
 
-    # "custom:completeness_fixed_checklist":
-    #   threshold: 0.8
-    #   description: "Rubric-based completeness evaluation against a fixed checklist"
+    "custom:requirement_extraction":
+      description: "Rubric-based extraction of material requirements from user request and expected answer"
 
-    # "custom:requirement_extraction":
-    #   description: "Rubric-based extraction of material requirements from user request and expected answer"
-
-    # "custom:scenario_strengths_weaknesses":
-    #   threshold: 0.5
-    #   description: "Rubric-based qualitative evaluation of model performance across troubleshooting attempts"
+    "custom:scenario_strengths_weaknesses":
+      threshold: 0.5
+      description: "Rubric-based qualitative evaluation of model performance across troubleshooting attempts"
 
     # Script-based metrics
     "script:action_eval":
