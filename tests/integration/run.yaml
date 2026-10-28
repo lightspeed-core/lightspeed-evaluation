@@ -1,13 +1,14 @@
 version: 2
 distro_name: starter
 
+# Minimal query setup. OGX builtin responses requires files, tool_runtime, and
+# vector_io APIs; no files, tool groups, MCP servers, or vector stores are registered.
 apis:
 - responses
-- batches
-- files
-- inference
-- tool_runtime
 - conversations
+- inference
+- files
+- tool_runtime
 - vector_io
 
 providers:
@@ -17,46 +18,36 @@ providers:
     config:
       api_key: ${env.OPENAI_API_KEY}
       allowed_models: ["${env.E2E_OPENAI_MODEL:=gpt-4o-mini}"]
-  - config: {}
-    provider_id: sentence-transformers
+  - provider_id: sentence-transformers
     provider_type: inline::sentence-transformers
+    config: {}
   files:
-  - config:
+  - provider_id: meta-reference-files
+    provider_type: inline::localfs
+    config:
       metadata_store:
         table_name: files_metadata
         backend: sql_default
       storage_dir: ~/.llama/storage/files
-    provider_id: meta-reference-files
-    provider_type: inline::localfs
   tool_runtime:
-  - config: {}
-    provider_id: file-search
-    provider_type: inline::file-search
-  - config: {}
-    provider_id: model-context-protocol
+  - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
+    config: {}
   vector_io:
-  - config:
+  - provider_id: faiss
+    provider_type: inline::faiss
+    config:
       persistence:
         namespace: vector_io::faiss
-        backend: kv_rag
-    provider_id: faiss
-    provider_type: inline::faiss
+        backend: kv_default
   responses:
-  - config:
+  - provider_id: builtin
+    provider_type: inline::builtin
+    config:
       persistence:
         responses:
           table_name: agents_responses
           backend: sql_default
-    provider_id: builtin
-    provider_type: inline::builtin
-  batches:
-  - config:
-      sqlstore:
-        table_name: batches
-        backend: sql_default
-    provider_id: reference
-    provider_type: inline::reference
 
 server:
   port: 8321
@@ -65,9 +56,6 @@ storage:
     kv_default:
       type: kv_sqlite
       db_path: ${env.KV_STORE_PATH:=~/.llama/storage/kv_store.db}
-    kv_rag:
-      type: kv_sqlite
-      db_path: ${env.KV_RAG_PATH:=~/.llama/storage/rag/kv_store.db}
     sql_default:
       type: sql_sqlite
       db_path: ${env.SQL_STORE_PATH:=~/.llama/storage/sql_store.db}
@@ -78,16 +66,11 @@ storage:
     inference:
       table_name: inference_store
       backend: sql_default
-      max_write_queue_size: 10000
-      num_writers: 4
     conversations:
       table_name: openai_conversations
       backend: sql_default
     prompts:
       table_name: prompts
-      backend: sql_default
-    connectors:
-      table_name: connectors
       backend: sql_default
 registered_resources:
   models:
