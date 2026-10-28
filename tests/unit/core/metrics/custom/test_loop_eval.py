@@ -351,10 +351,10 @@ class TestEvaluateLoopsFromTrace:
             Span(
                 span_id=f"s{i}",
                 trace_id="t1",
-                name="search",
+                name=f"display-{i}",
                 span_type=SpanType.TOOL,
                 start_time=datetime(2024, 1, 1, 12, 0, i, tzinfo=UTC),
-                inputs={"q": "pods"},
+                attributes={"tool.name": "search", "tool.arguments": {"q": "pods"}},
             )
             for i in range(3)
         ]
@@ -388,7 +388,7 @@ class TestEvaluateLoopsFromTrace:
                     name="oc_get",
                     span_type=SpanType.TOOL,
                     parent_span_id="chain",
-                    inputs={"kind": "pod"},
+                    attributes={"tool.arguments": {"kind": "pod"}},
                 ),
             ],
         )

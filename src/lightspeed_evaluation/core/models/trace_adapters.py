@@ -8,14 +8,28 @@ done. They only normalize dict-shaped payloads into :class:`Trace` /
 from __future__ import annotations
 
 import json
+import math
 from datetime import UTC, datetime
 from typing import Any, Optional
 
+from lightspeed_evaluation.core.models._trace_helpers import (
+    _coerce_float,
+    _coerce_int,
+    _coerce_non_negative_float,
+    _coerce_non_negative_int,
+    _correlated_trace_id,
+    _mlflow_identity,
+    _payload_spans,
+    _tags,
+    _timestamp,
+)
 from lightspeed_evaluation.core.models.trace import (
     LLMSpanData,
     ModelInfo,
     Span,
+    SpanEvent,
     SpanStatus,
+    SpanType,
     TokenUsage,
     Trace,
     TracePlatform,
@@ -31,6 +45,18 @@ _MLFLOW_META_SKIP = {
     "mlflow.spanOutputs",
     "mlflow.spanModel",
     "mlflow.spanCost",
+    "llm.usage.prompt_tokens",
+    "llm.usage.completion_tokens",
+    "llm.usage.total_tokens",
+    "input_tokens",
+    "output_tokens",
+    "total_tokens",
+    "model",
+    "cost_usd",
+    "span_type",
+    "latency",
+    "latency_ms",
+    "tags",
 }
 
 
@@ -79,21 +105,22 @@ def _as_datetime(value: Any) -> Optional[datetime]:
     All successful conversions return timezone-aware UTC. Missing timezone on
     datetime objects or ISO-8601 strings is treated as UTC.
     """
-    result: Optional[datetime] = None
     if isinstance(value, datetime):
-        result = value
-    elif isinstance(value, (int, float)):
-        result = _epoch_to_datetime(float(value))
-    elif isinstance(value, str):
-        text = value.strip()
-        if text.isdigit():
-            result = _epoch_to_datetime(float(int(text)))
-        elif text:
-            try:
-                result = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            except ValueError:
-                result = None
-    return _ensure_utc(result) if result is not None else None
+        return _ensure_utc(value)
+    if isinstance(value, bool):
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            number = float(value)
+            return _epoch_to_datetime(number) if math.isfinite(number) else None
+        if isinstance(value, str) and value.strip():
+            text = value.strip()
+            if text.isdigit() or (text.startswith("-") and text[1:].isdigit()):
+                return _epoch_to_datetime(float(text))
+            return _ensure_utc(datetime.fromisoformat(text.replace("Z", "+00:00")))
+    except (ValueError, OverflowError, OSError):
+        pass
+    return None
 
 
 def _first_present(*values: Any) -> Any:
@@ -102,42 +129,6 @@ def _first_present(*values: Any) -> Any:
         if value is not None:
             return value
     return None
-
-
-def _coerce_int(value: Any) -> Optional[int]:
-    """Convert a value to int when possible; return None otherwise."""
-    if value is None:
-        return None
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _coerce_non_negative_int(value: Any) -> Optional[int]:
-    """Convert to int when possible; drop negatives (model fields use ge=0)."""
-    number = _coerce_int(value)
-    if number is None or number < 0:
-        return None
-    return number
-
-
-def _coerce_float(value: Any) -> Optional[float]:
-    """Convert a value to float when possible; return None otherwise."""
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _coerce_non_negative_float(value: Any) -> Optional[float]:
-    """Convert to float when possible; drop negatives (model fields use ge=0)."""
-    number = _coerce_float(value)
-    if number is None or number < 0.0:
-        return None
-    return number
 
 
 def _latency_seconds(
@@ -328,6 +319,160 @@ def _require_ids(
     return str(trace_id), str(span_id)
 
 
+def _llm_attributes(llm: Optional[LLMSpanData]) -> dict[str, Any]:
+    """Derive standard keys from the same typed data used by metrics."""
+    if llm is None:
+        return {}
+    attrs: dict[str, Any] = {"cost.usd": llm.cost_usd}
+    if llm.model is not None:
+        attrs.update(
+            {
+                "model.name": llm.model.name,
+                "model.provider": llm.model.provider,
+                "model.temperature": llm.model.temperature,
+            }
+        )
+    if llm.token_usage is not None:
+        attrs.update(
+            {
+                "tokens.input": llm.token_usage.input_tokens,
+                "tokens.output": llm.token_usage.output_tokens,
+                "tokens.total": llm.token_usage.total_tokens,
+            }
+        )
+    return attrs
+
+
+def _standard_attributes(
+    *,
+    span_type: SpanType,
+    name: str,
+    data: tuple[Any, Any],
+    llm: Optional[LLMSpanData],
+    status: tuple[SpanStatus, Optional[str]],
+) -> dict[str, Any]:
+    """Build semantic keys from input/output and status/message pairs."""
+    inputs, outputs = (_parse_jsonish(value) for value in data)
+    attrs: dict[str, Any] = {}
+    if span_type == SpanType.TOOL:
+        attrs = {"tool.name": name, "tool.arguments": inputs, "tool.result": outputs}
+        if status[0] == SpanStatus.ERROR:
+            attrs["tool.error"] = status[1]
+    elif span_type == SpanType.GENERATION:
+        attrs = {"generation.prompt": inputs, "generation.completion": outputs}
+        attrs.update(_llm_attributes(llm))
+    elif span_type == SpanType.RETRIEVER:
+        attrs["retrieval.query"] = (
+            _first_present(inputs.get("query"), inputs.get("input"))
+            if isinstance(inputs, dict)
+            else inputs
+        )
+        if isinstance(inputs, dict) and inputs.get("top_k") is not None:
+            attrs["retrieval.top_k"] = inputs["top_k"]
+        if outputs is not None:
+            attrs.update(_retrieval_attributes(outputs)[0])
+    elif span_type == SpanType.EVENT:
+        body = _first_present(outputs, inputs)
+        attrs = {"event.name": name, "event.body": body}
+        if isinstance(body, dict):
+            attrs["event.phase"] = body.get("phase")
+    return {key: value for key, value in attrs.items() if value is not None}
+
+
+def _retrieval_attributes(outputs: Any) -> tuple[dict[str, Any], bool]:
+    """Normalize document lists; report whether attributes are lossless."""
+    documents = outputs
+    if isinstance(outputs, dict):
+        documents = _first_present(
+            outputs.get("documents"), outputs.get("chunks"), outputs.get("results")
+        )
+    if isinstance(documents, str):
+        documents = [documents]
+    if not isinstance(documents, list):
+        return {}, False
+    rows: list[tuple[str, Any, Any]] = []
+    for document in documents:
+        if isinstance(document, str):
+            rows.append((document, None, None))
+        elif isinstance(document, dict):
+            text = _first_present(
+                document.get("page_content"),
+                document.get("text"),
+                document.get("content"),
+            )
+            if not isinstance(text, str):
+                continue
+            metadata = document.get("metadata")
+            source = _first_present(
+                document.get("source"),
+                metadata.get("source") if isinstance(metadata, dict) else None,
+            )
+            rows.append((text, source, _coerce_float(document.get("score"))))
+    if not rows and documents:
+        return {}, False
+    attrs: dict[str, Any] = {"retrieval.chunks": [row[0] for row in rows]}
+    lossless = len(rows) == len(documents)
+    for column, key in ((1, "retrieval.sources"), (2, "retrieval.scores")):
+        values = [row[column] for row in rows]
+        if rows and all(value is not None for value in values):
+            attrs[key] = values
+        elif any(value is not None for value in values):
+            lossless = False
+    return attrs, lossless
+
+
+# Span types with standard attribute mappings in _standard_attributes.
+_MAPPED_SPAN_TYPES = {
+    SpanType.TOOL,
+    SpanType.GENERATION,
+    SpanType.RETRIEVER,
+    SpanType.EVENT,
+}
+
+
+def _unmapped_to_metadata(
+    metadata: dict[str, Any],
+    *,
+    span_type: SpanType,
+    prefix: str,
+    inputs: Any,
+    outputs: Any,
+) -> dict[str, Any]:
+    """Keep inputs/outputs of unmapped span types in metadata, namespaced.
+
+    Spec §3.4 rule 6: platform-specific extras that don't map to standard
+    attribute keys go to ``metadata`` with a platform namespace prefix.
+    """
+    result = {
+        key if key.startswith(f"{prefix}.") else f"{prefix}.{key}": value
+        for key, value in metadata.items()
+    }
+    if span_type in _MAPPED_SPAN_TYPES:
+        parsed_inputs = _parse_jsonish(inputs)
+        if span_type == SpanType.EVENT and inputs is not None and outputs is not None:
+            # The body prefers the output; keep the input available.
+            result[f"{prefix}.inputs"] = inputs
+        if (
+            span_type == SpanType.RETRIEVER
+            and isinstance(parsed_inputs, dict)
+            and set(parsed_inputs) - {"query", "input", "top_k"}
+        ):
+            # Input keys beyond the standard retrieval set are not represented.
+            result[f"{prefix}.inputs"] = inputs
+        if (
+            span_type == SpanType.RETRIEVER
+            and outputs is not None
+            and not _retrieval_attributes(_parse_jsonish(outputs))[1]
+        ):
+            result[f"{prefix}.outputs"] = outputs
+        return result
+    if inputs is not None:
+        result[f"{prefix}.inputs"] = inputs
+    if outputs is not None:
+        result[f"{prefix}.outputs"] = outputs
+    return result
+
+
 def _mlflow_llm(attributes: dict[str, Any]) -> Optional[LLMSpanData]:
     """Extract optional LLM fields from MLflow attributes."""
     return _llm_span_data(
@@ -360,37 +505,34 @@ def span_from_mlflow(raw: dict[str, Any], *, trace_id: str | None = None) -> Spa
     attributes = {
         str(k): _parse_jsonish(v) for k, v in (raw.get("attributes") or {}).items()
     }
+    metadata = {k: v for k, v in attributes.items() if k not in _MLFLOW_META_SKIP}
     resolved_trace_id, span_id = _require_ids(
-        trace_id=(
-            trace_id
-            or context.get("trace_id")
-            or attributes.get("mlflow.traceRequestId")
-            or raw.get("trace_id")
-        ),
+        trace_id=_mlflow_identity(raw, context, attributes, trace_id, metadata),
         span_id=context.get("span_id") or raw.get("span_id"),
         missing_trace="MLflow span is missing trace_id",
         missing_span="MLflow span is missing span_id",
     )
     start_time = _as_datetime(raw.get("start_time"))
     end_time = _as_datetime(raw.get("end_time"))
-    span_type_raw = attributes.get("mlflow.spanType") or attributes.get("span_type")
-    metadata = {
-        k: v
-        for k, v in attributes.items()
-        if not str(k).startswith("mlflow.span") and k not in _MLFLOW_META_SKIP
-    }
+    span_type = normalize_span_type(
+        attributes.get("mlflow.spanType") or attributes.get("span_type")
+    )
+    status = _status_from_mlflow(raw.get("status_code"))
+    status_message = raw.get("status_message") or None
+    inputs = attributes.get("mlflow.spanInputs", raw.get("inputs"))
+    outputs = attributes.get("mlflow.spanOutputs", raw.get("outputs"))
+    llm = _mlflow_llm(attributes)
     return Span(
         span_id=span_id,
         trace_id=resolved_trace_id,
         parent_span_id=(
             str(raw["parent_id"]) if raw.get("parent_id") is not None else None
         ),
+        source=TracePlatform.MLFLOW,
         name=str(raw.get("name") or span_id),
-        span_type=normalize_span_type(
-            str(span_type_raw) if span_type_raw is not None else None
-        ),
-        status=_status_from_mlflow(raw.get("status_code")),
-        status_message=raw.get("status_message") or None,
+        span_type=span_type,
+        status=status,
+        status_message=status_message,
         start_time=start_time,
         end_time=end_time,
         latency=_latency_seconds(
@@ -399,38 +541,66 @@ def span_from_mlflow(raw: dict[str, Any], *, trace_id: str | None = None) -> Spa
             explicit_seconds=attributes.get("latency"),
             explicit_ms=attributes.get("latency_ms"),
         ),
-        inputs=attributes.get("mlflow.spanInputs", raw.get("inputs")),
-        outputs=attributes.get("mlflow.spanOutputs", raw.get("outputs")),
-        metadata=metadata,
-        tags=list(raw.get("tags") or attributes.get("tags") or []),
-        llm=_mlflow_llm(attributes),
+        attributes=_standard_attributes(
+            span_type=span_type,
+            name=str(raw.get("name") or span_id),
+            data=(inputs, outputs),
+            llm=llm,
+            status=(status, status_message),
+        ),
+        metadata=_unmapped_to_metadata(
+            metadata,
+            span_type=span_type,
+            prefix="mlflow",
+            inputs=inputs,
+            outputs=outputs,
+        ),
+        events=_otel_events(raw.get("events")),
+        tags=_tags(_first_present(raw.get("tags"), attributes.get("tags"))) or [],
+        llm=llm,
     )
 
 
 def trace_from_mlflow(raw: dict[str, Any]) -> Trace:
     """Convert an MLflow trace payload (``{"spans": [...], ...}``) to :class:`Trace`."""
-    spans_raw = raw.get("spans") or raw.get("data", {}).get("spans") or []
-    if not isinstance(spans_raw, list):
-        raise DataValidationError("MLflow trace payload must contain a spans list")
+    spans_raw = _payload_spans(
+        _first_present(raw.get("spans"), (raw.get("data") or {}).get("spans"), [])
+    )
 
     info = raw.get("info") or {}
-    first_context = (spans_raw[0].get("context") or {}) if spans_raw else {}
-    request_id = (
-        raw.get("trace_id")
-        or info.get("request_id")
-        or info.get("trace_id")
-        or first_context.get("trace_id")
+    first_span = spans_raw[0] if spans_raw else {}
+    first_context = first_span.get("context") or {}
+    first_request_id = _parse_jsonish(
+        (first_span.get("attributes") or {}).get("mlflow.traceRequestId")
     )
-    if not request_id and spans_raw:
+    request_id = _first_present(
+        raw.get("trace_id"),
+        info.get("request_id"),
+        info.get("trace_id"),
+        first_request_id,
+        first_context.get("trace_id"),
+    )
+    if request_id is None and spans_raw:
         request_id = span_from_mlflow(spans_raw[0]).trace_id
-    if not request_id:
+    if request_id is None:
         raise DataValidationError("MLflow trace payload is missing trace_id")
-
+    request_id = str(request_id)
+    if _first_present(
+        raw.get("trace_id"),
+        info.get("request_id"),
+        info.get("trace_id"),
+        first_request_id,
+    ) is None and any(
+        (item.get("context") or {}).get("trace_id") not in (None, request_id)
+        for item in spans_raw
+    ):
+        # Identity derives from OTel context IDs; all spans must agree on them.
+        raise DataValidationError("Span trace_id conflicts with enclosing trace")
     tags = info.get("tags") or raw.get("tags") or {}
     tag_list = (
         [f"{k}:{v}" for k, v in tags.items()]
         if isinstance(tags, dict)
-        else list(tags or [])
+        else _tags(tags) or []
     )
     return Trace(
         trace_id=str(request_id),
@@ -442,7 +612,9 @@ def trace_from_mlflow(raw: dict[str, Any]) -> Trace:
         ),
         platform=TracePlatform.MLFLOW,
         start_time=_as_datetime(
-            info.get("timestamp_ms") or raw.get("start_time") or info.get("timestamp")
+            _first_present(
+                info.get("timestamp_ms"), raw.get("start_time"), info.get("timestamp")
+            )
         ),
         end_time=_as_datetime(raw.get("end_time")),
         metadata={
@@ -482,7 +654,8 @@ def _langfuse_llm(raw: dict[str, Any]) -> Optional[LLMSpanData]:
         model=_model_info(
             _first_present(
                 raw.get("model"), (raw.get("modelParameters") or {}).get("model")
-            )
+            ),
+            temperature=(raw.get("modelParameters") or {}).get("temperature"),
         ),
         token_usage=token_usage,
         cost=_first_present(
@@ -494,30 +667,56 @@ def _langfuse_llm(raw: dict[str, Any]) -> Optional[LLMSpanData]:
 def span_from_langfuse(raw: dict[str, Any], *, trace_id: str | None = None) -> Span:
     """Convert a Langfuse observation dict into an internal :class:`Span`."""
     resolved_trace_id, span_id = _require_ids(
-        trace_id=trace_id or raw.get("traceId") or raw.get("trace_id"),
+        trace_id=_correlated_trace_id(
+            trace_id, raw.get("traceId"), raw.get("trace_id")
+        ),
         span_id=raw.get("id") or raw.get("observationId") or raw.get("span_id"),
         missing_trace="Langfuse observation is missing traceId",
         missing_span="Langfuse observation is missing id",
     )
-    start_time = _as_datetime(raw.get("startTime") or raw.get("start_time"))
-    end_time = _as_datetime(raw.get("endTime") or raw.get("end_time"))
+    start_time = _as_datetime(
+        _first_present(raw.get("startTime"), raw.get("start_time"))
+    )
+    end_time = _as_datetime(_first_present(raw.get("endTime"), raw.get("end_time")))
     parent = raw.get("parentObservationId") or raw.get("parent_observation_id")
+    span_type = normalize_span_type(raw.get("type") or raw.get("observationType"))
+    status = _status_from_langfuse(raw.get("level"), raw.get("statusMessage"))
+    status_message = raw.get("statusMessage") or raw.get("status_message")
+    name = str(raw.get("name") or span_id)
+    tool_name = str(
+        raw.get("name") or (raw.get("metadata") or {}).get("tool_name") or span_id
+    )
+    inputs = raw.get("input") if "input" in raw else raw.get("inputs")
+    outputs = raw.get("output") if "output" in raw else raw.get("outputs")
+    llm = _langfuse_llm(raw)
     return Span(
         span_id=span_id,
         trace_id=resolved_trace_id,
         parent_span_id=str(parent) if parent is not None else None,
-        name=str(raw.get("name") or span_id),
-        span_type=normalize_span_type(raw.get("type") or raw.get("observationType")),
-        status=_status_from_langfuse(raw.get("level"), raw.get("statusMessage")),
-        status_message=raw.get("statusMessage") or raw.get("status_message"),
+        source=TracePlatform.LANGFUSE,
+        name=name,
+        span_type=span_type,
+        status=status,
+        status_message=status_message,
         start_time=start_time,
         end_time=end_time,
         latency=_langfuse_latency(raw, start_time, end_time),
-        inputs=raw.get("input") if "input" in raw else raw.get("inputs"),
-        outputs=raw.get("output") if "output" in raw else raw.get("outputs"),
-        metadata=dict(raw.get("metadata") or {}),
-        tags=list(raw.get("tags") or []),
-        llm=_langfuse_llm(raw),
+        attributes=_standard_attributes(
+            span_type=span_type,
+            name=tool_name if span_type == SpanType.TOOL else name,
+            data=(inputs, outputs),
+            llm=llm,
+            status=(status, status_message),
+        ),
+        metadata=_unmapped_to_metadata(
+            {k: v for k, v in (raw.get("metadata") or {}).items() if k != "tool_name"},
+            span_type=span_type,
+            prefix="langfuse",
+            inputs=inputs,
+            outputs=outputs,
+        ),
+        tags=_tags(raw.get("tags")) or [],
+        llm=llm,
     )
 
 
@@ -536,8 +735,7 @@ def trace_from_langfuse(raw: dict[str, Any]) -> Trace:
         raise DataValidationError("Langfuse trace payload is missing id")
     spans = [
         span_from_langfuse(item, trace_id=str(trace_id))
-        for item in _langfuse_observations(raw)
-        if isinstance(item, dict)
+        for item in _payload_spans(_langfuse_observations(raw))
     ]
     return Trace(
         trace_id=str(trace_id),
@@ -545,10 +743,12 @@ def trace_from_langfuse(raw: dict[str, Any]) -> Trace:
         session_id=raw.get("sessionId") or raw.get("session_id"),
         user_id=raw.get("userId") or raw.get("user_id"),
         platform=TracePlatform.LANGFUSE,
-        start_time=_as_datetime(raw.get("timestamp") or raw.get("startTime")),
+        start_time=_as_datetime(
+            _first_present(raw.get("timestamp"), raw.get("startTime"))
+        ),
         end_time=_as_datetime(raw.get("endTime")),
         metadata=dict(raw.get("metadata") or {}),
-        tags=list(raw.get("tags") or []),
+        tags=_tags(raw.get("tags")) or [],
         spans=spans,
     )
 
@@ -595,35 +795,112 @@ def _otel_llm(attributes: dict[str, Any]) -> Optional[LLMSpanData]:
     )
 
 
+# OTEL attribute keys consumed into standard span fields / llm data.
+_OTEL_CONSUMED_ATTRS = {
+    "gen_ai.prompt",
+    "gen_ai.completion",
+    "input.value",
+    "output.value",
+    "gen_ai.request.model",
+    "gen_ai.response.model",
+    "gen_ai.system",
+    "gen_ai.provider.name",
+    "gen_ai.request.temperature",
+    "gen_ai.usage.input_tokens",
+    "gen_ai.usage.prompt_tokens",
+    "gen_ai.usage.output_tokens",
+    "gen_ai.usage.completion_tokens",
+    "gen_ai.usage.total_tokens",
+    "gen_ai.usage.cost",
+    "cost_usd",
+    "gen_ai.tool.name",
+    "gen_ai.tool.call.id",
+    "gen_ai.usage.reasoning.output_tokens",
+    "retrieval.top_k",
+}
+
+
+def _otel_semantic_extras(
+    attributes: dict[str, Any], span_type: SpanType
+) -> dict[str, Any]:
+    """Map semantic fields without an LLM convenience counterpart."""
+    mappings = {
+        SpanType.GENERATION: {
+            "gen_ai.usage.reasoning.output_tokens": "tokens.reasoning",
+        },
+        SpanType.TOOL: {"gen_ai.tool.call.id": "tool.call_id"},
+        SpanType.RETRIEVER: {"retrieval.top_k": "retrieval.top_k"},
+    }
+    result = {}
+    for source, target in mappings.get(span_type, {}).items():
+        value = attributes.get(source)
+        if target == "tokens.reasoning":
+            value = _coerce_non_negative_int(value)
+        if value is not None:
+            result[target] = value
+    return result
+
+
+def _otel_events(raw: Any) -> list[SpanEvent]:
+    """Convert OTEL span events into :class:`SpanEvent` instances."""
+    events: list[SpanEvent] = []
+    for item in raw or []:
+        if not isinstance(item, dict) or item.get("name") is None:
+            continue
+        events.append(
+            SpanEvent(
+                name=str(item["name"]),
+                timestamp=_timestamp(
+                    item, "timeUnixNano", "time", "timestamp", parse=_as_datetime
+                ),
+                attributes=_attr_map(item.get("attributes")),
+            )
+        )
+    return events
+
+
 def span_from_otel(raw: dict[str, Any], *, trace_id: str | None = None) -> Span:
     """Convert an OpenTelemetry span dict into an internal :class:`Span`."""
     attributes = _attr_map(raw.get("attributes"))
     resolved_trace_id, span_id = _require_ids(
-        trace_id=trace_id
-        or raw.get("traceId")
-        or raw.get("trace_id")
-        or attributes.get("trace_id"),
+        trace_id=_correlated_trace_id(
+            trace_id,
+            raw.get("traceId"),
+            raw.get("trace_id"),
+            attributes.get("trace_id"),
+        ),
         span_id=raw.get("spanId") or raw.get("span_id"),
         missing_trace="OTEL span is missing traceId",
         missing_span="OTEL span is missing spanId",
     )
-    start_time = _as_datetime(
-        raw.get("startTimeUnixNano") or raw.get("startTime") or raw.get("start_time")
+    start_time = _timestamp(
+        raw, "startTimeUnixNano", "startTime", "start_time", parse=_as_datetime
     )
-    end_time = _as_datetime(
-        raw.get("endTimeUnixNano") or raw.get("endTime") or raw.get("end_time")
+    end_time = _timestamp(
+        raw, "endTimeUnixNano", "endTime", "end_time", parse=_as_datetime
     )
     status, status_message = _status_from_otel(raw.get("status"))
     parent = raw.get("parentSpanId") or raw.get("parent_span_id")
-    span_type_raw = _otel_span_type(attributes)
+    span_type = normalize_span_type(_otel_span_type(attributes))
+    name = str(raw.get("name") or span_id)
+    inputs = _first_present(
+        attributes.get("gen_ai.prompt"),
+        attributes.get("input.value"),
+        attributes.get("inputs"),
+    )
+    outputs = _first_present(
+        attributes.get("gen_ai.completion"),
+        attributes.get("output.value"),
+        attributes.get("outputs"),
+    )
+    llm = _otel_llm(attributes)
     return Span(
         span_id=span_id,
         trace_id=resolved_trace_id,
         parent_span_id=str(parent) if parent else None,
-        name=str(raw.get("name") or span_id),
-        span_type=normalize_span_type(
-            str(span_type_raw) if span_type_raw is not None else None
-        ),
+        source=TracePlatform.OTEL,
+        name=name,
+        span_type=span_type,
         status=status,
         status_message=status_message,
         start_time=start_time,
@@ -634,30 +911,41 @@ def span_from_otel(raw: dict[str, Any], *, trace_id: str | None = None) -> Span:
             explicit_seconds=attributes.get("latency"),
             explicit_ms=attributes.get("latency_ms"),
         ),
-        inputs=attributes.get("gen_ai.prompt")
-        or attributes.get("input.value")
-        or attributes.get("inputs"),
-        outputs=attributes.get("gen_ai.completion")
-        or attributes.get("output.value")
-        or attributes.get("outputs"),
-        metadata=attributes,
-        tags=list(raw.get("tags") or attributes.get("tags") or []),
-        llm=_otel_llm(attributes),
+        attributes=_standard_attributes(
+            span_type=span_type,
+            name=(
+                str(attributes.get("gen_ai.tool.name") or name)
+                if span_type == SpanType.TOOL
+                else name
+            ),
+            data=(inputs, outputs),
+            llm=llm,
+            status=(status, status_message),
+        )
+        | _otel_semantic_extras(attributes, span_type),
+        metadata=_unmapped_to_metadata(
+            {k: v for k, v in attributes.items() if k not in _OTEL_CONSUMED_ATTRS},
+            span_type=span_type,
+            prefix="otel",
+            inputs=inputs,
+            outputs=outputs,
+        ),
+        events=_otel_events(raw.get("events")),
+        tags=_tags(_first_present(raw.get("tags"), attributes.get("tags"))) or [],
+        llm=llm,
     )
 
 
 def _otel_spans_from_payload(raw: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract span dicts from flat or resourceSpans OTEL payloads."""
     if isinstance(raw.get("spans"), list):
-        return [s for s in raw["spans"] if isinstance(s, dict)]
+        return _payload_spans(raw["spans"])
     spans_raw: list[dict[str, Any]] = []
     for resource_span in raw.get("resourceSpans") or raw.get("resource_spans") or []:
         for scope_span in (
             resource_span.get("scopeSpans") or resource_span.get("scope_spans") or []
         ):
-            for item in scope_span.get("spans") or []:
-                if isinstance(item, dict):
-                    spans_raw.append(item)
+            spans_raw.extend(_payload_spans(scope_span.get("spans") or []))
     return spans_raw
 
 
@@ -667,7 +955,12 @@ def trace_from_otel(raw: dict[str, Any]) -> Trace:
     if not spans_raw:
         raise DataValidationError("OTEL payload contains no spans")
 
-    trace_id = raw.get("traceId") or raw.get("trace_id") or spans_raw[0].get("traceId")
+    trace_id = _correlated_trace_id(
+        _first_present(raw.get("traceId"), raw.get("trace_id")),
+        spans_raw[0].get("traceId"),
+        spans_raw[0].get("trace_id"),
+        _attr_map(spans_raw[0].get("attributes")).get("trace_id"),
+    )
     if not trace_id:
         raise DataValidationError("OTEL payload is missing traceId")
 
@@ -681,7 +974,7 @@ def trace_from_otel(raw: dict[str, Any]) -> Trace:
         start_time=min((s.start_time for s in spans if s.start_time), default=None),
         end_time=max((s.end_time for s in spans if s.end_time), default=None),
         metadata=dict(raw.get("metadata") or {}),
-        tags=list(raw.get("tags") or []),
+        tags=_tags(raw.get("tags")) or [],
         spans=spans,
     )
 

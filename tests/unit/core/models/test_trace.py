@@ -1,6 +1,8 @@
 """Tests for internal trace models and platform adapters."""
 
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -8,6 +10,7 @@ from pydantic import ValidationError
 from lightspeed_evaluation.core.models.trace import (
     ModelInfo,
     Span,
+    SpanEvent,
     SpanStatus,
     SpanType,
     TokenUsage,
@@ -240,8 +243,10 @@ class TestMLflowAdapter:
         root = next(s for s in trace.spans if s.span_id == "span-1")
         child = next(s for s in trace.spans if s.span_id == "span-2")
         assert root.span_type is SpanType.AGENT
-        assert root.inputs == {"query": "hi"}
-        assert root.metadata["conversation_group_id"] == "conv_1"
+        assert root.source is TracePlatform.MLFLOW
+        assert root.attributes == {}
+        assert root.metadata["mlflow.inputs"] == {"query": "hi"}
+        assert root.metadata["mlflow.conversation_group_id"] == "conv_1"
         assert child.parent_span_id == "span-1"
         assert child.span_type is SpanType.GENERATION
         assert child.llm is not None
@@ -550,8 +555,11 @@ class TestOtelAdapter:
         assert root.latency == pytest.approx(2.0)
         llm = next(s for s in trace.spans if s.span_id == "s-llm")
         assert llm.span_type is SpanType.GENERATION
-        assert llm.inputs == "hello"
-        assert llm.outputs == "world"
+        assert llm.source is TracePlatform.OTEL
+        assert llm.attributes["generation.prompt"] == "hello"
+        assert llm.attributes["generation.completion"] == "world"
+        assert llm.attributes["model.provider"] == "openai"
+        assert llm.attributes["tokens.input"] == 11
         assert llm.latency == pytest.approx(1.0)
         assert llm.llm is not None
         assert llm.llm.model is not None
@@ -607,6 +615,313 @@ class TestOtelAdapter:
                 ],
             }
         )
-        assert span.metadata["tags"] == ["a", "b"]
-        assert span.metadata["meta"] == {"env": "test", "count": 2}
-        assert span.metadata["payload"] == "aGVsbG8="
+        assert span.metadata["otel.tags"] == ["a", "b"]
+        assert span.metadata["otel.meta"] == {"env": "test", "count": 2}
+        assert span.metadata["otel.payload"] == "aGVsbG8="
+
+
+@pytest.mark.parametrize(
+    "adapter", [span_from_mlflow, span_from_langfuse, span_from_otel]
+)
+def test_structured_retrieval_documents(
+    adapter: Callable[[dict[str, Any]], Span],
+) -> None:
+    """Common document shapes normalize identically across sources."""
+    span = adapter(
+        {
+            "traceId": "t",
+            "trace_id": "t",
+            "spanId": "s",
+            "span_id": "s",
+            "id": "s",
+            "type": "RETRIEVER",
+            "input": {"query": "pods"},
+            "output": {
+                "documents": [
+                    {
+                        "page_content": "text",
+                        "metadata": {"source": "guide"},
+                        "score": 0.0,
+                    }
+                ]
+            },
+            "attributes": {
+                "mlflow.spanType": "RETRIEVER",
+                "mlflow.spanInputs": {"query": "pods"},
+                "mlflow.spanOutputs": [
+                    {"text": "text", "source": "guide", "score": 0.0}
+                ],
+                "input.value": {"query": "pods"},
+                "output.value": [{"content": "text", "source": "guide", "score": 0.0}],
+            },
+        }
+    )
+    assert span.attributes["retrieval.query"] == "pods"
+    assert span.attributes["retrieval.chunks"] == ["text"]
+    assert span.attributes["retrieval.sources"] == ["guide"]
+    assert span.attributes["retrieval.scores"] == [0.0]
+
+
+@pytest.mark.parametrize("result", [[], {}, "", False, 0])
+def test_otel_preserves_explicit_empty_result(result: Any) -> None:
+    """Only None triggers the input/output fallback."""
+    span = span_from_otel(
+        {
+            "traceId": "t",
+            "spanId": "s",
+            "name": "display",
+            "attributes": {
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": "search",
+                "gen_ai.tool.call.id": "call-1",
+                "input.value": "{}",
+                "output.value": result,
+            },
+        }
+    )
+    assert span.attributes["tool.name"] == "search"
+    assert span.attributes["tool.arguments"] == {}
+    assert span.attributes["tool.result"] == result
+    assert span.attributes["tool.call_id"] == "call-1"
+
+
+def test_langfuse_json_and_metadata_tool_name() -> None:
+    """Metadata provides tool identity when observation name is missing."""
+    span = span_from_langfuse(
+        {
+            "traceId": "t",
+            "id": "s",
+            "type": "TOOL",
+            "metadata": {"tool_name": "search", "custom": 1},
+            "input": '{"query":"pods"}',
+            "output": '{"results":[]}',
+        }
+    )
+    assert span.attributes["tool.name"] == "search"
+    assert span.attributes["tool.arguments"] == {"query": "pods"}
+    assert span.attributes["tool.result"] == {"results": []}
+    assert span.metadata == {"langfuse.custom": 1}
+
+
+def test_langfuse_temperature_matches_llm() -> None:
+    """Temperature is preserved in both standard and typed interfaces."""
+    span = span_from_langfuse(
+        {
+            "traceId": "t",
+            "id": "s",
+            "type": "GENERATION",
+            "modelParameters": {"temperature": 0.0},
+        }
+    )
+    assert span.attributes["model.temperature"] == 0.0
+    assert span.llm is not None and span.llm.model is not None
+    assert span.llm.model.temperature == 0.0
+
+
+def test_otel_reasoning_tokens() -> None:
+    """Reasoning usage is normalized separately from output tokens."""
+    span = span_from_otel(
+        {
+            "traceId": "t",
+            "spanId": "s",
+            "attributes": {
+                "gen_ai.operation.name": "chat",
+                "gen_ai.usage.reasoning.output_tokens": "20",
+            },
+        }
+    )
+    assert span.attributes["tokens.reasoning"] == 20
+
+
+def test_mlflow_span_preserves_events_and_namespaced_extras() -> None:
+    """MLflow sub-span events and unmapped attributes remain available."""
+    span = span_from_mlflow(
+        {
+            "context": {"trace_id": "t", "span_id": "s"},
+            "attributes": {
+                "mlflow.spanType": "LLM",
+                "mlflow.spanCustom": 1,
+                "llm.usage.prompt_tokens": 0,
+                "mlflow.spanCost": 0.0,
+            },
+            "events": [
+                {
+                    "name": "checkpoint",
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "attributes": {"step": 1},
+                }
+            ],
+        }
+    )
+    assert span.metadata["mlflow.spanCustom"] == 1
+    assert span.events[0].attributes == {"step": 1}
+    assert span.events[0].timestamp == datetime(2024, 1, 1, tzinfo=UTC)
+    assert span.attributes["tokens.input"] == 0
+    assert span.attributes["cost.usd"] == 0.0
+    assert span.llm is not None and span.llm.token_usage is not None
+    assert span.llm.token_usage.input_tokens == span.attributes["tokens.input"]
+
+
+def test_event_span_semantic_attributes() -> None:
+    """EVENT spans expose event body and phase, not just metadata."""
+    span = span_from_langfuse(
+        {
+            "traceId": "t",
+            "id": "s",
+            "type": "EVENT",
+            "name": "phase_transition",
+            "input": '{"phase":"analysis"}',
+        }
+    )
+    assert span.attributes == {
+        "event.name": "phase_transition",
+        "event.phase": "analysis",
+        "event.body": {"phase": "analysis"},
+    }
+
+
+class TestStandardAttributes:
+    """Tests for standard attribute keys, source, events (spec §3)."""
+
+    def test_mlflow_tool_span_maps_standard_attributes(self) -> None:
+        """MLflow TOOL span maps inputs/outputs to tool.* keys."""
+        span = span_from_mlflow(
+            {
+                "context": {"trace_id": "t1", "span_id": "s1"},
+                "name": "search_knowledge_base",
+                "status_code": "ERROR",
+                "status_message": "timeout",
+                "attributes": {
+                    "mlflow.spanType": "TOOL",
+                    "mlflow.spanInputs": {"query": "user profile"},
+                    "mlflow.spanOutputs": {"results": []},
+                },
+            }
+        )
+        assert span.span_type is SpanType.TOOL
+        assert span.source is TracePlatform.MLFLOW
+        assert span.attributes["tool.name"] == "search_knowledge_base"
+        assert span.attributes["tool.arguments"] == {"query": "user profile"}
+        assert span.attributes["tool.result"] == {"results": []}
+        assert span.attributes["tool.error"] == "timeout"
+
+    def test_langfuse_generation_span_maps_standard_attributes(self) -> None:
+        """Langfuse GENERATION span maps input/output/usage to standard keys."""
+        span = span_from_langfuse(
+            {
+                "id": "obs-1",
+                "traceId": "t1",
+                "type": "GENERATION",
+                "name": "llm-call",
+                "model": "gpt-4",
+                "usage": {"input": 50, "output": 100, "total": 150},
+                "input": [{"role": "user", "content": "hi"}],
+                "output": "The answer",
+            }
+        )
+        assert span.span_type is SpanType.GENERATION
+        assert span.source is TracePlatform.LANGFUSE
+        assert span.attributes["generation.prompt"] == [
+            {"role": "user", "content": "hi"}
+        ]
+        assert span.attributes["generation.completion"] == "The answer"
+        assert span.attributes["model.name"] == "gpt-4"
+        assert span.attributes["tokens.input"] == 50
+        assert span.attributes["tokens.output"] == 100
+        assert span.attributes["tokens.total"] == 150
+
+    def test_langfuse_unmapped_type_keeps_data_in_metadata(self) -> None:
+        """Langfuse span types without standard mapping keep data in metadata."""
+        span = span_from_langfuse(
+            {
+                "id": "obs-1",
+                "traceId": "t1",
+                "type": "SPAN",
+                "name": "pipeline",
+                "input": {"q": 1},
+                "output": {"r": 2},
+            }
+        )
+        assert not span.attributes
+        assert span.metadata["langfuse.inputs"] == {"q": 1}
+        assert span.metadata["langfuse.outputs"] == {"r": 2}
+
+    def test_otel_events_mapped_to_span_events(self) -> None:
+        """OTEL span events convert to SpanEvent instances."""
+        span = span_from_otel(
+            {
+                "traceId": "t1",
+                "spanId": "s1",
+                "name": "agent",
+                "events": [
+                    {
+                        "name": "exception",
+                        "timeUnixNano": "1700000000000000000",
+                        "attributes": [
+                            {
+                                "key": "exception.type",
+                                "value": {"stringValue": "ValueError"},
+                            }
+                        ],
+                    },
+                    {"attributes": [{"key": "x", "value": {"stringValue": "y"}}]},
+                ],
+            }
+        )
+        assert len(span.events) == 1
+        event = span.events[0]
+        assert event.name == "exception"
+        assert event.timestamp is not None
+        assert event.attributes["exception.type"] == "ValueError"
+
+    def test_otel_consumed_attrs_removed_from_metadata_for_mapped_types(self) -> None:
+        """GenAI data keys are consumed into attributes, not duplicated in metadata."""
+        span = span_from_otel(
+            {
+                "traceId": "t1",
+                "spanId": "s1",
+                "name": "chat",
+                "attributes": {
+                    "gen_ai.operation.name": "chat",
+                    "gen_ai.prompt": "hello",
+                    "gen_ai.completion": "world",
+                    "gen_ai.usage.input_tokens": 5,
+                    "custom.key": "kept",
+                },
+            }
+        )
+        assert span.span_type is SpanType.GENERATION
+        assert span.source is TracePlatform.OTEL
+        assert span.attributes["generation.prompt"] == "hello"
+        assert "gen_ai.prompt" not in span.metadata
+        assert "gen_ai.usage.input_tokens" not in span.metadata
+        assert span.metadata["otel.custom.key"] == "kept"
+
+    def test_mlflow_retriever_span_maps_standard_attributes(self) -> None:
+        """MLflow RETRIEVER span maps inputs/outputs to retrieval.* keys."""
+        span = span_from_mlflow(
+            {
+                "context": {"trace_id": "t1", "span_id": "s1"},
+                "name": "retrieve_docs",
+                "attributes": {
+                    "mlflow.spanType": "RETRIEVER",
+                    "mlflow.spanInputs": "find user information",
+                    "mlflow.spanOutputs": ["chunk 1", "chunk 2"],
+                },
+            }
+        )
+        assert span.span_type is SpanType.RETRIEVER
+        assert span.attributes["retrieval.query"] == "find user information"
+        assert span.attributes["retrieval.chunks"] == ["chunk 1", "chunk 2"]
+
+    def test_span_event_model_rejects_extra_fields(self) -> None:
+        """SpanEvent forbids extra fields."""
+        with pytest.raises(ValidationError):
+            SpanEvent.model_validate({"name": "e", "unknown": 1})
+
+    def test_span_rejects_inputs_outputs(self) -> None:
+        """Removed inputs/outputs fields are rejected (extra=forbid)."""
+        with pytest.raises(ValidationError):
+            Span.model_validate(
+                {"span_id": "s", "trace_id": "t", "name": "n", "inputs": 1}
+            )

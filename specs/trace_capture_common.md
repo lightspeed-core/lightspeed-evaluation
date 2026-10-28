@@ -296,6 +296,16 @@ Every adapter MUST:
 
 **Metrics never need to know the source.** They query by `span_type` and read from `attributes`/`llm`.
 
+**Normalization rules (existing adapters):**
+- A missing span trace ID is filled from its enclosing trace; conflicting IDs
+  and mixed-trace payloads are rejected, not rewritten.
+- Explicit zero timestamps and counts are preserved. OTLP nanosecond fields use
+  their explicit units. Non-finite, fractional, or overflowing numeric values
+  are rejected during normalization.
+- Retrieval source/score lists are emitted only when aligned with every chunk;
+  unrecognized retrieval shapes are preserved in metadata.
+- A string tag is one tag, never a sequence of characters.
+
 ### 3.5 Trace Model (Unchanged)
 
 `Trace` model stays as-is. `platform` field already tracks the source at trace level. `build_span_tree()` already works. Validation (unique span IDs, no cycles) already works.

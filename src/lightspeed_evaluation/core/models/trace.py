@@ -105,6 +105,20 @@ def normalize_span_type(raw: str | None) -> SpanType:
     return SPAN_TYPE_MAP.get(key, SpanType.UNKNOWN)
 
 
+class SpanEvent(BaseModel):
+    """Event within a span."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., description="Event name")
+    timestamp: Optional[datetime] = Field(
+        default=None, description="Event occurrence time"
+    )
+    attributes: dict[str, Any] = Field(
+        default_factory=dict, description="Event attributes"
+    )
+
+
 class TokenUsage(BaseModel):
     """Optional token usage for LLM-related spans."""
 
@@ -167,6 +181,10 @@ class Span(BaseModel):
     parent_span_id: Optional[str] = Field(
         default=None, description="Parent span ID; None for root spans"
     )
+    source: TracePlatform = Field(
+        default=TracePlatform.UNKNOWN,
+        description="Platform that produced the original span payload",
+    )
     name: str = Field(..., min_length=1, description="Human-readable span name")
     span_type: SpanType = Field(
         default=SpanType.UNKNOWN, description="Normalized span type"
@@ -182,8 +200,15 @@ class Span(BaseModel):
         ge=0.0,
         description="Span duration in seconds (all span types)",
     )
-    inputs: Optional[Any] = Field(default=None, description="Span inputs / arguments")
-    outputs: Optional[Any] = Field(default=None, description="Span outputs / results")
+    # Structured semantic data (standard keys, e.g. "tool.name",
+    # "generation.prompt", "tokens.input")
+    attributes: dict[str, Any] = Field(
+        default_factory=dict, description="Standard semantic span attributes"
+    )
+    events: list[SpanEvent] = Field(
+        default_factory=list, description="Events within this span"
+    )
+    # Platform-specific extras not representable in standard fields
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Arbitrary span metadata"
     )
