@@ -409,8 +409,8 @@ class TestAgentsConfigResolve:
         assert resolved["timeout"] == 300
         assert resolved["provider"] == "aws"
 
-    def test_two_level_merge(self) -> None:
-        """Test both levels merge per-key in ascending priority order."""
+    def test_three_level_merge(self) -> None:
+        """Test eval, agent, and default config priority per key."""
         config = AgentsConfig.model_validate(
             {
                 "default": {
@@ -431,7 +431,7 @@ class TestAgentsConfigResolve:
             agent_config_override={"timeout": 300}
         )
         assert resolved["timeout"] == 300
-        assert resolved["provider"] == "aws"
+        assert resolved["provider"] == "azure"
         assert resolved["num_retries"] == 3
 
     def test_no_agent_config_at_any_level(self) -> None:
