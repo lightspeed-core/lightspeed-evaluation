@@ -54,6 +54,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
+          OTEL_ANONYMIZATION_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::${OTEL_ANONYMIZATION_SECRET}"
           echo "==========Running Lightspeed Core======="
           docker run \
             --name $LSC_IMAGE_NAME \
@@ -61,6 +63,7 @@ jobs:
             -v $(pwd)/tests/integration/lightspeed-stack.yaml:/app-root/lightspeed-stack.yaml:z \
             -v $(pwd)/tests/integration/run.yaml:/app-root/run.yaml:z \
             -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+            -e OTEL_ANONYMIZATION_SECRET="${OTEL_ANONYMIZATION_SECRET}" \
             --detach \
             ${{ matrix.lsc_image_path }}
           echo "==========Running Lightspeed Core Done======="
