@@ -60,9 +60,11 @@ DEFAULT_API_BASE = "http://localhost:8080"
 DEFAULT_API_VERSION = "v1"
 DEFAULT_API_TIMEOUT = 300
 DEFAULT_ENDPOINT_TYPE = "streaming"
-SUPPORTED_ENDPOINT_TYPES = ["streaming", "query", "infer", "responses"]
+SUPPORTED_ENDPOINT_TYPES = ["streaming", "query", "infer", "responses", "sca_stream"]
+DEFAULT_API_CACHE_DIR = ".caches/api_cache"
 
 DEFAULT_API_NUM_RETRIES = 3
+DEFAULT_SCA_ACTION = "troubleshoot"
 
 # Agent Constants
 DEFAULT_AGENT_TYPE = "http_api"

@@ -1,0 +1,32 @@
+- conversation_group_id: sca_troubleshooting
+  description: Diagnose an image pull failure
+  turns:
+    - turn_id: report_issue
+      query: My application pod cannot start. Can you help?
+      turn_metrics:
+        - "nlp:rouge"
+      expected_response: >-
+        Which product and version are you using, and what
+        error or pod status do you see?
+
+    - turn_id: provide_details
+      query: >-
+        I am using OpenShift Container Platform 4.18.
+        The pod is in ImagePullBackOff. What should I check?
+      turn_metrics:
+        - "nlp:rouge"
+      expected_response: >-
+        Check the pod events for the image pull failure.
+        Verify the image name, tag, and registry credentials.
+
+    - turn_id: provide_evidence
+      query: >-
+        The pod events say manifest unknown.
+        The deployment requests app:1.2.4, but that tag
+        does not exist. The intended tag, app:1.2.3,
+        exists in the registry. How do I fix this?
+      turn_metrics:
+        - "nlp:rouge"
+      expected_response: >-
+        Update the deployment to use the existing app:1.2.3
+        image tag, then verify the rollout and pod readiness.

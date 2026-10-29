@@ -107,6 +107,14 @@ agents:
         filesystem-tools:
           env_var: API_KEY             # Environment variable containing the token/key
 
+api:
+  enabled: true
+  api_base: https://sca-agent-stage.apps.int.spoke.preprod.us-east-1.aws.paas.redhat.com
+  version: v1
+  endpoint_type: sca_stream
+  sca_action: troubleshoot
+  timeout: 300
+
 # Quality Score Configuration
 # Aggregated score from selected metrics for overall system quality assessment
 quality_score:
@@ -178,7 +186,6 @@ metrics_metadata:
       threshold: 0.75
       description: "LLM judge of AgenticRun workflow outcomes (diagnosis, execution, verification)"
       default: false
-
 
     # Script-based metrics
     "script:action_eval":
