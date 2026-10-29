@@ -309,8 +309,12 @@ def _indexed_from_span(span: Span, index: int) -> _IndexedCall:
     """Build an indexed call from a trace span."""
     return _IndexedCall(
         index=index,
-        name=span.name.strip() or "unknown",
-        arguments=span.inputs if span.inputs is not None else {},
+        name=str(span.attributes.get("tool.name") or span.name).strip() or "unknown",
+        arguments=(
+            span.attributes.get("tool.arguments")
+            if span.attributes.get("tool.arguments") is not None
+            else {}
+        ),
         span_id=span.span_id,
         parent_id=span.parent_span_id,
     )

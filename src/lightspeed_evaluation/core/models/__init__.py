@@ -58,6 +58,7 @@ from lightspeed_evaluation.core.models.trace import (
     LLMSpanData,
     ModelInfo,
     Span,
+    SpanEvent,
     SpanStatus,
     SpanType,
     TokenUsage,
@@ -126,6 +127,7 @@ __all__ = [
     "ModelInfo",
     "LLMSpanData",
     "Span",
+    "SpanEvent",
     "Trace",
     "TraceSession",
 ]
