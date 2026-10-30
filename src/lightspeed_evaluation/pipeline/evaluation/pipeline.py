@@ -53,11 +53,12 @@ def _resolve_eval_data_agent_config(
     Flat format (applies to all agents): {"timeout": 1200}
     Keyed format (per-agent): {"model_a": {"timeout": 300}}
 
-    Detection: if any value is a dict, the format is keyed.
+    Detection: keyed only when every value is a dict — a flat override can
+    legitimately contain mapping-valued fields (e.g. extra_request_params).
     """
     if not agent_config:
         return None
-    is_keyed = any(isinstance(v, dict) for v in agent_config.values())
+    is_keyed = all(isinstance(v, dict) for v in agent_config.values())
     if is_keyed:
         if agent_name and agent_name in agent_config:
             return agent_config[agent_name]  # type: ignore[return-value]
