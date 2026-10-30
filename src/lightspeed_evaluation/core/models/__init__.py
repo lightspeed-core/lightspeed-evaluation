@@ -67,6 +67,13 @@ from lightspeed_evaluation.core.models.trace import (
     TraceSession,
     normalize_span_type,
 )
+from lightspeed_evaluation.core.models.trace_config import (
+    CollectorLogsTraceSourceConfig,
+    LangfuseTraceSourceConfig,
+    MLflowTraceSourceConfig,
+    OtelTraceSourceConfig,
+    TraceSourceConfig,
+)
 
 __all__ = [
     # Agent config models
@@ -130,4 +137,10 @@ __all__ = [
     "SpanEvent",
     "Trace",
     "TraceSession",
+    # Trace source configuration
+    "TraceSourceConfig",
+    "LangfuseTraceSourceConfig",
+    "MLflowTraceSourceConfig",
+    "CollectorLogsTraceSourceConfig",
+    "OtelTraceSourceConfig",
 ]

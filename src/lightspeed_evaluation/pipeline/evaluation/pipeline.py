@@ -154,6 +154,43 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
             return config.agents.resolve_agent_config()
         return ("http_api", {"type": "http_api"})
 
+    def _validate_trace_source_reference(self, conv_data: EvaluationData) -> None:
+        """Validate the conversation's effective trace_source reference.
+
+        Raises:
+            ConfigurationError: If the merged reference is not a string, or
+                names a source missing from the registry.
+        """
+        if not conv_data.agent and not conv_data.agent_config:
+            return
+        if self.system_config.agents is None:
+            return
+        if not self.system_config.agents.enabled:
+            return
+
+        agent_name = conv_data.agent[0] if conv_data.agent else None
+        agent_config_override = _resolve_eval_data_agent_config(
+            conv_data.agent_config, agent_name
+        )
+        _name, agent_config = self.system_config.agents.resolve_agent_config(
+            agent_name=agent_name,
+            agent_config_override=agent_config_override,
+        )
+        trace_source_ref = agent_config.get("trace_source")
+        if trace_source_ref is None or trace_source_ref in ("", "none"):
+            return
+        if not isinstance(trace_source_ref, str):
+            raise ConfigurationError(
+                f"Conversation '{conv_data.conversation_group_id}' trace_source "
+                f"must be a string, got {type(trace_source_ref).__name__}"
+            )
+        if trace_source_ref not in (self.system_config.trace_sources or {}):
+            raise ConfigurationError(
+                f"Conversation '{conv_data.conversation_group_id}' references "
+                f"unknown trace_source '{trace_source_ref}'. Defined "
+                f"trace_sources: {list(self.system_config.trace_sources or {}) or 'none'}"
+            )
+
     def _resolve_driver_for_conversation(
         self, conv_data: EvaluationData
     ) -> tuple[AgentDriver, bool]:
@@ -163,6 +200,11 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
             Tuple of (driver, is_per_conversation). The boolean indicates whether
             the driver was created specifically for this conversation and should
             be closed after use.
+
+        Trace-source references are validated up front (see
+        _process_eval_data), so the merged reference is known to be either
+        a registered source name or a disable sentinel by the time a driver
+        is created.
         """
         if not conv_data.agent and not conv_data.agent_config:
             return self._default_driver, False
@@ -185,6 +227,18 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
             agent_name=agent_name,
             agent_config_override=agent_config_override,
         )
+        trace_source_ref = agent_config.get("trace_source")
+        if (
+            trace_source_ref
+            and trace_source_ref != "none"
+            and trace_source_ref not in (self.system_config.trace_sources or {})
+        ):
+            # Defensive: run_evaluation pre-validates; guard direct callers.
+            raise ConfigurationError(
+                f"Conversation '{conv_data.conversation_group_id}' references "
+                f"unknown trace_source '{trace_source_ref}'. Defined "
+                f"trace_sources: {list(self.system_config.trace_sources or {}) or 'none'}"
+            )
         return (
             self._registry.create_driver(
                 agent_config, enabled=self.system_config.agents.enabled
@@ -239,6 +293,11 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
         self, evaluation_data: list[EvaluationData]
     ) -> list[EvaluationResult]:
         """Process the conversations from the evaluation_data."""
+        # Validate all effective trace_source references before submitting
+        # work, so a bad reference fails before any conversation starts
+        # instead of aborting mid-run with orphaned results.
+        for conv_data in evaluation_data:
+            self._validate_trace_source_reference(conv_data)
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.system_config.core.max_threads
         ) as executor:
