@@ -166,6 +166,15 @@ class AgentBaseConfig(BaseModel):
         description="Human-readable description of this agent",
     )
 
+    trace_source: Optional[str] = Field(
+        default=None,
+        description=(
+            "Trace source name from the system trace_sources registry that "
+            "captures traces for this agent; 'none' explicitly disables "
+            "capture. Absent inherits the default agent config value."
+        ),
+    )
+
 
 class HttpApiAgentConfig(HttpApiBaseFields, AgentBaseConfig):
     """Configuration for an HTTP API agent."""

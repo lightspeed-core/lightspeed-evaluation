@@ -38,6 +38,7 @@ from lightspeed_evaluation.core.models.llm import (
     LLMConfig,
     LLMPoolConfig,
 )
+from lightspeed_evaluation.core.models.trace_config import TraceSourceConfig
 from lightspeed_evaluation.core.storage.config import StorageBackendConfig
 from lightspeed_evaluation.core.system.exceptions import ConfigurationError
 
@@ -210,6 +211,13 @@ class SystemConfig(BaseModel):
         default_factory=list,
         description="Storage backends for evaluation results (file and/or database)",
     )
+    trace_sources: dict[str, TraceSourceConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Registry of trace capture backends. Agents reference entries by "
+            "name via trace_source; credentials come from environment variables."
+        ),
+    )
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig, description="Logging configuration"
     )
@@ -268,6 +276,47 @@ class SystemConfig(BaseModel):
                         f"Default agent '{agent_name}' not found in agents "
                         f"definitions. Available: {available}"
                     )
+        return self
+
+    @model_validator(mode="after")
+    def validate_trace_source_references(self) -> "SystemConfig":
+        """Validate declared trace_source references against the registry.
+
+        Empty strings and the value "none" disable capture and are accepted.
+        Eval-data overrides are validated later, when the effective agent
+        config is resolved at capture startup.
+        """
+        references: list[tuple[str, str]] = []
+        if self.agents is not None:
+            default_ref = (self.agents.default.agent_config or {}).get("trace_source")
+            if default_ref is not None:
+                if not isinstance(default_ref, str):
+                    raise ConfigurationError(
+                        "agents.default.agent_config trace_source must be a "
+                        f"string, got {type(default_ref).__name__}"
+                    )
+                references.append(("agents.default.agent_config", default_ref))
+            for name, agent in self.agents.agents.items():
+                if agent.trace_source is not None:
+                    references.append((f"agents.{name}", agent.trace_source))
+
+        for source_name in self.trace_sources:
+            if not source_name.strip() or source_name == "none":
+                raise ConfigurationError(
+                    f"trace_sources key '{source_name}' is reserved and "
+                    "cannot name a trace source. Empty names and 'none' "
+                    "disable trace capture."
+                )
+
+        for location, reference in references:
+            if not reference or reference == "none":
+                continue
+            if reference not in self.trace_sources:
+                defined = list(self.trace_sources.keys()) or "none"
+                raise ConfigurationError(
+                    f"{location} references unknown trace_source "
+                    f"'{reference}'. Defined trace_sources: {defined}"
+                )
         return self
 
     @field_validator(
