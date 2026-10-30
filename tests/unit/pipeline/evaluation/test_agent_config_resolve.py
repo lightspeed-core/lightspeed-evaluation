@@ -53,3 +53,24 @@ class TestResolveEvalDataAgentConfig:
         }
         result = _resolve_eval_data_agent_config(config, None)
         assert result is None
+
+    def test_flat_config_with_mapping_field_returned_as_is(self) -> None:
+        """Flat config with a dict-valued field is flat, not keyed."""
+        config = {
+            "trace_source": "lf",
+            "extra_request_params": {"no_tools": True},
+        }
+        result = _resolve_eval_data_agent_config(config, "model_a")
+        assert result == config
+
+    def test_all_dict_config_is_ambiguous(self) -> None:
+        """A config of only dict values cannot be distinguished from keyed.
+
+        Known limitation: shape-based detection cannot tell a flat config
+        whose every field is a mapping from a per-agent keyed config. Such
+        configs are treated as keyed; combine with at least one scalar
+        field to express a flat override.
+        """
+        config = {"extra_request_params": {"no_tools": True}}
+        result = _resolve_eval_data_agent_config(config, "model_a")
+        assert result is None
