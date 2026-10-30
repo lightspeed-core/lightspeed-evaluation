@@ -303,7 +303,8 @@ Every adapter MUST:
   their explicit units. Non-finite, fractional, or overflowing numeric values
   are rejected during normalization.
 - Retrieval source/score lists are emitted only when aligned with every chunk;
-  unrecognized retrieval shapes are preserved in metadata.
+  raw retrieval inputs/outputs are always preserved in metadata because
+  normalization can be partial.
 - A string tag is one tag, never a sequence of characters.
 
 ### 3.5 Trace Model (Unchanged)
@@ -312,7 +313,7 @@ Every adapter MUST:
 
 ### 3.6 Update Existing Adapters
 
-Update `trace_adapters.py`:
+Existing platform normalizers must satisfy these contracts:
 - `span_from_otel()` — populate `attributes` (from OTEL attributes), `events` (from OTEL events), `source=TracePlatform.OTEL`. Remove `inputs`/`outputs` population.
 - `span_from_langfuse()` — populate `attributes` (mapped from input/output/metadata/usage), `source=TracePlatform.LANGFUSE`. Remove `inputs`/`outputs`.
 - `span_from_mlflow()` — populate `attributes` (mapped from MLflow attributes), `source=TracePlatform.MLFLOW`. Remove `inputs`/`outputs`.
@@ -711,7 +712,7 @@ def _extract_if_empty(self, turn_data: TurnData, traces: list[Trace]) -> None:
 
 ### Modified Files
 - `src/lightspeed_evaluation/core/models/trace.py` — Add SpanEvent, Span.attributes/events/source, remove inputs/outputs
-- `src/lightspeed_evaluation/core/models/trace_adapters.py` — Update all adapters to use attributes instead of inputs/outputs
+- Existing platform normalizers — Use attributes instead of inputs/outputs
 - `src/lightspeed_evaluation/core/models/agents.py` — Add `trace_source` to AgentBaseConfig
 - `src/lightspeed_evaluation/core/models/system.py` — Add `trace_sources` to SystemConfig
 - `src/lightspeed_evaluation/core/models/data.py` — Add `trace_session`, `trace_capture_status` to TurnData
@@ -723,7 +724,7 @@ def _extract_if_empty(self, turn_data: TurnData, traces: list[Trace]) -> None:
 - `tests/unit/core/tracing/test_manager.py`
 - `tests/unit/core/tracing/test_adapter.py`
 - `tests/unit/core/models/test_trace.py` — Update for new model fields
-- `tests/unit/core/models/test_trace_adapters.py` — Update for attributes
+- Platform normalization tests — Cover semantic attributes and source preservation
 - `tests/unit/pipeline/evaluation/test_processor_trace.py`
 
 ---
