@@ -57,6 +57,10 @@ class APIDataAmender:
             if api_response.contexts:
                 turn_data.contexts = api_response.contexts
 
+            # Update events from API output
+            if api_response.events:
+                turn_data.events = api_response.events
+
             # Update tool calls from API output
             if api_response.tool_calls:
                 logger.debug(
@@ -64,6 +68,8 @@ class APIDataAmender:
                     len(api_response.tool_calls),
                 )
                 turn_data.tool_calls = api_response.tool_calls
+            elif turn_data.events and not turn_data.tool_calls:
+                turn_data.extract_tool_calls_from_events()
             # Update token usage from API output (with fallback to 0 if not present)
             turn_data.api_input_tokens = getattr(api_response, "input_tokens", 0)
             turn_data.api_output_tokens = getattr(api_response, "output_tokens", 0)

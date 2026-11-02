@@ -84,36 +84,29 @@ agents:
   ls_api:
     type: http_api
     description: "Local Lightspeed API for development testing"
-    api_base: http://localhost:8080    # Base API URL (without version)
-    version: v1                        # API version (e.g., v1, v2)
-    endpoint_type: streaming           # Supported endpoint types: "query", "streaming", "infer" and "responses"
-    timeout: 600                       # Overrides default.agent_config.timeout for this agent
-
-    # API input configuration
-    provider: "openai"                 # LLM provider for queries
-    model: "gpt-4o-mini"               # Model to use for queries
-    system_prompt: null                # System prompt (default None)
-    # no_tools: null                   # Deprecated: use extra_request_params: {no_tools: true} instead
-    # Extra parameters merged into API request payload (per-turn override in eval.yaml takes priority)
-    # Example: extra_request_params:
-    #            mode: troubleshooting
-    #            no_tools: true        # Preferred way to disable tools
+    api_base: http://localhost:8080
+    version: v1
+    endpoint_type: streaming
+    timeout: 600
+    provider: "openai"
+    model: "gpt-4o-mini"
+    system_prompt: null
     extra_request_params: null
-
-    # MCP Server Authentication Configuration
     mcp_headers:
-      enabled: false                   # Enable MCP headers functionality
-      servers:                         # MCP server configurations
+      enabled: false
+      servers:
         filesystem-tools:
-          env_var: API_KEY             # Environment variable containing the token/key
+          env_var: API_KEY
 
-api:
-  enabled: true
-  api_base: https://sca-agent-stage.apps.int.spoke.preprod.us-east-1.aws.paas.redhat.com
-  version: v1
-  endpoint_type: sca_stream
-  sca_action: troubleshoot
-  timeout: 300
+  # SCA (Support Case Management Agent) HTTP API agent
+  sca_api:
+    type: http_api
+    description: "SCA Agent environment"
+    api_base: https://sca-agent.redhat.com #mock url
+    version: v1
+    endpoint_type: sca_stream
+    sca_action: troubleshoot
+    timeout: 300
 
 # Quality Score Configuration
 # Aggregated score from selected metrics for overall system quality assessment

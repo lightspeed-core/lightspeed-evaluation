@@ -94,6 +94,9 @@ class APIResponse(StreamingMetricsMixin):
         default_factory=list, description="Tool call sequences"
     )
     contexts: list[str] = Field(default_factory=list, description="Context from API")
+    events: list[dict[str, Any]] = Field(
+        default_factory=list, description="Raw SSE events from streaming endpoints"
+    )
     input_tokens: int = Field(default=0, ge=0, description="Input tokens used")
     output_tokens: int = Field(default=0, ge=0, description="Output tokens used")
 
@@ -101,6 +104,7 @@ class APIResponse(StreamingMetricsMixin):
     def from_raw_response(cls, raw_data: dict[str, Any]) -> "APIResponse":
         """Create APIResponse from raw API response data."""
         tool_call_sequences = raw_data.get("tool_calls", [])
+        events = raw_data.get("events", [])
 
         conversation_id = raw_data.get("conversation_id")
         if not conversation_id:
@@ -128,6 +132,7 @@ class APIResponse(StreamingMetricsMixin):
             conversation_id=conversation_id,
             tool_calls=tool_call_sequences,
             contexts=contexts,
+            events=events,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             time_to_first_token=time_to_first_token,
