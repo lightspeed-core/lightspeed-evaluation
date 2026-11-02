@@ -5,8 +5,6 @@ import json
 import logging
 import os
 import uuid
-from collections.abc import Iterator
-from dataclasses import dataclass, field
 from typing import Any, Optional, cast
 
 import httpx
@@ -20,6 +18,10 @@ from tenacity import (
     wait_exponential,
 )
 
+from lightspeed_evaluation.core.api.sca_parser import (
+    SCAStreamResult,
+    read_sca_stream,
+)
 from lightspeed_evaluation.core.api.streaming_parser import (
     parse_responses_streaming,
     parse_streaming_response,
@@ -32,73 +34,6 @@ from lightspeed_evaluation.core.models.agents import HttpApiAgentConfig
 from lightspeed_evaluation.core.system.exceptions import APIError
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class _SCAStreamResult:
-    """Aggregated data from a single SCA SSE stream."""
-
-    text: str = ""
-    conversation_id: str | None = None
-    trace_id: str | None = None
-    tool_calls: list[list[dict[str, Any]]] = field(default_factory=list)
-    chat_widgets: dict[str, Any] = field(default_factory=dict)
-    events: list[dict[str, Any]] = field(default_factory=list)
-
-
-def _parse_sca_tool_call(data: dict[str, Any]) -> dict[str, Any] | None:
-    """Extract a normalised tool-call dict from an SCA event payload."""
-    tool_name = data.get("name") or data.get("tool_name") or ""
-    arguments = data.get("args") or data.get("arguments") or {}
-    if not tool_name:
-        return None
-    tool_call: dict[str, Any] = {"tool_name": tool_name, "arguments": arguments}
-    result = data.get("result")
-    if result is not None:
-        tool_call["result"] = result
-    return tool_call
-
-
-def _extract_tool_calls_from_trace(
-    trace_data: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """Extract tool calls from a trace object.
-
-    Supports two schemas:
-    1. New SCA schema: trace has ``event == "tool_call"`` with ``tool_name``
-       directly on the trace dict.
-    2. Legacy node-tree schema: trace contains a ``nodes`` list with nested
-       tool entries identified by type or name.
-    """
-    tool_calls: list[dict[str, Any]] = []
-
-    if trace_data.get("event") == "tool_call":
-        tool_name = trace_data.get("tool_name", "")
-        if tool_name:
-            tool_calls.append({"tool_name": tool_name, "arguments": {}})
-        return tool_calls
-
-    nodes = trace_data.get("nodes", [])
-    if not isinstance(nodes, list):
-        return tool_calls
-    for node in nodes:
-        if not isinstance(node, dict):
-            continue
-        node_type = node.get("type", "").lower()
-        if node_type == "tool" or "tool" in node.get("name", "").lower():
-            tc = _parse_sca_tool_call(node)
-            if tc:
-                tool_calls.append(tc)
-        children = node.get("children") or node.get("nodes") or []
-        if isinstance(children, list):
-            for child in children:
-                if isinstance(child, dict):
-                    child_type = child.get("type", "").lower()
-                    if child_type == "tool" or "tool" in child.get("name", "").lower():
-                        tc = _parse_sca_tool_call(child)
-                        if tc:
-                            tool_calls.append(tc)
-    return tool_calls
 
 
 def _is_retryable_server_error(exception: BaseException) -> bool:
@@ -827,7 +762,7 @@ class APIClient:
 
         return payload
 
-    def _execute_sca_request(self, sca_payload: dict[str, Any]) -> _SCAStreamResult:
+    def _execute_sca_request(self, sca_payload: dict[str, Any]) -> SCAStreamResult:
         """Execute the request and return the parsed stream result."""
         if not self.client:
             raise APIError("HTTP client not initialized")
@@ -842,102 +777,10 @@ class APIClient:
 
             content_type = response.headers.get("content-type", "").split(";")[0]
             if content_type.strip().lower() == "text/event-stream":
-                return self._read_sca_stream(response)
+                return read_sca_stream(response)
 
             response.read()
-            return _SCAStreamResult(text=response.text)
-
-    def _iter_sca_events(self, response: httpx.Response) -> Iterator[dict[str, Any]]:
-        """Decode complete SSE frames, ignoring heartbeat comments."""
-        data_lines: list[str] = []
-        event_name = ""
-
-        for line in response.iter_lines():
-            if line.startswith(":"):
-                continue
-
-            if not line:
-                if data_lines:
-                    yield self._decode_sca_event(data_lines, event_name)
-                data_lines = []
-                event_name = ""
-                continue
-
-            field, _, value = line.partition(":")
-            value = value.removeprefix(" ")
-
-            if field == "data":
-                data_lines.append(value)
-            elif field == "event":
-                event_name = value
-
-    @staticmethod
-    def _decode_sca_event(data_lines: list[str], event_name: str) -> dict[str, Any]:
-        """Parse an event payload, using the SSE event name as a fallback."""
-        try:
-            event = json.loads("\n".join(data_lines))
-        except json.JSONDecodeError as exc:
-            raise APIError("Invalid JSON in SCA SSE event") from exc
-
-        if not isinstance(event, dict):
-            raise APIError("Expected an object in SCA SSE event")
-
-        event["event"] = event.get("event") or event_name
-        return event
-
-    def _read_sca_stream(self, response: httpx.Response) -> _SCAStreamResult:
-        """Assemble assistant tokens, tool calls, and metadata from the stream."""
-        chunks: list[str] = []
-        result = _SCAStreamResult()
-
-        for event in self._iter_sca_events(response):
-            result.conversation_id = (
-                event.get("conversation_id") or result.conversation_id
-            )
-            tid = event.get("trace_id")
-            if tid:
-                result.trace_id = tid
-
-            event_type = event["event"]
-
-            if event_type == "error":
-                raise APIError(f"SCA stream error: {event.get('data')}")
-
-            if event_type == "token":
-                token = event.get("data")
-                if not isinstance(token, str):
-                    raise APIError("SCA token data must be a string")
-                chunks.append(token)
-
-            elif event_type == "tool_call":
-                tool_data = event.get("data", event)
-                if isinstance(tool_data, dict):
-                    tc = _parse_sca_tool_call(tool_data.get("token", tool_data))
-                    if tc:
-                        result.tool_calls.append([tc])
-
-            elif event_type == "end":
-                result.text = "".join(chunks)
-                widgets = event.get("chat_widgets")
-                if isinstance(widgets, dict):
-                    result.chat_widgets = widgets
-
-            result.events.append(event)
-
-            trace_data = event.get("trace")
-            if isinstance(trace_data, dict):
-                extracted = _extract_tool_calls_from_trace(trace_data)
-                seen = {tc[0]["tool_name"] for tc in result.tool_calls if tc}
-                for tc in extracted:
-                    if tc["tool_name"] not in seen:
-                        result.tool_calls.append([tc])
-                        seen.add(tc["tool_name"])
-
-        if not result.text and chunks:
-            result.text = "".join(chunks)
-        if result.text:
-            return result
-        raise APIError("SCA stream completed without assistant text")
+            return SCAStreamResult(text=response.text)
 
     def _handle_response_errors(self, response: httpx.Response) -> None:
         """Handle HTTP response errors for streaming endpoint."""
