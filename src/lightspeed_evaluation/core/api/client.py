@@ -680,20 +680,19 @@ class APIClient:
         if api_request.attachments:
             attachment_uuids = [att.content for att in api_request.attachments]
 
+        extra = api_request.extra_request_params or {}
+
         payload: dict[str, Any] = {
             "message": api_request.query,
-            "action": self.config.sca_action,
         }
+        if "action" in extra:
+            payload["action"] = extra["action"]
         if api_request.conversation_id:
             payload["conversation_id"] = api_request.conversation_id
         if attachment_uuids:
             payload["attachment_uuids"] = attachment_uuids
-
-        extra = api_request.extra_request_params or {}
         if "pcm_session_id" in extra:
             payload["pcm_session_id"] = extra["pcm_session_id"]
-        if "action" in extra:
-            payload["action"] = extra["action"]
 
         return payload
 

@@ -127,10 +127,6 @@ class HttpApiBaseFields(BaseModel):
         ge=0,
         description="Maximum number of retry attempts for 429 errors",
     )
-    sca_action: str = Field(
-        default="",
-        description="SCA action type for sca_stream endpoint (e.g., troubleshoot)",
-    )
 
     @field_validator("endpoint_type")
     @classmethod

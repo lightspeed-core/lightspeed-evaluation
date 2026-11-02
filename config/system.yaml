@@ -105,8 +105,9 @@ agents:
     api_base: https://sca-agent.redhat.com #mock url
     version: v1
     endpoint_type: sca_stream
-    sca_action: troubleshoot
     timeout: 300
+    extra_request_params:
+      action: troubleshoot
 
 # Quality Score Configuration
 # Aggregated score from selected metrics for overall system quality assessment
