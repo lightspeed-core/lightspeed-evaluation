@@ -19,7 +19,6 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_API_TIMEOUT,
     DEFAULT_API_VERSION,
     DEFAULT_ENDPOINT_TYPE,
-    DEFAULT_SCA_ACTION,
     SUPPORTED_AGENT_TYPES,
     SUPPORTED_ENDPOINT_TYPES,
 )
@@ -129,7 +128,7 @@ class HttpApiBaseFields(BaseModel):
         description="Maximum number of retry attempts for 429 errors",
     )
     sca_action: str = Field(
-        default=DEFAULT_SCA_ACTION,
+        default="",
         description="SCA action type for sca_stream endpoint (e.g., troubleshoot)",
     )
 

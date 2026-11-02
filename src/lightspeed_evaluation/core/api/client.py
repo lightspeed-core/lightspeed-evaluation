@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import uuid
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any, Optional, cast
 
 import httpx
@@ -273,7 +275,7 @@ class APIClient:
         """Query the API using non-streaming endpoint with retry on 429."""
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("standard"):
             response = self.client.post(
                 f"/{self.config.version}/query",
                 json=self._serialize_request(api_request),
@@ -284,24 +286,20 @@ class APIClient:
             if "response" not in response_data:
                 raise APIError("API response missing 'response' field")
 
-            # Format tool calls to match streaming endpoint format
-            # Currently only compatible with OLS
             if "tool_calls" in response_data and response_data["tool_calls"]:
                 raw_tool_calls = response_data["tool_calls"]
                 formatted_tool_calls = []
 
-                # Convert list[dict] to list[list[dict]] format
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
                         formatted_tool: dict[str, object] = {
                             "tool_name": tool_call.get("tool_name")
-                            or tool_call.get("name")  # Current OLS
+                            or tool_call.get("name")
                             or "",
                             "arguments": tool_call.get("arguments")
-                            or tool_call.get("args")  # Current OLS
+                            or tool_call.get("args")
                             or {},
                         }
-                        # Capture tool result if present (optional field)
                         result = tool_call.get("result")
                         if result is not None:
                             formatted_tool["result"] = result
@@ -311,24 +309,11 @@ class APIClient:
 
             return APIResponse.from_raw_response(response_data)
 
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("standard", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "standard query") from e
-
     def _streaming_query(self, api_request: APIRequest) -> APIResponse:
         """Query the API using streaming endpoint."""
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("streaming"):
             with self.client.stream(
                 "POST",
                 f"/{self.config.version}/streaming_query",
@@ -337,19 +322,6 @@ class APIClient:
                 self._handle_response_errors(response)
                 raw_data = parse_streaming_response(response)
                 return APIResponse.from_raw_response(raw_data)
-
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("streaming", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "streaming query") from e
 
     def _build_infer_request(self, api_request: APIRequest) -> dict[str, object]:
         """Build request payload for the RLSAPI /infer endpoint.
@@ -480,7 +452,7 @@ class APIClient:
         """
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("infer"):
             infer_request = self._build_infer_request(api_request)
 
             response = self.client.post(
@@ -498,19 +470,6 @@ class APIClient:
             self._format_infer_tool_calls(response_data)
 
             return APIResponse.from_raw_response(response_data)
-
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("infer", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "infer query") from e
 
     def _build_responses_request(self, api_request: APIRequest) -> dict[str, Any]:
         """Build request payload for the /responses endpoint.
@@ -636,7 +595,7 @@ class APIClient:
         """
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("responses"):
             responses_request = self._build_responses_request(api_request)
 
             if responses_request.get("stream"):
@@ -662,19 +621,6 @@ class APIClient:
                 raise APIError("API response missing 'response' field")
 
             return APIResponse.from_raw_response(response_data)
-
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("responses", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "responses query") from e
 
     @staticmethod
     def _extract_citation_contexts(
@@ -709,7 +655,7 @@ class APIClient:
 
         sca_payload = self._serialize_sca_request(api_request)
 
-        try:
+        with self._query_error_handler("sca_stream"):
             stream_result = self._execute_sca_request(sca_payload)
             conversation_id = (
                 stream_result.conversation_id
@@ -727,17 +673,6 @@ class APIClient:
                 input_tokens=0,
                 output_tokens=0,
             )
-
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("sca_stream", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429:
-                raise
-            raise self._handle_http_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "sca_stream query") from e
 
     def _serialize_sca_request(self, api_request: APIRequest) -> dict[str, Any]:
         """Translate an internal APIRequest to the SCA chat/stream payload."""
@@ -815,21 +750,28 @@ class APIClient:
                 else "Unknown error"
             )
 
-    def _handle_timeout_error(self, endpoint_type: str, timeout: int) -> APIError:
-        """Create appropriate timeout error message."""
-        return APIError(f"API {endpoint_type} query timeout after {timeout} seconds")
-
-    def _handle_http_error(self, e: httpx.HTTPStatusError) -> APIError:
-        """Handle HTTP status errors."""
-        return APIError(f"API error: {e.response.status_code} - {e.response.text}")
-
-    def _handle_validation_error(self, e: ValueError) -> APIError:
-        """Handle validation errors."""
-        return APIError(f"Response validation error: {e}")
-
-    def _handle_unexpected_error(self, e: Exception, operation: str) -> APIError:
-        """Handle unexpected errors."""
-        return APIError(f"Unexpected error in {operation}: {e}")
+    @contextmanager
+    def _query_error_handler(self, endpoint_type: str) -> Generator[None, None, None]:
+        """Wrap query execution with unified error handling."""
+        try:
+            yield
+        except httpx.TimeoutException as e:
+            raise APIError(
+                f"API {endpoint_type} query timeout after "
+                f"{self.config.timeout} seconds"
+            ) from e
+        except httpx.HTTPStatusError as e:
+            if _is_retryable_server_error(e):
+                raise
+            raise APIError(
+                f"API error: {e.response.status_code} - {e.response.text}"
+            ) from e
+        except ValueError as e:
+            raise APIError(f"Response validation error: {e}") from e
+        except APIError:
+            raise
+        except Exception as e:
+            raise APIError(f"Unexpected error in {endpoint_type} query: {e}") from e
 
     def _get_cache_key(self, request: APIRequest) -> str:
         """Get cache key for the query."""
