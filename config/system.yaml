@@ -77,37 +77,33 @@ agents:
   default:
     agent: ls_api                      # Default agent to use when eval_data doesn't specify one
     agent_config:                      # Shared config applied to all agents (agent-level overrides win)
-      timeout: 300
-      num_retries: 3
+      timeout: 300                     # Default API request timeout in seconds
+      num_retries: 3                   # Default retry attempts for 429/5xx errors
 
   # Lightspeed-stack compatible HTTP API agent
   ls_api:
     type: http_api
     description: "Local Lightspeed API for development testing"
-    api_base: http://localhost:8080
-    version: v1
-    endpoint_type: streaming
-    timeout: 600
-    provider: "openai"
-    model: "gpt-4o-mini"
-    system_prompt: null
+    api_base: http://localhost:8080      # Base API URL (without version)
+    version: v1                          # API version (e.g., v1, v2)
+    endpoint_type: streaming             # Use "streaming", "query", "infer", "responses", or "sca_stream"
+    timeout: 600                         # API request timeout in seconds
+    provider: "openai"                   # LLM provider for queries
+    model: "gpt-4o-mini"                 # Model to use for queries
+    system_prompt: null                  # System prompt (default None)
+    # Extra parameters merged into API request payload (per-turn override in eval data takes priority)
+    # Example: extra_request_params:
+    #            mode: troubleshooting
     extra_request_params: null
+    # MCP Server Authentication Configuration
     mcp_headers:
-      enabled: false
-      servers:
+      enabled: false                     # Enable MCP headers functionality
+      servers:                           # MCP server configurations
         filesystem-tools:
-          env_var: API_KEY
+          env_var: API_KEY               # Environment variable containing the token/key
+    # Legacy authentication (fallback when mcp_headers is not configured or disabled)
+    # Authentication via API_KEY environment variable only
 
-  # SCA (Support Case Management Agent) HTTP API agent
-  sca_api:
-    type: http_api
-    description: "SCA Agent environment"
-    api_base: https://sca-agent.redhat.com #mock url
-    version: v1
-    endpoint_type: sca_stream
-    timeout: 300
-    extra_request_params:
-      action: troubleshoot
 
 # Quality Score Configuration
 # Aggregated score from selected metrics for overall system quality assessment

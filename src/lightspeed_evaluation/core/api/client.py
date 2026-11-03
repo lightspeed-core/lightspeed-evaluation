@@ -4,7 +4,6 @@ import hashlib
 import json
 import logging
 import os
-import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any, Optional, cast
@@ -286,6 +285,8 @@ class APIClient:
             if "response" not in response_data:
                 raise APIError("API response missing 'response' field")
 
+            # Format tool calls to match streaming endpoint format
+            # Convert list[dict] to list[list[dict]] format
             if "tool_calls" in response_data and response_data["tool_calls"]:
                 raw_tool_calls = response_data["tool_calls"]
                 formatted_tool_calls = []
@@ -300,6 +301,7 @@ class APIClient:
                             or tool_call.get("args")
                             or {},
                         }
+                        # Capture tool result if present (optional field)
                         result = tool_call.get("result")
                         if result is not None:
                             formatted_tool["result"] = result
@@ -657,16 +659,22 @@ class APIClient:
 
         with self._query_error_handler("sca_stream"):
             stream_result = self._execute_sca_request(sca_payload)
+            # Prefer the server-returned ID, then fall back to the ID
+            # already present in the request (from a previous turn)
             conversation_id = (
                 stream_result.conversation_id
                 or sca_payload.get("conversation_id")
                 or api_request.conversation_id
-                or ""
             )
+            if not conversation_id:
+                raise APIError(
+                    "SCA server did not return a conversation_id. "
+                    "Multi-turn follow-up is not possible for this response."
+                )
             contexts = self._extract_citation_contexts(stream_result.chat_widgets)
             return APIResponse(
                 response=stream_result.text.strip(),
-                conversation_id=conversation_id or str(uuid.uuid4()),
+                conversation_id=conversation_id,
                 tool_calls=stream_result.tool_calls,
                 contexts=contexts,
                 events=stream_result.events,
@@ -714,7 +722,10 @@ class APIClient:
                 return read_sca_stream(response)
 
             response.read()
-            return SCAStreamResult(text=response.text)
+            text = response.text.strip()
+            if not text:
+                raise APIError("SCA plain-text response was empty")
+            return SCAStreamResult(text=text)
 
     def _handle_response_errors(self, response: httpx.Response) -> None:
         """Handle HTTP response errors for streaming endpoint."""
@@ -782,6 +793,7 @@ class APIClient:
             "model",
             "system_prompt",
             "attachments",
+            "conversation_id",
         ]
         parts = [str(request_dict[k]) for k in keys_to_hash]
 
