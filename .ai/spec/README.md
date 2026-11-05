@@ -11,7 +11,7 @@ An evaluation framework for LLM-powered applications — evaluating responses, c
 
 ## Scope
 
-Covers the `src/lightspeed_evaluation/` package — the active evaluation framework. Out of scope: `lsc_agent_eval/` (deprecated, being consolidated), `src/generate_answers/` (moving to separate repo), `dashboard/` (visualization frontend).
+Covers the `src/lightspeed_evaluation/` package — the active evaluation framework. Out of scope: `src/generate_answers/` (moving to separate repo), `dashboard/` (visualization frontend).
 
 ## Audience
 
