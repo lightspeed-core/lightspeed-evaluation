@@ -165,6 +165,10 @@ class TurnData(StreamingMetricsMixin):
     tool_calls: Optional[list[list[dict[str, Any]]]] = Field(
         default=None, description="Actual Tool calls - populated by API if enabled"
     )
+    events: Optional[list[dict[str, Any]]] = Field(
+        default=None,
+        description="Raw SSE events from streaming endpoints - used to extract tool calls",
+    )
     contexts: Optional[list[str]] = Field(
         default=None, min_length=1, description="Contexts"
     )
@@ -275,6 +279,34 @@ class TurnData(StreamingMetricsMixin):
     def is_metric_invalid(self, metric: str) -> bool:
         """Returns True if the metric didn't pass the validation."""
         return metric in self._invalid_metrics
+
+    def extract_tool_calls_from_events(self) -> None:
+        """Extract tool calls from events when tool_calls is empty."""
+        if self.tool_calls:
+            return
+        events: list[dict[str, Any]] = self.events or []
+        if not events:
+            return
+        extracted: list[list[dict[str, Any]]] = []
+        seen: set[str] = set()
+        for event in events:
+            trace = event.get("trace")
+            if not isinstance(trace, dict):
+                continue
+            if trace.get("event") != "tool_call":
+                continue
+            tool_name = trace.get("tool_name", "")
+            if tool_name and tool_name not in seen:
+                extracted.append([{"tool_name": tool_name, "arguments": {}}])
+                seen.add(tool_name)
+        if extracted:
+            self.tool_calls = extracted
+
+    @model_validator(mode="after")
+    def _auto_extract_tool_calls_from_events(self) -> "TurnData":
+        """Auto-extract tool calls from events during model construction."""
+        self.extract_tool_calls_from_events()
+        return self
 
     @model_validator(mode="after")
     def populate_query_from_openshift_agentic_run_spec(self) -> "TurnData":

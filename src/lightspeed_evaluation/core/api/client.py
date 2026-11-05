@@ -4,6 +4,8 @@ import hashlib
 import json
 import logging
 import os
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any, Optional, cast
 
 import httpx
@@ -17,6 +19,10 @@ from tenacity import (
     wait_exponential,
 )
 
+from lightspeed_evaluation.core.api.sca_parser import (
+    SCAStreamResult,
+    read_sca_stream,
+)
 from lightspeed_evaluation.core.api.streaming_parser import (
     parse_responses_streaming,
     parse_streaming_response,
@@ -50,6 +56,7 @@ def _is_retryable_server_error(exception: BaseException) -> bool:
     return status in (429, 502, 503, 504)
 
 
+# pylint: disable-next=too-many-instance-attributes
 class APIClient:
     """API client for actual data generation."""
 
@@ -76,6 +83,7 @@ class APIClient:
         self._streaming_query_with_retry = retry_decorator(self._streaming_query)
         self._rlsapi_infer_query_with_retry = retry_decorator(self._rlsapi_infer_query)
         self._responses_query_with_retry = retry_decorator(self._responses_query)
+        self._sca_stream_query_with_retry = retry_decorator(self._sca_stream_query)
 
     def _create_retry_decorator(self) -> Any:
         return retry(
@@ -207,6 +215,8 @@ class APIClient:
                 response = self._rlsapi_infer_query_with_retry(api_request)
             elif self.config.endpoint_type == "responses":
                 response = self._responses_query_with_retry(api_request)
+            elif self.config.endpoint_type == "sca_stream":
+                response = self._sca_stream_query_with_retry(api_request)
             else:
                 response = self._standard_query_with_retry(api_request)
 
@@ -264,7 +274,7 @@ class APIClient:
         """Query the API using non-streaming endpoint with retry on 429."""
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("standard"):
             response = self.client.post(
                 f"/{self.config.version}/query",
                 json=self._serialize_request(api_request),
@@ -276,20 +286,19 @@ class APIClient:
                 raise APIError("API response missing 'response' field")
 
             # Format tool calls to match streaming endpoint format
-            # Currently only compatible with OLS
+            # Convert list[dict] to list[list[dict]] format
             if "tool_calls" in response_data and response_data["tool_calls"]:
                 raw_tool_calls = response_data["tool_calls"]
                 formatted_tool_calls = []
 
-                # Convert list[dict] to list[list[dict]] format
                 for tool_call in raw_tool_calls:
                     if isinstance(tool_call, dict):
                         formatted_tool: dict[str, object] = {
                             "tool_name": tool_call.get("tool_name")
-                            or tool_call.get("name")  # Current OLS
+                            or tool_call.get("name")
                             or "",
                             "arguments": tool_call.get("arguments")
-                            or tool_call.get("args")  # Current OLS
+                            or tool_call.get("args")
                             or {},
                         }
                         # Capture tool result if present (optional field)
@@ -302,24 +311,11 @@ class APIClient:
 
             return APIResponse.from_raw_response(response_data)
 
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("standard", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "standard query") from e
-
     def _streaming_query(self, api_request: APIRequest) -> APIResponse:
         """Query the API using streaming endpoint."""
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("streaming"):
             with self.client.stream(
                 "POST",
                 f"/{self.config.version}/streaming_query",
@@ -328,19 +324,6 @@ class APIClient:
                 self._handle_response_errors(response)
                 raw_data = parse_streaming_response(response)
                 return APIResponse.from_raw_response(raw_data)
-
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("streaming", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "streaming query") from e
 
     def _build_infer_request(self, api_request: APIRequest) -> dict[str, object]:
         """Build request payload for the RLSAPI /infer endpoint.
@@ -471,7 +454,7 @@ class APIClient:
         """
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("infer"):
             infer_request = self._build_infer_request(api_request)
 
             response = self.client.post(
@@ -489,19 +472,6 @@ class APIClient:
             self._format_infer_tool_calls(response_data)
 
             return APIResponse.from_raw_response(response_data)
-
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("infer", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "infer query") from e
 
     def _build_responses_request(self, api_request: APIRequest) -> dict[str, Any]:
         """Build request payload for the /responses endpoint.
@@ -627,7 +597,7 @@ class APIClient:
         """
         if not self.client:
             raise APIError("HTTP client not initialized")
-        try:
+        with self._query_error_handler("responses"):
             responses_request = self._build_responses_request(api_request)
 
             if responses_request.get("stream"):
@@ -654,18 +624,108 @@ class APIClient:
 
             return APIResponse.from_raw_response(response_data)
 
-        except httpx.TimeoutException as e:
-            raise self._handle_timeout_error("responses", self.config.timeout) from e
-        except httpx.HTTPStatusError as e:
-            if _is_retryable_server_error(e):
-                raise
-            raise self._handle_http_error(e) from e
-        except ValueError as e:
-            raise self._handle_validation_error(e) from e
-        except APIError:
-            raise
-        except Exception as e:
-            raise self._handle_unexpected_error(e, "responses query") from e
+    @staticmethod
+    def _extract_citation_contexts(
+        chat_widgets: dict[str, Any],
+    ) -> list[str]:
+        """Pull citation titles from chat_widgets into context strings."""
+        citations = chat_widgets.get("citations", [])
+        if not isinstance(citations, list):
+            return []
+        contexts: list[str] = []
+        for cite in citations:
+            if isinstance(cite, dict):
+                title = cite.get("publishedTitle", "")
+                if title:
+                    contexts.append(title)
+        return contexts
+
+    def _sca_stream_query(self, api_request: APIRequest) -> APIResponse:
+        """Query the SCA agent API using its streaming chat endpoint.
+
+        Translates the internal APIRequest into the SCA request format
+        and adapts the SCA response back to APIResponse.
+
+        The SCA endpoint accepts:
+            POST /api/v1/chat/stream
+            {conversation_id, message, action, pcm_session_id, attachment_uuids}
+
+        And returns a streaming or plain-text response (string body).
+        """
+        if not self.client:
+            raise APIError("HTTP client not initialized")
+
+        sca_payload = self._serialize_sca_request(api_request)
+
+        with self._query_error_handler("sca_stream"):
+            stream_result = self._execute_sca_request(sca_payload)
+            # Prefer the server-returned ID, then fall back to the ID
+            # already present in the request (from a previous turn)
+            conversation_id = (
+                stream_result.conversation_id
+                or sca_payload.get("conversation_id")
+                or api_request.conversation_id
+            )
+            if not conversation_id:
+                raise APIError(
+                    "SCA server did not return a conversation_id. "
+                    "Multi-turn follow-up is not possible for this response."
+                )
+            contexts = self._extract_citation_contexts(stream_result.chat_widgets)
+            return APIResponse(
+                response=stream_result.text.strip(),
+                conversation_id=conversation_id,
+                tool_calls=stream_result.tool_calls,
+                contexts=contexts,
+                events=stream_result.events,
+                input_tokens=0,
+                output_tokens=0,
+            )
+
+    def _serialize_sca_request(self, api_request: APIRequest) -> dict[str, Any]:
+        """Translate an internal APIRequest to the SCA chat/stream payload."""
+        attachment_uuids: list[str] = []
+        if api_request.attachments:
+            attachment_uuids = [att.content for att in api_request.attachments]
+
+        extra = api_request.extra_request_params or {}
+
+        payload: dict[str, Any] = {
+            "message": api_request.query,
+        }
+        if "action" in extra:
+            payload["action"] = extra["action"]
+        if api_request.conversation_id:
+            payload["conversation_id"] = api_request.conversation_id
+        if attachment_uuids:
+            payload["attachment_uuids"] = attachment_uuids
+        if "pcm_session_id" in extra:
+            payload["pcm_session_id"] = extra["pcm_session_id"]
+
+        return payload
+
+    def _execute_sca_request(self, sca_payload: dict[str, Any]) -> SCAStreamResult:
+        """Execute the request and return the parsed stream result."""
+        if not self.client:
+            raise APIError("HTTP client not initialized")
+
+        with self.client.stream(
+            "POST",
+            f"/api/{self.config.version}/chat/stream",
+            json=sca_payload,
+            headers={"Accept": "text/event-stream"},
+        ) as response:
+            self._handle_response_errors(response)
+
+            content_type = response.headers.get("content-type", "").split(";")[0]
+            if content_type.strip().lower() == "text/event-stream":
+                return read_sca_stream(response)
+
+            response.read()
+            text = response.text.strip()
+            if not text:
+                raise APIError("SCA plain-text response was empty")
+            return SCAStreamResult(text=text)
 
     def _handle_response_errors(self, response: httpx.Response) -> None:
         """Handle HTTP response errors for streaming endpoint."""
@@ -700,21 +760,28 @@ class APIClient:
                 else "Unknown error"
             )
 
-    def _handle_timeout_error(self, endpoint_type: str, timeout: int) -> APIError:
-        """Create appropriate timeout error message."""
-        return APIError(f"API {endpoint_type} query timeout after {timeout} seconds")
-
-    def _handle_http_error(self, e: httpx.HTTPStatusError) -> APIError:
-        """Handle HTTP status errors."""
-        return APIError(f"API error: {e.response.status_code} - {e.response.text}")
-
-    def _handle_validation_error(self, e: ValueError) -> APIError:
-        """Handle validation errors."""
-        return APIError(f"Response validation error: {e}")
-
-    def _handle_unexpected_error(self, e: Exception, operation: str) -> APIError:
-        """Handle unexpected errors."""
-        return APIError(f"Unexpected error in {operation}: {e}")
+    @contextmanager
+    def _query_error_handler(self, endpoint_type: str) -> Generator[None, None, None]:
+        """Wrap query execution with unified error handling."""
+        try:
+            yield
+        except httpx.TimeoutException as e:
+            raise APIError(
+                f"API {endpoint_type} query timeout after "
+                f"{self.config.timeout} seconds"
+            ) from e
+        except httpx.HTTPStatusError as e:
+            if _is_retryable_server_error(e):
+                raise
+            raise APIError(
+                f"API error: {e.response.status_code} - {e.response.text}"
+            ) from e
+        except ValueError as e:
+            raise APIError(f"Response validation error: {e}") from e
+        except APIError:
+            raise
+        except Exception as e:
+            raise APIError(f"Unexpected error in {endpoint_type} query: {e}") from e
 
     def _get_cache_key(self, request: APIRequest) -> str:
         """Get cache key for the query."""
@@ -726,6 +793,7 @@ class APIClient:
             "model",
             "system_prompt",
             "attachments",
+            "conversation_id",
         ]
         parts = [str(request_dict[k]) for k in keys_to_hash]
 
