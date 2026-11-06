@@ -101,6 +101,16 @@ def _handle_turn_complete(ctx: StreamingContext, event_data: dict[str, Any]) -> 
         logger.debug("Found final response (%d characters)", len(ctx.final_response))
 
 
+def _handle_token(ctx: StreamingContext, event_data: dict[str, Any]) -> None:
+    """Accumulate incremental token text (OLS emits tokens, no turn_complete).
+
+    A later turn_complete event overwrites the accumulated text.
+    """
+    token = event_data.get("token")
+    if isinstance(token, str):
+        ctx.final_response += token
+
+
 def _handle_tool_call(ctx: StreamingContext, event_data: dict[str, Any]) -> None:
     """Parse and store a tool call from legacy or new format event data."""
     # Support both formats:
@@ -141,6 +151,7 @@ _STREAMING_EVENT_HANDLERS: dict[
 ] = {
     "start": _handle_start,
     "turn_complete": _handle_turn_complete,
+    "token": _handle_token,
     "tool_call": _handle_tool_call,
     "tool_result": _handle_tool_result,
     "end": _handle_end,
@@ -301,6 +312,8 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
         handler = _STREAMING_EVENT_HANDLERS.get(event)
         if handler:
             handler(ctx, event_data)
+
+    ctx.final_response = ctx.final_response.strip()
 
     _validate_streaming_response(ctx)
     return ctx.to_response_dict()
