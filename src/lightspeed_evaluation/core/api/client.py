@@ -868,3 +868,4 @@ class APIClient:
         """Close API client."""
         if self.client:
             self.client.close()
+
