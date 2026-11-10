@@ -827,7 +827,6 @@ class APIClient:
             "model",
             "system_prompt",
             "attachments",
-            "conversation_id",
         ]
         parts = [str(request_dict[k]) for k in keys_to_hash]
 
@@ -868,4 +867,3 @@ class APIClient:
         """Close API client."""
         if self.client:
             self.client.close()
-

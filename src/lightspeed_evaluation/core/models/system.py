@@ -16,7 +16,6 @@ from pydantic import (
 
 from lightspeed_evaluation.core.constants import (
     DEFAULT_AGENT_CACHE_SUBDIR,
-    DEFAULT_API_NUM_RETRIES,
     DEFAULT_CACHE_BASE_DIR,
     DEFAULT_LLM_CACHE_SUBDIR,
     DEFAULT_LOG_FORMAT,
@@ -53,14 +52,6 @@ class APIConfig(HttpApiBaseFields):
     enabled: bool = Field(default=True, description="Enable API-based data generation")
     mcp_headers: Optional[MCPHeadersConfig] = Field(
         default=None, description="MCP headers configuration for authentication"
-    )
-    num_retries: int = Field(
-        default=DEFAULT_API_NUM_RETRIES,
-        ge=0,
-        description=(
-            "Maximum number of retry attempts for API calls on "
-            "429 Too Many Requests errors"
-        ),
     )
 
     @field_validator("endpoint_type")
