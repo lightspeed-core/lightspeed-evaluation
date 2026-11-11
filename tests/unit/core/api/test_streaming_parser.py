@@ -63,6 +63,73 @@ class TestParseStreamingResponse:
         with pytest.raises(ValueError, match="No final response found"):
             parse_streaming_response(mock_response)
 
+    def test_parse_token_only_response(self, mock_response: Any) -> None:
+        """Test OLS-style stream: token events with no turn_complete."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_ols"}}',
+            'data: {"event": "token", "data": {"id": 0, "token": "Hello"}}',
+            'data: {"event": "token", "data": {"id": 1, "token": " world"}}',
+            'data: {"event": "token", "data": {"id": 2, "token": "!\\n"}}',
+            'data: {"event": "end", "data": {}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert result["response"] == "Hello world!"
+        assert result["conversation_id"] == "conv_ols"
+
+    def test_turn_complete_overrides_tokens(self, mock_response: Any) -> None:
+        """Test turn_complete text takes precedence over streamed tokens."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_mix"}}',
+            'data: {"event": "token", "data": {"token": "partial"}}',
+            'data: {"event": "turn_complete", "data": {"token": "Full response"}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert result["response"] == "Full response"
+
+    def test_ignores_non_string_tokens(self, mock_response: Any) -> None:
+        """Test non-string token payloads are ignored."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_bad"}}',
+            'data: {"event": "token", "data": {"token": 123}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        with pytest.raises(ValueError, match="No final response found"):
+            parse_streaming_response(mock_response)
+
+    def test_token_only_stream_without_end_is_rejected(
+        self, mock_response: Any
+    ) -> None:
+        """Test a token-only stream cut off before the end event is rejected."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_cut"}}',
+            'data: {"event": "token", "data": {"id": 0, "token": "Hello"}}',
+            'data: {"event": "token", "data": {"id": 1, "token": " wor"}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        with pytest.raises(ValueError, match="Incomplete streaming output"):
+            parse_streaming_response(mock_response)
+
+    def test_turn_complete_without_end_is_accepted(self, mock_response: Any) -> None:
+        """Test a turn_complete stream stays valid without an end event."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_tc"}}',
+            'data: {"event": "turn_complete", "data": {"token": "Full response"}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert result["response"] == "Full response"
+        assert result["conversation_id"] == "conv_tc"
+
     def test_parse_response_missing_conversation_id(self, mock_response: Any) -> None:
         """Test parsing fails when conversation ID is missing."""
         lines = [
