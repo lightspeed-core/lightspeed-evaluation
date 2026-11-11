@@ -215,6 +215,7 @@ def mock_error_handler(mocker: MockerFixture) -> EvaluationErrorHandler:
         tag: set[str],
         turn_id: str | None = None,
         query: str = "",
+        turn_data: TurnData | None = None,
     ) -> EvaluationResult:
         return EvaluationResult(
             conversation_group_id=conv_id,
@@ -224,6 +225,7 @@ def mock_error_handler(mocker: MockerFixture) -> EvaluationErrorHandler:
             result="ERROR",
             reason=reason,
             query=query,
+            response=(turn_data.response or "") if turn_data else "",
         )
 
     handler.create_error_result.side_effect = create_error_result_side_effect

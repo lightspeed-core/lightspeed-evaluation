@@ -757,6 +757,16 @@ class MetricsEvaluator:
             time_to_first_token=turn_data.time_to_first_token if turn_data else None,
             streaming_duration=turn_data.streaming_duration if turn_data else None,
             tokens_per_second=turn_data.tokens_per_second if turn_data else None,
+            tool_calls=_to_json_str(turn_data.tool_calls) if turn_data else None,
+            contexts=_to_json_str(turn_data.contexts) if turn_data else None,
+            expected_response=turn_data.expected_response if turn_data else None,
+            expected_intent=turn_data.expected_intent if turn_data else None,
+            expected_keywords=(
+                _to_json_str(turn_data.expected_keywords) if turn_data else None
+            ),
+            expected_tool_calls=(
+                _to_json_str(turn_data.expected_tool_calls) if turn_data else None
+            ),
         )
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:

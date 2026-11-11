@@ -101,7 +101,6 @@ class APIResponse(StreamingMetricsMixin):
     def from_raw_response(cls, raw_data: dict[str, Any]) -> "APIResponse":
         """Create APIResponse from raw API response data."""
         tool_call_sequences = raw_data.get("tool_calls", [])
-
         conversation_id = raw_data.get("conversation_id")
         if not conversation_id:
             raise ValueError("conversation_id is required in API response")

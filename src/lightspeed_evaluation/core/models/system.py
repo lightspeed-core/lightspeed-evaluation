@@ -24,6 +24,7 @@ from lightspeed_evaluation.core.constants import (
     DEFAULT_LOG_SOURCE_LEVEL,
     DEFAULT_VISUALIZATION_DPI,
     DEFAULT_VISUALIZATION_FIGSIZE,
+    SUPPORTED_ENDPOINT_TYPES,
     SUPPORTED_GRAPH_TYPES,
 )
 from lightspeed_evaluation.core.models.agents import (
@@ -52,6 +53,14 @@ class APIConfig(HttpApiBaseFields):
     mcp_headers: Optional[MCPHeadersConfig] = Field(
         default=None, description="MCP headers configuration for authentication"
     )
+
+    @field_validator("endpoint_type")
+    @classmethod
+    def validate_endpoint_type(cls, v: str) -> str:
+        """Validate endpoint type is supported."""
+        if v not in SUPPORTED_ENDPOINT_TYPES:
+            raise ValueError(f"Endpoint type must be one of {SUPPORTED_ENDPOINT_TYPES}")
+        return v
 
 
 class LoggingConfig(BaseModel):

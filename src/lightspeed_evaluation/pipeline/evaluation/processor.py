@@ -311,6 +311,7 @@ class ConversationProcessor:
                     tag=conv_data.tag,
                     turn_id=turn_data.turn_id,
                     query=turn_data.query or "",
+                    turn_data=turn_data,
                 )
             if result:
                 results.append(result)
