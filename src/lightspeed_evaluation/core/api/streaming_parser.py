@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 DATA_PREFIX = "data: "
 CONTENT_EVENTS = frozenset(("token", "tool_call", "tool_result", "turn_complete"))
+COMPLETION_EVENTS = frozenset(("turn_complete", "end"))
 
 
 @dataclass
@@ -289,6 +290,7 @@ _RESPONSES_EVENT_HANDLERS: dict[
 def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
     """Parse a /streaming SSE response into a response dict with performance metrics."""
     ctx = StreamingContext()
+    stream_completed = False
 
     for line in response.iter_lines():
         line = line.strip()
@@ -309,13 +311,16 @@ def parse_streaming_response(response: httpx.Response) -> dict[str, Any]:
         if event in CONTENT_EVENTS:
             ctx.perf.capture_ttft()
 
+        if event in COMPLETION_EVENTS:
+            stream_completed = True
+
         handler = _STREAMING_EVENT_HANDLERS.get(event)
         if handler:
             handler(ctx, event_data)
 
     ctx.final_response = ctx.final_response.strip()
 
-    _validate_streaming_response(ctx)
+    _validate_streaming_response(ctx, stream_completed)
     return ctx.to_response_dict()
 
 
@@ -421,10 +426,12 @@ def _format_tool_sequences(
     return sequences
 
 
-def _validate_streaming_response(ctx: StreamingContext) -> None:
+def _validate_streaming_response(ctx: StreamingContext, stream_completed: bool) -> None:
     """Validate that required streaming response fields are present."""
     if not ctx.final_response:
         raise ValueError("No final response found in streaming output")
+    if not stream_completed:
+        raise ValueError("Incomplete streaming output: no end event received")
     if not ctx.conversation_id:
         raise ValueError("No Conversation ID found")
 
