@@ -66,7 +66,6 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 ## Constraints
 
 - Python 3.11+ required.
-- `lsc_agent_eval/` is deprecated — new features go in `src/lightspeed_evaluation/`.
 - `src/generate_answers/` is moving to a separate repo — no new features.
 - Always use pytest-mock (`mocker.patch`), never `unittest.mock`.
 - Do not disable lint warnings (`# noqa`, `# type: ignore`, `# pylint: disable`).

@@ -27,5 +27,3 @@ jobs:
         run: uv sync --group dev
       - name: Run tests
         run: uv run python -m pytest tests --cov=src --cov-report term-missing
-      - name: Run agent tests
-        run: cd lsc_agent_eval && uv sync --group dev && uv run python -m pytest tests --cov=src --cov-report term-missing
