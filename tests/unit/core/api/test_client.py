@@ -746,6 +746,55 @@ class TestRetryLogic:
 
         assert not _is_retryable_server_error(ValueError("not an HTTP error"))
 
+    def test_is_retryable_server_error_transport_failures(self) -> None:
+        """Test transport failures are retried, except for timeouts."""
+        assert _is_retryable_server_error(httpx.ConnectError("connection refused"))
+        assert _is_retryable_server_error(
+            httpx.RemoteProtocolError("Server disconnected without sending a response")
+        )
+        assert not _is_retryable_server_error(httpx.ReadTimeout("timed out"))
+
+        wrapped = APIError("Unexpected error in standard query")
+        wrapped.__cause__ = httpx.RemoteProtocolError("Server disconnected")
+        assert _is_retryable_server_error(wrapped)
+
+        wrapped_timeout = APIError("API standard query timeout after 300 seconds")
+        wrapped_timeout.__cause__ = httpx.ReadTimeout("timed out")
+        assert not _is_retryable_server_error(wrapped_timeout)
+
+        wrapped_value_error = APIError("Response validation error")
+        wrapped_value_error.__cause__ = ValueError("bad payload")
+        assert not _is_retryable_server_error(wrapped_value_error)
+
+    def test_standard_query_retries_on_transport_error_then_succeeds(
+        self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
+    ) -> None:
+        """Test standard query retries a dropped connection and then succeeds."""
+        mocker.patch("time.sleep")
+        mock_response_success = mocker.Mock(status_code=200)
+        mock_response_success.json.return_value = {
+            "response": "Success after reconnect",
+            "conversation_id": "conv_123",
+        }
+
+        mock_client = mocker.Mock()
+        mock_client.post.side_effect = [
+            httpx.RemoteProtocolError("Server disconnected"),
+            mock_response_success,
+        ]
+        mock_client.headers = {}
+
+        mocker.patch(
+            "lightspeed_evaluation.core.api.client.httpx.Client",
+            return_value=mock_client,
+        )
+
+        client = APIClient(basic_api_config_query_endpoint)
+        result = client.query("Test standard query")
+
+        assert result.response == "Success after reconnect"
+        assert mock_client.post.call_count == 2
+
     def test_standard_query_retries_on_429_then_succeeds(
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
     ) -> None:

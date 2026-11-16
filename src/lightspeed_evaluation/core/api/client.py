@@ -39,19 +39,44 @@ from lightspeed_evaluation.core.system.exceptions import APIError
 logger = logging.getLogger(__name__)
 
 
-def _is_retryable_server_error(exception: BaseException) -> bool:
-    """Check if exception is a retryable HTTP error (429 or transient 5xx).
+def _is_transient_transport_error(exception: BaseException) -> bool:
+    """Check if the exception is a transport failure worth retrying.
 
-    Only 502 Bad Gateway, 503 Service Unavailable, and 504 Gateway Timeout
-    are retried. 500 Internal Server Error is excluded as it may indicate
-    permanent server bugs.
+    Timeouts are excluded: the request may already be running on the server,
+    so retrying it would duplicate the work.
 
     Args:
         exception: The exception to check.
 
     Returns:
-        True if the exception is a retryable HTTP status error.
+        True if the exception is a retryable transport failure.
     """
+    return isinstance(exception, httpx.TransportError) and not isinstance(
+        exception, httpx.TimeoutException
+    )
+
+
+def _is_retryable_server_error(exception: BaseException) -> bool:
+    """Check if an exception is transient and the request should be retried.
+
+    Transport failures such as dropped connections and protocol errors are
+    retried, as are 429 and transient 5xx responses. 500 Internal Server Error
+    is excluded as it may indicate a permanent server bug.
+
+    Args:
+        exception: The exception to check.
+
+    Returns:
+        True if the exception is transient and the request should be retried.
+    """
+    # Query methods wrap unexpected failures in APIError, so tenacity only
+    # sees the wrapper; inspect the cause to keep the retry effective.
+    if _is_transient_transport_error(exception):
+        return True
+    if isinstance(exception, APIError) and _is_transient_transport_error(
+        exception.__cause__
+    ):
+        return True
     if not isinstance(exception, httpx.HTTPStatusError):
         return False
     status = exception.response.status_code
@@ -115,6 +140,10 @@ class APIClient:
                 base_url=self.config.api_base,
                 verify=verify,
                 timeout=self.config.timeout,
+                # A long-running query can outlive the server's keep-alive
+                # timeout, leaving a socket the server has already closed. Open
+                # a fresh connection per query instead of reusing it.
+                limits=httpx.Limits(max_keepalive_connections=0),
             )
             self.client.headers.update({"Content-Type": "application/json"})
 
@@ -229,7 +258,7 @@ class APIClient:
         except RetryError as e:
             raise APIError(
                 f"Maximum retry attempts ({self.config.num_retries}) reached "
-                "due to retryable server errors (HTTP 429/5xx)."
+                "due to retryable server errors (transport failures, HTTP 429/5xx)."
             ) from e
 
     def _prepare_request(
