@@ -16,7 +16,7 @@ uv-lock-check: ## Check that the uv.lock file is in a good shape
 
 
 install-deps-test: ## Install all required dev dependencies needed to test the service, according to uv.lock
-	uv sync --group dev
+	uv sync --group dev --extra nlp-metrics
 
 update-deps: uv-lock-regenerate install-deps-test ## Regenerate lock files (with cooldown) and sync dev deps
 
