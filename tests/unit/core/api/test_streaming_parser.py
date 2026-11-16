@@ -92,6 +92,43 @@ class TestParseStreamingResponse:
 
         assert result["response"] == "Full response"
 
+    def test_tool_call_discards_preamble_tokens(self, mock_response: Any) -> None:
+        """Test text streamed before a tool call is not part of the answer."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_tools"}}',
+            'data: {"event": "token", "data": {"id": 0, "token": "Let me search. "}}',
+            'data: {"event": "tool_call", "data": '
+            '{"id": "tc_1", "name": "search_openshift_documentation", "args": {}}}',
+            'data: {"event": "tool_result", "data": '
+            '{"id": "tc_1", "status": "success", "content": "doc"}}',
+            'data: {"event": "token", "data": {"id": 1, "token": "The answer."}}',
+            'data: {"event": "end", "data": {}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert result["response"] == "The answer."
+        assert len(result["tool_calls"]) == 1
+
+    def test_tool_result_discards_tool_round_text(self, mock_response: Any) -> None:
+        """Test text streamed during a tool round is not part of the answer."""
+        lines = [
+            'data: {"event": "start", "data": {"conversation_id": "conv_tools"}}',
+            'data: {"event": "tool_call", "data": '
+            '{"id": "tc_1", "name": "search", "args": {}}}',
+            'data: {"event": "token", "data": {"id": 0, "token": "Running search... "}}',
+            'data: {"event": "tool_result", "data": '
+            '{"id": "tc_1", "status": "success", "content": "doc"}}',
+            'data: {"event": "token", "data": {"id": 1, "token": "The answer."}}',
+            'data: {"event": "end", "data": {}}',
+        ]
+        mock_response.iter_lines.return_value = lines
+
+        result = parse_streaming_response(mock_response)
+
+        assert result["response"] == "The answer."
+
     def test_ignores_non_string_tokens(self, mock_response: Any) -> None:
         """Test non-string token payloads are ignored."""
         lines = [

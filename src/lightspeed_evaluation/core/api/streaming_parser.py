@@ -114,6 +114,8 @@ def _handle_token(ctx: StreamingContext, event_data: dict[str, Any]) -> None:
 
 def _handle_tool_call(ctx: StreamingContext, event_data: dict[str, Any]) -> None:
     """Parse and store a tool call from legacy or new format event data."""
+    # Text streamed before a tool call is a preamble, not the final answer.
+    ctx.final_response = ""
     # Support both formats:
     # - Legacy: {"event": "tool_call", "data": {"token": {"tool_name": ..., "arguments": ...}}}
     # - New: {"event": "tool_call", "data": {"name": ..., "args": ..., "id": ...}}
@@ -129,6 +131,9 @@ def _handle_tool_call(ctx: StreamingContext, event_data: dict[str, Any]) -> None
 
 def _handle_tool_result(ctx: StreamingContext, event_data: dict[str, Any]) -> None:
     """Associate a tool result with its corresponding tool call by ID."""
+    # The answer is generated after the last tool result; anything streamed
+    # during the tool round is not part of it.
+    ctx.final_response = ""
     tool_id = event_data.get("id")
     content = event_data.get("content")
     if not tool_id or content is None:
