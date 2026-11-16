@@ -39,29 +39,29 @@ from lightspeed_evaluation.core.system.exceptions import APIError
 logger = logging.getLogger(__name__)
 
 
-def _is_transient_transport_error(exception: BaseException) -> bool:
-    """Check if the exception is a transport failure worth retrying.
+def _is_connection_failure(exception: BaseException | None) -> bool:
+    """Check if the exception happened before the request could be sent.
 
-    Timeouts are excluded: the request may already be running on the server,
-    so retrying it would duplicate the work.
+    Only connection-establishment failures are retried. Once a connection is
+    established the server may already have processed the request, and the
+    query endpoints have no idempotency contract, so replaying it could
+    duplicate a conversation turn.
 
     Args:
-        exception: The exception to check.
+        exception: The exception to check, typically an ``__cause__``.
 
     Returns:
-        True if the exception is a retryable transport failure.
+        True if the exception is safe to retry.
     """
-    return isinstance(exception, httpx.TransportError) and not isinstance(
-        exception, httpx.TimeoutException
-    )
+    return isinstance(exception, (httpx.ConnectError, httpx.ConnectTimeout))
 
 
 def _is_retryable_server_error(exception: BaseException) -> bool:
     """Check if an exception is transient and the request should be retried.
 
-    Transport failures such as dropped connections and protocol errors are
-    retried, as are 429 and transient 5xx responses. 500 Internal Server Error
-    is excluded as it may indicate a permanent server bug.
+    Connection failures, 429, and transient 5xx responses are retried. 500
+    Internal Server Error is excluded as it may indicate a permanent server
+    bug.
 
     Args:
         exception: The exception to check.
@@ -71,11 +71,9 @@ def _is_retryable_server_error(exception: BaseException) -> bool:
     """
     # Query methods wrap unexpected failures in APIError, so tenacity only
     # sees the wrapper; inspect the cause to keep the retry effective.
-    if _is_transient_transport_error(exception):
+    if _is_connection_failure(exception):
         return True
-    if isinstance(exception, APIError) and _is_transient_transport_error(
-        exception.__cause__
-    ):
+    if isinstance(exception, APIError) and _is_connection_failure(exception.__cause__):
         return True
     if not isinstance(exception, httpx.HTTPStatusError):
         return False
