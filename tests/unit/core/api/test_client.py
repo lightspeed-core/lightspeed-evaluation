@@ -10,7 +10,11 @@ import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.api.client import APIClient, _is_retryable_server_error
+from lightspeed_evaluation.core.api.client import (
+    APIClient,
+    _is_connection_failure,
+    _is_retryable_server_error,
+)
 from lightspeed_evaluation.core.models import APIConfig, APIResponse
 from lightspeed_evaluation.core.system.exceptions import APIError
 
@@ -773,7 +777,7 @@ class TestRetryLogic:
         wrapped_value_error = APIError("Response validation error")
         wrapped_value_error.__cause__ = ValueError("bad payload")
         assert not _is_retryable_server_error(wrapped_value_error)
-        assert not _is_retryable_server_error(None)
+        assert not _is_connection_failure(None)
 
     def test_standard_query_retries_on_connection_error_then_succeeds(
         self, basic_api_config_query_endpoint: APIConfig, mocker: MockerFixture
