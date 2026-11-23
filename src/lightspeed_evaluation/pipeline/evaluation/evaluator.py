@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import time
 from typing import Any, Optional
 
@@ -124,6 +125,7 @@ class MetricsEvaluator:
             "custom": CustomMetrics(self.llm_manager, metric_manager=metric_manager),
             "script": ScriptEvalMetrics(script_manager),
         }
+        self.handlers.update(self._create_uaem_handler(self.llm_manager))
 
         # Judge orchestrator handles multi-judge evaluation and aggregation
         self.judge_orchestrator = JudgeOrchestrator(
@@ -132,6 +134,44 @@ class MetricsEvaluator:
             handler_factory=self._create_handler_for_judge,
             status_determiner=self._determine_status,
         )
+
+    def _create_uaem_handler(self, llm_manager: LLMManager) -> dict[str, Any]:
+        """Build the uaem_lib handler, if the uaem-poc extra is installed.
+
+        The framework depends on the ``lib_side`` metric library, shipped
+        by the optional ``uaem-poc`` extra. A plain install skips it, and
+        configuring a ``uaem_lib:`` metric then produces the usual
+        unsupported-framework error.
+
+        Args:
+            llm_manager: LLM manager the handler should judge with.
+
+        Returns:
+            Framework name to handler, or an empty dict when unavailable.
+        """
+        try:
+            # pylint: disable=import-outside-toplevel
+            from lightspeed_evaluation.core.metrics.uaem import (
+                DEFAULT_RAW_SCORE_PATH,
+                FRAMEWORK,
+                RawScoreSink,
+                UAEMLibMetrics,
+            )
+
+            sink = RawScoreSink(
+                os.environ.get("UAEM_RAW_SCORES", DEFAULT_RAW_SCORE_PATH)
+            )
+            return {
+                FRAMEWORK: UAEMLibMetrics(
+                    llm_manager, self.embedding_manager, raw_sink=sink
+                )
+            }
+        except ImportError:
+            logger.debug(
+                "UAEM metrics unavailable; install the 'uaem-poc' extra to enable "
+                "the uaem_lib framework"
+            )
+            return {}
 
     def _create_handler_for_judge(
         self, framework: str, judge_manager: LLMManager
@@ -146,6 +186,9 @@ class MetricsEvaluator:
             return DeepEvalMetrics(judge_manager, metric_manager=self.metric_manager)
         if framework == "custom":
             return CustomMetrics(judge_manager, metric_manager=self.metric_manager)
+        uaem_handler = self._create_uaem_handler(judge_manager)
+        if framework in uaem_handler:
+            return uaem_handler[framework]
         raise ConfigurationError(f"Unsupported LLM framework for panel: {framework}")
 
     def evaluate_metric(  # pylint: disable=too-many-locals

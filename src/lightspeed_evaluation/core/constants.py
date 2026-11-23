@@ -106,6 +106,7 @@ SUPPORTED_CSV_COLUMNS = [
     "metric_metadata",
     "result",
     "score",
+    "raw_score",
     "threshold",
     "reason",
     "query",

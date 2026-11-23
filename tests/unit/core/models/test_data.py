@@ -754,6 +754,49 @@ class TestMetricResultJudgeScores:
         assert len(result.judge_scores) == 2
 
 
+class TestMetricResultNativeScale:
+    """Tests for MetricResult.raw_score / score_min / score_max."""
+
+    def test_native_scale_fields_default_to_none(self) -> None:
+        """Metrics on the usual [0, 1] scale leave the native-scale fields unset."""
+        result = MetricResult(result="PASS", score=0.8, threshold=0.7)
+
+        assert result.raw_score is None
+        assert result.score_min is None
+        assert result.score_max is None
+
+    def test_raw_score_keeps_value_outside_zero_one(self) -> None:
+        """A signed native score survives alongside the normalised score."""
+        result = MetricResult(
+            result="FAIL",
+            score=0.4,
+            threshold=1.0,
+            raw_score=-0.6,
+            score_min=-1.0,
+            score_max=1.0,
+            reason="1 - |-0.6| = 0.4",
+        )
+
+        assert result.raw_score == -0.6
+        assert (result.score_min, result.score_max) == (-1.0, 1.0)
+        assert result.score == 0.4
+
+    def test_evaluation_result_inherits_native_scale_fields(self) -> None:
+        """EvaluationResult carries the fields through to output."""
+        result = EvaluationResult(
+            conversation_group_id="conv1",
+            turn_id="turn1",
+            metric_identifier="uaem:granularity_fit",
+            result="FAIL",
+            score=0.0,
+            raw_score=1.0,
+            score_min=-1.0,
+            score_max=1.0,
+        )
+
+        assert result.raw_score == 1.0
+
+
 class TestEvaluationDataAgentFields:
     """Tests for agent-related fields on EvaluationData."""
 

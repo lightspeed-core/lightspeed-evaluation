@@ -1,0 +1,94 @@
+# UIEINTEL-698 spike config: the coverage criterion scored through the
+# Ragas-style (approach B) metric library.
+#
+# uv sync --extra uaem-poc
+# uv run lightspeed-eval --system-config config/uaem_poc_system.yaml \
+#     --eval-data config/uaem_poc_eval_data.yaml
+# uv run python -m lightspeed_evaluation.core.output.uaem_rollup
+
+core:
+  max_threads: 4
+  fail_on_invalid_data: true
+  # Disabled: litellm's caching path lazily imports a proxy-only module chain
+  # that requires `fastapi` (not a dependency here), raising
+  # "ModuleNotFoundError: No module named 'fastapi'" on every judge call.
+  cache_enabled: false
+  cache_base_dir: .caches
+
+# Both approaches must see the same judge for the §5.9 parity check.
+llm_pool:
+  defaults:
+    timeout: 300
+    num_retries: 3
+    parameters:
+      temperature: 0.0
+      max_completion_tokens: 1024
+  models:
+    judge_gpt_4o_mini:
+      description: "Primary judge"
+      provider: openai
+      model: gpt-4o-mini
+    judge_gpt_4_1_mini:
+      description: "Second panel judge"
+      provider: openai
+      model: gpt-4.1-mini
+
+judge_panel:
+  judges:
+    - judge_gpt_4o_mini
+    - judge_gpt_4_1_mini
+  # Panel off by default so scores stay comparable with the other branch.
+  # List the three metric ids here to exercise the panel path.
+  enabled_metrics: []
+  aggregation_strategy: average
+
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small"
+
+# Offline evaluation: responses come from eval_data.yaml.
+agents:
+  enabled: false
+
+storage:
+  - type: file
+    output_dir: ./results
+    base_filename: poc
+    enabled_outputs: [csv, json]
+
+metrics_metadata:
+  turn_level:
+    "uaem_lib:req_coverage_prop_model":
+      threshold: 0.90
+      description: "Proportion of request requirements the output satisfies"
+      default: false
+    "uaem_lib:scope_containment_prop_model":
+      threshold: 0.80
+      description: "Proportion of output sentences that stay on topic"
+      default: false
+    # Native condition is BETWEEN(0, 0) on a [-1, 1] score. The framework can
+    # only express `score >= threshold`, and the handler reports 1 - |x|, so
+    # the equivalent threshold is 1.0. Documented because it is exactly the
+    # kind of silent semantic change the spike is meant to surface.
+    "uaem_lib:granularity_fit_score_model":
+      threshold: 1.00
+      description: "Granularity fit, reported as 1 - |score|"
+      default: false
+
+  conversation_level:
+    "uaem_lib:req_coverage_prop_model":
+      threshold: 0.90
+      description: "Proportion of request requirements the output satisfies"
+      default: false
+    "uaem_lib:scope_containment_prop_model":
+      threshold: 0.80
+      description: "Proportion of output sentences that stay on topic"
+      default: false
+    "uaem_lib:granularity_fit_score_model":
+      threshold: 1.00
+      description: "Granularity fit, reported as 1 - |score|"
+      default: false
+
+logging:
+  source_level: INFO
+  package_level: WARNING

@@ -678,6 +678,20 @@ class MetricResult(BaseModel):
         le=1.0,
         description="Threshold for pass/fail",
     )
+    raw_score: Optional[float] = Field(
+        default=None,
+        description=(
+            "Score on the metric's native scale, when that scale is not [0, 1]. "
+            "'score' always stays normalised to [0, 1]; this field keeps the "
+            "untransformed value so it is not lost."
+        ),
+    )
+    score_min: Optional[float] = Field(
+        default=None, description="Minimum of the metric's native score scale"
+    )
+    score_max: Optional[float] = Field(
+        default=None, description="Maximum of the metric's native score scale"
+    )
     reason: str = Field(default="", description="Explanation of the result")
     judge_llm_input_tokens: int = Field(
         default=0, ge=0, description="Judge LLM input tokens used"

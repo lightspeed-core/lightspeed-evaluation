@@ -36,6 +36,7 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
         prompt: str,
         n: int = 1,
         return_single: bool = True,
+        system_prompt: str | None = None,
         **kwargs: Any,
     ) -> str | list[str]:
         """Make LLM call and return response(s).
@@ -44,15 +45,20 @@ class BaseCustomLLM:  # pylint: disable=too-few-public-methods
             prompt: Text prompt to send
             n: Number of responses to generate (default 1)
             return_single: If True and n=1, return single string. If False, always return list.
+            system_prompt: Optional system message prepended to the conversation
             **kwargs: Additional LLM parameters
 
         Returns:
             Single string if return_single=True and n=1, otherwise list of strings
         """
+        messages = [{"role": "user", "content": prompt}]
+        if system_prompt:
+            messages.insert(0, {"role": "system", "content": system_prompt})
+
         # Note: Forbidden keys are rejected at LLMParametersConfig load time
         call_params = {
             "model": self.model_name,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "n": n,
             "timeout": self.llm_params.get("timeout"),
             "num_retries": self.llm_params.get("num_retries"),

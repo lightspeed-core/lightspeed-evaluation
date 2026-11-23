@@ -1,0 +1,54 @@
+# PoC dataset. Chosen so the three metrics land on different parts of their
+# ranges: full coverage, partial coverage, off-topic drift, and granularity
+# mismatches in both directions (-1 and +1), which is what makes the
+# ONE_MINUS_ABS rollup worth testing.
+
+- conversation_group_id: coverage_poc
+  description: "UIEINTEL-698 coverage criterion — turn and conversation level"
+  tag: poc
+  conversation_metrics:
+    - uaem_lib:req_coverage_prop_model
+    - uaem_lib:scope_containment_prop_model
+    - uaem_lib:granularity_fit_score_model
+  turns:
+    - turn_id: all_requirements_met
+      query: "List two benefits of OpenShift and cite one source."
+      response: >-
+        Benefit one: built-in CI/CD pipelines through OpenShift Pipelines.
+        Benefit two: strong security defaults, including SELinux and
+        restricted security context constraints. Source: the Red Hat
+        OpenShift documentation.
+      turn_metrics: &all_metrics
+        - uaem_lib:req_coverage_prop_model
+        - uaem_lib:scope_containment_prop_model
+        - uaem_lib:granularity_fit_score_model
+
+    - turn_id: half_requirements_met
+      query: "Explain what a Kubernetes Deployment is and what a StatefulSet is."
+      response: >-
+        A Deployment manages a replicated set of identical, stateless pods and
+        handles rolling updates for them.
+      turn_metrics: *all_metrics
+
+    - turn_id: off_topic_drift
+      query: "Describe OpenShift in two sentences."
+      response: >-
+        OpenShift is Red Hat's enterprise Kubernetes platform. The weather in
+        Brno is cold this week. Local trams run every ten minutes.
+      turn_metrics: *all_metrics
+
+    - turn_id: too_abstract
+      query: "Give me a step-by-step guide to installing OpenShift on bare metal."
+      response: >-
+        You install it with the installer and then it works.
+      turn_metrics: *all_metrics
+
+    - turn_id: too_granular
+      query: "In one sentence, what is OpenShift?"
+      response: >-
+        OpenShift is a Kubernetes distribution. It bundles an integrated
+        registry. It ships OpenShift Pipelines, built on Tekton, for CI/CD.
+        It adds Routes on top of Ingress. It enforces security context
+        constraints by default. It provides the OpenShift Console web UI.
+        It supports Operators through the Operator Lifecycle Manager.
+      turn_metrics: *all_metrics

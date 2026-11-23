@@ -34,9 +34,10 @@ class TestMetricsEvaluator:
         """Test evaluator initialization."""
         assert evaluator.config_loader == config_loader
         assert evaluator.metric_manager == mock_metric_manager
-        assert (
-            len(evaluator.handlers) == 6
-        )  # ragas, deepeval, geval, custom, script, nlp
+        # ragas, deepeval, geval, custom, script, nlp, plus uaem_lib when
+        # the uaem-poc extra is installed.
+        expected = 7 if "uaem_lib" in evaluator.handlers else 6
+        assert len(evaluator.handlers) == expected
 
     def test_initialization_raises_error_without_config(
         self,
