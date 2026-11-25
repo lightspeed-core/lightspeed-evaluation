@@ -1,11 +1,11 @@
-"""Shared pieces for both UAEM metric frameworks.
+"""Shared helpers for the ``uaem_lib`` metrics framework.
 
-Trace mapping, the [0, 1] score contract and the raw-score sink are the same
-under either library architecture, so they live here rather than being
-charged to one of them.
+Trace mapping, the [0, 1] score contract, and the raw-score sink used by the
+post-run rollup.
 """
 
 import json
+import os
 import re
 import threading
 from pathlib import Path
@@ -15,6 +15,7 @@ from pydantic import BaseModel, ValidationError
 
 from lightspeed_evaluation.core.llm.custom import BaseCustomLLM
 from lightspeed_evaluation.core.models import EvaluationScope
+from lightspeed_evaluation.core.output.run_id import resolve_run_id
 
 M = TypeVar("M", bound=BaseModel)
 
@@ -26,7 +27,38 @@ UAEM_METRICS = (
     "granularity_fit_score_model",
 )
 
-DEFAULT_RAW_SCORE_PATH = "results/uaem_raw_scores.jsonl"
+DEFAULT_RAW_SCORE_FILENAME = "uaem_raw_scores.jsonl"
+DEFAULT_RAW_SCORE_PATH = f"results/{DEFAULT_RAW_SCORE_FILENAME}"
+
+
+def resolve_raw_score_path(output_dir: Optional[str] = None) -> Path:
+    """Resolve this run's raw-score sink path, pinning it for the process.
+
+    Scopes the sink (and its rollup) to a single run by naming the file
+    with this run's id, so repeated runs don't accumulate into one file.
+    Set ``UAEM_RAW_SCORES`` explicitly to opt into a shared, accumulating
+    path instead.
+
+    Args:
+        output_dir: This run's output directory, so the sink lands next to
+            ``summary.json``. Ignored once a path has already been pinned
+            for this process, or when ``UAEM_RAW_SCORES`` is set.
+
+    Returns:
+        The path this run's ``RawScoreSink`` writes to and its rollup reads
+        from; stable for the lifetime of the process.
+    """
+    existing = os.environ.get("UAEM_RAW_SCORES")
+    if existing:
+        return Path(existing)
+
+    directory = Path(output_dir) if output_dir else Path(DEFAULT_RAW_SCORE_PATH).parent
+    stem = Path(DEFAULT_RAW_SCORE_FILENAME).stem
+    suffix = Path(DEFAULT_RAW_SCORE_FILENAME).suffix
+    resolved = directory / f"{stem}_{resolve_run_id()}{suffix}"
+    os.environ["UAEM_RAW_SCORES"] = str(resolved)
+    return resolved
+
 
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 _RETRY_SUFFIX = (
@@ -119,10 +151,9 @@ def to_lse_score(
     """Map a metric's native score onto the framework's [0, 1] score contract.
 
     A [0, 1] metric passes through. A symmetric signed scale where 0 is the
-    ideal (granularity fit, [-1, 1]) maps to ``1 - |x|`` — the same transform
-    the UAEM taxonomy applies at rollup, which is why the rollup reads raw
-    scores from the sink rather than reported scores, or the transform lands
-    twice.
+    ideal (granularity fit, [-1, 1]) maps to ``1 - |x|``. The rollup applies
+    this same transform, so it reads raw (untransformed) scores from the
+    sink rather than reported scores.
 
     Args:
         raw_score: Score on the metric's native scale.
@@ -150,10 +181,9 @@ class ScoredMetric(NamedTuple):
 class RawScoreSink:  # pylint: disable=too-few-public-methods
     """Append untransformed scores to JSONL for the post-run UAEM rollup.
 
-    The rollup itself lives in the metric library (``lib_side.report``),
-    which owns this file's schema: ``model_nm``, ``metric`` and ``score``
-    are required, anything else is ignored. Only the write side is here,
-    because only the write side knows about ``EvaluationScope``.
+    Schema: ``model_nm``, ``metric`` and ``score`` are required by
+    ``lib_side.rollup_report`` (read via ``uaem.rollup.build_rollup_summary``);
+    other fields are ignored by the rollup.
     """
 
     def __init__(self, path: str | Path, framework: str = FRAMEWORK) -> None:

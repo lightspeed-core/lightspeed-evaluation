@@ -21,6 +21,7 @@ from lightspeed_evaluation.core.metrics.uaem import (
     UAEMLibMetrics,
     build_traces,
     call_json,
+    resolve_raw_score_path,
     to_lse_score,
 )
 from lightspeed_evaluation.core.metrics.uaem import (
@@ -244,8 +245,8 @@ class TestHandler:
     ) -> None:
         """The rollup needs -1.0, not the 0.0 that gets reported.
 
-        Field names are the metric library's contract (``lib_side.report``):
-        ``model_nm``, ``metric``, ``score``.
+        Field names are ``build_rollup_summary``'s contract: ``model_nm``,
+        ``metric``, ``score``.
         """
         path = tmp_path / "raw.jsonl"
         sink = RawScoreSink(path)
@@ -274,3 +275,41 @@ class TestHandler:
 
         assert score == pytest.approx(0.75)
         assert len(stub_llm.calls) == 2
+
+
+class TestResolveRawScorePath:
+    """A per-process default keeps one run's rollup from eating another's."""
+
+    def test_explicit_env_var_is_returned_as_is(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An explicit path opts into a shared, accumulating sink."""
+        monkeypatch.setenv("UAEM_RAW_SCORES", "shared/raw_scores.jsonl")
+
+        assert resolve_raw_score_path() == Path("shared/raw_scores.jsonl")
+
+    def test_default_is_pinned_for_the_rest_of_the_process(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Two calls with no env var set must agree on one path."""
+        monkeypatch.delenv("UAEM_RAW_SCORES", raising=False)
+
+        first = resolve_raw_score_path()
+        second = resolve_raw_score_path()
+
+        assert first == second
+        assert first.parent == Path("results")
+        assert first.name.startswith("uaem_raw_scores_")
+        assert first.suffix == ".jsonl"
+
+    def test_default_lands_in_this_run_s_output_dir(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The sink belongs next to this run's own reports, not a fixed folder."""
+        monkeypatch.delenv("UAEM_RAW_SCORES", raising=False)
+
+        resolved = resolve_raw_score_path("custom_output_dir")
+
+        assert resolved.parent == Path("custom_output_dir")
+        assert resolved.name.startswith("uaem_raw_scores_")
+        assert resolved.suffix == ".jsonl"

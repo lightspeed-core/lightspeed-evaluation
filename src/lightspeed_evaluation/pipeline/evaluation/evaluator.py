@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 import time
 from typing import Any, Optional
 
@@ -117,8 +116,17 @@ class MetricsEvaluator:
         config_loader: ConfigLoader,
         metric_manager: MetricManager,
         script_manager: ScriptExecutionManager,
+        output_dir: Optional[str] = None,
     ) -> None:
-        """Initialize Metric Evaluator."""
+        """Initialize Metric Evaluator.
+
+        Args:
+            config_loader: Loaded system configuration.
+            metric_manager: Resolves metric configuration per evaluation.
+            script_manager: Executes script-based metrics.
+            output_dir: This run's output directory, used only so the
+                uaem_lib raw-score sink lands next to this run's reports.
+        """
         self.config_loader = config_loader
         self.metric_manager = metric_manager
 
@@ -142,7 +150,7 @@ class MetricsEvaluator:
             "custom": CustomMetrics(self.llm_manager, metric_manager=metric_manager),
             "script": ScriptEvalMetrics(script_manager),
         }
-        self.handlers.update(self._create_uaem_handler(self.llm_manager))
+        self.handlers.update(self._create_uaem_handler(self.llm_manager, output_dir))
 
         # Judge orchestrator handles multi-judge evaluation and aggregation
         self.judge_orchestrator = JudgeOrchestrator(
@@ -152,7 +160,9 @@ class MetricsEvaluator:
             status_determiner=self._determine_status,
         )
 
-    def _create_uaem_handler(self, llm_manager: LLMManager) -> dict[str, Any]:
+    def _create_uaem_handler(
+        self, llm_manager: LLMManager, output_dir: Optional[str] = None
+    ) -> dict[str, Any]:
         """Build the uaem_lib handler, if the uaem-poc extra is installed.
 
         The framework depends on the ``lib_side`` metric library, shipped
@@ -162,6 +172,10 @@ class MetricsEvaluator:
 
         Args:
             llm_manager: LLM manager the handler should judge with.
+            output_dir: This run's output directory, so the raw-score sink
+                lands next to this run's own reports. Only meaningful on
+                the first call in the process: once a sink path exists it
+                is pinned for every later handler, panel judges included.
 
         Returns:
             Framework name to handler, or an empty dict when unavailable.
@@ -169,15 +183,13 @@ class MetricsEvaluator:
         try:
             # pylint: disable=import-outside-toplevel
             from lightspeed_evaluation.core.metrics.uaem import (
-                DEFAULT_RAW_SCORE_PATH,
                 FRAMEWORK,
                 RawScoreSink,
                 UAEMLibMetrics,
+                resolve_raw_score_path,
             )
 
-            sink = RawScoreSink(
-                os.environ.get("UAEM_RAW_SCORES", DEFAULT_RAW_SCORE_PATH)
-            )
+            sink = RawScoreSink(resolve_raw_score_path(output_dir))
             return {
                 FRAMEWORK: UAEMLibMetrics(
                     llm_manager, self.embedding_manager, raw_sink=sink

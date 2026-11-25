@@ -1,8 +1,8 @@
 """Adapters implementing the lib_side client protocols over managed clients.
 
-Approach B hands its metrics a judge at construction. Routing that judge
-through BaseCustomLLM keeps token tracking, the disk cache, SSL policy and
-retry config inside the framework instead of inside the metric library.
+Routes judge calls through ``BaseCustomLLM`` so token tracking, the disk
+cache, SSL policy and retry config stay inside this framework instead of
+inside the metric library.
 """
 
 from collections.abc import Sequence

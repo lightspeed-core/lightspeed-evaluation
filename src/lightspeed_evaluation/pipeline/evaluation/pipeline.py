@@ -121,7 +121,10 @@ class EvaluationPipeline:  # pylint: disable=too-many-instance-attributes
 
         # Create metrics evaluator with script manager
         metrics_evaluator = MetricsEvaluator(
-            self.config_loader, metric_manager, script_manager
+            self.config_loader,
+            metric_manager,
+            script_manager,
+            output_dir=self.output_dir,
         )
 
         # Create processor components

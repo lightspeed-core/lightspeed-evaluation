@@ -3,6 +3,7 @@
 """Unit tests for pipeline evaluation evaluator module."""
 
 import sys
+from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -41,6 +42,53 @@ class TestMetricsEvaluator:
         # the uaem-poc extra is installed.
         expected = 7 if "uaem_lib" in evaluator.handlers else 6
         assert len(evaluator.handlers) == expected
+
+    def test_output_dir_is_passed_through_to_the_uaem_raw_score_sink(
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+        tmp_path: Path,
+    ) -> None:
+        """The raw-score sink belongs next to this run's own reports.
+
+        Without threading output_dir through, the sink falls back to a
+        fixed ``results/`` regardless of where this run's actual reports
+        go. Skipped (not failed) when the uaem-poc extra is not installed,
+        since there is then no sink to check.
+        """
+        pytest.importorskip(
+            "lightspeed_evaluation.core.metrics.uaem", reason="requires uaem-poc"
+        )
+        create_mock_llm_manager(mocker)
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
+        resolve_spy = mocker.patch(
+            "lightspeed_evaluation.core.metrics.uaem.resolve_raw_score_path",
+            return_value=tmp_path / "uaem_raw_scores.jsonl",
+        )
+
+        MetricsEvaluator(
+            config_loader,
+            mock_metric_manager,
+            mock_script_manager,
+            output_dir="my_custom_output_dir",
+        )
+
+        resolve_spy.assert_called_once_with("my_custom_output_dir")
 
     def test_initialization_without_uaem_extra_skips_uaem_handler(
         self,

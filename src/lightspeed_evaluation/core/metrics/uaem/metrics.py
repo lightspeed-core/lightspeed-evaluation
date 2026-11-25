@@ -1,8 +1,8 @@
-"""UAEM metrics, Ragas-style architecture (UIEINTEL-698, approach B).
+"""UAEM metrics handler.
 
 The metric library (``lib_side``) owns execution; this handler builds the
 judge and embedding clients and hands them to the metric constructors at
-construction time, exactly as RagasMetrics does.
+construction time.
 """
 
 import logging
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class UAEMLibMetrics:  # pylint: disable=too-few-public-methods
-    """Ragas-style UAEM metrics, bound to one judge at construction."""
+    """UAEM metrics handler, bound to one judge at construction."""
 
     def __init__(
         self,

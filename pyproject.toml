@@ -162,9 +162,9 @@ explicit = true
 # Use CPU index for torch by default
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
-# UIEINTEL-698 spike: the UAEM metric libraries live in this worktree's
-# parent directory. Replace with a git URL once the PoC repo is published.
-metrics-lib-lse-poc = { path = "..", editable = true }
+# UIEINTEL-698 spike: the UAEM metric libraries live in the sibling
+# uieintel-698 repo. Replace with a git URL once the PoC repo is published.
+metrics-lib-lse-poc = { path = "../uieintel-698", editable = true }
 
 # Lock files:
 #   uv.lock     - CPU-only PyTorch (default, ~2GB)

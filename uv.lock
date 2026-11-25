@@ -2216,7 +2216,7 @@ requires-dist = [
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=4.0.0,<5.0.0" },
     { name = "litellm", specifier = ">=1.102.2,<1.103.0" },
     { name = "matplotlib", specifier = ">=3.5.0,<=3.10.6" },
-    { name = "metrics-lib-lse-poc", marker = "extra == 'uaem-poc'", editable = "../" },
+    { name = "metrics-lib-lse-poc", marker = "extra == 'uaem-poc'", editable = "../uieintel-698" },
     { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=2.14.0,<3.0.0" },
     { name = "numpy", specifier = ">=1.23.0,<=2.3.2" },
     { name = "pandas", specifier = ">=2.2.0,<=2.3.2" },
@@ -2642,7 +2642,7 @@ wheels = [
 [[package]]
 name = "metrics-lib-lse-poc"
 version = "0.0.0"
-source = { editable = "../" }
+source = { editable = "../uieintel-698" }
 dependencies = [
     { name = "redhat-unified-ai-evaluation-metrics" },
 ]
@@ -2652,7 +2652,7 @@ requires-dist = [
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=4.0.0,<5.0.0" },
     { name = "openai", marker = "extra == 'langfuse'", specifier = ">=1.0.0" },
     { name = "pydantic-ai", marker = "extra == 'lib-side'", specifier = ">=0.1.0" },
-    { name = "redhat-unified-ai-evaluation-metrics", editable = "../unified-ai-evaluation-metrics" },
+    { name = "redhat-unified-ai-evaluation-metrics", editable = "../uieintel-698/unified-ai-evaluation-metrics" },
 ]
 provides-extras = ["client-side", "lib-side", "langfuse"]
 
@@ -4196,7 +4196,7 @@ wheels = [
 [[package]]
 name = "redhat-unified-ai-evaluation-metrics"
 version = "0.1.0"
-source = { editable = "../unified-ai-evaluation-metrics" }
+source = { editable = "../uieintel-698/unified-ai-evaluation-metrics" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },

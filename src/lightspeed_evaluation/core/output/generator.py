@@ -25,6 +25,7 @@ from lightspeed_evaluation.core.models.statistics import (
 from lightspeed_evaluation.core.models.summary import (
     EvaluationSummary,
 )
+from lightspeed_evaluation.core.output.run_id import resolve_run_id
 from lightspeed_evaluation.core.output.serializers import (
     conversation_stats_to_dict,
     metric_stats_to_dict,
@@ -109,9 +110,9 @@ class OutputHandler:
                 quality_score_metrics,
             )
 
-        # Prepare timestamped base filename
-        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        base_filename = f"{self.base_filename}_{timestamp}"
+        # Timestamped base filename, shared with the uaem_lib raw-score sink
+        # (if one was created this run) so the two can be matched by name.
+        base_filename = f"{self.base_filename}_{resolve_run_id()}"
 
         # Get enabled outputs from system config
         enabled_outputs = (
@@ -159,8 +160,7 @@ class OutputHandler:
         target_dir = Path(output_dir) if output_dir else self.output_dir
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        base_filename = f"{self.base_filename}_{timestamp}"
+        base_filename = f"{self.base_filename}_{resolve_run_id()}"
 
         generated_files: list[Path] = []
 
@@ -319,6 +319,10 @@ class OutputHandler:
             "configuration": self._build_config_dict(),
             "results": [result_to_json_dict(r) for r in summary.results],
         }
+
+        rollup = _build_uaem_rollup_section()
+        if rollup is not None:
+            output["rollup"] = rollup
 
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2)
@@ -759,6 +763,24 @@ class OutputHandler:
     def get_output_directory(self) -> Path:
         """Get the output directory path."""
         return self.output_dir
+
+
+def _build_uaem_rollup_section() -> Optional[dict[str, Any]]:
+    """Build the ``rollup`` section of the JSON summary, when applicable.
+
+    Imported lazily: the ``uaem`` metrics package has no hard dependency on
+    the ``uaem-poc`` extra, but the rollup it produces does, and a run that
+    never used the ``uaem_lib`` framework should not gain an empty section.
+
+    Returns:
+        The metric/indicator/evaluation-criterion/domain rollup for this
+        run's ``uaem_lib`` scores, or ``None`` when that framework did not
+        run.
+    """
+    # pylint: disable=import-outside-toplevel
+    from lightspeed_evaluation.core.metrics.uaem import build_rollup_summary
+
+    return build_rollup_summary()
 
 
 def _build_json_summary_stats(summary: EvaluationSummary) -> dict[str, Any]:

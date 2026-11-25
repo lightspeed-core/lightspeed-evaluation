@@ -6,6 +6,7 @@ import csv as csv_module
 import json
 from pathlib import Path
 
+import pytest
 from pytest_mock import MockerFixture
 
 from lightspeed_evaluation.core.models import EvaluationResult
@@ -47,6 +48,69 @@ class TestOutputHandler:
         assert "summary_stats" in data
         assert data["summary_stats"]["overall"]["total_api_tokens"] == 0
 
+    def test_generate_json_summary_omits_rollup_when_uaem_lib_did_not_run(
+        self, tmp_path: Path, sample_results: list[EvaluationResult]
+    ) -> None:
+        """Most runs never touch uaem_lib; the summary should stay as-is."""
+        handler = OutputHandler(output_dir=str(tmp_path))
+        summary = EvaluationSummary.from_results(sample_results)
+
+        json_file = handler._generate_json_summary_from_model(summary, "test")
+
+        with open(json_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert "rollup" not in data
+
+    def test_generate_json_summary_includes_rollup_when_present(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
+        """When uaem_lib did run, its rollup is attached under "rollup"."""
+        mocker.patch(
+            "lightspeed_evaluation.core.metrics.uaem.build_rollup_summary",
+            return_value={"metric_scores": {"req_coverage_prop_model": 0.4}},
+        )
+        handler = OutputHandler(output_dir=str(tmp_path))
+        summary = EvaluationSummary.from_results(sample_results)
+
+        json_file = handler._generate_json_summary_from_model(summary, "test")
+
+        with open(json_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert data["rollup"] == {"metric_scores": {"req_coverage_prop_model": 0.4}}
+
+    def test_generate_reports_filename_matches_the_uaem_raw_score_sink(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A run's summary.json and its raw-score sink share one run id.
+
+        Whichever resolves first pins the id for the process; here the sink
+        (built at pipeline start, in real usage) resolves first, and the
+        report generated afterwards must pick up the same one rather than
+        minting its own timestamp.
+        """
+        monkeypatch.delenv("LSE_RUN_ID", raising=False)
+        monkeypatch.delenv("UAEM_RAW_SCORES", raising=False)
+        # pylint: disable=import-outside-toplevel
+        from lightspeed_evaluation.core.metrics.uaem.common import (
+            resolve_raw_score_path,
+        )
+
+        sink_path = resolve_raw_score_path(str(tmp_path))
+
+        handler = OutputHandler(output_dir=str(tmp_path), base_filename="eval")
+        handler.generate_reports(sample_results)
+
+        run_id = sink_path.stem.removeprefix("uaem_raw_scores_")
+        assert (tmp_path / f"eval_{run_id}_summary.json").exists()
+
     def test_generate_text_summary(
         self, tmp_path: Path, sample_results: list[EvaluationResult]
     ) -> None:
@@ -77,13 +141,10 @@ class TestOutputHandler:
         mocker: MockerFixture,
     ) -> None:
         """Test that generate_reports creates output files."""
-        mock_now = mocker.Mock()
-        mock_now.strftime.return_value = "20250101_120000"
-        mock_now.isoformat.return_value = "2025-01-01T12:00:00"
-
         mocker.patch(
-            "lightspeed_evaluation.core.output.generator.datetime"
-        ).now.return_value = mock_now
+            "lightspeed_evaluation.core.output.generator.resolve_run_id",
+            return_value="20250101_120000",
+        )
 
         handler = OutputHandler(
             output_dir=str(tmp_path),
@@ -255,13 +316,10 @@ class TestOutputHandler:
         mocker: MockerFixture,
     ) -> None:
         """Test generating reports without system config."""
-        mock_now = mocker.Mock()
-        mock_now.strftime.return_value = "20250101_120000"
-        mock_now.isoformat.return_value = "2025-01-01T12:00:00"
-
         mocker.patch(
-            "lightspeed_evaluation.core.output.generator.datetime"
-        ).now.return_value = mock_now
+            "lightspeed_evaluation.core.output.generator.resolve_run_id",
+            return_value="20250101_120000",
+        )
 
         handler = OutputHandler(output_dir=str(tmp_path))
         handler.generate_reports(sample_results)
