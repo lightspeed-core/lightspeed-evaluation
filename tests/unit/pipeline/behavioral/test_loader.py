@@ -86,3 +86,158 @@ class TestLoadRunData:
 
         assert result is not None
         assert result.case_results is None
+
+
+class TestTurnStats:
+    """Tests for per-turn numeric extraction from detailed CSV."""
+
+    @staticmethod
+    def _write_summary(tmp_path: Path) -> None:
+        """Write a minimal summary.json so load_run_data succeeds."""
+        summary = {"summary_stats": {"overall": {"TOTAL": 1}}}
+        (tmp_path / "eval_summary.json").write_text(json.dumps(summary))
+
+    def test_extracts_turn_stats(self, tmp_path: Path) -> None:
+        """Valid CSV yields separate agent and judge entries."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result,"
+            "api_input_tokens,api_output_tokens,"
+            "judge_llm_input_tokens,judge_llm_output_tokens\n"
+            "conv_1,t1,m1,PASS,100,50,200,80\n"
+            "conv_1,t2,m1,FAIL,200,80,300,120\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is not None
+        agent_entries = [s for s in result.turn_stats if "agent_input_tokens" in s]
+        judge_entries = [s for s in result.turn_stats if "judge_input_tokens" in s]
+        assert len(agent_entries) == 2
+        assert len(judge_entries) == 2
+        assert agent_entries[0]["agent_input_tokens"] == 100.0
+        assert agent_entries[0]["agent_output_tokens"] == 50.0
+        assert judge_entries[0]["judge_input_tokens"] == 200.0
+        assert judge_entries[0]["judge_output_tokens"] == 80.0
+
+    def test_agent_dedup_across_metrics(self, tmp_path: Path) -> None:
+        """Same turn with multiple metrics produces one agent entry."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result,"
+            "api_input_tokens,api_output_tokens,"
+            "judge_llm_input_tokens,judge_llm_output_tokens\n"
+            "conv_1,t1,m1,PASS,100,50,200,80\n"
+            "conv_1,t1,m2,PASS,100,50,350,140\n"
+            "conv_1,t1,m3,FAIL,100,50,400,160\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is not None
+        agent_entries = [s for s in result.turn_stats if "agent_input_tokens" in s]
+        judge_entries = [s for s in result.turn_stats if "judge_input_tokens" in s]
+        assert len(agent_entries) == 1
+        assert len(judge_entries) == 3
+
+    def test_conversation_level_rows_skip_agent(self, tmp_path: Path) -> None:
+        """Rows without turn_id do not produce agent entries."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result,"
+            "api_input_tokens,api_output_tokens,"
+            "judge_llm_input_tokens,judge_llm_output_tokens\n"
+            "conv_1,,m1,PASS,500,200,100,40\n"
+            "conv_1,t1,m1,PASS,100,50,200,80\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is not None
+        agent_entries = [s for s in result.turn_stats if "agent_input_tokens" in s]
+        judge_entries = [s for s in result.turn_stats if "judge_input_tokens" in s]
+        assert len(agent_entries) == 1
+        assert agent_entries[0]["agent_input_tokens"] == 100.0
+        assert len(judge_entries) == 2
+
+    def test_agent_first_nonzero_wins(self, tmp_path: Path) -> None:
+        """First nonzero value per agent field is kept across metric rows."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result,"
+            "api_input_tokens,api_output_tokens\n"
+            "conv_1,t1,m1,PASS,0,50\n"
+            "conv_1,t1,m2,PASS,100,80\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is not None
+        agent_entries = [s for s in result.turn_stats if "agent_output_tokens" in s]
+        assert len(agent_entries) == 1
+        assert agent_entries[0]["agent_output_tokens"] == 50.0
+        assert agent_entries[0]["agent_input_tokens"] == 100.0
+
+    def test_skips_non_numeric_values(self, tmp_path: Path) -> None:
+        """Non-numeric or empty values are excluded from that field."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result,"
+            "api_input_tokens,api_output_tokens\n"
+            "conv_1,t1,m1,PASS,,50\n"
+            "conv_1,t2,m1,PASS,bad,80\n"
+            "conv_1,t3,m1,PASS,300,\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is not None
+        for ts in result.turn_stats:
+            for val in ts.values():
+                assert isinstance(val, float)
+
+    def test_zero_values_excluded(self, tmp_path: Path) -> None:
+        """Zero values are excluded (indicates no data)."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result,"
+            "api_input_tokens,api_output_tokens\n"
+            "conv_1,t1,m1,PASS,0,50\n"
+            "conv_1,t2,m1,PASS,100,80\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is not None
+        agent_entries = [s for s in result.turn_stats if "agent_output_tokens" in s]
+        assert len(agent_entries) == 2
+        assert "agent_input_tokens" not in agent_entries[0]
+        assert agent_entries[0]["agent_output_tokens"] == 50.0
+        assert agent_entries[1]["agent_input_tokens"] == 100.0
+
+    def test_no_numeric_columns(self, tmp_path: Path) -> None:
+        """CSV without numeric columns → turn_stats is None."""
+        self._write_summary(tmp_path)
+        csv_content = (
+            "conversation_group_id,turn_id,metric_identifier,result\n"
+            "conv_1,t1,m1,PASS\n"
+        )
+        (tmp_path / "eval_detailed.csv").write_text(csv_content)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is None
+
+    def test_no_csv_returns_none_turn_stats(self, tmp_path: Path) -> None:
+        """turn_stats is None when no CSV exists."""
+        self._write_summary(tmp_path)
+        result = load_run_data(str(tmp_path), 0)
+
+        assert result is not None
+        assert result.turn_stats is None

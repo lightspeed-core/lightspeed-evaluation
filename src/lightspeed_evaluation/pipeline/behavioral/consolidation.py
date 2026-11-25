@@ -11,6 +11,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+import numpy as np
+
 from lightspeed_evaluation.pipeline.behavioral.loader import RunData
 from lightspeed_evaluation.pipeline.behavioral.models import (
     AgentConsolidated,
@@ -19,6 +21,7 @@ from lightspeed_evaluation.pipeline.behavioral.models import (
 from lightspeed_evaluation.pipeline.behavioral.statistics import (
     confidence_interval,
     pass_at_k,
+    pass_hat_k,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +39,10 @@ class _CollectedData:
         default_factory=lambda: defaultdict(list)
     )
     latencies: list[float] = field(default_factory=list)
+    latency_percentiles: dict[str, list[float]] = field(
+        default_factory=lambda: {"p95": [], "p99": []}
+    )
+    turn_stats: list[dict[str, float]] = field(default_factory=list)
     per_run: list[RunSummary] = field(default_factory=list)
 
 
@@ -66,31 +73,31 @@ def consolidate(
     collected = _collect_run_data(runs)
     overall = _build_overall(collected.pass_rates, collected.latencies)
     num_runs = len(collected.per_run)
-    total_agent = sum(
-        r.agent_input_tokens + r.agent_output_tokens for r in collected.per_run
-    )
-    total_judge = sum(
-        r.judge_input_tokens + r.judge_output_tokens for r in collected.per_run
-    )
-    total_embed = sum(float(r.embedding_tokens) for r in collected.per_run)
-    overall["total_agent_tokens"] = total_agent
-    overall["total_judge_tokens"] = total_judge
-    overall["total_embedding_tokens"] = total_embed
+
+    total_agent_in = sum(r.agent_input_tokens for r in collected.per_run)
+    total_agent_out = sum(r.agent_output_tokens for r in collected.per_run)
+    overall["total_agent_input_tokens"] = total_agent_in
+    overall["total_agent_output_tokens"] = total_agent_out
     if num_runs > 0:
-        overall["agent_tokens_mean"] = total_agent / num_runs
-        overall["judge_tokens_mean"] = total_judge / num_runs
+        overall["agent_input_tokens_mean"] = total_agent_in / num_runs
+        overall["agent_output_tokens_mean"] = total_agent_out / num_runs
+        overall["agent_tokens_mean"] = (total_agent_in + total_agent_out) / num_runs
+
+    for pct in ("p95", "p99"):
+        vals = collected.latency_percentiles[pct]
+        if vals:
+            overall[f"agent_latency_{pct}_max"] = max(vals)
+
+    if collected.turn_stats:
+        token_pcts = _compute_token_percentiles(collected.turn_stats)
+        overall.update(token_pcts.get("agent", {}))
+
     by_metric = _build_by_metric(collected.metric_scores)
     by_conversation = _build_by_conversation(collected.conv_pass_rates)
     if num_runs > 1:
-        pak = _compute_pass_at_k(runs, k=num_runs)
-        if pak is not None:
-            overall["pass_at_k"] = pak["overall"]
-            for metric, val in pak.get("by_metric", {}).items():
-                if metric in by_metric:
-                    by_metric[metric]["pass_at_k"] = val
-            for conv, val in pak.get("by_conversation", {}).items():
-                if conv in by_conversation:
-                    by_conversation[conv]["pass_at_k"] = val
+        _wire_pass_metrics(runs, num_runs, overall, by_metric, by_conversation)
+
+    eval_costs = _build_eval_costs(collected.per_run, collected.turn_stats)
 
     return AgentConsolidated(
         agent_name=agent_name,
@@ -100,6 +107,7 @@ def consolidate(
         overall=overall,
         by_metric=by_metric,
         by_conversation=by_conversation,
+        eval_costs=eval_costs,
         quality_score=_build_quality(runs),
         per_run=collected.per_run,
     )
@@ -122,9 +130,17 @@ def _collect_run_data(runs: list[RunData]) -> _CollectedData:
         _collect_metric_scores(stats, data.metric_scores)
         _collect_conversation_pass_rates(stats, data.conv_pass_rates)
 
-        lat_mean = stats.get("agent_latency_stats", {}).get("mean")
+        lat_stats = stats.get("agent_latency_stats", {})
+        lat_mean = lat_stats.get("mean")
         if lat_mean is not None and lat_mean > 0:
             data.latencies.append(lat_mean)
+        for pct in ("p95", "p99"):
+            val = lat_stats.get(pct)
+            if val is not None and val > 0:
+                data.latency_percentiles[pct].append(val)
+
+        if run.turn_stats:
+            data.turn_stats.extend(run.turn_stats)
 
     data.metric_scores = dict(data.metric_scores)
     data.conv_pass_rates = dict(data.conv_pass_rates)
@@ -287,27 +303,6 @@ def _build_quality(runs: list[RunData]) -> Optional[dict[str, Any]]:
     return result
 
 
-def _compute_pass_at_k(runs: list[RunData], k: int) -> Optional[dict[str, Any]]:
-    """Compute pass@k overall, per-metric, and per-conversation.
-
-    Returns dict with "overall", "by_metric", "by_conversation" keys,
-    or None if no case data available.
-    """
-    case_pass, case_total = _collect_case_counts(runs)
-    if not case_total:
-        return None
-
-    keys = sorted(case_total.keys())
-    passes = [case_pass.get(key, 0) for key in keys]
-    totals_list = [case_total[key] for key in keys]
-
-    return {
-        "overall": pass_at_k(passes, totals_list, k=k),
-        "by_metric": _grouped_pass_at_k(keys, case_pass, case_total, k, idx=2),
-        "by_conversation": _grouped_pass_at_k(keys, case_pass, case_total, k, idx=0),
-    }
-
-
 def _collect_case_counts(
     runs: list[RunData],
 ) -> tuple[dict[tuple[str, str, str], int], dict[tuple[str, str, str], int]]:
@@ -333,21 +328,116 @@ def _collect_case_counts(
     return case_pass, case_total
 
 
-def _grouped_pass_at_k(
+def _wire_pass_metrics(
+    runs: list[RunData],
+    num_runs: int,
+    overall: dict[str, Optional[float]],
+    by_metric: dict[str, dict[str, Optional[float]]],
+    by_conversation: dict[str, dict[str, Optional[float]]],
+) -> None:
+    """Wire pass@k, pass@1, and pass^k into overall and breakdowns."""
+    case_pass, case_total = _collect_case_counts(runs)
+    if not case_total:
+        return
+
+    keys = sorted(case_total.keys())
+    passes = [case_pass.get(key, 0) for key in keys]
+    totals_list = [case_total[key] for key in keys]
+    by_metric_groups = _group_cases(keys, case_pass, case_total, idx=2)
+    by_conv_groups = _group_cases(keys, case_pass, case_total, idx=0)
+
+    for label, func, k in _pass_metric_specs(num_runs):
+        overall[label] = func(passes, totals_list, k=k)
+        _distribute_to_groups(func, k, label, by_metric_groups, by_metric)
+        _distribute_to_groups(func, k, label, by_conv_groups, by_conversation)
+
+
+def _pass_metric_specs(
+    num_runs: int,
+) -> list[tuple[str, Any, int]]:
+    """Return (label, function, k) specs for all pass metrics."""
+    return [
+        ("pass_at_k", pass_at_k, num_runs),
+        ("pass_at_1", pass_at_k, 1),
+        ("pass_hat_k", pass_hat_k, num_runs),
+    ]
+
+
+def _distribute_to_groups(
+    func: Any,
+    k: int,
+    label: str,
+    groups: dict[str, tuple[list[int], list[int]]],
+    target: dict[str, dict[str, Optional[float]]],
+) -> None:
+    """Distribute a pass metric computation to grouped breakdowns."""
+    for group, (g_pass, g_total) in groups.items():
+        if group in target:
+            target[group][label] = func(g_pass, g_total, k=k)
+
+
+def _group_cases(
     keys: list[tuple[str, str, str]],
     case_pass: dict[tuple[str, str, str], int],
     case_total: dict[tuple[str, str, str], int],
-    k: int,
     idx: int,
-) -> dict[str, float]:
-    """Compute pass@k grouped by a tuple index (0=conv_id, 2=metric)."""
+) -> dict[str, tuple[list[int], list[int]]]:
+    """Group case pass/total counts by a tuple index (0=conv_id, 2=metric)."""
     grouped_pass: dict[str, list[int]] = defaultdict(list)
     grouped_total: dict[str, list[int]] = defaultdict(list)
     for key in keys:
         group = key[idx]
         grouped_pass[group].append(case_pass.get(key, 0))
         grouped_total[group].append(case_total[key])
-    return {
-        g: pass_at_k(grouped_pass[g], grouped_total[g], k=k)
-        for g in sorted(grouped_pass)
+    return {g: (grouped_pass[g], grouped_total[g]) for g in grouped_pass}
+
+
+_AGENT_TOKEN_FIELDS = ["agent_input_tokens", "agent_output_tokens"]
+_JUDGE_TOKEN_FIELDS = ["judge_input_tokens", "judge_output_tokens"]
+
+
+def _compute_token_percentiles(
+    turn_stats: list[dict[str, float]],
+) -> dict[str, dict[str, float]]:
+    """Compute agent token p95/p99 from pooled per-turn values across all runs.
+
+    Returns dict with "agent" sub-dict containing p95_max/p99_max keyed fields.
+    """
+    result: dict[str, dict[str, float]] = {"agent": {}}
+    for field_name in _AGENT_TOKEN_FIELDS:
+        values = [ts[field_name] for ts in turn_stats if field_name in ts]
+        if not values:
+            continue
+        arr = np.array(values)
+        result["agent"][f"{field_name}_p95_max"] = float(np.percentile(arr, 95))
+        result["agent"][f"{field_name}_p99_max"] = float(np.percentile(arr, 99))
+    return result
+
+
+def _build_eval_costs(
+    per_run: list[RunSummary],
+    turn_stats: list[dict[str, float]],
+) -> Optional[dict[str, float]]:
+    """Build eval costs section with judge/embedding totals and max."""
+    total_judge_in = sum(r.judge_input_tokens for r in per_run)
+    total_judge_out = sum(r.judge_output_tokens for r in per_run)
+    total_embed = sum(float(r.embedding_tokens) for r in per_run)
+
+    if total_judge_in == 0 and total_judge_out == 0 and total_embed == 0:
+        if not turn_stats:
+            return None
+
+    costs: dict[str, float] = {
+        "total_judge_input_tokens": total_judge_in,
+        "total_judge_output_tokens": total_judge_out,
+        "total_embedding_tokens": total_embed,
     }
+
+    if turn_stats:
+        for field_name in _JUDGE_TOKEN_FIELDS:
+            values = [ts[field_name] for ts in turn_stats if field_name in ts]
+            if values:
+                key = field_name.replace("judge_", "max_judge_")
+                costs[key] = max(values)
+
+    return costs
