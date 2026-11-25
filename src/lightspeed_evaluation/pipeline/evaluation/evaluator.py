@@ -39,6 +39,23 @@ from lightspeed_evaluation.pipeline.evaluation.judges import JudgeOrchestrator
 
 logger = logging.getLogger(__name__)
 
+# Frameworks gated behind an optional extra: name -> install hint shown when
+# a metric from that framework is configured but the extra isn't installed.
+_OPTIONAL_FRAMEWORK_INSTALL_HINTS = {
+    "uaem_lib": "pip install 'lightspeed-evaluation[uaem-poc]'",
+}
+
+
+def _unsupported_framework_reason(framework: str) -> str:
+    """Build the error reason for a framework not present in self.handlers."""
+    hint = _OPTIONAL_FRAMEWORK_INSTALL_HINTS.get(framework)
+    if hint is None:
+        return f"Unsupported framework: {framework}"
+    return (
+        f"Unsupported framework: {framework} (requires an optional extra; "
+        f"install it with: {hint})"
+    )
+
 
 def _to_json_str(value: Any) -> Optional[str]:
     """Convert any value to JSON string. Returns None for empty values."""
@@ -233,7 +250,7 @@ class MetricsEvaluator:
             # Route to appropriate handler
             if framework not in self.handlers:
                 return self._create_error_result(
-                    request, f"Unsupported framework: {framework}", start_time
+                    request, _unsupported_framework_reason(framework), start_time
                 )
 
             # Check required data for metric (after API call); skip with ERROR if missing

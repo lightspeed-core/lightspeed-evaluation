@@ -2,6 +2,7 @@
 
 """Unit tests for pipeline evaluation evaluator module."""
 
+import sys
 from typing import Optional
 
 import pytest
@@ -21,6 +22,8 @@ from lightspeed_evaluation.core.system.exceptions import EvaluationError
 from lightspeed_evaluation.core.system.loader import ConfigLoader
 from lightspeed_evaluation.pipeline.evaluation.evaluator import MetricsEvaluator
 
+from .conftest import create_mock_llm_manager
+
 
 class TestMetricsEvaluator:
     """Unit tests for MetricsEvaluator."""
@@ -38,6 +41,103 @@ class TestMetricsEvaluator:
         # the uaem-poc extra is installed.
         expected = 7 if "uaem_lib" in evaluator.handlers else 6
         assert len(evaluator.handlers) == expected
+
+    def test_initialization_without_uaem_extra_skips_uaem_handler(
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
+        """Without the uaem-poc extra, the framework still initializes normally.
+
+        Simulates "not installed" by forcing the lazy import in
+        ``_create_uaem_handler`` to fail, regardless of whether the
+        uaem-poc extra actually happens to be installed in the test env.
+        """
+        mocker.patch.dict(
+            sys.modules, {"lightspeed_evaluation.core.metrics.uaem": None}
+        )
+        create_mock_llm_manager(mocker)
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
+
+        evaluator = MetricsEvaluator(
+            config_loader, mock_metric_manager, mock_script_manager
+        )
+
+        assert "uaem_lib" not in evaluator.handlers
+        assert set(evaluator.handlers) == {
+            "ragas",
+            "deepeval",
+            "geval",
+            "custom",
+            "script",
+            "nlp",
+        }
+
+    def test_evaluate_uaem_metric_without_extra_errors_with_install_guidance(
+        self,
+        config_loader: ConfigLoader,
+        mock_metric_manager: MetricManager,
+        mock_script_manager: ScriptExecutionManager,
+        mocker: MockerFixture,
+    ) -> None:
+        """Selecting a uaem_lib metric without the extra errors with guidance."""
+        mocker.patch.dict(
+            sys.modules, {"lightspeed_evaluation.core.metrics.uaem": None}
+        )
+        create_mock_llm_manager(mocker)
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
+        )
+        mocker.patch(
+            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
+        )
+        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
+
+        evaluator = MetricsEvaluator(
+            config_loader, mock_metric_manager, mock_script_manager
+        )
+
+        turn_data = TurnData(
+            turn_id="1",
+            query="What is Python?",
+            response="Python is a programming language.",
+            contexts=["Context"],
+        )
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "uaem_lib:granularity_fit_score_model", 0, turn_data
+        )
+
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.result == "ERROR"
+        assert result.score is None
+        assert "uaem_lib" in result.reason
+        assert "uaem-poc" in result.reason
+        assert "pip install" in result.reason
 
     def test_initialization_raises_error_without_config(
         self,
