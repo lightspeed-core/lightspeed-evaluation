@@ -2,10 +2,37 @@
 name = "lightspeed-evaluation"
 version = "0.10.0"
 description = "Evaluate LLM-powered applications (e2e) — responses, context, tool calls, and agentic workflows"
-authors = []
+authors = [
+    {name = "Asutosh Samal", email = "asutosh.samal@hotmail.com"},
+]
+maintainers = [
+    {name = "Asutosh Samal", email = "asutosh.samal@hotmail.com"},
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Testing",
+]
+keywords = [
+    "llm",
+    "llm-evaluation",
+    "rag",
+    "rag-evaluation",
+    "agent-evaluation",
+    "llm-as-a-judge",
+    "tool-call-evaluation",
+    "conversational-ai",
+    "evaluation-framework",
+]
 requires-python = ">=3.11,<3.14"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 
 dependencies = [
     "ragas>=0.4.0,<=0.4.3",
@@ -33,6 +60,12 @@ dependencies = [
     "langchain-google-genai>=2.0.0,<=2.1.12",
     "sqlalchemy>=2.0.0,<=2.0.43",
 ]
+
+[project.urls]
+Documentation = "https://github.com/lightspeed-core/lightspeed-evaluation/tree/main/docs"
+Repository = "https://github.com/lightspeed-core/lightspeed-evaluation"
+Issues = "https://github.com/lightspeed-core/lightspeed-evaluation/issues"
+Releases = "https://github.com/lightspeed-core/lightspeed-evaluation/releases"
 
 [project.optional-dependencies]
 # Local embedding models - includes torch
@@ -137,7 +170,7 @@ unittest = { msg = "use pytest instead of unittest" }
 "unittest.mock" = { msg = "use pytest-mock instead of unittest.mock" }
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/lightspeed_evaluation"]
