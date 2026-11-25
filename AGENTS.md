@@ -5,20 +5,7 @@ This document serves as a guide for AI coding agents working on the Lightspeed E
 
 ## ⚠️ IMPORTANT GUIDELINES
 
-### 1. Directory Status & New Features
-
-| Directory | Status | New Features? | Bug Fixes/Security/Linting? |
-|-----------|--------|---------------|----------------------------|
-| `src/lightspeed_evaluation/` | **Active Development** | ✅ Yes | ✅ Yes |
-| `src/generate_answers/` | **Moving to separate repo** | ❌ No - will be relocated | ✅ Yes (with confirmation) |
-| `tests/`, `config/`, `docs/` | **Active** | ✅ Yes | ✅ Yes |
-
-**Before making changes to deprecated/transitional directories:**
-- Inform the user about the directory's status
-- Get explicit confirmation before proceeding
-- For new features: suggest adding to `src/lightspeed_evaluation/` instead
-
-### 2. Use pytest Mocking - NEVER unittest.mock
+### Use pytest Mocking - NEVER unittest.mock
 ```python
 # ❌ WRONG - DO NOT USE
 from unittest.mock import patch, MagicMock
@@ -28,19 +15,19 @@ def test_example(mocker):
     mocker.patch('module.function')
 ```
 
-### 3. Update Documentation When Changing Features
+### Update Documentation When Changing Features
 When modifying functionality, you **MUST** update:
 - `docs/` - Update relevant guide if feature behavior changes
 - `README.md` - Update when features change or adding new features
 - `AGENTS.md` - Update if adding new conventions or project structure changes
 
-### 4. Update This File When Receiving New Instructions
+### Update This File When Receiving New Instructions
 If the user provides new project conventions, coding standards, or constraints:
 - **Add them to this `AGENTS.md` file** in the appropriate section
 - Important guidelines go in this section above
 - Best practices go in relevant sections below
 
-### 5. Run Quality Checks Before Completing Work
+### Run Quality Checks Before Completing Work
 Before considering any code change complete, you **MUST** run:
 
 ```bash
@@ -72,7 +59,7 @@ make test            # Or: uv run pytest tests
 
 **Important:** Do NOT disable lint warnings (e.g., `# noqa`, `# type: ignore`, `# pylint: disable`). Always try to fix the underlying issue. If a fix becomes too complicated, inform the user and discuss alternatives.
 
-### 6. OpenshiftAgenticRun Naming Convention
+### OpenshiftAgenticRun Naming Convention
 
 The framework uses "OpenshiftAgenticRun" naming for OpenShift-specific agentic workflow evaluation:
 - `OpenshiftAgenticRunDriver`, `OpenshiftAgenticRunAmender`, `OpenshiftAgenticRunAgentConfig`
