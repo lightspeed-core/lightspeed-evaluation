@@ -690,9 +690,6 @@ An interactive web-based dashboard for visualizing and comparing evaluation resu
 
 **See [dashboard/README.md](dashboard/README.md) for setup and usage instructions.**
 
-## Generate answers (optional - for creating test data)
-For generating answers (optional) refer [README-generate-answers](README-generate-answers.md)
-
 ## 📄 License & Contributing
 
 This project is licensed under the Apache License 2.0. See the LICENSE file for details.

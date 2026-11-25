@@ -66,7 +66,6 @@ Lightspeed Evaluation Framework is a CLI and programmatic tool for evaluating LL
 ## Constraints
 
 - Python 3.11+ required.
-- `src/generate_answers/` is moving to a separate repo — no new features.
 - Always use pytest-mock (`mocker.patch`), never `unittest.mock`.
 - Do not disable lint warnings (`# noqa`, `# type: ignore`, `# pylint: disable`).
 - All quality checks (`make pre-commit`) must pass before code is considered complete.
