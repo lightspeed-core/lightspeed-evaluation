@@ -211,6 +211,15 @@ class TurnData(StreamingMetricsMixin):
         default=None, description="Conversation ID - populated by API if enabled"
     )
 
+    # Curate signals (consumed by the curate command, ignored by evaluation)
+    signals: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Curate signals observed for this turn (e.g. exit_reason, user_feedback). "
+            "Attached by trace adapters; not used by metric evaluation."
+        ),
+    )
+
     # Token usage tracking
     api_input_tokens: int = Field(
         default=0, ge=0, description="Input tokens used by API call"
@@ -761,6 +770,13 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
     )
     expected_tool_calls: Optional[str] = Field(
         default=None, description="Expected tool calls formatted as string"
+    )
+    signals: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Curate signals carried from the turn (e.g. exit_reason, user_feedback), "
+            "so the curator can reconcile them with this result without the input file."
+        ),
     )
 
     @field_validator("tag", mode="before")

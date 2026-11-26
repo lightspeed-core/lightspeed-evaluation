@@ -190,6 +190,7 @@ jmespath==1.1.0
     # via
     #   boto3
     #   botocore
+    #   lightspeed-evaluation
 jsonpatch==1.36
     # via langchain-core
 jsonpointer==3.4

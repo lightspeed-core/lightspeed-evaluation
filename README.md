@@ -143,6 +143,93 @@ lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --tag
 lightspeed-eval --system-config <CONFIG.yaml> --eval-data <EVAL_DATA.yaml> --cache-warmup
 ```
 
+### Dynamic Dataset Curator
+
+Turn production traces into confidence-labelled evaluation datasets. Each turn
+carries **signals** (e.g. `exit_reason`, `user_feedback`); the curator reconciles
+them with the evaluation pass/fail to bucket turns into `positive` / `negative` /
+`edge` / `unconfirmed`.
+
+**1. Get batch data from Langfuse.** `langfuse-ingest` pulls observations and
+writes an evaluation-data YAML, config-driven via
+[`config/ingest.yaml`](config/ingest.yaml). Set `source.type: api` to fetch via
+the Langfuse SDK (host from `LANGFUSE_HOST` or `source.host`; credentials from
+`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`), or `source.type: file` to read a
+Langfuse `.json`/`.csv` export. The `api` source needs the `langfuse` extra
+(`pip install 'lightspeed-evaluation[langfuse]'`).
+
+```bash
+export LANGFUSE_HOST=... LANGFUSE_PUBLIC_KEY=... LANGFUSE_SECRET_KEY=...
+langfuse-ingest --config config/ingest.yaml --output eval_data.yaml
+```
+
+**2. Signals are parsed at ingest.** Each signal in `ingest.yaml` declares *where*
+to read it (a JMESPath query) and *how* to interpret each value
+(`polarity`/`strength`/`type`). Ingest writes the interpreted signal onto every
+turn, so adding or re-pointing a signal is a config edit:
+
+```yaml
+signals:
+  exit_reason:
+    query: "observations[?name=='LangGraph'].output.context.exit_reason | [-1]"
+    role: model
+    values:
+      resolved:  {polarity: positive, strength: weak,   type: inferred}
+      escalated: {polarity: negative, strength: strong, type: deterministic}
+```
+
+**3. Or set signals manually in the eval-data YAML.** If you aren't ingesting, add
+the `signals` field to any turn yourself. Evaluation ignores it; the curator reads
+`polarity` and `strength` (`strength` is numeric: `0.5` weak, `1.0` strong):
+
+```yaml
+- conversation_group_id: conv_1
+  turns:
+    - turn_id: t1
+      query: "..."
+      response: "..."
+      signals:
+        exit_reason:   {value: escalated, polarity: negative, strength: 1.0, type: deterministic}
+        user_feedback: {value: thumbs_up, polarity: positive, strength: 1.0, type: human}
+```
+
+**4. Run the evaluation, then the curator.** Curate post-processes a finished run
+(it does not re-run evaluation):
+
+```bash
+# a. Evaluate (turns carry signals, from ingest or set manually)
+lightspeed-eval --system-config <CONFIG.yaml> --eval-data eval_data.yaml --output-dir output
+
+# b. Curate: recommended run for arc signals like exit_reason
+dataset-curator \
+    --results output/evaluation_<timestamp>_summary.json \
+    --eval-data eval_data.yaml \
+    --output-dir output/curate \
+    --conversation-scope \
+    --drop-signal-turn
+```
+
+Outputs under `--output-dir`: one YAML per bucket (reusable eval-data with the
+curate label embedded per turn) plus `curate_report.md` with bucket counts,
+the confidence/strength distribution, signal reach, and the turns flagged for human
+review (ranked by conflict magnitude). Optional overrides live in a separate
+`curate.yaml` passed with `--curate-config`.
+
+The two scope flags (used above) control how signals apply across a conversation:
+
+- **(default, neither flag)** — signals are scoped per turn; only the turn
+  carrying a signal is labelled.
+- **`--conversation-scope`** — a signal propagates back over the turns leading up
+  to it (the arc). Multiple signals split the conversation into segments: an
+  `escalated` on turn 3 then a `resolved` on turn 8 label turns 1–3 and 4–8
+  respectively; turns after the last signal stay `unconfirmed`.
+- **`--drop-signal-turn`** — also exclude each segment's signal-bearing turn from
+  the output (e.g. the trivial "yes, create it" → "case created" confirmation),
+  keeping only the substantive turns of each arc.
+
+The recommended run for arc-style signals is **both flags together** (as shown),
+which labels whole arcs and drops the low-value terminal turns.
+
 ### Programmatic Usage (Library Mode)
 
 Use the framework as a Python library for live integration with Python applications:

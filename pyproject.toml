@@ -41,6 +41,7 @@ dependencies = [
     "litellm>=1.102.2,<1.103.0",
     "pydantic>=2.10.0,<=2.12.5",
     "pyyaml>=6.0,<=6.0.2",
+    "jmespath>=1.0.0,<2.0.0",  # config-driven signal extraction (curate ingestion)
     "pandas>=2.2.0,<=2.3.2",
     "datasets>=3.0.0,<=4.0.0",
     "matplotlib>=3.5.0,<=3.10.6",
@@ -127,6 +128,8 @@ dev = [
 
 [project.scripts]
 lightspeed-eval = "lightspeed_evaluation.runner.evaluation:main"
+dataset-curator = "lightspeed_evaluation.runner.curate:main"
+langfuse-ingest = "lightspeed_evaluation.runner.ingest:main"
 
 # Note: torch[cpu] variant configuration removed for uv compatibility
 # Modern PyTorch versions are available on PyPI directly
