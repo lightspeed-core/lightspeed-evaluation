@@ -320,6 +320,10 @@ class OutputHandler:
             "results": [result_to_json_dict(r) for r in summary.results],
         }
 
+        rollup = _build_uaem_rollup_section(summary.results)
+        if rollup is not None:
+            output["rollup"] = rollup
+
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2)
 
@@ -759,6 +763,30 @@ class OutputHandler:
     def get_output_directory(self) -> Path:
         """Get the output directory path."""
         return self.output_dir
+
+
+def _build_uaem_rollup_section(
+    results: list[EvaluationResult],
+) -> Optional[dict[str, Any]]:
+    """Build the ``rollup`` section of the JSON summary, when applicable.
+
+    Imported lazily: the ``uaem`` metrics package has no hard dependency on
+    the ``uaem-poc`` extra, but the rollup it produces does, and a run that
+    never used the ``uaem_lib`` framework should not gain an empty section.
+
+    Args:
+        results: This run's results, the rollup's only input — it is built
+            from the native scores they carry, not read back from a file.
+
+    Returns:
+        The metric/indicator/evaluation-criterion/domain rollup for this
+        run's ``uaem_lib`` scores, per agent and evaluation level, or
+        ``None`` when that framework did not run.
+    """
+    # pylint: disable=import-outside-toplevel
+    from lightspeed_evaluation.core.metrics.uaem import build_rollup_summary
+
+    return build_rollup_summary(results)
 
 
 def _build_json_summary_stats(summary: EvaluationSummary) -> dict[str, Any]:

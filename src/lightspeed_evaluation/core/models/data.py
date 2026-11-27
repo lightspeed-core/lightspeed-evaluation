@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -655,6 +655,10 @@ class JudgeScore(BaseModel):
     score: Optional[float] = Field(
         default=None, ge=0.0, le=1.0, description="Score between 0 and 1"
     )
+    raw_score: Optional[float] = Field(
+        default=None,
+        description="This judge's score on the metric's native scale, when not [0, 1]",
+    )
     reason: str = Field(default="", description="Explanation from this judge")
     judge_input_tokens: int = Field(default=0, ge=0, description="Input tokens used")
     judge_output_tokens: int = Field(default=0, ge=0, description="Output tokens used")
@@ -663,6 +667,50 @@ class JudgeScore(BaseModel):
         default=None,
         description="Verbose logs from DeepEval/GEval judge when enabled",
     )
+
+
+class ScoredMetric(BaseModel):
+    """What a metric handler hands back when a 2-tuple cannot carry it.
+
+    The handler contract is ``evaluate(...) -> tuple[Optional[float], str]``,
+    which fits a metric whose native scale is already [0, 1]. A metric on
+    another scale loses the native value, its range and its own pass rule
+    through that tuple, and the rollup needs all three. A handler that has
+    them returns this instead, and it reaches finalization in band rather
+    than through a side channel.
+    """
+
+    score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Reported score, normalized to [0, 1]"
+    )
+    reason: str = Field(default="", description="Explanation of the score")
+    raw_score: Optional[float] = Field(
+        default=None, description="Score on the metric's native scale"
+    )
+    score_min: Optional[float] = Field(
+        default=None, description="Minimum of the native scale"
+    )
+    score_max: Optional[float] = Field(
+        default=None, description="Maximum of the native scale"
+    )
+    pass_condition: Optional[str] = Field(
+        default=None,
+        description="Pass rule the metric declares, stated on the native scale",
+    )
+
+    @classmethod
+    def from_handler(
+        cls, outcome: Union["ScoredMetric", tuple[Optional[float], str]]
+    ) -> "ScoredMetric":
+        """Normalize a handler's return value.
+
+        Most handlers still return the 2-tuple; those results simply carry
+        no native fields.
+        """
+        if isinstance(outcome, ScoredMetric):
+            return outcome
+        score, reason = outcome
+        return cls(score=score, reason=reason)
 
 
 class MetricResult(BaseModel):
@@ -677,6 +725,27 @@ class MetricResult(BaseModel):
         ge=0.0,
         le=1.0,
         description="Threshold for pass/fail",
+    )
+    raw_score: Optional[float] = Field(
+        default=None,
+        description=(
+            "Score on the metric's native scale, when that scale is not [0, 1]. "
+            "'score' always stays normalised to [0, 1]; this field keeps the "
+            "untransformed value so it is not lost."
+        ),
+    )
+    score_min: Optional[float] = Field(
+        default=None, description="Minimum of the metric's native score scale"
+    )
+    score_max: Optional[float] = Field(
+        default=None, description="Maximum of the metric's native score scale"
+    )
+    pass_condition: Optional[str] = Field(
+        default=None,
+        description=(
+            "Pass rule the metric itself declares, stated on its native scale. "
+            "Distinct from 'threshold', which is this framework's rule on 'score'."
+        ),
     )
     reason: str = Field(default="", description="Explanation of the result")
     judge_llm_input_tokens: int = Field(
@@ -707,6 +776,14 @@ class EvaluationResult(MetricResult, StreamingMetricsMixin):
 
     conversation_group_id: str = Field(
         ..., min_length=1, description="Conversation group identifier"
+    )
+    agent: Optional[str] = Field(
+        default=None,
+        description=(
+            "Agent under evaluation, for grouping results by the system scored "
+            "rather than by the framework that scored it. None when no agent is "
+            "configured, as in an offline run over pre-populated responses."
+        ),
     )
     tag: set[str] = Field(
         default={"eval"},

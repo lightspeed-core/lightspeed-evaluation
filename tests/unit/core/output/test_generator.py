@@ -47,6 +47,48 @@ class TestOutputHandler:
         assert "summary_stats" in data
         assert data["summary_stats"]["overall"]["total_api_tokens"] == 0
 
+    def test_generate_json_summary_omits_rollup_when_uaem_lib_did_not_run(
+        self, tmp_path: Path, sample_results: list[EvaluationResult]
+    ) -> None:
+        """Most runs never touch uaem_lib; the summary should stay as-is.
+
+        The rollup is built from the results themselves, so a run with no
+        uaem_lib result in it cannot produce one.
+        """
+        handler = OutputHandler(output_dir=str(tmp_path))
+        summary = EvaluationSummary.from_results(sample_results)
+
+        json_file = handler._generate_json_summary_from_model(summary, "test")
+
+        with open(json_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert "rollup" not in data
+
+    def test_generate_json_summary_includes_rollup_when_present(
+        self,
+        tmp_path: Path,
+        sample_results: list[EvaluationResult],
+        mocker: MockerFixture,
+    ) -> None:
+        """When uaem_lib did run, its rollup is attached under "rollup"."""
+        rollup = {
+            "agent_a": {"turn": {"metric_scores": {"req_coverage_prop_model": 0.4}}}
+        }
+        mocker.patch(
+            "lightspeed_evaluation.core.metrics.uaem.build_rollup_summary",
+            return_value=rollup,
+        )
+        handler = OutputHandler(output_dir=str(tmp_path))
+        summary = EvaluationSummary.from_results(sample_results)
+
+        json_file = handler._generate_json_summary_from_model(summary, "test")
+
+        with open(json_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert data["rollup"] == rollup
+
     def test_generate_text_summary(
         self, tmp_path: Path, sample_results: list[EvaluationResult]
     ) -> None:

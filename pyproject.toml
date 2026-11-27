@@ -109,6 +109,13 @@ langfuse = [
     "langfuse>=4.0.0,<5.0.0",
 ]
 
+# UAEM metric library - required for the uaem_lib: framework
+# (UIEINTEL-698 spike). The handler imports it lazily, so a plain install
+# is unaffected and the framework simply does not register.
+uaem-poc = [
+    "metrics-lib-lse-poc",
+]
+
 [dependency-groups]
 dev = [
     "bandit>=1.7.0,<=1.9.2",
@@ -171,6 +178,9 @@ unittest = { msg = "use pytest instead of unittest" }
 [build-system]
 requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/lightspeed_evaluation"]
 
@@ -184,6 +194,9 @@ explicit = true
 # Use CPU index for torch by default
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+# UIEINTEL-698 spike: the UAEM metric libraries live in the sibling
+# uieintel-698 repo. Replace with a git URL once the PoC repo is published.
+metrics-lib-lse-poc = { path = "../uieintel-698", editable = true }
 
 # Lock files:
 #   uv.lock     - CPU-only PyTorch (default, ~2GB)

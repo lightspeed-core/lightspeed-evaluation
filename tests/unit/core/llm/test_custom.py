@@ -70,6 +70,43 @@ class TestBaseCustomLLM:
 
         assert result == "Test response"
 
+    def test_call_without_system_prompt_sends_user_message_only(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Test call sends a single user message when no system prompt is given."""
+        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
+        mocker.patch.dict("os.environ", {})
+
+        mock_choice = mocker.Mock()
+        mock_choice.message.content = "Test response"
+        mock_response = mocker.Mock()
+        mock_response.choices = [mock_choice]
+        mock_litellm.completion.return_value = mock_response
+
+        BaseCustomLLM("gpt-4", {}).call("test prompt")
+
+        messages = mock_litellm.completion.call_args.kwargs["messages"]
+        assert messages == [{"role": "user", "content": "test prompt"}]
+
+    def test_call_prepends_system_prompt(self, mocker: MockerFixture) -> None:
+        """Test call prepends a system message when system_prompt is given."""
+        mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")
+        mocker.patch.dict("os.environ", {})
+
+        mock_choice = mocker.Mock()
+        mock_choice.message.content = "Test response"
+        mock_response = mocker.Mock()
+        mock_response.choices = [mock_choice]
+        mock_litellm.completion.return_value = mock_response
+
+        BaseCustomLLM("gpt-4", {}).call("test prompt", system_prompt="be careful")
+
+        messages = mock_litellm.completion.call_args.kwargs["messages"]
+        assert messages == [
+            {"role": "system", "content": "be careful"},
+            {"role": "user", "content": "test prompt"},
+        ]
+
     def test_call_raises_llm_error_on_failure(self, mocker: MockerFixture) -> None:
         """Test call raises LLMError on failure."""
         mock_litellm = mocker.patch("lightspeed_evaluation.core.llm.custom.litellm")

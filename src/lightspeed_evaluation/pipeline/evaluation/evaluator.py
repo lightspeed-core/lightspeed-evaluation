@@ -19,6 +19,7 @@ from lightspeed_evaluation.core.metrics.nlp import NLPMetrics
 from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
 from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
 from lightspeed_evaluation.core.models import (
+    EvaluationData,
     EvaluationRequest,
     EvaluationResult,
     EvaluationScope,
@@ -37,6 +38,23 @@ from lightspeed_evaluation.core.system.validator import (
 from lightspeed_evaluation.pipeline.evaluation.judges import JudgeOrchestrator
 
 logger = logging.getLogger(__name__)
+
+# Frameworks gated behind an optional extra: name -> install hint shown when
+# a metric from that framework is configured but the extra isn't installed.
+_OPTIONAL_FRAMEWORK_INSTALL_HINTS = {
+    "uaem_lib": "pip install 'lightspeed-evaluation[uaem-poc]'",
+}
+
+
+def _unsupported_framework_reason(framework: str) -> str:
+    """Build the error reason for a framework not present in self.handlers."""
+    hint = _OPTIONAL_FRAMEWORK_INSTALL_HINTS.get(framework)
+    if hint is None:
+        return f"Unsupported framework: {framework}"
+    return (
+        f"Unsupported framework: {framework} (requires an optional extra; "
+        f"install it with: {hint})"
+    )
 
 
 def _to_json_str(value: Any) -> Optional[str]:
@@ -124,6 +142,7 @@ class MetricsEvaluator:
             "custom": CustomMetrics(self.llm_manager, metric_manager=metric_manager),
             "script": ScriptEvalMetrics(script_manager),
         }
+        self.handlers.update(self._create_uaem_handler(self.llm_manager))
 
         # Judge orchestrator handles multi-judge evaluation and aggregation
         self.judge_orchestrator = JudgeOrchestrator(
@@ -132,6 +151,35 @@ class MetricsEvaluator:
             handler_factory=self._create_handler_for_judge,
             status_determiner=self._determine_status,
         )
+
+    def _create_uaem_handler(self, llm_manager: LLMManager) -> dict[str, Any]:
+        """Build the uaem_lib handler, if the uaem-poc extra is installed.
+
+        The framework depends on the ``lib_side`` metric library, shipped
+        by the optional ``uaem-poc`` extra. A plain install skips it, and
+        configuring a ``uaem_lib:`` metric then produces the usual
+        unsupported-framework error.
+
+        Args:
+            llm_manager: LLM manager the handler should judge with.
+
+        Returns:
+            Framework name to handler, or an empty dict when unavailable.
+        """
+        try:
+            # pylint: disable=import-outside-toplevel
+            from lightspeed_evaluation.core.metrics.uaem import (
+                FRAMEWORK,
+                UAEMLibMetrics,
+            )
+
+            return {FRAMEWORK: UAEMLibMetrics(llm_manager, self.embedding_manager)}
+        except ImportError:
+            logger.debug(
+                "UAEM metrics unavailable; install the 'uaem-poc' extra to enable "
+                "the uaem_lib framework"
+            )
+            return {}
 
     def _create_handler_for_judge(
         self, framework: str, judge_manager: LLMManager
@@ -146,6 +194,9 @@ class MetricsEvaluator:
             return DeepEvalMetrics(judge_manager, metric_manager=self.metric_manager)
         if framework == "custom":
             return CustomMetrics(judge_manager, metric_manager=self.metric_manager)
+        uaem_handler = self._create_uaem_handler(judge_manager)
+        if framework in uaem_handler:
+            return uaem_handler[framework]
         raise ConfigurationError(f"Unsupported LLM framework for panel: {framework}")
 
     def evaluate_metric(  # pylint: disable=too-many-locals
@@ -190,7 +241,7 @@ class MetricsEvaluator:
             # Route to appropriate handler
             if framework not in self.handlers:
                 return self._create_error_result(
-                    request, f"Unsupported framework: {framework}", start_time
+                    request, _unsupported_framework_reason(framework), start_time
                 )
 
             # Check required data for metric (after API call); skip with ERROR if missing
@@ -241,6 +292,7 @@ class MetricsEvaluator:
             return EvaluationResult(
                 **metric_result.model_dump(),
                 conversation_group_id=request.conv_data.conversation_group_id,
+                agent=self._resolve_agent(request.conv_data),
                 tag=request.conv_data.tag,
                 turn_id=request.turn_id,
                 metric_identifier=request.metric_identifier,
@@ -738,6 +790,7 @@ class MetricsEvaluator:
         evaluation_latency = _measure_latency(start_time)
         return EvaluationResult(
             conversation_group_id=request.conv_data.conversation_group_id,
+            agent=self._resolve_agent(request.conv_data),
             tag=request.conv_data.tag,
             turn_id=request.turn_id,
             metric_identifier=request.metric_identifier,
@@ -768,6 +821,21 @@ class MetricsEvaluator:
                 _to_json_str(turn_data.expected_tool_calls) if turn_data else None
             ),
         )
+
+    def _resolve_agent(self, conv_data: EvaluationData) -> Optional[str]:
+        """Name the agent under evaluation for this conversation.
+
+        Recorded on every result so finalization can group by the system
+        that was scored. The conversation's own override wins, then the
+        configured default; None when no agent is configured at all, as in
+        an offline run over pre-populated responses.
+        """
+        if conv_data.agent:
+            return conv_data.agent[0]
+        sys_config = self.config_loader.system_config
+        agents = sys_config.agents if sys_config is not None else None
+        default_agents = agents.default.agent if agents is not None else None
+        return default_agents[0] if default_agents else None
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:
         """Determine evaluation status based on score and threshold."""

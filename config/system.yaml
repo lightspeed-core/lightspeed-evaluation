@@ -234,6 +234,25 @@ metrics_metadata:
       description: "General technical accuracy of provided commands, code, or technical information"
       # verbose: true  # optional: include verbose logs (criteria, evaluation steps, rubric) in output
 
+    # UAEM library metrics (UIEINTEL-698 spike)
+    "uaem_lib:req_coverage_prop_model":
+      threshold: 0.90
+      description: "Proportion of request requirements the output satisfies"
+      default: false
+
+    "uaem_lib:scope_containment_prop_model":
+      threshold: 0.80
+      description: "Proportion of output sentences that stay on topic"
+      default: false
+
+    # Native condition is BETWEEN(0, 0) on a [-1, 1] score. The framework can
+    # only express `score >= threshold`, and the handler reports 1 - |x|, so
+    # the equivalent threshold is 1.0.
+    "uaem_lib:granularity_fit_score_model":
+      threshold: 1.00
+      description: "Granularity fit, reported as 1 - |score|"
+      default: false
+
   # Conversation-level metrics metadata
   conversation_level:
     # DeepEval metrics
@@ -266,6 +285,22 @@ metrics_metadata:
         - "Check for contradictions with earlier statements"
       threshold: 0.6
       description: "Context maintenance and coherence across conversation turns"
+
+    # UAEM library metrics (UIEINTEL-698 spike)
+    "uaem_lib:req_coverage_prop_model":
+      threshold: 0.90
+      description: "Proportion of request requirements the output satisfies"
+      default: false
+
+    "uaem_lib:scope_containment_prop_model":
+      threshold: 0.80
+      description: "Proportion of output sentences that stay on topic"
+      default: false
+
+    "uaem_lib:granularity_fit_score_model":
+      threshold: 1.00
+      description: "Granularity fit, reported as 1 - |score|"
+      default: false
 
 
 # Storage Configuration

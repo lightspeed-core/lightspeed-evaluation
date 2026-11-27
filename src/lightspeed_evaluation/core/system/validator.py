@@ -103,6 +103,18 @@ _NLP_METRIC_REQUIREMENTS = {
 for _nlp_metric in ["nlp:bleu", "nlp:rouge", "nlp:semantic_similarity_distance"]:
     METRIC_REQUIREMENTS[_nlp_metric] = _NLP_METRIC_REQUIREMENTS
 
+# UAEM metrics judge a request against its response.
+_UAEM_METRIC_REQUIREMENTS = {
+    "required_fields": ["query", "response"],
+    "description": "requires 'query' and 'response' fields",
+}
+for _uaem_metric in [
+    "req_coverage_prop_model",
+    "scope_containment_prop_model",
+    "granularity_fit_score_model",
+]:
+    METRIC_REQUIREMENTS[f"uaem_lib:{_uaem_metric}"] = _UAEM_METRIC_REQUIREMENTS
+
 # Fields that may be populated by the API when API is enabled
 API_POPULATED_FIELDS = ("response", "contexts", "tool_calls")
 
