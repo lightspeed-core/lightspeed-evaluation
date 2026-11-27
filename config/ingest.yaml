@@ -1,0 +1,37 @@
+# Trace-ingestion config for the Dynamic Dataset Curator.
+#   trace-ingest --config config/ingest.yaml --output pcm_eval_data.yaml
+
+source:
+  type: api                                  # api | file
+
+  # Connection comes from $LANGFUSE_HOST, $LANGFUSE_PUBLIC_KEY and
+  # $LANGFUSE_SECRET_KEY (same convention as the langfuse trace source).
+  query:
+    window:
+      since: "2026-08-25T00:00:00Z"
+      until: "2026-11-25T00:00:00Z"
+    page_size: 100
+    fields: "core,basic,io,metadata,usage"   # must include io+metadata
+    # observation_types: "SPAN,CHAIN"
+    observation_names: [LangGraph]
+
+  # file source:
+  # path: exports/pcm_observations.json       # .json list of observations, or .csv
+
+turn:
+  root_observation: LangGraph
+  context_tools: [search_knowledge_base, hydra_lexical]
+  context_cap: 2000
+
+# Signals: a JMESPath query + per-value interpretation, written onto each turn.
+#   strength: weak (0.5) | strong (1.0) | float in [0, 1]
+#   type:     free-form, recorded for analysis
+signals:
+  exit_reason:
+    query: "observations[?name=='LangGraph'].output.context.exit_reason | [-1]"
+    role: model
+    values:
+      resolved:        {polarity: positive, strength: weak,   type: inferred}
+      escalated:       {polarity: negative, strength: strong, type: deterministic}
+      aborted_or_done: {polarity: negative, strength: weak,   type: inferred}
+      # unlisted values (awaiting_*, turn_complete, none, ...) -> neutral

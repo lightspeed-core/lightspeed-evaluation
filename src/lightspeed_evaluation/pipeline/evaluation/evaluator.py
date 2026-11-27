@@ -270,6 +270,7 @@ class MetricsEvaluator:
                 expected_tool_calls=(
                     _to_json_str(turn_data.expected_tool_calls) if turn_data else None
                 ),
+                signals=turn_data.signals if turn_data else None,
             )
 
         except EvaluationError as e:
@@ -767,6 +768,7 @@ class MetricsEvaluator:
             expected_tool_calls=(
                 _to_json_str(turn_data.expected_tool_calls) if turn_data else None
             ),
+            signals=turn_data.signals if turn_data else None,
         )
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:

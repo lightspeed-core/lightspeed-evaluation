@@ -29,6 +29,8 @@ def result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
         "conversation_group_id": r.conversation_group_id,
         "tag": sorted(r.tag),
         "turn_id": r.turn_id,
+        "query": r.query,
+        "response": r.response,
         "metric_identifier": r.metric_identifier,
         "result": r.result,
         "score": r.score,
@@ -44,6 +46,7 @@ def result_to_json_dict(r: EvaluationResult) -> dict[str, Any]:
         "streaming_duration": r.streaming_duration,
         "agent_latency": r.agent_latency,
         "tokens_per_second": r.tokens_per_second,
+        "signals": r.signals,
     }
     return d
 

@@ -1,0 +1,9 @@
+# Optional curate overrides — pin combinations that should deviate from the algorithm.
+#   dataset-curator --results <summary.json> --curate-config config/curate.yaml
+# Each `match` keys on `eval` and/or signal names -> raw value; first match wins.
+
+overrides: []
+  # - match: {eval: fail, exit_reason: resolved}
+  #   bucket: edge
+  #   review: true
+  #   note: "resolved may be false/premature"
