@@ -21,9 +21,12 @@ from lightspeed_evaluation.core.tracing.otel_adapter import (
 from lightspeed_evaluation.core.tracing.session import (
     session_from_traces,
 )
+from lightspeed_evaluation.core.tracing.span_io import span_input, span_output
 
 __all__ = [
     "session_from_traces",
+    "span_input",
+    "span_output",
     "span_from_langfuse",
     "span_from_mlflow",
     "span_from_otel",

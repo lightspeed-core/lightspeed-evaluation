@@ -7,8 +7,13 @@ from lightspeed_evaluation.core.ingestion.extractor import (
     build_conversations,
     extract_signal,
     extract_turn,
-    group_into_traces,
+    trace_document,
 )
+from lightspeed_evaluation.core.ingestion.langfuse_ingest import (
+    traces_from_observations,
+)
+from lightspeed_evaluation.core.models.trace import Trace
+from lightspeed_evaluation.core.tracing import trace_from_mlflow
 
 
 def _config(**overrides: object) -> IngestConfig:
@@ -113,17 +118,101 @@ def test_extract_signal_applies_map() -> None:
     assert extract_signal(trace, spec) == "none"
 
 
-def test_group_into_traces_groups_and_sorts() -> None:
-    """Observations group by traceId, ordered by startTime within a trace."""
+def _convs(observations: list[dict], config: IngestConfig) -> list[dict]:
+    """Normalize Langfuse observations, then build conversations."""
+    return build_conversations(traces_from_observations(observations), config)
+
+
+def test_traces_from_observations_groups_and_sorts() -> None:
+    """Observations group by traceId into Traces, spans ordered by startTime."""
     obs = [
         _supervisor_obs("tr1", "s1", "resolved", "2"),
         _langgraph_obs("tr1", "s1", [], "1"),
     ]
-    traces = group_into_traces(obs)
+    traces = traces_from_observations(obs)
     assert len(traces) == 1
-    assert traces[0]["id"] == "tr1"
-    assert traces[0]["sessionId"] == "s1"
-    assert [o["name"] for o in traces[0]["observations"]] == ["LangGraph", "supervisor"]
+    assert isinstance(traces[0], Trace)
+    assert traces[0].trace_id == "tr1"
+    assert traces[0].session_id == "s1"
+    assert [s.name for s in traces[0].spans] == ["LangGraph", "supervisor"]
+
+
+def test_traces_from_observations_dedupes_and_drops_orphans() -> None:
+    """Duplicate ids are dropped and observations without a traceId ignored."""
+    obs = [
+        {**_supervisor_obs("tr1", "s1", "resolved", "1"), "id": "o1"},
+        {**_supervisor_obs("tr1", "s1", "resolved", "1"), "id": "o1"},
+        {"name": "orphan", "type": "SPAN"},
+    ]
+    traces = traces_from_observations(obs)
+    assert [s.span_id for s in traces[0].spans] == ["o1"]
+
+
+def test_traces_from_observations_skips_invalid_trace(caplog: Any) -> None:
+    """A trace that fails normalization is skipped, others are kept."""
+    obs = [
+        {
+            **_supervisor_obs("bad", "s1", "x", "1"),
+            "id": "a",
+            "parentObservationId": "b",
+        },
+        {
+            **_supervisor_obs("bad", "s1", "x", "2"),
+            "id": "b",
+            "parentObservationId": "a",
+        },
+        _supervisor_obs("good", "s2", "resolved", "3"),
+    ]
+    traces = traces_from_observations(obs)
+    assert [t.trace_id for t in traces] == ["good"]
+    assert "Skipping trace bad" in caplog.text
+
+
+def test_trace_document_exposes_spans_and_legacy_observations() -> None:
+    """Signal queries can address spans as `spans` or the legacy `observations`."""
+    trace = traces_from_observations([_supervisor_obs("tr1", "s1", "resolved", "1")])[0]
+    doc = trace_document(trace)
+    assert doc["spans"] is doc["observations"]
+    assert doc["spans"][0]["output"] == {"intent": {"exit_reason": "resolved"}}
+    spec = SignalSpec(
+        query="spans[?name=='supervisor'].output.intent.exit_reason | [0]"
+    )
+    assert extract_signal(doc, spec) == "resolved"
+
+
+def test_build_conversations_is_platform_agnostic() -> None:
+    """An MLflow trace goes through the same turn/signal assembly."""
+    msgs = [
+        {"type": "human", "content": "q"},
+        {"type": "ai", "content": "r"},
+    ]
+    trace = trace_from_mlflow(
+        {
+            "info": {"trace_id": "m1"},
+            "data": {
+                "spans": [
+                    {
+                        "name": "LangGraph",
+                        "context": {"span_id": "s1", "trace_id": "m1"},
+                        "attributes": {"mlflow.spanType": "CHAIN"},
+                        "outputs": {"messages": msgs},
+                    },
+                    {
+                        "name": "supervisor",
+                        "context": {"span_id": "s2", "trace_id": "m1"},
+                        "parent_id": "s1",
+                        "attributes": {"mlflow.spanType": "CHAIN"},
+                        "outputs": {"intent": {"exit_reason": "resolved"}},
+                    },
+                ]
+            },
+        }
+    )
+    convs = build_conversations([trace], _config())
+    turn = convs[0]["turns"][0]
+    assert convs[0]["conversation_group_id"] == "m1"
+    assert (turn["query"], turn["response"]) == ("q", "r")
+    assert turn["signals"]["exit_reason"]["value"] == "resolved"
 
 
 def test_build_conversations_single_turn() -> None:
@@ -136,7 +225,7 @@ def test_build_conversations_single_turn() -> None:
         _langgraph_obs("tr1", "s1", msgs, "1"),
         _supervisor_obs("tr1", "s1", "resolved", "2"),
     ]
-    convs = build_conversations(obs, _config())
+    convs = _convs(obs, _config())
     assert len(convs) == 1
     turn = convs[0]["turns"][0]
     assert convs[0]["conversation_group_id"] == "s1"
@@ -168,10 +257,51 @@ def test_build_conversations_multiturn_diffs_messages() -> None:
         _langgraph_obs("tr2", "s1", t2_msgs, "2"),
         _supervisor_obs("tr2", "s1", "resolved", "2b"),
     ]
-    convs = build_conversations(obs, _config())
+    convs = _convs(obs, _config())
     assert len(convs) == 1
     turns = convs[0]["turns"]
     assert [t["query"] for t in turns] == ["q1", "q2"]
     assert [t["response"] for t in turns] == ["r1", "r2"]
     assert turns[1]["signals"]["exit_reason"]["value"] == "resolved"
     assert turns[1]["signals"]["exit_reason"]["polarity"] == "positive"
+
+
+def test_extract_turn_does_not_duplicate_tool_calls() -> None:
+    """Calls present in both LangChain shapes are emitted once."""
+    msg: dict[str, Any] = {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [{"name": "search", "args": {"q": "x"}}],
+        "additional_kwargs": {
+            "tool_calls": [{"function": {"name": "search", "arguments": '{"q": "x"}'}}]
+        },
+    }
+    turn = extract_turn([msg], set(), 2000)
+    assert turn["tool_calls"] == [[{"tool_name": "search", "arguments": {"q": "x"}}]]
+
+
+def test_extract_turn_reads_kwargs_tool_calls_when_top_level_empty() -> None:
+    """Provider kwargs are the fallback when the top-level list is empty."""
+    msg: dict[str, Any] = {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [],
+        "additional_kwargs": {
+            "tool_calls": [{"function": {"name": "search", "arguments": '{"q": "x"}'}}]
+        },
+    }
+    turn = extract_turn([msg], set(), 2000)
+    assert turn["tool_calls"] == [[{"tool_name": "search", "arguments": {"q": "x"}}]]
+
+
+def test_build_conversations_skips_session_with_missing_root(caplog: Any) -> None:
+    """A session with a trace lacking the root span is skipped, not half-emitted."""
+    msgs = [{"type": "human", "content": "q"}, {"type": "ai", "content": "r"}]
+    obs = [
+        _langgraph_obs("tr1", "s1", msgs, "1"),
+        _supervisor_obs("tr2", "s1", "resolved", "2"),  # no LangGraph root
+        _langgraph_obs("tr3", "s2", msgs, "3"),
+    ]
+    convs = _convs(obs, _config())
+    assert [c["conversation_group_id"] for c in convs] == ["s2"]
+    assert "Skipped 1 incomplete session" in caplog.text

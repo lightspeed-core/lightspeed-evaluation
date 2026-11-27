@@ -12,12 +12,13 @@ from lightspeed_evaluation.core.ingestion.extractor import (
     extract_signal,
     extract_signals,
     extract_turn,
-    group_into_traces,
+    trace_document,
 )
 from lightspeed_evaluation.core.ingestion.langfuse_ingest import (
     fetch_api,
     fetch_file,
     ingest,
+    traces_from_observations,
 )
 
 __all__ = [
@@ -31,7 +32,8 @@ __all__ = [
     "extract_turn",
     "fetch_api",
     "fetch_file",
-    "group_into_traces",
     "ingest",
     "load_ingest_config",
+    "trace_document",
+    "traces_from_observations",
 ]

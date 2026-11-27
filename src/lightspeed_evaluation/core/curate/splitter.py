@@ -421,6 +421,17 @@ def _gather_conv(
     signal_turn_ids: set[Any] = set()
     for turn in conv.get("turns", []):
         entry = results_map.get((conv_id, turn.get("turn_id")))
+        if entry:
+            # Input-only eval-data turns get the evaluated query/response from
+            # the result row; content already in the YAML wins.
+            turn = {
+                **turn,
+                **{
+                    k: entry[k]
+                    for k in ("query", "response")
+                    if entry.get(k) and not turn.get(k)
+                },
+            }
         eval_result = eval_from_results(entry["statuses"]) if entry else None
         signals = _resolve_signals(turn, entry)
         turn_infos.append((turn, eval_result, signals))
@@ -611,7 +622,7 @@ def curate(
         scope: Signal-scope options (conversation propagation + drop-signal-turn).
 
     Returns:
-        The report dict (also written to disk as JSON and Markdown).
+        The report dict (also written to disk as ``curate_report.md``).
     """
     scope = scope or ScopeOptions()
     results_map = _load_results(results_path)

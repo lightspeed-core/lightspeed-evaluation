@@ -4,13 +4,13 @@ Reads observations (from the Langfuse API or an export file, per the config)
 and writes an evaluation-data YAML whose turns carry ``signals``, ready for
 ``lightspeed-eval`` and then ``dataset-curator``.
 
-    langfuse-ingest \
+    trace-ingest \
         --config config/ingest.yaml \
         --output pcm_eval_data.yaml
 
-For an ``api`` source, the host comes from ``source.host`` in the config or the
-``LANGFUSE_HOST`` env var, and credentials from ``LANGFUSE_PUBLIC_KEY`` /
-``LANGFUSE_SECRET_KEY``. A ``file`` source needs no credentials.
+For an ``api`` source, the host comes from the ``LANGFUSE_HOST`` env var and
+credentials from ``LANGFUSE_PUBLIC_KEY`` / ``LANGFUSE_SECRET_KEY``. A ``file``
+source needs no credentials.
 """
 
 import argparse
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def create_ingest_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the ingest runner."""
     parser = argparse.ArgumentParser(
-        description="Ingest Langfuse traces into evaluation data with signals",
+        description="Ingest traces into evaluation data with signals",
     )
     parser.add_argument(
         "--config",

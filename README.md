@@ -150,22 +150,25 @@ carries **signals** (e.g. `exit_reason`, `user_feedback`); the curator reconcile
 them with the evaluation pass/fail to bucket turns into `positive` / `negative` /
 `edge` / `unconfirmed`.
 
-**1. Get batch data from Langfuse.** `langfuse-ingest` pulls observations and
+**1. Get batch data from Langfuse.** `trace-ingest` pulls observations and
 writes an evaluation-data YAML, config-driven via
 [`config/ingest.yaml`](config/ingest.yaml). Set `source.type: api` to fetch via
-the Langfuse SDK (host from `LANGFUSE_HOST` or `source.host`; credentials from
-`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`), or `source.type: file` to read a
+the Langfuse SDK (connection from `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY` and
+`LANGFUSE_SECRET_KEY`, the same convention as the `langfuse` trace source), or `source.type: file` to read a
 Langfuse `.json`/`.csv` export. The `api` source needs the `langfuse` extra
 (`pip install 'lightspeed-evaluation[langfuse]'`).
 
 ```bash
 export LANGFUSE_HOST=... LANGFUSE_PUBLIC_KEY=... LANGFUSE_SECRET_KEY=...
-langfuse-ingest --config config/ingest.yaml --output eval_data.yaml
+trace-ingest --config config/ingest.yaml --output eval_data.yaml
 ```
 
 **2. Signals are parsed at ingest.** Each signal in `ingest.yaml` declares *where*
 to read it (a JMESPath query) and *how* to interpret each value
-(`polarity`/`strength`/`type`). Ingest writes the interpreted signal onto every
+(`polarity`/`strength`/`type`). Observations are first normalized through the
+platform-agnostic `core/tracing` model, and queries run on that normalized trace:
+`spans` (alias `observations`), each with `name`, `type`, `input`, `output`,
+`attributes` and `metadata`. Ingest writes the interpreted signal onto every
 turn, so adding or re-pointing a signal is a config edit:
 
 ```yaml

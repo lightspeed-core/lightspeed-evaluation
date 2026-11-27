@@ -129,7 +129,7 @@ dev = [
 [project.scripts]
 lightspeed-eval = "lightspeed_evaluation.runner.evaluation:main"
 dataset-curator = "lightspeed_evaluation.runner.curate:main"
-langfuse-ingest = "lightspeed_evaluation.runner.ingest:main"
+trace-ingest = "lightspeed_evaluation.runner.ingest:main"
 
 # Note: torch[cpu] variant configuration removed for uv compatibility
 # Modern PyTorch versions are available on PyPI directly

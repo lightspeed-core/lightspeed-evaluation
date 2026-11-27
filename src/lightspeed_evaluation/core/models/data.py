@@ -216,7 +216,7 @@ class TurnData(StreamingMetricsMixin):
         default=None,
         description=(
             "Curate signals observed for this turn (e.g. exit_reason, user_feedback). "
-            "Attached by trace adapters; not used by metric evaluation."
+            "Set by trace-ingest or manually; not used by metric evaluation."
         ),
     )
 
