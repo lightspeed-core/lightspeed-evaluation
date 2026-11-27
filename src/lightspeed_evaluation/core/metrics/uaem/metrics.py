@@ -14,16 +14,14 @@ from lightspeed_evaluation.core.embedding.manager import EmbeddingManager
 from lightspeed_evaluation.core.llm.manager import LLMManager
 from lightspeed_evaluation.core.metrics.uaem.common import (
     FRAMEWORK,
-    RawScoreSink,
-    ScoredMetric,
     build_traces,
-    to_lse_score,
+    format_pass_condition,
 )
 from lightspeed_evaluation.core.metrics.uaem.judge import (
     UAEMEmbeddingClient,
     UAEMJudgeLLM,
 )
-from lightspeed_evaluation.core.models import EvaluationScope
+from lightspeed_evaluation.core.models import EvaluationScope, ScoredMetric
 from lightspeed_evaluation.core.system.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
@@ -36,14 +34,12 @@ class UAEMLibMetrics:  # pylint: disable=too-few-public-methods
         self,
         llm_manager: LLMManager,
         embedding_manager: Optional[EmbeddingManager] = None,
-        raw_sink: Optional[RawScoreSink] = None,
     ) -> None:
         """Construct every UAEM metric with injected clients.
 
         Args:
             llm_manager: Pre-configured LLMManager with validated parameters.
             embedding_manager: Embedding manager; unused by these metrics.
-            raw_sink: Records untransformed scores for the post-run rollup.
 
         Raises:
             ImportError: If the uaem-poc extra is not installed.
@@ -59,13 +55,12 @@ class UAEMLibMetrics:  # pylint: disable=too-few-public-methods
                 else None
             ),
         )
-        self.raw_sink = raw_sink
 
         logger.info("UAEM lib-side metrics initialized: %s", sorted(self.metrics))
 
     def evaluate(
         self, metric_name: str, conv_data: Any, scope: EvaluationScope
-    ) -> tuple[Optional[float], str]:
+    ) -> ScoredMetric:
         """Evaluate one self-executing UAEM metric.
 
         Args:
@@ -74,35 +69,39 @@ class UAEMLibMetrics:  # pylint: disable=too-few-public-methods
             scope: Turn or conversation context.
 
         Returns:
-            A (score, reason) pair; score is None when the metric cannot run.
+            The result on both scales; ``score`` is None when the metric
+            cannot run.
         """
         metric = self.metrics.get(metric_name)
         if metric is None:
-            return None, f"Unsupported {FRAMEWORK} metric: {metric_name}"
+            return ScoredMetric(reason=f"Unsupported {FRAMEWORK} metric: {metric_name}")
 
         traces = build_traces(conv_data, scope)
         if not traces:
-            return None, "No usable query/response pairs for this metric"
+            return ScoredMetric(reason="No usable query/response pairs for this metric")
 
         try:
-            result = metric.score(traces=traces)
+            # The library states its own result on both scales, and owns
+            # the native -> [0, 1] transform: the rollup applies the same
+            # shape at the indicator level, so a second copy of it here
+            # would land it twice.
+            scored = metric.score(traces=traces)
         except (LLMError, ValidationError, ValueError) as exc:
-            return None, f"{metric_name} failed: {exc}"
+            return ScoredMetric(reason=f"{metric_name} failed: {exc}")
 
-        if result.score is None:
-            return None, result.explanation or f"{metric_name} returned a null score"
-
-        raw_score = float(result.score)
-        score = to_lse_score(
-            raw_score,
-            score_min=metric.metadata.score_min,
-            score_max=metric.metadata.score_max,
-        )
-        if self.raw_sink is not None:
-            self.raw_sink.record(
-                ScoredMetric(metric_name, raw_score, score), conv_data, scope
+        if scored.score is None or scored.raw_score is None:
+            return ScoredMetric(
+                reason=scored.reason or f"{metric_name} returned a null score"
             )
-        return score, (
-            f"{metric_name}={raw_score:.4f}; {result.explanation} "
-            f"(reported as {score:.4f} on the [0, 1] scale)"
+
+        return ScoredMetric(
+            score=scored.score,
+            reason=(
+                f"{metric_name}={scored.raw_score:.4f}; {scored.reason} "
+                f"(reported as {scored.score:.4f} on the [0, 1] scale)"
+            ),
+            raw_score=scored.raw_score,
+            score_min=scored.score_min,
+            score_max=scored.score_max,
+            pass_condition=format_pass_condition(scored.pass_condition),
         )

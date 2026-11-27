@@ -13,6 +13,7 @@ from lightspeed_evaluation.core.models import (
     EvaluationScope,
     JudgeScore,
     MetricResult,
+    ScoredMetric,
 )
 from lightspeed_evaluation.core.system.exceptions import EvaluationError
 
@@ -92,7 +93,7 @@ class JudgeOrchestrator:
         )
 
         # Evaluate with each judge
-        judge_scores, token_totals = self._evaluate_all_judges(
+        judge_scores, scored_metrics, token_totals = self._evaluate_all_judges(
             judge_managers,
             framework,
             metric_name,
@@ -117,6 +118,11 @@ class JudgeOrchestrator:
             result=status,
             score=aggregated_score,
             threshold=threshold,
+            # Native fields pass straight through from the handlers that
+            # report one; the rest of MetricResult leaves them unset.
+            **self.aggregate_native_score(judge_scores, scored_metrics).model_dump(
+                include={"raw_score", "score_min", "score_max", "pass_condition"}
+            ),
             reason=aggregated_reason,
             judge_llm_input_tokens=token_totals["judge_input_tokens"],
             judge_llm_output_tokens=token_totals["judge_output_tokens"],
@@ -132,7 +138,7 @@ class JudgeOrchestrator:
         request: EvaluationRequest,
         evaluation_scope: EvaluationScope,
         token_tracker: TokenTracker,
-    ) -> tuple[list[JudgeScore], dict[str, int]]:
+    ) -> tuple[list[JudgeScore], list[ScoredMetric], dict[str, int]]:
         """Evaluate metric with all judges and collect results.
 
         Args:
@@ -144,11 +150,13 @@ class JudgeOrchestrator:
             token_tracker: Tracks token usage per judge call.
 
         Returns:
-            Tuple of (judge_scores, token_totals) where token_totals is a dict
-                containing judge_input_tokens, judge_output_tokens, and
-                embedding_tokens.
+            Tuple of (judge_scores, scored_metrics, token_totals), where
+                scored_metrics holds each judge's full handler result and
+                token_totals is a dict containing judge_input_tokens,
+                judge_output_tokens, and embedding_tokens.
         """
         judge_scores: list[JudgeScore] = []
+        scored_metrics: list[ScoredMetric] = []
         token_totals = {
             "judge_input_tokens": 0,
             "judge_output_tokens": 0,
@@ -156,7 +164,7 @@ class JudgeOrchestrator:
         }
 
         for judge_manager in judge_managers:
-            score_entry = self._evaluate_single_judge(
+            score_entry, scored = self._evaluate_single_judge(
                 judge_manager,
                 framework,
                 metric_name,
@@ -165,11 +173,12 @@ class JudgeOrchestrator:
                 token_tracker,
             )
             judge_scores.append(score_entry)
+            scored_metrics.append(scored)
             token_totals["judge_input_tokens"] += score_entry.judge_input_tokens
             token_totals["judge_output_tokens"] += score_entry.judge_output_tokens
             token_totals["embedding_tokens"] += score_entry.embedding_tokens
 
-        return judge_scores, token_totals
+        return judge_scores, scored_metrics, token_totals
 
     def _evaluate_single_judge(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -179,7 +188,7 @@ class JudgeOrchestrator:
         request: EvaluationRequest,
         evaluation_scope: EvaluationScope,
         token_tracker: TokenTracker,
-    ) -> JudgeScore:
+    ) -> tuple[JudgeScore, ScoredMetric]:
         """Evaluate metric with a single judge.
 
         On evaluation error, returns a JudgeScore with score=None instead
@@ -194,7 +203,9 @@ class JudgeOrchestrator:
             token_tracker: Tracks token usage for this call.
 
         Returns:
-            JudgeScore: Contains score, reason, and token usage for this judge.
+            Tuple of (JudgeScore, ScoredMetric): the per-judge entry, and
+                the handler's full result, which carries the native score
+                and scale for handlers that report one.
         """
         # Use judge_id from manager (pool key) - ensures uniqueness even when
         # multiple pool entries use the same underlying model
@@ -203,32 +214,38 @@ class JudgeOrchestrator:
 
         try:
             handler = self._get_handler_for_judge(framework, judge_manager)
-            score, reason = handler.evaluate(
-                metric_name, request.conv_data, evaluation_scope
+            # Handlers may return the (score, reason) 2-tuple or, when they
+            # have a native scale to report, the full ScoredMetric.
+            scored = ScoredMetric.from_handler(
+                handler.evaluate(metric_name, request.conv_data, evaluation_scope)
             )
             handler_logs = getattr(handler, "last_verbose_logs", None)
         except EvaluationError as e:
             logger.error("Judge %s failed: %s", judge_id, e)
-            score, reason, handler_logs = None, f"Evaluation error: {e}", None
+            scored, handler_logs = ScoredMetric(reason=f"Evaluation error: {e}"), None
 
         judge_tokens = token_tracker.get_judge_counts()
         emb_tokens = token_tracker.get_embedding_counts()
         logger.debug(
             "Judge %s: score=%s, tokens=%d/%d, embeddings=%d",
             judge_id,
-            score,
+            scored.score,
             judge_tokens[0],
             judge_tokens[1],
             emb_tokens,
         )
-        return JudgeScore(
-            judge_id=judge_id,
-            score=score,
-            reason=reason,
-            judge_input_tokens=judge_tokens[0],
-            judge_output_tokens=judge_tokens[1],
-            embedding_tokens=emb_tokens,
-            verbose_logs=handler_logs if isinstance(handler_logs, str) else None,
+        return (
+            JudgeScore(
+                judge_id=judge_id,
+                score=scored.score,
+                raw_score=scored.raw_score,
+                reason=scored.reason,
+                judge_input_tokens=judge_tokens[0],
+                judge_output_tokens=judge_tokens[1],
+                embedding_tokens=emb_tokens,
+                verbose_logs=handler_logs if isinstance(handler_logs, str) else None,
+            ),
+            scored,
         )
 
     def _get_handler_for_judge(self, framework: str, judge_manager: LLMManager) -> Any:
@@ -264,6 +281,78 @@ class JudgeOrchestrator:
         self._judge_handlers[judge_id][framework] = handler
         return handler
 
+    def _aggregation_strategy(self) -> str:
+        """Panel aggregation strategy from system config, defaulting to max."""
+        panel = (
+            self.llm_manager.system_config.judge_panel
+            if self.llm_manager.system_config
+            else None
+        )
+        return panel.aggregation_strategy if panel else "max"
+
+    def aggregate_native_score(
+        self,
+        judge_scores: list[JudgeScore],
+        scored_metrics: list[ScoredMetric],
+    ) -> ScoredMetric:
+        """Aggregate the judges' native-scale scores for the rollup.
+
+        The reported score and the native score are not interchangeable, so
+        each panel strategy needs its own rule rather than reusing the
+        aggregate of the reported scores:
+
+            - single judge: that judge's native score.
+            - max: the native score of the judge whose reported score won,
+              so the reported and native values describe the same judge.
+            - average: the mean of the valid native scores. Averaging on the
+              native scale is the point — for a zero-centred metric, -1 and
+              +1 mean to 0 (ideal on average), while the reported scores
+              mean to the opposite verdict.
+            - majority_vote: omitted. The strategy's output is a vote, and
+              no native score corresponds to it; the metric contributes
+              nothing to the native rollup for this evaluation.
+
+        The scale and pass condition are the metric's own, identical across
+        judges, and taken from the first judge that reported them.
+
+        Args:
+            judge_scores: Per-judge entries, carrying the native scores.
+            scored_metrics: The matching full handler results, for the scale.
+
+        Returns:
+            A ScoredMetric holding only the native fields: ``raw_score``
+            aggregated per the rule above, with the metric's scale and pass
+            condition. ``raw_score`` is None when no judge reported one.
+        """
+        native = next(
+            (s for s in scored_metrics if s.raw_score is not None), ScoredMetric()
+        )
+        scale = native.model_copy(
+            update={"score": None, "reason": "", "raw_score": None}
+        )
+
+        if len(judge_scores) == 1:
+            return scale.model_copy(update={"raw_score": judge_scores[0].raw_score})
+
+        strategy = self._aggregation_strategy()
+        if strategy == "majority_vote":
+            return scale
+
+        raw_scores = [js.raw_score for js in judge_scores if js.raw_score is not None]
+        if not raw_scores:
+            return scale
+
+        if strategy == "average":
+            return scale.model_copy(update={"raw_score": mean(raw_scores)})
+
+        # max (default): follow the judge the reported score came from
+        by_score = {
+            js.score: js.raw_score for js in judge_scores if js.score is not None
+        }
+        if not by_score:
+            return scale
+        return scale.model_copy(update={"raw_score": by_score[max(by_score)]})
+
     def aggregate_scores(
         self,
         judge_scores: list[JudgeScore],
@@ -289,12 +378,7 @@ class JudgeOrchestrator:
             status_override is only set for majority_vote (PASS/FAIL);
             None for other strategies.
         """
-        panel = (
-            self.llm_manager.system_config.judge_panel
-            if self.llm_manager.system_config
-            else None
-        )
-        strategy = panel.aggregation_strategy if panel else "max"
+        strategy = self._aggregation_strategy()
 
         # Single judge: return its score and reason directly (even if None)
         if len(judge_scores) == 1:

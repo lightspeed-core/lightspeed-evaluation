@@ -3,7 +3,6 @@
 """Unit tests for pipeline evaluation evaluator module."""
 
 import sys
-from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -43,52 +42,41 @@ class TestMetricsEvaluator:
         expected = 7 if "uaem_lib" in evaluator.handlers else 6
         assert len(evaluator.handlers) == expected
 
-    def test_output_dir_is_passed_through_to_the_uaem_raw_score_sink(
-        self,
-        config_loader: ConfigLoader,
-        mock_metric_manager: MetricManager,
-        mock_script_manager: ScriptExecutionManager,
-        mocker: MockerFixture,
-        tmp_path: Path,
+    def test_result_records_the_agent_under_evaluation(
+        self, evaluator: MetricsEvaluator
     ) -> None:
-        """The raw-score sink belongs next to this run's own reports.
+        """Results carry the agent so finalization can group by it."""
+        evaluator.handlers["ragas"].evaluate.return_value = (0.85, "Good")
 
-        Without threading output_dir through, the sink falls back to a
-        fixed ``results/`` regardless of where this run's actual reports
-        go. Skipped (not failed) when the uaem-poc extra is not installed,
-        since there is then no sink to check.
-        """
-        pytest.importorskip(
-            "lightspeed_evaluation.core.metrics.uaem", reason="requires uaem-poc"
+        turn_data = TurnData(turn_id="1", query="Query", response="Response")
+        conv_data = EvaluationData(
+            conversation_group_id="test_conv", agent=["agent_a"], turns=[turn_data]
         )
-        create_mock_llm_manager(mocker)
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.EmbeddingManager"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.RagasMetrics")
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.DeepEvalMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.CustomMetrics"
-        )
-        mocker.patch(
-            "lightspeed_evaluation.pipeline.evaluation.evaluator.ScriptEvalMetrics"
-        )
-        mocker.patch("lightspeed_evaluation.pipeline.evaluation.evaluator.NLPMetrics")
-        resolve_spy = mocker.patch(
-            "lightspeed_evaluation.core.metrics.uaem.resolve_raw_score_path",
-            return_value=tmp_path / "uaem_raw_scores.jsonl",
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:faithfulness", 0, turn_data
         )
 
-        MetricsEvaluator(
-            config_loader,
-            mock_metric_manager,
-            mock_script_manager,
-            output_dir="my_custom_output_dir",
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.agent == "agent_a"
+
+    def test_result_agent_is_none_when_no_agent_is_configured(
+        self, evaluator: MetricsEvaluator
+    ) -> None:
+        """An offline run scores responses whose producer is unnamed."""
+        evaluator.handlers["ragas"].evaluate.return_value = (0.85, "Good")
+
+        turn_data = TurnData(turn_id="1", query="Query", response="Response")
+        conv_data = EvaluationData(conversation_group_id="test_conv", turns=[turn_data])
+        request = EvaluationRequest.for_turn(
+            conv_data, "ragas:faithfulness", 0, turn_data
         )
 
-        resolve_spy.assert_called_once_with("my_custom_output_dir")
+        result = evaluator.evaluate_metric(request)
+
+        assert result is not None
+        assert result.agent is None
 
     def test_initialization_without_uaem_extra_skips_uaem_handler(
         self,

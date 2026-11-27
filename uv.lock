@@ -2650,11 +2650,13 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=4.0.0,<5.0.0" },
+    { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=3.0.0,<4.0.0" },
     { name = "openai", marker = "extra == 'langfuse'", specifier = ">=1.0.0" },
     { name = "pydantic-ai", marker = "extra == 'lib-side'", specifier = ">=0.1.0" },
+    { name = "pydantic-ai", marker = "extra == 'mlflow'", specifier = ">=0.1.0" },
     { name = "redhat-unified-ai-evaluation-metrics", editable = "../uieintel-698/unified-ai-evaluation-metrics" },
 ]
-provides-extras = ["client-side", "lib-side", "langfuse"]
+provides-extras = ["client-side", "lib-side", "langfuse", "mlflow"]
 
 [package.metadata.requires-dev]
 dev = [

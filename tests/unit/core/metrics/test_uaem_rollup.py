@@ -1,15 +1,13 @@
 # pylint: disable=redefined-outer-name
 
-"""Unit tests for locating the uaem_lib rollup for the evaluation summary.
+"""Unit tests for the uaem_lib rollup attached to the evaluation summary.
 
-The rollup math is the metric library's (``lib_side.report``,
-``lib_side.rollup_scores``); these tests only cover finding this run's rows
-in the sink and handing the library's own result back unchanged. Skipped
-unless the ``uaem-poc`` extra is installed.
+The rollup math is the metric library's (``lib_side.rollup_scores``); these
+tests only cover which of this run's results are passed to it and how they
+are grouped. Skipped unless the ``uaem-poc`` extra is installed.
 """
 
-import json
-from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -17,103 +15,134 @@ pytest.importorskip("lib_side", reason="requires the uaem-poc extra")
 
 # pylint: disable=wrong-import-position
 from lightspeed_evaluation.core.metrics.uaem.rollup import build_rollup_summary
+from lightspeed_evaluation.core.models import EvaluationResult
 
 
-def _write_rows(path: Path, rows: list[dict]) -> None:
-    with path.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row) + "\n")
+def _result(
+    metric: str,
+    raw_score: Optional[float],
+    *,
+    agent: Optional[str] = "agent_a",
+    turn_id: Optional[str] = "t1",
+    framework: str = "uaem_lib",
+) -> EvaluationResult:
+    """One scored result, with only the fields the rollup reads."""
+    return EvaluationResult(
+        conversation_group_id="conv1",
+        agent=agent,
+        turn_id=turn_id,
+        metric_identifier=f"{framework}:{metric}",
+        result="PASS",
+        score=0.5,
+        raw_score=raw_score,
+    )
 
 
 class TestBuildRollupSummary:
-    """Reading this run's sink and rolling it up to indicator/criterion/domain."""
+    """Grouping this run's native scores and rolling each group up."""
 
-    def test_missing_sink_file_returns_none(self, tmp_path: Path) -> None:
-        """A run that never used uaem_lib has no sink file at all."""
-        assert build_rollup_summary(tmp_path / "missing.jsonl") is None
+    def test_no_results_returns_none(self) -> None:
+        """A run that never used uaem_lib gets no rollup section."""
+        assert build_rollup_summary([]) is None
 
-    def test_sink_with_no_uaem_lib_rows_returns_none(self, tmp_path: Path) -> None:
-        """Other frameworks' rows in the sink don't count as uaem_lib having run."""
-        path = tmp_path / "raw.jsonl"
-        _write_rows(
-            path, [{"model_nm": "other_framework", "metric": "x", "score": 1.0}]
-        )
+    def test_other_frameworks_are_ignored(self) -> None:
+        """Another framework's results don't count as uaem_lib having run."""
+        results = [_result("faithfulness", 1.0, framework="ragas")]
 
-        assert build_rollup_summary(path) is None
+        assert build_rollup_summary(results) is None
 
-    def test_means_raw_scores_before_rolling_up(self, tmp_path: Path) -> None:
-        """Aggregation order is load-bearing: mean raw scores, then roll up.
+    def test_results_without_a_native_score_are_ignored(self) -> None:
+        """A metric that produced no native score contributes nothing."""
+        results = [_result("req_coverage_prop_model", None)]
 
-        ``granularity_fit_score_model`` rows of -1.0 and +1.0 must mean to
-        0.0 and only then take ``1 - |x|`` (giving 1.0), not the other way
-        around (which would give 0.0).
+        assert build_rollup_summary(results) is None
+
+    def test_means_native_scores_before_rolling_up(self) -> None:
+        """Aggregation order is load-bearing: mean native scores, then roll up.
+
+        ``granularity_fit_score_model`` results of -1.0 and +1.0 must mean
+        to 0.0 and only then take ``1 - |x|`` (giving 1.0), not the other
+        way around (which would give 0.0).
         """
-        path = tmp_path / "raw.jsonl"
-        _write_rows(
-            path,
-            [
-                {
-                    "model_nm": "uaem_lib",
-                    "metric": "granularity_fit_score_model",
-                    "score": -1.0,
-                    "lse_score": 0.0,
-                },
-                {
-                    "model_nm": "uaem_lib",
-                    "metric": "granularity_fit_score_model",
-                    "score": 1.0,
-                    "lse_score": 0.0,
-                },
-            ],
-        )
+        results = [
+            _result("granularity_fit_score_model", -1.0, turn_id="t1"),
+            _result("granularity_fit_score_model", 1.0, turn_id="t2"),
+        ]
 
-        result = build_rollup_summary(path)
+        rolled = build_rollup_summary(results)
 
-        assert result is not None
-        assert result["metric_scores"]["granularity_fit_score_model"] == 0.0
-        topic_fidelity = result["indicator_scores"]["topic_fidelity"]
-        assert topic_fidelity["score"] == pytest.approx(1.0)
+        assert rolled is not None
+        tree = rolled["agent_a"]["turn"]
+        assert tree["metric_scores"]["granularity_fit_score_model"] == 0.0
+        assert tree["indicator_scores"]["topic_fidelity"]["score"] == pytest.approx(1.0)
 
-    def test_full_tree_shape(self, tmp_path: Path) -> None:
+    def test_agents_are_rolled_up_separately(self) -> None:
+        """The tree describes the system scored, so each agent gets its own."""
+        results = [
+            _result("req_coverage_prop_model", 0.4, agent="agent_a"),
+            _result("req_coverage_prop_model", 0.8, agent="agent_b"),
+        ]
+
+        rolled = build_rollup_summary(results)
+
+        assert rolled is not None
+        assert set(rolled) == {"agent_a", "agent_b"}
+        assert rolled["agent_a"]["turn"]["metric_scores"] == {
+            "req_coverage_prop_model": pytest.approx(0.4)
+        }
+        assert rolled["agent_b"]["turn"]["metric_scores"] == {
+            "req_coverage_prop_model": pytest.approx(0.8)
+        }
+
+    def test_results_without_an_agent_group_under_unknown(self) -> None:
+        """An offline run names no agent, and still gets its rollup."""
+        results = [_result("req_coverage_prop_model", 0.4, agent=None)]
+
+        rolled = build_rollup_summary(results)
+
+        assert rolled is not None
+        assert set(rolled) == {"unknown"}
+
+    def test_levels_are_rolled_up_separately(self) -> None:
+        """Turn and conversation means are over different populations."""
+        results = [
+            _result("req_coverage_prop_model", 0.4, turn_id="t1"),
+            _result("req_coverage_prop_model", 0.8, turn_id=None),
+        ]
+
+        rolled = build_rollup_summary(results)
+
+        assert rolled is not None
+        assert set(rolled["agent_a"]) == {"turn", "conversation"}
+        assert rolled["agent_a"]["turn"]["metric_scores"] == {
+            "req_coverage_prop_model": pytest.approx(0.4)
+        }
+        assert rolled["agent_a"]["conversation"]["metric_scores"] == {
+            "req_coverage_prop_model": pytest.approx(0.8)
+        }
+
+    def test_full_tree_shape(self) -> None:
         """One metric per indicator rolls all the way up to a domain name."""
-        path = tmp_path / "raw.jsonl"
-        _write_rows(
-            path,
-            [
-                {
-                    "model_nm": "uaem_lib",
-                    "metric": "req_coverage_prop_model",
-                    "score": 0.4,
-                    "lse_score": 0.4,
-                },
-                {
-                    "model_nm": "uaem_lib",
-                    "metric": "scope_containment_prop_model",
-                    "score": 0.5,
-                    "lse_score": 0.5,
-                },
-                {
-                    "model_nm": "uaem_lib",
-                    "metric": "granularity_fit_score_model",
-                    "score": 0.2,
-                    "lse_score": 0.8,
-                },
-            ],
-        )
+        results = [
+            _result("req_coverage_prop_model", 0.4),
+            _result("scope_containment_prop_model", 0.5),
+            _result("granularity_fit_score_model", 0.2),
+        ]
 
-        result = build_rollup_summary(path)
+        rolled = build_rollup_summary(results)
 
-        assert result is not None
-        assert set(result["metric_scores"]) == {
+        assert rolled is not None
+        tree = rolled["agent_a"]["turn"]
+        assert set(tree["metric_scores"]) == {
             "req_coverage_prop_model",
             "scope_containment_prop_model",
             "granularity_fit_score_model",
         }
-        assert set(result["indicator_scores"]) == {"completeness", "topic_fidelity"}
-        assert set(result["evaluation_criterion_scores"]) == {"coverage"}
-        assert result["domain_names"] == ["output_quality"]
+        assert set(tree["indicator_scores"]) == {"completeness", "topic_fidelity"}
+        assert set(tree["evaluation_criterion_scores"]) == {"coverage"}
+        assert tree["domain_names"] == ["output_quality"]
 
-        coverage = result["evaluation_criterion_scores"]["coverage"]
+        coverage = tree["evaluation_criterion_scores"]["coverage"]
         assert coverage["formula"]["type"] == "weighted_mean"
         assert coverage["children"] == {
             "completeness": pytest.approx(0.4),

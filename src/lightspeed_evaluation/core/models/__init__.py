@@ -23,6 +23,7 @@ from lightspeed_evaluation.core.models.data import (
     EvaluationScope,
     JudgeScore,
     MetricResult,
+    ScoredMetric,
     TurnData,
 )
 from lightspeed_evaluation.core.models.llm import (
@@ -92,6 +93,7 @@ __all__ = [
     "EvaluationRequest",
     "JudgeScore",
     "MetricResult",
+    "ScoredMetric",
     "EvaluationResult",
     "EvaluationScope",
     # Metric metadata models (GEval config, etc.)

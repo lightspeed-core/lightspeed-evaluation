@@ -100,6 +100,7 @@ DEFAULT_STORED_CONFIGS = [
 SUPPORTED_OUTPUT_TYPES = ["csv", "json", "txt"]
 SUPPORTED_CSV_COLUMNS = [
     "conversation_group_id",
+    "agent",
     "tag",
     "turn_id",
     "metric_identifier",
@@ -108,6 +109,7 @@ SUPPORTED_CSV_COLUMNS = [
     "score",
     "raw_score",
     "threshold",
+    "pass_condition",
     "reason",
     "query",
     "response",

@@ -19,7 +19,7 @@ results — the same division of labour as `RagasMetrics`.
 
 | Path | Purpose |
 |---|---|
-| `core/metrics/uaem/common.py` | Trace mapping, the `[0, 1]` score contract, the raw-score sink |
+| `core/metrics/uaem/common.py` | Trace mapping, structured judge calls, pass-rule rendering |
 | `core/metrics/uaem/metrics.py` | The `uaem_lib` handler |
 | `core/metrics/uaem/judge.py` | `JudgeLLM` / `EmbeddingClient` adapters over the managed clients |
 | `core/metrics/uaem/rollup.py` | Metric → indicator → criterion → domain rollup, attached to `summary.json` |
@@ -50,11 +50,11 @@ uv run lightspeed-eval \
     --output-dir results
 ```
 
-The run's raw scores go to a sink file scoped to that run (see "Rollup is
-per-run" below) and are rolled up — metric → indicator → evaluation
-criterion → domain — straight into a `rollup` key on that run's
-`*_summary.json`, next to `summary_stats` and `results`. A run that never
-used `uaem_lib` gets no `rollup` key at all.
+The run's native scores ride on its results and are rolled up — metric →
+indicator → evaluation criterion → domain — straight into a `rollup` key on
+that run's `*_summary.json`, next to `summary_stats` and `results`. The key
+is nested `agent → evaluation level → tree`. A run that never used
+`uaem_lib` gets no `rollup` key at all.
 
 `uv sync` without `--extra uaem-poc` leaves the framework unregistered; the
 handler imports `lib_side` lazily, the rollup section is silently omitted,
@@ -65,27 +65,38 @@ and the UAEM tests skip.
 **The score contract is `[0, 1]`, and one of these metrics is not.**
 `granularity_fit_score_model` is `[-1, 1]` with a `BETWEEN(0, 0)` pass
 condition. `MetricResult.score` is `ge=0, le=1` and pass/fail is
-`score >= threshold`, so the handler reports `1 - |x|` and the config uses a
+`score >= threshold`, so the library reports `1 - |x|` and the config uses a
 threshold of `1.00`. Semantically equivalent, but only because of that
-transform — which is why the config comments it. The new
-`raw_score` / `score_min` / `score_max` fields give the native value an
-honest home, though the 2-tuple handler contract cannot populate them yet
-(see below).
+transform — which is why the config comments it. `raw_score` /
+`score_min` / `score_max` / `pass_condition` give the native value and its
+rule an honest home, and `ScoredMetric` is how a handler populates them: a
+handler may return it in place of the `(score, reason)` 2-tuple, which the
+other frameworks still use unchanged.
+
+**Nothing travels out of band.** The native scores the rollup needs reach
+finalization on the results themselves, not through a JSONL sink and
+environment variables. That makes a run's rollup a pure function of that
+run's results: concurrent runs cannot mix, and no file has to be located,
+scoped or cleaned up.
 
 **Aggregation order is load-bearing.** `1 - |x|` is non-linear, so
-mean-then-formula and formula-then-mean disagree: granularity rows of `-1`
+mean-then-formula and formula-then-mean disagree: granularity scores of `-1`
 and `+1` give `1.0` one way and `0.0` the other. The rollup therefore reads
-raw scores from the sink, not the already-transformed scores in the results
-CSV, and means across rows before applying any formula. Pinned by
+`raw_score`, not the already-transformed `score`, and means across results
+before applying any formula. Pinned by
 `tests/unit/core/metrics/test_uaem_rollup.py`.
 
-**Rollup is per-run, not accumulating.** The raw-score sink has no run id in
-its schema, so a fixed filename would silently mix scores from every past
-run into the next one's rollup. `resolve_raw_score_path()` pins a
-timestamped default into `UAEM_RAW_SCORES` the first time a run needs it, so
-the sink — and the rollup read from it — is scoped to that run. Set
-`UAEM_RAW_SCORES` explicitly to opt back into one shared, accumulating file
-(e.g. for ad-hoc multi-run analysis via `build_rollup_summary` directly).
+The same split decides what a judge panel feeds the rollup, per strategy:
+`average` means the native scores (so `-1` and `+1` give the ideal `0`),
+`max` takes the native score of whichever judge's reported score won, and
+`majority_vote` reports no native score at all — a vote is not a value on
+the native scale. Pinned by `TestAggregateNativeScore` in
+`tests/unit/pipeline/evaluation/test_judges.py`.
+
+**The tree is grouped by what was scored.** `rollup` is keyed by the agent
+under evaluation (`EvaluationResult.agent`, `unknown` for an offline run
+that names none) and then by evaluation level, since turn and conversation
+means are over different populations.
 
 ## Upstreamable parts
 
@@ -95,11 +106,10 @@ of the spike. They are identical on both branches:
 - `feat(models): add raw_score and native score range to MetricResult` —
   `score` stays normalised to `[0, 1]`, which statistics, `quality_score` and
   the charts all rely on; metrics with another native scale get somewhere
-  honest to put the real value. Caveat: the handler contract is
-  `evaluate(...) -> tuple[Optional[float], str]` and `metric_metadata` is
-  filled from config rather than from the handler, so there is no in-band
-  channel and the column currently ships empty. Widening the contract to
-  return a result object is the real fix and is a breaking change.
+  honest to put the real value. `ScoredMetric` widens the handler contract
+  additively to fill them: a handler may return it instead of
+  `tuple[Optional[float], str]`, and every handler that does not is
+  untouched.
 - `feat(llm): add optional system_prompt to BaseCustomLLM.call` — the call
   previously sent one user message with no way to set a system role.
 

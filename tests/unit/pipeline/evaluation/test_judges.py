@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from lightspeed_evaluation.core.models import JudgeScore
+from lightspeed_evaluation.core.models import JudgeScore, ScoredMetric
 from lightspeed_evaluation.pipeline.evaluation.judges import JudgeOrchestrator
 
 
@@ -213,6 +213,178 @@ class TestAggregationStrategies:
         assert override == "PASS"
         assert "Majority vote (3/4" in reason
         assert score == pytest.approx(0.65)
+
+
+class TestTypedHandlerResult:
+    """A handler may return the 2-tuple or the full ScoredMetric."""
+
+    @staticmethod
+    def _orchestrator(mocker: MockerFixture, handler: Any) -> JudgeOrchestrator:
+        """Single-judge orchestrator wired to one handler."""
+        mock_manager = mocker.MagicMock()
+        mock_manager.system_config = None
+        mock_manager.judge_id = "primary"
+        mock_manager.get_judges_for_metric.return_value = [mock_manager]
+        return JudgeOrchestrator(
+            llm_manager=mock_manager,
+            primary_handlers={"uaem_lib": handler},
+            handler_factory=mocker.MagicMock(),
+            status_determiner=lambda s, _: "PASS" if s >= 0.5 else "FAIL",
+        )
+
+    def test_native_fields_reach_the_metric_result(self, mocker: MockerFixture) -> None:
+        """The native score travels in band, not through a side channel."""
+        handler = mocker.MagicMock()
+        handler.evaluate.return_value = ScoredMetric(
+            score=0.0,
+            reason="granularity_fit_score_model=-1.0000",
+            raw_score=-1.0,
+            score_min=-1.0,
+            score_max=1.0,
+            pass_condition="between(0.0, 0.0)",
+        )
+        token_tracker = mocker.MagicMock()
+        token_tracker.get_judge_counts.return_value = (10, 20)
+        token_tracker.get_embedding_counts.return_value = 0
+        orch = self._orchestrator(mocker, handler)
+
+        request = mocker.MagicMock()
+        request.metric_identifier = "uaem_lib:granularity_fit_score_model"
+
+        result = orch.evaluate_with_judges(
+            request, mocker.MagicMock(), token_tracker, 1.0
+        )
+
+        assert result.score == 0.0
+        assert result.raw_score == -1.0
+        assert (result.score_min, result.score_max) == (-1.0, 1.0)
+        assert result.pass_condition == "between(0.0, 0.0)"
+        assert result.judge_scores is not None
+        assert result.judge_scores[0].raw_score == -1.0
+
+    def test_two_tuple_handlers_report_no_native_score(
+        self, mocker: MockerFixture
+    ) -> None:
+        """The existing contract still works and simply carries no native score."""
+        handler = mocker.MagicMock()
+        handler.evaluate.return_value = (0.85, "Good")
+        token_tracker = mocker.MagicMock()
+        token_tracker.get_judge_counts.return_value = (10, 20)
+        token_tracker.get_embedding_counts.return_value = 0
+        orch = self._orchestrator(mocker, handler)
+
+        request = mocker.MagicMock()
+        request.metric_identifier = "uaem_lib:whatever"
+
+        result = orch.evaluate_with_judges(
+            request, mocker.MagicMock(), token_tracker, 0.7
+        )
+
+        assert result.score == 0.85
+        assert result.raw_score is None
+        assert result.pass_condition is None
+
+
+class TestAggregateNativeScore:
+    """Tests for the native-scale input each panel strategy hands the rollup.
+
+    The reported score and the native score are not interchangeable, so
+    each strategy needs its own rule rather than reusing the aggregate of
+    the reported scores.
+    """
+
+    @staticmethod
+    def _scale() -> ScoredMetric:
+        """A handler result carrying the metric's declared native scale."""
+        return ScoredMetric(
+            score=0.0,
+            raw_score=-1.0,
+            score_min=-1.0,
+            score_max=1.0,
+            pass_condition="between(0.0, 0.0)",
+        )
+
+    def test_single_judge_uses_its_own_native_score(
+        self, mocker: MockerFixture
+    ) -> None:
+        """One judge: its native score, and the metric's scale alongside it."""
+        orch = _make_orchestrator(mocker, "max")
+        judge_scores = [JudgeScore(judge_id="j1", score=0.0, raw_score=-1.0)]
+
+        native = orch.aggregate_native_score(judge_scores, [self._scale()])
+
+        assert native.raw_score == -1.0
+        assert (native.score_min, native.score_max) == (-1.0, 1.0)
+        assert native.pass_condition == "between(0.0, 0.0)"
+
+    def test_average_means_on_the_native_scale(self, mocker: MockerFixture) -> None:
+        """Averaging natively is the point: -1 and +1 mean to 0, the ideal.
+
+        The reported scores (0.0 and 0.0) mean to the opposite verdict.
+        """
+        orch = _make_orchestrator(mocker, "average")
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.0, raw_score=-1.0),
+            JudgeScore(judge_id="j2", score=0.0, raw_score=1.0),
+        ]
+
+        native = orch.aggregate_native_score(
+            judge_scores, [self._scale(), self._scale()]
+        )
+
+        assert native.raw_score == 0.0
+
+    def test_max_follows_the_judge_the_reported_score_came_from(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Reported and native values must describe the same judge."""
+        orch = _make_orchestrator(mocker, "max")
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.2, raw_score=-0.8),
+            JudgeScore(judge_id="j2", score=0.9, raw_score=-0.1),
+        ]
+
+        native = orch.aggregate_native_score(
+            judge_scores, [self._scale(), self._scale()]
+        )
+
+        assert native.raw_score == -0.1
+
+    def test_majority_vote_omits_the_native_score(self, mocker: MockerFixture) -> None:
+        """A vote is not a value on the native scale, so none is claimed.
+
+        The metric contributes nothing to the native rollup for this
+        evaluation; the scale itself still travels on the result.
+        """
+        orch = _make_orchestrator(mocker, "majority_vote")
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.0, raw_score=-1.0),
+            JudgeScore(judge_id="j2", score=0.0, raw_score=1.0),
+        ]
+
+        native = orch.aggregate_native_score(
+            judge_scores, [self._scale(), self._scale()]
+        )
+
+        assert native.raw_score is None
+        assert (native.score_min, native.score_max) == (-1.0, 1.0)
+
+    def test_handlers_without_a_native_scale_report_none(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Most handlers return the 2-tuple and have no native score."""
+        orch = _make_orchestrator(mocker, "average")
+        judge_scores = [
+            JudgeScore(judge_id="j1", score=0.4),
+            JudgeScore(judge_id="j2", score=0.6),
+        ]
+
+        native = orch.aggregate_native_score(
+            judge_scores, [ScoredMetric(score=0.4), ScoredMetric(score=0.6)]
+        )
+
+        assert native.raw_score is None
+        assert native.score_min is None
 
 
 class TestVerboseLogsPropagation:

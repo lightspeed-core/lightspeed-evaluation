@@ -6,8 +6,6 @@ Skipped unless the ``uaem-poc`` extra is installed, since the framework
 depends on the metric library it ships.
 """
 
-import json
-from pathlib import Path
 from typing import Any, Optional, cast
 
 import pytest
@@ -17,12 +15,10 @@ pytest.importorskip("lib_side", reason="requires the uaem-poc extra")
 
 # pylint: disable=wrong-import-position
 from lightspeed_evaluation.core.metrics.uaem import (
-    RawScoreSink,
     UAEMLibMetrics,
     build_traces,
     call_json,
-    resolve_raw_score_path,
-    to_lse_score,
+    format_pass_condition,
 )
 from lightspeed_evaluation.core.metrics.uaem import (
     judge as judge_module,
@@ -137,18 +133,30 @@ class TestTraceMapping:
         assert len(build_traces(data, conversation_scope())) == 1
 
 
-class TestScoreContract:
-    """Tests for to_lse_score."""
+class TestPassConditionFormatting:
+    """Tests for format_pass_condition."""
 
-    def test_zero_one_metrics_pass_through(self) -> None:
-        """A proportion is reported unchanged."""
-        assert to_lse_score(0.73, score_min=0.0, score_max=1.0) == 0.73
+    def test_no_condition_renders_as_none(self) -> None:
+        """A metric that declares no pass rule reports none."""
+        assert format_pass_condition(None) is None
 
-    def test_signed_scale_is_normalised_as_one_minus_abs(self) -> None:
-        """A signed scale where 0 is ideal maps to 1 - |x|."""
-        assert to_lse_score(-0.5, score_min=-1.0, score_max=1.0) == 0.5
-        assert to_lse_score(0.0, score_min=-1.0, score_max=1.0) == 1.0
-        assert to_lse_score(1.0, score_min=-1.0, score_max=1.0) == 0.0
+    def test_threshold_and_interval_rules_are_rendered(self) -> None:
+        """Both operators the library uses read on the native scale."""
+        # pylint: disable=import-outside-toplevel
+        from metrics.schema import PassOperator, TracePassCondition
+
+        assert (
+            format_pass_condition(
+                TracePassCondition(operator=PassOperator.GTE, value=0.9)
+            )
+            == "gte(0.9)"
+        )
+        assert (
+            format_pass_condition(
+                TracePassCondition(operator=PassOperator.BETWEEN, lower=0.0, upper=0.0)
+            )
+            == "between(0.0, 0.0)"
+        )
 
 
 class TestStructuredOutputRetry:
@@ -201,17 +209,15 @@ class TestHandler:
         metric_name: str,
         conv_data: EvaluationData,
         llm_manager: Any,
-        tmp_path: Path,
     ) -> None:
         """Every metric reports a score inside [0, 1]."""
-        sink = RawScoreSink(tmp_path / "raw.jsonl")
-        handler = UAEMLibMetrics(llm_manager, None, raw_sink=sink)
+        handler = UAEMLibMetrics(llm_manager, None)
 
-        score, reason = handler.evaluate(metric_name, conv_data, turn_scope(conv_data))
+        scored = handler.evaluate(metric_name, conv_data, turn_scope(conv_data))
 
-        assert score is not None
-        assert 0.0 <= score <= 1.0
-        assert metric_name in reason
+        assert scored.score is not None
+        assert 0.0 <= scored.score <= 1.0
+        assert metric_name in scored.reason
 
     @pytest.mark.usefixtures("stub_llm")
     def test_unknown_metrics_are_rejected(
@@ -220,10 +226,10 @@ class TestHandler:
         """An unsupported metric name returns a null score and a reason."""
         handler = UAEMLibMetrics(llm_manager, None)
 
-        score, reason = handler.evaluate("nope", conv_data, turn_scope(conv_data))
+        scored = handler.evaluate("nope", conv_data, turn_scope(conv_data))
 
-        assert score is None
-        assert "Unsupported" in reason
+        assert scored.score is None
+        assert "Unsupported" in scored.reason
 
     def test_system_prompt_is_sent_as_a_system_message(
         self, conv_data: EvaluationData, stub_llm: StubLLM, llm_manager: Any
@@ -240,28 +246,25 @@ class TestHandler:
         assert "evaluation judge" in system_prompt
 
     @pytest.mark.usefixtures("stub_llm")
-    def test_sink_records_the_untransformed_score(
-        self, conv_data: EvaluationData, llm_manager: Any, tmp_path: Path
+    def test_result_carries_the_untransformed_score_and_its_scale(
+        self, conv_data: EvaluationData, llm_manager: Any
     ) -> None:
         """The rollup needs -1.0, not the 0.0 that gets reported.
 
-        Field names are ``build_rollup_summary``'s contract: ``model_nm``,
-        ``metric``, ``score``.
+        Both travel on the result itself, along with the scale and the pass
+        rule the metric declares, so none of it has to be handed over out
+        of band.
         """
-        path = tmp_path / "raw.jsonl"
-        sink = RawScoreSink(path)
-        handler = UAEMLibMetrics(llm_manager, None, raw_sink=sink)
+        handler = UAEMLibMetrics(llm_manager, None)
 
-        handler.evaluate(
+        scored = handler.evaluate(
             "granularity_fit_score_model", conv_data, turn_scope(conv_data)
         )
 
-        row = json.loads(path.read_text(encoding="utf-8").strip())
-        assert row["model_nm"] == "uaem_lib"
-        assert row["metric"] == "granularity_fit_score_model"
-        assert row["score"] == -1.0
-        assert row["lse_score"] == 0.0
-        assert row["turn_id"] == "t1"
+        assert scored.raw_score == -1.0
+        assert scored.score == 0.0
+        assert (scored.score_min, scored.score_max) == (-1.0, 1.0)
+        assert scored.pass_condition == "between(0.0, 0.0)"
 
     def test_conversation_level_scores_every_usable_turn(
         self, conv_data: EvaluationData, stub_llm: StubLLM, llm_manager: Any
@@ -269,47 +272,9 @@ class TestHandler:
         """Conversation scope judges each turn and averages across them."""
         handler = UAEMLibMetrics(llm_manager, None)
 
-        score, _ = handler.evaluate(
+        scored = handler.evaluate(
             "req_coverage_prop_model", conv_data, conversation_scope()
         )
 
-        assert score == pytest.approx(0.75)
+        assert scored.score == pytest.approx(0.75)
         assert len(stub_llm.calls) == 2
-
-
-class TestResolveRawScorePath:
-    """A per-process default keeps one run's rollup from eating another's."""
-
-    def test_explicit_env_var_is_returned_as_is(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """An explicit path opts into a shared, accumulating sink."""
-        monkeypatch.setenv("UAEM_RAW_SCORES", "shared/raw_scores.jsonl")
-
-        assert resolve_raw_score_path() == Path("shared/raw_scores.jsonl")
-
-    def test_default_is_pinned_for_the_rest_of_the_process(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Two calls with no env var set must agree on one path."""
-        monkeypatch.delenv("UAEM_RAW_SCORES", raising=False)
-
-        first = resolve_raw_score_path()
-        second = resolve_raw_score_path()
-
-        assert first == second
-        assert first.parent == Path("results")
-        assert first.name.startswith("uaem_raw_scores_")
-        assert first.suffix == ".jsonl"
-
-    def test_default_lands_in_this_run_s_output_dir(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The sink belongs next to this run's own reports, not a fixed folder."""
-        monkeypatch.delenv("UAEM_RAW_SCORES", raising=False)
-
-        resolved = resolve_raw_score_path("custom_output_dir")
-
-        assert resolved.parent == Path("custom_output_dir")
-        assert resolved.name.startswith("uaem_raw_scores_")
-        assert resolved.suffix == ".jsonl"

@@ -4,7 +4,9 @@
 # uv sync --extra uaem-poc
 # uv run lightspeed-eval --system-config config/uaem_poc_system.yaml \
 #     --eval-data config/uaem_poc_eval_data.yaml
-# uv run python -m lightspeed_evaluation.core.output.uaem_rollup
+#
+# The rollup needs no second command: it is built from the run's own
+# results and written to the `rollup` key of that run's *_summary.json.
 
 core:
   max_threads: 4
@@ -39,7 +41,7 @@ judge_panel:
     - judge_gpt_4_1_mini
   # Panel off by default so scores stay comparable with the other branch.
   # List the three metric ids here to exercise the panel path.
-  enabled_metrics: []
+  enabled_metrics: ["uaem_lib:req_coverage_prop_model"]
   aggregation_strategy: average
 
 embedding:

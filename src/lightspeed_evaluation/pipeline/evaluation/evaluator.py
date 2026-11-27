@@ -19,6 +19,7 @@ from lightspeed_evaluation.core.metrics.nlp import NLPMetrics
 from lightspeed_evaluation.core.metrics.ragas import RagasMetrics
 from lightspeed_evaluation.core.metrics.script import ScriptEvalMetrics
 from lightspeed_evaluation.core.models import (
+    EvaluationData,
     EvaluationRequest,
     EvaluationResult,
     EvaluationScope,
@@ -116,17 +117,8 @@ class MetricsEvaluator:
         config_loader: ConfigLoader,
         metric_manager: MetricManager,
         script_manager: ScriptExecutionManager,
-        output_dir: Optional[str] = None,
     ) -> None:
-        """Initialize Metric Evaluator.
-
-        Args:
-            config_loader: Loaded system configuration.
-            metric_manager: Resolves metric configuration per evaluation.
-            script_manager: Executes script-based metrics.
-            output_dir: This run's output directory, used only so the
-                uaem_lib raw-score sink lands next to this run's reports.
-        """
+        """Initialize Metric Evaluator."""
         self.config_loader = config_loader
         self.metric_manager = metric_manager
 
@@ -150,7 +142,7 @@ class MetricsEvaluator:
             "custom": CustomMetrics(self.llm_manager, metric_manager=metric_manager),
             "script": ScriptEvalMetrics(script_manager),
         }
-        self.handlers.update(self._create_uaem_handler(self.llm_manager, output_dir))
+        self.handlers.update(self._create_uaem_handler(self.llm_manager))
 
         # Judge orchestrator handles multi-judge evaluation and aggregation
         self.judge_orchestrator = JudgeOrchestrator(
@@ -160,9 +152,7 @@ class MetricsEvaluator:
             status_determiner=self._determine_status,
         )
 
-    def _create_uaem_handler(
-        self, llm_manager: LLMManager, output_dir: Optional[str] = None
-    ) -> dict[str, Any]:
+    def _create_uaem_handler(self, llm_manager: LLMManager) -> dict[str, Any]:
         """Build the uaem_lib handler, if the uaem-poc extra is installed.
 
         The framework depends on the ``lib_side`` metric library, shipped
@@ -172,10 +162,6 @@ class MetricsEvaluator:
 
         Args:
             llm_manager: LLM manager the handler should judge with.
-            output_dir: This run's output directory, so the raw-score sink
-                lands next to this run's own reports. Only meaningful on
-                the first call in the process: once a sink path exists it
-                is pinned for every later handler, panel judges included.
 
         Returns:
             Framework name to handler, or an empty dict when unavailable.
@@ -184,17 +170,10 @@ class MetricsEvaluator:
             # pylint: disable=import-outside-toplevel
             from lightspeed_evaluation.core.metrics.uaem import (
                 FRAMEWORK,
-                RawScoreSink,
                 UAEMLibMetrics,
-                resolve_raw_score_path,
             )
 
-            sink = RawScoreSink(resolve_raw_score_path(output_dir))
-            return {
-                FRAMEWORK: UAEMLibMetrics(
-                    llm_manager, self.embedding_manager, raw_sink=sink
-                )
-            }
+            return {FRAMEWORK: UAEMLibMetrics(llm_manager, self.embedding_manager)}
         except ImportError:
             logger.debug(
                 "UAEM metrics unavailable; install the 'uaem-poc' extra to enable "
@@ -313,6 +292,7 @@ class MetricsEvaluator:
             return EvaluationResult(
                 **metric_result.model_dump(),
                 conversation_group_id=request.conv_data.conversation_group_id,
+                agent=self._resolve_agent(request.conv_data),
                 tag=request.conv_data.tag,
                 turn_id=request.turn_id,
                 metric_identifier=request.metric_identifier,
@@ -810,6 +790,7 @@ class MetricsEvaluator:
         evaluation_latency = _measure_latency(start_time)
         return EvaluationResult(
             conversation_group_id=request.conv_data.conversation_group_id,
+            agent=self._resolve_agent(request.conv_data),
             tag=request.conv_data.tag,
             turn_id=request.turn_id,
             metric_identifier=request.metric_identifier,
@@ -840,6 +821,21 @@ class MetricsEvaluator:
                 _to_json_str(turn_data.expected_tool_calls) if turn_data else None
             ),
         )
+
+    def _resolve_agent(self, conv_data: EvaluationData) -> Optional[str]:
+        """Name the agent under evaluation for this conversation.
+
+        Recorded on every result so finalization can group by the system
+        that was scored. The conversation's own override wins, then the
+        configured default; None when no agent is configured at all, as in
+        an offline run over pre-populated responses.
+        """
+        if conv_data.agent:
+            return conv_data.agent[0]
+        sys_config = self.config_loader.system_config
+        agents = sys_config.agents if sys_config is not None else None
+        default_agents = agents.default.agent if agents is not None else None
+        return default_agents[0] if default_agents else None
 
     def _determine_status(self, score: float, threshold: Optional[float]) -> str:
         """Determine evaluation status based on score and threshold."""
