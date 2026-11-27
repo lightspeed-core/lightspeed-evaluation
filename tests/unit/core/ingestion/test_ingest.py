@@ -2,6 +2,7 @@
 
 import json
 import textwrap
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from lightspeed_evaluation.core.ingestion.config import SourceConfig
 from lightspeed_evaluation.core.ingestion.langfuse_ingest import (
     _build_langfuse_client,
     _split_types,
+    _WindowProgress,
     fetch_api,
     traces_from_observations,
 )
@@ -276,3 +278,36 @@ def test_traces_sort_by_instant_not_string() -> None:
     ]
     trace = traces_from_observations(obs)[0]
     assert [s.span_id for s in trace.spans] == ["early", "late"]
+
+
+def _dt(value: str) -> Any:
+    """Parse an ISO timestamp for progress tests."""
+    return datetime.fromisoformat(value)
+
+
+def test_window_progress_newest_first() -> None:
+    """Newest-first pages progress as the oldest seen time moves toward `since`."""
+    progress = _WindowProgress(
+        "LangGraph", {"since": "2026-09-01T00:00:00Z", "until": "2026-09-11T00:00:00Z"}
+    )
+    page = [_dt("2026-09-10T00:00:00+00:00"), _dt("2026-09-06T00:00:00+00:00")]
+    assert progress.percent(page) == pytest.approx(50.0)
+    progress.close()
+
+
+def test_window_progress_oldest_first() -> None:
+    """Oldest-first pages progress as the newest seen time moves toward `until`."""
+    progress = _WindowProgress(
+        "LangGraph", {"since": "2026-09-01T00:00:00Z", "until": "2026-09-11T00:00:00Z"}
+    )
+    page = [_dt("2026-09-01T00:00:00+00:00"), _dt("2026-09-03T12:00:00+00:00")]
+    assert progress.percent(page) == pytest.approx(25.0)
+    progress.close()
+
+
+def test_window_progress_without_window_counts() -> None:
+    """Without a window the bar only counts observations."""
+    progress = _WindowProgress("LangGraph", {})
+    progress.update([{"startTime": "2026-09-01T00:00:00Z"}, {}])
+    assert progress.percent([_dt("2026-09-01T00:00:00+00:00")]) == 0.0
+    assert progress.close() == 2

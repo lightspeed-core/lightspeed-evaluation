@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Optional
 
+import tqdm
 import yaml
 
 from lightspeed_evaluation.core.ingestion.config import (
@@ -118,6 +119,73 @@ def _split_types(observation_types: Optional[str]) -> list[Optional[str]]:
     return [t.strip() for t in observation_types.split(",") if t.strip()] or [None]
 
 
+class _WindowProgress:
+    """Console progress bar showing how far a fetch has moved through its window.
+
+    Progress is the share of the ``since``..``until`` span covered so far, read
+    from the start times of fetched observations. Pages can arrive newest-first
+    or oldest-first, so the direction is inferred from the first page. Without
+    a window the bar only counts observations.
+    """
+
+    def __init__(self, label: str, window: dict[str, str]):
+        """Open a bar for one fetch selection over ``window``."""
+        self._since = _as_datetime(window.get("since"))
+        until = _as_datetime(window.get("until"))
+        self._until = until or (datetime.now(UTC) if self._since else None)
+        self._span = (
+            (self._until - self._since).total_seconds()
+            if self._since and self._until
+            else 0.0
+        )
+        self._descending: Optional[bool] = None
+        self._count = 0
+        self._bar = tqdm.tqdm(
+            total=100 if self._span > 0 else None,
+            desc=label,
+            unit="%" if self._span > 0 else " obs",
+            bar_format=(
+                "{desc}: {percentage:3.0f}%|{bar}| {elapsed}{postfix}"
+                if self._span > 0
+                else "{desc}: {elapsed}{postfix}"
+            ),
+        )
+
+    def percent(self, times: list[datetime]) -> float:
+        """Return window coverage (0-100) after seeing ``times`` (in page order)."""
+        if not times or self._span <= 0 or not self._since or not self._until:
+            return 0.0
+        if self._descending is None:
+            self._descending = times[0] >= times[-1]
+        covered = (
+            (self._until - min(times))
+            if self._descending
+            else (max(times) - self._since)
+        ).total_seconds()
+        return max(0.0, min(100.0, 100.0 * covered / self._span))
+
+    def update(self, rows: list[dict[str, Any]]) -> None:
+        """Advance the bar with one fetched page of observations."""
+        self._count += len(rows)
+        times = [t for t in (_as_datetime(_start(r)) for r in rows) if t]
+        if self._span > 0 and times:
+            self._bar.n = max(self._bar.n, self.percent(times))
+            reached = min(times) if self._descending else max(times)
+            self._bar.set_postfix_str(
+                f"{self._count} observations, at {reached:%Y-%m-%d %H:%M}"
+            )
+        else:
+            self._bar.set_postfix_str(f"{self._count} observations")
+        self._bar.refresh()
+
+    def close(self) -> int:
+        """Finish the bar at 100% and return the number of observations seen."""
+        if self._span > 0:
+            self._bar.n = 100
+        self._bar.close()
+        return self._count
+
+
 def _fetch_page(
     client: Any,
     query: QuerySpec,
@@ -127,6 +195,8 @@ def _fetch_page(
     """Page one (name, type) selection fully into ``into``."""
     window = query.window or {}
     name, obs_type = selector
+    label = "/".join(part for part in (name, obs_type) if part) or "observations"
+    progress = _WindowProgress(label, window)
     cursor: Optional[str] = None
     while True:
         resp = client.api.observations.get_many(
@@ -140,10 +210,12 @@ def _fetch_page(
         )
         rows = [json.loads(o.json(by_alias=True)) for o in resp.data]
         into.extend(_parse_io(o) for o in rows)
+        progress.update(rows)
         next_cursor = resp.meta.cursor if resp.meta else None
         # Langfuse may return an empty page with a continuation cursor, so keep
         # going while the cursor advances; stop only when it is gone or unchanged.
         if not next_cursor or next_cursor == cursor:
+            logger.info("Fetched %d %s observations", progress.close(), label)
             return
         cursor = next_cursor
 
@@ -260,13 +332,17 @@ def traces_from_observations(observations: list[dict[str, Any]]) -> list[Trace]:
 def ingest(config_path: str, output_path: str) -> dict[str, Any]:
     """Run ingestion: fetch observations, build eval-data YAML, write to disk.
 
-    For an ``api`` source, the Langfuse host comes from ``source.host`` or the
-    ``LANGFUSE_HOST`` env var and credentials from the ``LANGFUSE_*`` env vars.
-    Returns a small summary dict (counts and output path).
+    For an ``api`` source, the Langfuse host comes from the ``LANGFUSE_HOST`` env
+    var and credentials from the ``LANGFUSE_*`` env vars. Returns a small summary
+    dict (counts and output path).
     """
     config: IngestConfig = load_ingest_config(config_path)
     observations = _fetch(config.source)
-    conversations = build_conversations(traces_from_observations(observations), config)
+    traces = traces_from_observations(observations)
+    logger.info(
+        "Normalized %d observations into %d traces", len(observations), len(traces)
+    )
+    conversations = build_conversations(traces, config)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -290,6 +366,7 @@ def ingest(config_path: str, output_path: str) -> dict[str, Any]:
     )
     return {
         "observations": len(observations),
+        "traces": len(traces),
         "conversations": len(conversations),
         "turns": turn_count,
         "output_path": str(out),

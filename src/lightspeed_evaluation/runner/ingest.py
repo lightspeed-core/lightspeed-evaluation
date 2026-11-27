@@ -53,6 +53,7 @@ def run_ingest(args: argparse.Namespace) -> bool:
 
     print("\n🎉 Ingest complete!")
     print(f"   observations:  {summary['observations']}")
+    print(f"   traces:        {summary['traces']}")
     print(f"   conversations: {summary['conversations']}")
     print(f"   turns:         {summary['turns']}")
     print(f"\n   Eval data written to: {summary['output_path']}")
