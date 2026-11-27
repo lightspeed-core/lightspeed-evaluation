@@ -2,6 +2,7 @@
 
 import json
 import textwrap
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,12 +19,16 @@ from lightspeed_evaluation.core.ingestion.config import SourceConfig
 from lightspeed_evaluation.core.ingestion.langfuse_ingest import (
     _build_langfuse_client,
     _split_types,
+    _WindowProgress,
+    fetch_api,
+    traces_from_observations,
 )
+from lightspeed_evaluation.core.models.trace_config import LangfuseTraceSourceConfig
 
 
-def _api_source(host: str | None = None) -> SourceConfig:
-    """Build an api SourceConfig, optionally with an explicit host."""
-    return SourceConfig(type="api", host=host)
+def _api_source(host: str | None = None) -> LangfuseTraceSourceConfig:
+    """Build the shared Langfuse connection config, optionally with a host."""
+    return LangfuseTraceSourceConfig(host=host)
 
 
 def _write_config(path: Path, export_path: Path) -> None:
@@ -101,7 +106,16 @@ def test_api_source_loads_without_host(tmp_path: Path) -> None:
     cfg.write_text("source: {type: api}\nsignals: {s: {query: 'x'}}\n")
     config = load_ingest_config(str(cfg))
     assert config.source.type == "api"
-    assert config.source.host is None
+
+
+def test_api_source_rejects_connection_settings(tmp_path: Path) -> None:
+    """Connection settings live only in the shared Langfuse convention."""
+    cfg = tmp_path / "bad.yaml"
+    cfg.write_text(
+        "source: {type: api, host: 'https://x'}\nsignals: {s: {query: 'x'}}\n"
+    )
+    with pytest.raises(ValueError):
+        load_ingest_config(str(cfg))
 
 
 _INGEST = "lightspeed_evaluation.core.ingestion.langfuse_ingest"
@@ -127,7 +141,7 @@ def test_build_client_uses_config_host(
     fake = _fake_langfuse(mocker)
     _build_langfuse_client(_api_source("https://lf.example.com"))
     fake.assert_called_once_with(
-        host="https://lf.example.com", public_key="pub", secret_key="sec"
+        base_url="https://lf.example.com", public_key="pub", secret_key="sec"
     )
 
 
@@ -140,7 +154,7 @@ def test_build_client_falls_back_to_env_host(
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sec")
     fake = _fake_langfuse(mocker)
     _build_langfuse_client(_api_source())
-    assert fake.call_args.kwargs["host"] == "https://env.example.com"
+    assert fake.call_args.kwargs["base_url"] == "https://env.example.com"
 
 
 def test_build_client_cleans_host(
@@ -151,7 +165,7 @@ def test_build_client_cleans_host(
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sec")
     fake = _fake_langfuse(mocker)
     _build_langfuse_client(_api_source("https://lf.example.com/ø"))
-    assert fake.call_args.kwargs["host"] == "https://lf.example.com"
+    assert fake.call_args.kwargs["base_url"] == "https://lf.example.com"
 
 
 def test_build_client_requires_a_host(
@@ -217,3 +231,83 @@ def test_split_types_single_and_multi() -> None:
     assert _split_types("") == [None]
     assert _split_types("CHAIN") == ["CHAIN"]
     assert _split_types("SPAN, CHAIN") == ["SPAN", "CHAIN"]
+
+
+def test_query_limit_is_not_supported(tmp_path: Path) -> None:
+    """There is no observation cap that could silently truncate traces."""
+    cfg = tmp_path / "bad.yaml"
+    cfg.write_text(
+        "source: {type: api, query: {limit: 10}}\nsignals: {s: {query: 'x'}}\n"
+    )
+    with pytest.raises(ValueError):
+        load_ingest_config(str(cfg))
+
+
+def test_fetch_api_fetches_every_observation_name(mocker: MockerFixture) -> None:
+    """Each configured name is paged to completion; none is starved."""
+
+    def page(name: str) -> Any:
+        row = mocker.MagicMock()
+        row.json.return_value = json.dumps({"id": name, "name": name})
+        return mocker.MagicMock(data=[row], meta=mocker.MagicMock(cursor=None))
+
+    client = mocker.MagicMock()
+    client.api.observations.get_many.side_effect = lambda **kw: page(kw["name"])
+    source = SourceConfig.model_validate(
+        {"type": "api", "query": {"observation_names": ["LangGraph", "supervisor"]}}
+    )
+    rows = fetch_api(client, source)
+    assert [r["name"] for r in rows] == ["LangGraph", "supervisor"]
+
+
+def test_traces_sort_by_instant_not_string() -> None:
+    """Mixed timestamp formats order by instant (``Z`` vs fractional seconds)."""
+    obs = [
+        {
+            "id": "late",
+            "traceId": "t",
+            "name": "b",
+            "startTime": "2026-09-01T10:00:00Z",
+        },
+        {
+            "id": "early",
+            "traceId": "t",
+            "name": "a",
+            "startTime": "2026-09-01 09:59:59.500000",
+        },
+    ]
+    trace = traces_from_observations(obs)[0]
+    assert [s.span_id for s in trace.spans] == ["early", "late"]
+
+
+def _dt(value: str) -> Any:
+    """Parse an ISO timestamp for progress tests."""
+    return datetime.fromisoformat(value)
+
+
+def test_window_progress_newest_first() -> None:
+    """Newest-first pages progress as the oldest seen time moves toward `since`."""
+    progress = _WindowProgress(
+        "LangGraph", {"since": "2026-09-01T00:00:00Z", "until": "2026-09-11T00:00:00Z"}
+    )
+    page = [_dt("2026-09-10T00:00:00+00:00"), _dt("2026-09-06T00:00:00+00:00")]
+    assert progress.percent(page) == pytest.approx(50.0)
+    progress.close()
+
+
+def test_window_progress_oldest_first() -> None:
+    """Oldest-first pages progress as the newest seen time moves toward `until`."""
+    progress = _WindowProgress(
+        "LangGraph", {"since": "2026-09-01T00:00:00Z", "until": "2026-09-11T00:00:00Z"}
+    )
+    page = [_dt("2026-09-01T00:00:00+00:00"), _dt("2026-09-03T12:00:00+00:00")]
+    assert progress.percent(page) == pytest.approx(25.0)
+    progress.close()
+
+
+def test_window_progress_without_window_counts() -> None:
+    """Without a window the bar only counts observations."""
+    progress = _WindowProgress("LangGraph", {})
+    progress.update([{"startTime": "2026-09-01T00:00:00Z"}, {}])
+    assert progress.percent([_dt("2026-09-01T00:00:00+00:00")]) == 0.0
+    assert progress.close() == 2

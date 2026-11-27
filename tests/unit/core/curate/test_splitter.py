@@ -420,3 +420,28 @@ def test_effective_signals_are_persisted_on_emitted_turn(tmp_path: Path) -> None
     # The emitted evidence matches the label's basis (the result signal), not YAML.
     assert turn["signals"]["exit_reason"]["polarity"] == "negative"
     assert turn["signals"]["curate"]["bucket"] == "negative"
+
+
+def test_input_only_eval_data_is_filled_from_results(tmp_path: Path) -> None:
+    """A turn without a response in eval-data gets the evaluated one from results."""
+    results, eval_data, out = (tmp_path / n for n in ("r.json", "e.yaml", "o"))
+    _write_eval_data(
+        eval_data,
+        [{"conversation_group_id": "c1", "turns": [{"turn_id": "t1", "query": "q1"}]}],
+    )
+    _write_results(
+        results,
+        [
+            {
+                "conversation_group_id": "c1",
+                "turn_id": "t1",
+                "result": "PASS",
+                "query": "ignored",
+                "response": "r1",
+                "signals": {"exit_reason": _es("positive", 1.0, "resolved")},
+            }
+        ],
+    )
+    curate(str(results), str(eval_data), str(out))
+    turn = yaml.safe_load((out / "positive.yaml").read_text())[0]["turns"][0]
+    assert (turn["query"], turn["response"]) == ("q1", "r1")

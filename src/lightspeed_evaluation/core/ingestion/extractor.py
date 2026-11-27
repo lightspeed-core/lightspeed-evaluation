@@ -1,21 +1,29 @@
-"""Reconstruct evaluation turns and signals from Langfuse observations.
+"""Reconstruct evaluation turns and signals from normalized traces.
 
+Input is the platform-agnostic :class:`Trace` model produced by the
+``core.tracing`` adapters, so this module is independent of the trace backend.
 One trace == one turn. Turn content (query / response / tool_calls / contexts)
-is derived from the root observation's cumulative ``messages`` list, diffed per
-turn within a session (logic reused from the curate_demo build scripts). Signals
-are extracted declaratively via JMESPath (:class:`SignalSpec`), so adding or
-re-pointing a signal is a config edit.
+is derived from the root span's cumulative ``messages`` list, diffed per turn
+within a session. Signals are extracted declaratively via JMESPath
+(:class:`SignalSpec`) over :func:`trace_document`, so adding or re-pointing a
+signal is a config edit.
 """
 
 import json
 import logging
 from collections import defaultdict
-from typing import Any
+from typing import Any, Optional
 
 import jmespath
 from jmespath.exceptions import JMESPathError
 
 from lightspeed_evaluation.core.ingestion.config import IngestConfig, SignalSpec
+from lightspeed_evaluation.core.models.trace import Trace, TraceSession
+from lightspeed_evaluation.core.tracing import (
+    session_from_traces,
+    span_input,
+    span_output,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +88,21 @@ def extract_signals(
 
 
 def _tool_calls_from_ai(message: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract tool calls from an AI message (two LangChain shapes)."""
+    """Extract tool calls from an AI message (two LangChain shapes).
+
+    LangChain can carry the same calls in both ``tool_calls`` and
+    ``additional_kwargs.tool_calls``; the top-level list wins and the provider
+    kwargs are read only when it is empty, so calls are never duplicated.
+    """
     step: list[dict[str, Any]] = []
-    # Shape 1: additional_kwargs.tool_calls -> {function: {name, arguments}}
+    # Shape 1: top-level tool_calls -> {name, args}
+    for tc in message.get("tool_calls", []) or []:
+        name = tc.get("name")
+        if name:
+            step.append({"tool_name": name, "arguments": tc.get("args") or {}})
+    if step:
+        return step
+    # Shape 2: additional_kwargs.tool_calls -> {function: {name, arguments}}
     for tc in (message.get("additional_kwargs", {}) or {}).get("tool_calls", []) or []:
         fn = tc.get("function", {}) or {}
         name = fn.get("name")
@@ -95,11 +115,6 @@ def _tool_calls_from_ai(message: dict[str, Any]) -> list[dict[str, Any]]:
             except (TypeError, ValueError):
                 pass
         step.append({"tool_name": name, "arguments": args or {}})
-    # Shape 2: top-level tool_calls -> {name, args}
-    for tc in message.get("tool_calls", []) or []:
-        name = tc.get("name")
-        if name:
-            step.append({"tool_name": name, "arguments": tc.get("args") or {}})
     return step
 
 
@@ -142,110 +157,129 @@ def extract_turn(
     return turn
 
 
-# --- grouping + assembly ------------------------------------------------------
+# --- assembly from normalized traces -----------------------------------------
 
 
-def group_into_traces(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Group flat observations into trace payloads, sorted within each trace.
+def trace_document(trace: Trace) -> dict[str, Any]:
+    """Build the platform-neutral document that signal JMESPath queries run on.
 
-    Returns one dict per trace: ``{id, sessionId, startTime, observations}``
-    with observations ordered by ``startTime``.
+    Spans are exposed under ``spans`` and, for backward compatibility with
+    existing configs, under ``observations``. Each span carries ``name``,
+    ``type``, ``input``, ``output``, ``attributes`` and ``metadata`` resolved the
+    same way for every source platform.
     """
-    by_trace: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for obs in observations:
-        trace_id = obs.get("traceId") or obs.get("trace_id")
-        if trace_id:
-            by_trace[trace_id].append(obs)
-
-    traces: list[dict[str, Any]] = []
-    for trace_id, obs_list in by_trace.items():
-        obs_list.sort(key=lambda o: o.get("startTime") or o.get("start_time") or "")
-        session_id = next(
-            (
-                o.get("sessionId") or o.get("session_id")
-                for o in obs_list
-                if o.get("sessionId") or o.get("session_id")
-            ),
-            None,
-        )
-        traces.append(
-            {
-                "id": trace_id,
-                "sessionId": session_id,
-                "startTime": (
-                    obs_list[0].get("startTime") or obs_list[0].get("start_time")
-                    if obs_list
-                    else None
-                ),
-                "observations": obs_list,
-            }
-        )
-    traces.sort(key=lambda t: t.get("startTime") or "")
-    return traces
+    spans = [
+        {
+            "id": span.span_id,
+            "parent_id": span.parent_span_id,
+            "name": span.name,
+            "type": span.span_type.value,
+            "status": span.status.value,
+            "input": span_input(span),
+            "output": span_output(span),
+            "attributes": span.attributes,
+            "metadata": span.metadata,
+            "tags": span.tags,
+        }
+        for span in trace.spans
+    ]
+    return {
+        "id": trace.trace_id,
+        "session_id": trace.session_id,
+        "name": trace.name,
+        "metadata": trace.metadata,
+        "tags": trace.tags,
+        "spans": spans,
+        "observations": spans,
+    }
 
 
-def _root_messages(trace: dict[str, Any], root_name: str) -> list[dict[str, Any]]:
-    """Return the cumulative message list from a trace's root observation."""
-    for obs in trace["observations"]:
-        if obs.get("name") == root_name:
-            output = obs.get("output")
+def _root_messages(trace: Trace, root_name: str) -> Optional[list[dict[str, Any]]]:
+    """Return the cumulative message list from a trace's root span.
+
+    Returns ``None`` when the root span (or its message list) is missing.
+    """
+    for span in trace.spans:
+        if span.name == root_name:
+            output = span_output(span)
             if isinstance(output, dict):
                 messages = output.get("messages")
                 if isinstance(messages, list):
                     return messages
-    return []
+    return None
+
+
+def _group_sessions(traces: list[Trace]) -> list[TraceSession]:
+    """Group traces by session (trace id when sessionless), in first-seen order."""
+    grouped: dict[str, list[Trace]] = defaultdict(list)
+    for trace in traces:
+        grouped[trace.session_id or trace.trace_id].append(trace)
+    return [session_from_traces(key, members) for key, members in grouped.items()]
 
 
 def build_conversations(
-    observations: list[dict[str, Any]], config: IngestConfig
+    traces: list[Trace], config: IngestConfig
 ) -> list[dict[str, Any]]:
-    """Build evaluation-data conversations from flat observations.
+    """Build evaluation-data conversations from normalized traces.
 
     Traces are grouped by session; within a session each trace is one turn, whose
-    content comes from diffing the root observation's cumulative messages and
-    whose signals are extracted via config.
+    content comes from diffing the root span's cumulative messages and whose
+    signals are extracted via config. Traces must be ordered by start time.
+
+    A session with any trace lacking the root span's messages is skipped with a
+    warning: diffing across the gap would emit empty or merged turns.
     """
-    traces = group_into_traces(observations)
     context_tools = set(config.turn.context_tools)
-
-    sessions: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    order: list[str] = []
-    for trace in traces:
-        group = trace.get("sessionId") or trace["id"]
-        if group not in sessions:
-            order.append(group)
-        sessions[group].append(trace)
-
     conversations: list[dict[str, Any]] = []
-    for group in order:
-        turn_entries = _build_session_turns(sessions[group], config, context_tools)
-        if turn_entries:
-            conversations.append(
-                {
-                    "conversation_group_id": group,
-                    "metadata": {"data_source": "Production log"},
-                    "turns": turn_entries,
-                }
-            )
+    sessions = _group_sessions(traces)
+    for session in sessions:
+        turn_entries = _build_session_turns(session.traces, config, context_tools)
+        if turn_entries is None:
+            continue
+        conversations.append(
+            {
+                "conversation_group_id": session.session_id,
+                "metadata": {"data_source": "Production log"},
+                "turns": turn_entries,
+            }
+        )
+    skipped = len(sessions) - len(conversations)
+    if skipped:
+        logger.warning(
+            "Skipped %d incomplete session(s): root span %r missing in a trace",
+            skipped,
+            config.turn.root_observation,
+        )
     return conversations
 
 
 def _build_session_turns(
-    traces: list[dict[str, Any]],
+    traces: list[Trace],
     config: IngestConfig,
     context_tools: set[str],
-) -> list[dict[str, Any]]:
-    """Build the ordered turn list for one session (message-diff per trace)."""
+) -> Optional[list[dict[str, Any]]]:
+    """Build the ordered turn list for one session (message-diff per trace).
+
+    Returns ``None`` when a trace lacks the root span's messages.
+    """
     turn_entries: list[dict[str, Any]] = []
     prev_len = 0
     for idx, trace in enumerate(traces, start=1):
         messages = _root_messages(trace, config.turn.root_observation)
+        if messages is None:
+            logger.warning(
+                "Session %s: trace %s has no %r messages",
+                trace.session_id,
+                trace.trace_id,
+                config.turn.root_observation,
+            )
+            return None
         new_messages = messages[prev_len:]
         prev_len = len(messages)
 
         turn = extract_turn(new_messages, context_tools, config.turn.context_cap)
         turn = {"turn_id": str(idx), **turn}
-        signals = extract_signals(trace, config.signals)
+        signals = extract_signals(trace_document(trace), config.signals)
         if signals:
             turn["signals"] = signals
         turn_entries.append(turn)

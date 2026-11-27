@@ -4,10 +4,11 @@ The ingestion config is edited by whoever sets up a product's trace pull (e.g. a
 data scientist). It declares *where* to fetch traces from and, declaratively,
 *which field* of each trace carries each signal and *how* to map its raw values.
 
-Signal and turn fields are addressed with `JMESPath <https://jmespath.org>`_
-expressions evaluated against the raw trace payload (which includes the trace's
-``observations`` and ``scores`` lists), so arbitrarily nested or filtered lookups
-are expressible without code changes.
+Signal fields are addressed with `JMESPath <https://jmespath.org>`_ expressions
+evaluated against the platform-neutral trace document built from the normalized
+trace (its ``spans``, also exposed as ``observations``, each with ``name``,
+``type``, ``input``, ``output``, ``attributes`` and ``metadata``), so arbitrarily
+nested or filtered lookups are expressible without code changes.
 """
 
 from typing import Any, Literal, Optional
@@ -65,7 +66,7 @@ class SignalSpec(BaseModel):
     query: str = Field(
         ...,
         min_length=1,
-        description="JMESPath expression evaluated against the raw trace payload",
+        description="JMESPath expression evaluated against the normalized trace document",
     )
     map: dict[str, Any] = Field(
         default_factory=dict,
@@ -118,9 +119,6 @@ class QuerySpec(BaseModel):
         default=None,
         description="Optional {since, until} ISO datetimes bounding the fetch",
     )
-    limit: Optional[int] = Field(
-        default=None, ge=1, description="Max number of observations to fetch"
-    )
     page_size: int = Field(
         default=100, ge=1, le=1000, description="Observations per API page"
     )
@@ -150,8 +148,9 @@ class SourceConfig(BaseModel):
     Two interchangeable sources yield the same Langfuse observation records:
 
     * ``type: api`` — fetch live from ``GET /api/public/v2/observations``. The
-      host comes from ``host`` here or the ``LANGFUSE_HOST`` env var; credentials
-      always come from the ``LANGFUSE_*`` env vars, never stored in this file.
+      connection follows the shared Langfuse trace-source convention
+      (``LANGFUSE_HOST`` / ``LANGFUSE_PUBLIC_KEY`` / ``LANGFUSE_SECRET_KEY``), so
+      no connection settings are duplicated in this file.
       Fetch shaping lives under ``query``.
     * ``type: file`` — read a Langfuse export from ``path`` (``.json`` list of
       observations, or ``.csv``).
@@ -162,14 +161,6 @@ class SourceConfig(BaseModel):
     type: str = Field(default="api", description="Source type: 'api' or 'file'")
 
     # --- api source --------------------------------------------------------
-    host: Optional[str] = Field(
-        default=None,
-        description=(
-            "Langfuse host for the api source; defaults to the LANGFUSE_HOST env "
-            "var. Credentials always come from LANGFUSE_PUBLIC_KEY / "
-            "LANGFUSE_SECRET_KEY, never stored here."
-        ),
-    )
     query: QuerySpec = Field(
         default_factory=QuerySpec,
         description="API fetch shaping (window, pagination, field/observation narrowing)",

@@ -1,17 +1,15 @@
 # Trace-ingestion config for the Dynamic Dataset Curator.
-#   langfuse-ingest --config config/ingest.yaml --output pcm_eval_data.yaml
+#   trace-ingest --config config/ingest.yaml --output pcm_eval_data.yaml
 
 source:
   type: api                                  # api | file
 
-  # host is optional; without it $LANGFUSE_HOST is used. Credentials always come
-  # from $LANGFUSE_PUBLIC_KEY and $LANGFUSE_SECRET_KEY.
-  # host: https://us.cloud.langfuse.com
+  # Connection comes from $LANGFUSE_HOST, $LANGFUSE_PUBLIC_KEY and
+  # $LANGFUSE_SECRET_KEY (same convention as the langfuse trace source).
   query:
     window:
       since: "2026-08-25T00:00:00Z"
       until: "2026-11-25T00:00:00Z"
-    # limit: 2000
     page_size: 100
     fields: "core,basic,io,metadata,usage"   # must include io+metadata
     # observation_types: "SPAN,CHAIN"
