@@ -196,7 +196,7 @@ def _fetch_page(
     window = query.window or {}
     name, obs_type = selector
     label = "/".join(part for part in (name, obs_type) if part) or "observations"
-    progress = _WindowProgress(label, window)
+    progress = _WindowProgress(f"langfuse · {label}", window)
     cursor: Optional[str] = None
     while True:
         resp = client.api.observations.get_many(
@@ -215,7 +215,9 @@ def _fetch_page(
         # Langfuse may return an empty page with a continuation cursor, so keep
         # going while the cursor advances; stop only when it is gone or unchanged.
         if not next_cursor or next_cursor == cursor:
-            logger.info("Fetched %d %s observations", progress.close(), label)
+            logger.info(
+                "Fetched %d %s observations from langfuse", progress.close(), label
+            )
             return
         cursor = next_cursor
 
